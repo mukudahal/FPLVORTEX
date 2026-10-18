@@ -30,3 +30,22 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Typecheck, build, and test
         run: npm test
+
+      - name: FPL v0.8 one-time owner-supplied entry research check
+        run: |
+          node --input-type=module <<'JS'
+          import {fetchLiveFplEntry} from './scripts/fpl-entry-client.mjs';
+          try {
+            const s=await fetchLiveFplEntry('145784',{bypassCache:true});
+            const m=s.liveResearch;
+            console.log('FPL_RESEARCH_RESULT',JSON.stringify({
+              entryId:s.entryId,rank:s.overallRank,points:s.overallPoints,
+              sourceTimestamp:s.fetchedAt,realPlayers:s.picks?.players?.length??0,
+              researchAvailable:!!m,planningGW:m?.nextGameweek??null,
+              throughGW:m?.throughGameweek??null,
+              captain:m?.captain??null,reviewOnly:m?.suggestedActions?.slice(0,3)??[],
+              observedStarts:m?.ownPlayers?.filter(p=>p.starts!==null).length??0,
+              fixtureCoverage:m?.roadmap?.filter(w=>w.captain!==null).length??0
+            }));
+          } catch (error) { console.log('FPL_RESEARCH_UNAVAILABLE',error.message); }
+          JS
