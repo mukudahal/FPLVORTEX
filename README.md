@@ -1,4 +1,4 @@
-# FPLVORTEX v0.4
+# FPLVORTEX v0.5
 
 **An original premium fantasy football decision platform.** This first commit contains a usable, dependency-light TypeScript application, independently written analytical demo functions, a responsive white/green/blue design, the user's transparent lion logo, and the Replica workflow planning documents.
 
@@ -87,3 +87,18 @@ Real credited player images (Haaland and Saka) use Wikimedia Commons with author
 The official [2026/27 chip rules](https://www.premierleague.com/en/news/4679879/whats-happening-with-fpl-chips-in-202627) allow one of each chip in both halves of the season, with one chip per gameweek, and WC/FH retaining banked free transfers. The research solver currently supports the first-half GW7–GW16 demo horizon and is not a complete official-rules solver.
 
 **No real historical backtest metrics are available until an authorized source and pre-deadline forecast archives are imported.** The user can open the GW1–GW6 audit in Data Studio to see coverage and real MAE/RMSE only after those prerequisites.
+
+## v0.5 — Public-domain league data and retrospective team research
+
+This release integrates **actual public-domain OpenFootball fixtures and community-reported results**, independent from the licensed-player pipeline. OpenFootball is **not** an official FPL data partner and can be stale. See [public league model and source rights](docs/public-league-research.md).
+
+```sh
+npm run league:check # checks source availability, season, scores and teams
+npm run league:sync  # fetches an explicitly permitted public-domain dataset; never fetches FPL private data
+npm test
+npm run dev
+```
+
+With the tracked public-domain snapshot present, the Fixture Matrix shows all 20 league teams, `OPP [H/A] - FDR`, model-estimated team goals and CS%. Selecting a GW sorts by the independent 1–5 difficulty rank. Data Studio displays GW1–GW6 retrospective **team** errors, missing-score coverage and uncertainty, not player-level FPL accuracy. Placeholder [0,0] values are excluded. `/api/v1/public/league/{status,matrix,backtest}` expose data over the read-only API.
+
+**Accuracy caveat:** There are still no validated archived pre-kickoff player forecasts, licensed lineup/minutes/injury feeds or real-world FPL outcomes in this project. It is inaccurate to interpret team-goal replay as player points accuracy or declare our model better than any other supplier.

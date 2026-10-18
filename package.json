@@ -1,6 +1,6 @@
 {
   "name": "fplvortex",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Original FPL analytics, licensed-data contracts and reproducible historical evaluation",
@@ -14,7 +14,9 @@
     "validate:data": "npm run build && node scripts/import-snapshot.mjs --validate-only",
     "db:migrate": "node scripts/migrate.mjs",
     "history:validate": "node scripts/import-history.mjs --validate-only",
-    "history:import": "node scripts/import-history.mjs --write"
+    "history:import": "node scripts/import-history.mjs --write",
+    "league:sync": "node scripts/sync-public-league.mjs",
+    "league:check": "node scripts/sync-public-league.mjs --dry-run"
   },
   "engines": {
     "node": ">=20"

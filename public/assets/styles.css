@@ -97,3 +97,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { 
 .availability { border:1px solid #a9dcbf; border-radius:7px; padding:5px 9px; text-transform:uppercase; font-size:11px; font-weight:850; color:#096e4a; background:#eaf8f0; }
 .availability-doubt { background:#fff8e9; border-color:#efd59d; color:#8b5e16; }
 .availability-out { background:#fff0f2; border-color:#e8bcc4; color:#a13a4c; }
+/* v0.5 — sourced fixture matrix and transparent historical research */
+.source-fixture-panel {margin-bottom: 20px;overflow: hidden}
+.source-tag {background:#e9f8f0;color:#075638;border:1px solid #b5e7cb;font-weight:800}
+.community-fixtures {min-width: 1260px}
+.community-fixtures td {vertical-align: middle}
+.community-fixtures .fdr {font-size:13px;font-weight:850;min-width:105px;padding:9px 8px;line-height:1.35}
+.community-cell-meta {display:block;margin-top:8px;color:#37485b;font-size:12px;font-weight:750;white-space:nowrap}
+.source-caution {padding:13px 20px;background:#f5f8fb;border-top:1px solid #e4e9ee;font-size:13px;font-weight:600;color:#415266}
+.unavailable-cell {color:#64748b;font-weight:800}
+.public-research-audit {margin-top:24px}
+.public-research-audit .audit-gw small {display:block;margin-top:7px;line-height:1.4}
+#illustrative-fixtures[hidden] {display:none}

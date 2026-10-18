@@ -166,7 +166,8 @@ function fixturesPage(): string {
   });
   return `${header('Fixture <span class="title-accent">Matrix.</span>', 'Pick a gameweek to sort easiest opponents first.', 'SCOUTING / FIXTURE MATRIX')}
     ${globalFilters()}<div class="section-top"><div><h2>Fixture difficulty radar</h2><p>Click any GW column to rank teams by fixture difficulty (1 easiest, 5 hardest)</p></div><div class="fdr-legend"><span>${badgeFdr(1)} Very easy</span><span>${badgeFdr(2)} Easy</span><span>${badgeFdr(3)} Neutral</span><span>${badgeFdr(4)} Hard</span><span>${badgeFdr(5)} Very hard</span></div></div>
-    <section class="panel fixture-panel"><div class="table-scroll"><table class="fixture-table premium-fixtures"><thead><tr><th>CLUB</th><th>AVG FDR</th>${Array.from({length:visibleWeeks},(_,i)=>`<th><button type="button" class="gw-sort ${state.fixtureSortGw===state.gw+i?'active':''}" data-gw-sort="${state.gw+i}" aria-pressed="${state.fixtureSortGw===state.gw+i}">GW ${state.gw+i} ↕</button></th>`).join('')}</tr></thead><tbody>${ordered.map(club=>{const player=demoPlayers.find(candidate=>candidate.club===club);const levels=player?.fixtures.slice(firstIndex,firstIndex+visibleWeeks) ?? [];const avg=levels.reduce((sum,level)=>sum+level,0)/(levels.length||1);return `<tr><td><div class="team-cell"><span class="club-icon" style="--club:${teamColors[club]}">${club[0]}</span><div><strong>${club}</strong><small>${escapeHtml(clubNames[club]??'')}</small></div></div></td><td class="tabular"><strong>${avg.toFixed(1)}</strong></td>${levels.map((level,i)=>`<td class="${state.fixtureSortGw===state.gw+i?'selected-gw':''}">${badgeFdr(level,fixtureText(club,firstIndex+i,level))}</td>`).join('')}</tr>`}).join('')}</tbody></table></div></section><div class="disclaimer-strip">ⓘ Numbers and opponents in this fixture matrix are explicit synthetic demonstration data, not the official 2026/27 FDR. Live FDR requires an authorized fixture supplier.</div>`;
+    <section id="public-league-matrix" class="panel fixture-panel source-fixture-panel" aria-live="polite"><div class="panel-head"><div><h3>Independent FDR · Public-domain league schedule</h3><p>Community fixture feed + independently calculated xG and clean-sheet odds. Click a GW tab to sort easiest first.</p></div><span class="tag tag-neutral">LOADING PUBLIC DATA</span></div><p class="source-state">Checking source snapshot…</p></section>
+    <div id="illustrative-fixtures"><section class="panel fixture-panel"><div class="table-scroll"><table class="fixture-table premium-fixtures"><thead><tr><th>CLUB</th><th>AVG FDR</th>${Array.from({length:visibleWeeks},(_,i)=>`<th><button type="button" class="gw-sort ${state.fixtureSortGw===state.gw+i?'active':''}" data-gw-sort="${state.gw+i}" aria-pressed="${state.fixtureSortGw===state.gw+i}">GW ${state.gw+i} ↕</button></th>`).join('')}</tr></thead><tbody>${ordered.map(club=>{const player=demoPlayers.find(candidate=>candidate.club===club);const levels=player?.fixtures.slice(firstIndex,firstIndex+visibleWeeks) ?? [];const avg=levels.reduce((sum,level)=>sum+level,0)/(levels.length||1);return `<tr><td><div class="team-cell"><span class="club-icon" style="--club:${teamColors[club]}">${club[0]}</span><div><strong>${club}</strong><small>${escapeHtml(clubNames[club]??'')}</small></div></div></td><td class="tabular"><strong>${avg.toFixed(1)}</strong></td>${levels.map((level,i)=>`<td class="${state.fixtureSortGw===state.gw+i?'selected-gw':''}">${badgeFdr(level,fixtureText(club,firstIndex+i,level))}</td>`).join('')}</tr>`}).join('')}</tbody></table></div></section></div><div class="disclaimer-strip">ⓘ Source: OpenFootball (public domain, community-maintained; updates can be delayed). FDR, xG and CS% are calculated independently—not official FPL difficulty ratings or verified player forecasts. If source data is unavailable, an explicitly illustrative matrix is shown.</div>`;
 }
 function attackingPage():string {
   const stats=demoPlayers.map(player=>({player,forecast:advancedForecast(player,Math.min(state.gw-6,10))}));
@@ -220,7 +221,8 @@ function dataPage(): string {
     <section class="panel strategy-explain"><span class="strategy-symbol">◇</span><h3>Model maturity</h3><p>Player projections on the public dashboard remain illustrative until the independent model is trained, evaluated, and approved for publishing.</p>
     <div class="model-metrics"><div><span>Raw data ingestion</span><strong>Ready</strong></div><div><span>API contract</span><strong>v1</strong></div><div><span>Calibrated predictive model</span><strong>Pending</strong></div><div><span>Rights-cleared photographs</span><strong>Pending</strong></div></div></section></div>
     <section class="panel week-audit"><div class="panel-head"><div><h3>Historical reality check · GW1–GW6</h3><p>Before each kickoff: archived prediction. After the final score: actual points. No hindsight fitting.</p></div><button type="button" id="run-week-audit" class="button button-outline">Inspect GW1–GW6 ↗</button></div><div id="week-audit" class="audit-gw-grid" aria-live="polite">${Array.from({length:6},(_,i)=>`<div class="audit-gw"><strong>GW ${i+1}</strong><small>No verified comparison yet</small></div>`).join('')}</div><p class="audit-caution">Accuracy is measured by error (MAE/RMSE) and calibrated start probability. A single unqualified “% accurate” would be misleading. GW6 completed Oct 12; GW7 began Oct 17, 2026.</p></section>
-    <div class="disclaimer-strip">ⓘ Import snapshots using the documented CLI and an authorized source. There is no automated scraping or proprietary FPLReview model in FPLVORTEX.</div>`;
+    <section class="panel week-audit public-research-audit"><div class="panel-head"><div><h3>League results · GW1–GW6 reality check</h3><p>Independent retrospective team-goals model, compared to community-reported full-time scores. Missing scores are excluded.</p></div><button type="button" id="public-league-audit-refresh" class="button button-outline">Refresh research ↻</button></div><div id="public-league-audit" class="audit-gw-grid" aria-live="polite">Loading public-domain team results…</div><p class="audit-caution">These are team goal errors and CS probability scores—not player FPL-points accuracy. Replayed today using earlier-GW data, not independently archived pre-match forecasts.</p></section>
+    <div class="disclaimer-strip">ⓘ Two distinct data sources: public-domain match fixtures/scores and separately authorized player statistics. OpenFootball is community-maintained and may omit finished results. Neither constitutes proprietary FPLReview or Opta data.</div>`;
 }
 function pricesPage():string {
   const ranked=[...demoPlayers].sort((a,b)=>b.ownership-a.ownership);
@@ -234,8 +236,55 @@ function render(): void {
   const views:Record<Page,()=>string>={overview:dashboard,squad:squadPage,players:playersPage,fixtures:fixturesPage,goals:attackingPage,cleansheets:cleanSheetPage,solver:solverPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage,data:dataPage};
   appRoot.innerHTML=shell(views[state.page]());
   bind();
-  if (state.page === 'data') void refreshDatasetStatus();
+  if (state.page === 'data') { void refreshDatasetStatus(); void loadPublicLeagueAudit(); }
+  if (state.page === 'fixtures') void loadPublicFixtureMatrix();
   if (state.page === 'players' && appearanceStatus === 'unrequested') void loadAppearances();
+}
+type CommunityFixture = {code:string;team:string;opponent:string;venue:'H'|'A';gameweek:number;fdr:number;projectedGoals:number;csProbability:number;date:string};
+async function loadPublicFixtureMatrix():Promise<void>{
+  const node=document.querySelector<HTMLElement>('#public-league-matrix');
+  if(!node)return;
+  try{
+    const startGw=state.gw;
+    const weeks=Math.min(10,39-startGw);
+    const sortGw=Math.max(startGw,Math.min(startGw+weeks-1,state.fixtureSortGw));
+    const response=await fetch(`/api/v1/public/league/matrix?startGw=${startGw}&weeks=${weeks}&sortGw=${sortGw}`,{cache:'no-store'});
+    if(!response.ok)throw new Error('Public fixture snapshot unavailable');
+    const payload:unknown=await response.json();
+    const content=payload as {mode?:string;rows?:{code:string;name:string;fixtures:CommunityFixture[]}[];source?:string};
+    if(content.mode!=='community-reported'||!Array.isArray(content.rows)||!content.rows.length)throw new Error('Invalid public fixture data');
+    const container=document.querySelector<HTMLElement>('#public-league-matrix');if(!container||state.page!=='fixtures'||state.gw!==startGw||state.fixtureSortGw!==sortGw)return;
+    const headerCells=Array.from({length:weeks},(_,i)=>`<th><button type="button" class="gw-sort ${sortGw===startGw+i?'active':''}" data-gw-sort="${startGw+i}" aria-pressed="${sortGw===startGw+i}">GW ${startGw+i} ↕</button></th>`).join('');
+    const rows=content.rows.map(team=>{
+      const matches=team.fixtures.filter(fixture=>Number.isInteger(fixture.fdr)&&fixture.fdr>=1&&fixture.fdr<=5);
+      const avg=matches.length?matches.reduce((total,fixture)=>total+fixture.fdr,0)/matches.length:0;
+      const cells=Array.from({length:weeks},(_,i)=>{
+        const fixture=matches.find(item=>item.gameweek===startGw+i);
+        if(!fixture)return '<td class="unavailable-cell">—</td>';
+        return `<td class="${sortGw===fixture.gameweek?'selected-gw':''}">${badgeFdr(fixture.fdr,`${fixture.opponent} [${fixture.venue}] - ${fixture.fdr}`)}<small class="community-cell-meta">${fixture.projectedGoals.toFixed(2)} goals · ${(fixture.csProbability*100).toFixed(0)}% CS</small></td>`;
+      }).join('');
+      return `<tr><td><div class="team-cell"><span class="club-icon" style="--club:${teamColors[team.code]??'#b5c7d0'}">${escapeHtml(team.code[0]??'?')}</span><div><strong>${escapeHtml(team.code)}</strong><small>${escapeHtml(team.name)}</small></div></div></td><td class="tabular"><strong>${avg.toFixed(1)}</strong></td>${cells}</tr>`;
+    }).join('');
+    container.innerHTML=`<div class="panel-head"><div><h3>Public-domain 2026/27 Fixture Matrix</h3><p>Independent model · ${content.rows.length} teams · click GW to sort easiest first</p></div><span class="tag source-tag">COMMUNITY FIXTURES</span></div><div class="table-scroll"><table class="fixture-table premium-fixtures community-fixtures"><thead><tr><th>CLUB</th><th>AVG FDR</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table></div><p class="source-caution">Data: OpenFootball CC0 public domain. Community reported; can be outdated. FDR is Vortex-derived, not the official FPL FDR. xG represents expected TEAM goals, not a named player's xG.</p>`;
+    document.querySelector<HTMLElement>('#illustrative-fixtures')?.setAttribute('hidden','');
+    container.querySelectorAll<HTMLButtonElement>('[data-gw-sort]').forEach(button=>button.addEventListener('click',()=>{state.fixtureSortGw=Number(button.dataset.gwSort);render();}));
+  }catch{
+    const current=document.querySelector<HTMLElement>('#public-league-matrix');
+    if(current)current.innerHTML='<div class="panel-head"><div><h3>Public fixture source is unavailable</h3><p>Run <code>npm run league:sync</code> with network access to load community data. Synthetic example below remains clearly labeled.</p></div><span class="tag tag-neutral">DEMO FALLBACK</span></div>';
+  }
+}
+async function loadPublicLeagueAudit():Promise<void>{
+  const node=document.querySelector<HTMLElement>('#public-league-audit');if(!node)return;
+  node.textContent='Loading reported league results…';
+  try{
+    const response=await fetch('/api/v1/public/league/backtest?endGw=6',{cache:'no-store'});
+    if(!response.ok)throw new Error('No OpenFootball snapshot available yet');
+    const payload:unknown=await response.json();
+    const report=payload as {mode?:string;byGameweek?:{gameweek:number;scheduled:number;withReportedScores:number;missingScores:number;goalMae:number|null;csBrier:number|null;baselineGoalMae:number|null}[]};
+    if(report.mode!=='retrospective-replay-not-archived-predictions'||!Array.isArray(report.byGameweek))throw new Error('Invalid league research report');
+    const current=document.querySelector<HTMLElement>('#public-league-audit');if(!current||state.page!=='data')return;
+    current.innerHTML=report.byGameweek.map(item=>`<div class="audit-gw"><strong>GW ${item.gameweek}</strong><small>${item.withReportedScores}/${item.scheduled} match results · ${item.missingScores} missing</small><small>${item.goalMae===null?'MAE unavailable':`Goal MAE ${item.goalMae.toFixed(2)}`}</small><small>${item.csBrier===null?'CS Brier unavailable':`CS Brier ${item.csBrier.toFixed(3)}`}</small></div>`).join('');
+  }catch(error){const current=document.querySelector<HTMLElement>('#public-league-audit');if(current)current.textContent=error instanceof Error?error.message:'Public league data unavailable';}
 }
 async function loadAppearances():Promise<void> {
   appearanceStatus='loading';
@@ -368,6 +417,7 @@ function bind():void {
     },30);
   });
   document.querySelectorAll<HTMLImageElement>('.portrait img').forEach(image=>image.addEventListener('error',()=>image.remove()));
+  document.querySelector<HTMLButtonElement>('#public-league-audit-refresh')?.addEventListener('click',()=>{void loadPublicLeagueAudit();});
   document.querySelector<HTMLButtonElement>('#run-week-audit')?.addEventListener('click',()=>{void runWeekAudit();});
   document.querySelector<HTMLButtonElement>('#refresh-source')?.addEventListener('click', () => { void refreshDatasetStatus(); });
   document.querySelector<HTMLButtonElement>('#load-backtest')?.addEventListener('click', () => { void loadBacktest(); });

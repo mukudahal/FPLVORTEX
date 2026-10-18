@@ -3,6 +3,8 @@ import { forecastDistribution } from '../dist/js/forecast-distribution.js';
 import { getDatasetStatus, readCurrentSnapshot } from './read-snapshot.mjs';
 import { createDatabasePool, readBacktest } from './history-store.mjs';
 import { readAppearanceSummary } from './appearance-store.mjs';
+import { readPublicLeague } from './public-league-store.mjs';
+import { fixtureMatrix, leagueCoverage, retrospectiveTeamBacktest } from '../src/public-league.mjs';
 
 let researchPoolPromise;
 async function researchPool() {
@@ -50,6 +52,25 @@ export async function handleApi(request, response, address) {
       }
       const status = await getDatasetStatus();
       respond(response, 200, { status, players: result.snapshot.players }, isHead);
+    } else if (address.pathname.startsWith('/api/v1/public/league/')) {
+      const league = await readPublicLeague();
+      if (!league) {
+        respond(response, 503, { mode: 'unavailable', error: 'Public-domain OpenFootball snapshot not yet synced; run npm run league:sync' }, isHead);
+        return true;
+      }
+      if (address.pathname === '/api/v1/public/league/status') {
+        respond(response, 200, { mode: 'community-reported', ...leagueCoverage(league) }, isHead);
+      } else if (address.pathname === '/api/v1/public/league/matrix') {
+        const startGw=queryInteger(address.searchParams.get('startGw')??'7','startGw',1,38);
+        const weeks=queryInteger(address.searchParams.get('weeks')??'10','weeks',1,10);
+        const sortGw=queryInteger(address.searchParams.get('sortGw')??String(startGw),'sortGw',1,38);
+        respond(response, 200, { mode:'community-reported', ...fixtureMatrix(league,startGw,weeks,sortGw) }, isHead);
+      } else if (address.pathname === '/api/v1/public/league/backtest') {
+        const lastGw=queryInteger(address.searchParams.get('endGw')??'6','endGw',1,38);
+        respond(response, 200, retrospectiveTeamBacktest(league,1,lastGw), isHead);
+      } else {
+        respond(response,404,{error:'Public league endpoint not found'},isHead);
+      }
     } else if (address.pathname === '/api/v1/research/status') {
       respond(response, 200, { databaseConfigured: Boolean(process.env.DATABASE_URL), historicalEvaluation: 'requires validated archived forecasts', trainedModelAvailable: false }, isHead);
     } else if (address.pathname === '/api/v1/research/backtest') {
