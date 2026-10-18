@@ -5,6 +5,7 @@ import { createDatabasePool, readBacktest } from './history-store.mjs';
 import { readAppearanceSummary } from './appearance-store.mjs';
 import { readPublicLeague } from './public-league-store.mjs';
 import { fixtureMatrix, leagueCoverage, retrospectiveTeamBacktest } from '../src/public-league.mjs';
+import { fetchLiveFplEntry } from './fpl-entry-client.mjs';
 
 let researchPoolPromise;
 async function researchPool() {
@@ -40,6 +41,9 @@ export async function handleApi(request, response, address) {
   try {
     if (address.pathname === '/api/v1/health') {
       respond(response, 200, { ok: true, product: 'FPLVORTEX', apiVersion: 'v1' }, isHead);
+    } else if (address.pathname === '/api/v1/fpl/entry') {
+      const snapshot=await fetchLiveFplEntry(address.searchParams.get('entryId'));
+      respond(response,200,snapshot,isHead);
     } else if (address.pathname === '/api/v1/data/status') {
       respond(response, 200, await getDatasetStatus(), isHead);
     } else if (address.pathname === '/api/v1/data/appearances') {

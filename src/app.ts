@@ -48,6 +48,9 @@ let rankProfile:RankChaseProfile = (()=>{
   catch { return parseRankChaseProfile(null); }
 })();
 let rankAdvice:RankChaseAdvice|null=null;
+let liveRankStatus: 'idle'|'loading'|'verified'|'failed'|'manual' = 'idle';
+let liveRankDetail = 'No live entry sync performed in this browser session.';
+
 let lastAdviceKey='';
 function cachedRankAdvice():RankChaseAdvice {
   const signature=JSON.stringify([state.gw,state.squad,rankProfile]);
@@ -214,11 +217,11 @@ function chasePage():string {
     <section class="chase-hero" aria-label="Rank target summary">
       <div><span class="chase-kicker">OVERALL RANK TARGET</span><strong>Top ${TARGET_RANK.toLocaleString()}</strong><small>By the end of GW${TARGET_GW}</small></div>
       <div><span class="chase-kicker">GAMEWEEKS LEFT</span><strong>${advice.remainingToTarget}</strong><small>Including GW${state.gw}</small></div>
-      <div><span class="chase-kicker">YOUR RANK GAP</span><strong class="chase-gap">${gap}</strong><small>${profile.overallRank===null?'Enter your verified current rank below':'Updated manually, not live'}</small></div>
+      <div><span class="chase-kicker">YOUR RANK GAP</span><strong class="chase-gap">${gap}</strong><small>${liveRankStatus==='verified'?'Fetched from FPL website':profile.overallRank===null?'No rank synced yet':'Entered manually; not verified live'}</small></div>
       <div><span class="chase-kicker">CURRENT PLAN COVERAGE</span><strong>Through GW${advice.planningUntilGW}</strong><small>Forecasts after GW16 not yet available</small></div>
     </section>
     <section class="chase-grid">
-      <article class="panel chase-config"><div class="panel-head"><div><h3>Manager profile & target</h3><p>All information stays in this browser. Team ID does not automatically connect to official FPL.</p></div><span class="tag tag-neutral">NO VERIFIED FPL SYNC</span></div>
+      <article class="panel chase-config"><div class="panel-head"><div><h3>Manager profile & target</h3><p>Fetch public FPL entry data on demand. This does not import model-ready player projections or authorize bulk use.</p></div><span class="tag tag-neutral">ON-DEMAND FPL SYNC</span></div>
         <div class="chase-form">
           <label>FPL entry ID <input id="chase-entry" type="number" min="1" step="1" placeholder="Enter your FPL team ID" value="${profile.entryId??''}" /></label>
           <label>Current overall rank <input id="chase-rank" type="number" min="1" step="1" placeholder="e.g. 75,000" value="${profile.overallRank??''}" /></label>
@@ -227,7 +230,8 @@ function chasePage():string {
           <label>Decision filter <select id="chase-risk"><option value="conservative" ${profile.risk==='conservative'?'selected':''}>Conservative — require clearer edge</option><option value="balanced" ${profile.risk==='balanced'?'selected':''}>Balanced — default</option><option value="aggressive" ${profile.risk==='aggressive'?'selected':''}>Aggressive — review smaller edges</option></select></label>
         </div>
         <fieldset class="chase-chips"><legend>Chips still available — select only those you own</legend>${AVAILABLE_CHIPS.map(chip=>`<label><input type="checkbox" name="chase-chip" value="${chip}" ${profile.availableChips.includes(chip)?'checked':''}/> ${chip==='triplecaptain'?'Triple Captain':chip==='benchboost'?'Bench Boost':chip==='freehit'?'Free Hit':'Wildcard'}</label>`).join('')}</fieldset>
-        <button class="button button-primary" id="chase-save" type="button">Update my roadmap ↗</button>
+        <div class="chase-sync-controls"><button class="button button-primary" id="chase-sync-live" type="button">↻ Sync live FPL rank</button><button class="button button-outline" id="chase-save" type="button">Save profile & roadmap ↗</button></div>
+        <p id="chase-live-status" class="chase-assumption" role="status" aria-live="polite">${escapeHtml(liveRankDetail)}</p>
         ${advice.hypotheticalPointsPerWeek===null?'<p class="chase-assumption">A points-per-week target cannot be estimated from rank alone. A points benchmark must be explicitly supplied; no top-5K points cutoff is invented.</p>':`<p class="chase-assumption"><strong>${advice.hypotheticalPointsPerWeek.toFixed(1)} points/GW</strong> would reach your <em>hypothetical</em> points total, assuming ${profile.overallPoints} verified current points. This does not predict your finishing rank.</p>`}
       </article>
       <article class="panel chase-next"><div class="panel-head"><div><h3>Next decision · GW${first.gameweek}</h3><p>Automatic bounded-search output based on the currently selected <strong>DEMO squad</strong>, not your imported FPL team.</p></div><span class="tag tag-neutral">RESEARCH ONLY</span></div>
@@ -457,6 +461,42 @@ function downloadCsv():void {
   const anchor=document.createElement('a');anchor.href=address;anchor.download='fplvortex-demo-projections.csv';anchor.click();
   URL.revokeObjectURL(address);
 }
+
+/** Keep the source's real rank separate from illustrative transfer recommendations. */
+async function syncFplLiveRank():Promise<void> {
+  const input=document.querySelector<HTMLInputElement>('#chase-entry')?.value.trim()??'';
+  if(!/^[1-9]\d{0,8}$/.test(input)){
+    const node=document.querySelector<HTMLElement>('#chase-live-status');
+    if(node)node.textContent='Enter a valid FPL team ID, then sync.';
+    return;
+  }
+  const button=document.querySelector<HTMLButtonElement>('#chase-sync-live');
+  const status=document.querySelector<HTMLElement>('#chase-live-status');
+  if(button)button.disabled=true;
+  if(status)status.textContent='Contacting FPL website for the current entry profile…';
+  liveRankStatus='loading';
+  try {
+    const response=await fetch(`/api/v1/fpl/entry?entryId=${encodeURIComponent(input)}`,{cache:'no-store'});
+    if(!response.ok)throw new Error(`FPL source unavailable (HTTP ${response.status}); try again when connected.`);
+    const raw:unknown=await response.json();
+    if(!raw || typeof raw!=='object')throw new Error('Invalid FPL profile response');
+    const source=raw as {mode?:string;entryId?:number;overallRank?:number|null;overallPoints?:number|null;currentGameweek?:number|null;teamName?:string;fetchedAt?:string;chipsPlayed?:{name:string;gameweek:number}[];picks?:{playerIds:number[]}|null};
+    if(source.mode!=='live-source-response'||source.entryId!==Number(input)||!Number.isInteger(source.overallRank)||!Number.isInteger(source.overallPoints))throw new Error('FPL has not published a complete verified rank and points snapshot yet.');
+    rankProfile=parseRankChaseProfile({...rankProfile,entryId:source.entryId,overallRank:source.overallRank,overallPoints:source.overallPoints});
+    try{window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch{/* local storage optional */}
+    liveRankStatus='verified';
+    const used=source.chipsPlayed?.map(item=>`${item.name} GW${item.gameweek}`).join(', ') || 'not reported';
+    liveRankDetail=`FPL response ${source.fetchedAt??'just now'} · ${source.teamName??'Team'} · overall rank ${source.overallRank?.toLocaleString()} · ${source.overallPoints} points · current GW${source.currentGameweek??'?'} · recorded chips: ${used} · ${source.picks?.playerIds?.length??0} current picks returned. These facts do NOT validate the demo squad or transfer advice.`;
+    rankAdvice=null;
+    if(state.page==='chase')render();
+  }catch(error){
+    liveRankStatus='failed';
+    liveRankDetail=error instanceof Error?error.message:'FPL source unreachable. No rank was imported.';
+    const current=document.querySelector<HTMLElement>('#chase-live-status');
+    if(current)current.textContent=liveRankDetail;
+  }finally{const current=document.querySelector<HTMLButtonElement>('#chase-sync-live');if(current)current.disabled=false;}
+}
+
 function bind():void {
   document.querySelector<HTMLButtonElement>('#chase-save')?.addEventListener('click',()=>{
     const get=(id:string):number|null=>{
@@ -473,8 +513,10 @@ function bind():void {
     const risk=document.querySelector<HTMLSelectElement>('#chase-risk')?.value??'balanced';
     rankProfile=parseRankChaseProfile({entryId:get('#chase-entry'),overallRank:get('#chase-rank'),overallPoints:get('#chase-points'),hypotheticalGw19Points:get('#chase-benchmark'),risk,availableChips});
     try {window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch {/* private browsing: use in-memory state */}
+    liveRankStatus='manual'; liveRankDetail='Profile values were entered manually; live rank not verified in this session.';
     rankAdvice=null;render();
   });
+  document.querySelector<HTMLButtonElement>('#chase-sync-live')?.addEventListener('click',()=>{void syncFplLiveRank();});
   document.querySelector<HTMLButtonElement>('#swap-squad-player')?.addEventListener('click',()=>{
     const out=Number(document.querySelector<HTMLSelectElement>('#swap-out-player')?.value);
     const incoming=Number(document.querySelector<HTMLSelectElement>('#swap-in-player')?.value);
