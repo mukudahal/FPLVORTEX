@@ -33,7 +33,7 @@ createServer(async (req, res) => {
     const bytes = await readFile(filename);
     res.writeHead(200, {
       'content-type': mime[extname(filename)] || 'application/octet-stream',
-      'cache-control': extname(filename) === '.html' ? 'no-cache' : 'public, max-age=3600',
+      'cache-control': ['.html','.js','.css'].includes(extname(filename)) ? 'no-cache' : 'public, max-age=3600',
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'strict-origin-when-cross-origin',
       'content-security-policy': "default-src 'self'; img-src 'self' https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org data:; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'"
