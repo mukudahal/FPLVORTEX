@@ -38,9 +38,10 @@ export function selectProjectedEleven(squad:readonly Player[], scores: ReadonlyM
 }
 
 /** Bounded beam search with candidate transfer and chip schedules, not a globally optimal MILP solution. */
-export function solveDeepPlan(players:readonly Player[],squad:SquadSnapshot,startGw:number,horizon:number,beamWidth=7):DeepPlan {
+export function solveDeepPlan(players:readonly Player[],squad:SquadSnapshot,startGw:number,horizon:number,beamWidth=7,availableChips:readonly Chip[]=['wildcard','freehit','benchboost','triplecaptain']):DeepPlan {
   if(!Number.isInteger(startGw)||startGw<7||startGw>16||!Number.isInteger(horizon)||horizon<1||horizon>10||startGw+horizon>17)throw new RangeError('Invalid gameweek planning range');
   if(!Number.isInteger(beamWidth)||beamWidth<1||beamWidth>20)throw new RangeError('Invalid beam width');
+  if(new Set(availableChips).size!==availableChips.length||availableChips.some(chip=>!['wildcard','freehit','benchboost','triplecaptain'].includes(chip)))throw new Error('Invalid available chip list');
   if(validateSquad(players,squad.selectedIds).length)throw new Error('Invalid initial squad');
   if(!Number.isFinite(squad.bank)||squad.bank<0||squad.bank>30||!Number.isInteger(squad.freeTransfers)||squad.freeTransfers<0||squad.freeTransfers>5)throw new RangeError('Invalid financial state');
   const playerMap=new Map(players.map(player=>[player.id,player]));
@@ -101,7 +102,7 @@ export function solveDeepPlan(players:readonly Player[],squad:SquadSnapshot,star
       const baseMoves=[noMove,...makeMoves(prior.ids,prior.bank,gw)];
       for(const move of baseMoves){candidates.push(build(prior,gw,'none',move));explored++;}
       // Banked free transfers are preserved when a WC or FH is played.
-      const canUseChip=(chip:Chip)=>!prior.used.has(chip)&&gw!==1;
+      const canUseChip=(chip:Chip)=>availableChips.includes(chip)&&!prior.used.has(chip)&&gw!==1;
       if(canUseChip('triplecaptain')){candidates.push(build(prior,gw,'triplecaptain',noMove));explored++;}
       if(canUseChip('benchboost')){candidates.push(build(prior,gw,'benchboost',noMove));explored++;}
       // Heuristic FH/WC roster rebuilds consider up to three legal replacements; never claim unlimited optimization.

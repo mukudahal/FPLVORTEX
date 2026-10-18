@@ -1,4 +1,4 @@
-# FPLVORTEX v0.5
+# FPLVORTEX v0.6
 
 **An original premium fantasy football decision platform.** This first commit contains a usable, dependency-light TypeScript application, independently written analytical demo functions, a responsive white/green/blue design, the user's transparent lion logo, and the Replica workflow planning documents.
 
@@ -102,3 +102,10 @@ npm run dev
 With the tracked public-domain snapshot present, the Fixture Matrix shows all 20 league teams, `OPP [H/A] - FDR`, model-estimated team goals and CS%. Selecting a GW sorts by the independent 1–5 difficulty rank. Data Studio displays GW1–GW6 retrospective **team** errors, missing-score coverage and uncertainty, not player-level FPL accuracy. Placeholder [0,0] values are excluded. `/api/v1/public/league/{status,matrix,backtest}` expose data over the read-only API.
 
 **Accuracy caveat:** There are still no validated archived pre-kickoff player forecasts, licensed lineup/minutes/injury feeds or real-world FPL outcomes in this project. It is inaccurate to interpret team-goal replay as player points accuracy or declare our model better than any other supplier.
+
+
+## v0.6 — GW19 Top-5K Rank Chase Adviser
+
+A new **Top 5K · GW19** navigation tab provides a draft weekly review plan, constrained by your locally saved chip availability and updated squad snapshot. It keeps overall rank and points fields separate from *illustrative* player projections, and it never invents the points required for top 5,000. The manager can input their team ID and verified rank/points locally; these are **not synchronized automatically** with the official FPL entry. An optional user-supplied hypothetical GW19 points benchmark shows a required points-per-week pace, but **not** a rank probability.
+
+The adviser plans **up to ten gameweeks from GW7 through GW16**, marks GW17–GW19 as uncovered, and asks for reevaluation as fresh, authorized data arrives. The existing beam-search optimizer now accepts an explicit list of still-available chips. The Squad Forge adds a working same-position demonstration roster swap tool. The historical player/price data is still illustrative; in particular this is **not yet a verified live, personalized automated adviser** and the model has **not** demonstrated outperforming FPLReview or Opta. See [Top-5K planning and production gaps](docs/top-5k-rank-chase.md).

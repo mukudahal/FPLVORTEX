@@ -109,3 +109,46 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { 
 .public-research-audit {margin-top:24px}
 .public-research-audit .audit-gw small {display:block;margin-top:7px;line-height:1.4}
 #illustrative-fixtures[hidden] {display:none}
+
+/* v0.6 — high-contrast, approachable top-5K planning workspace. */
+.chase-hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:22px 0}
+.chase-hero>div{background:linear-gradient(140deg,#f4fcf8,#f4f9ff);border:1px solid #d1e5dd;border-radius:14px;padding:20px;min-height:128px}
+.chase-kicker{display:block;font-size:12px;font-weight:850;letter-spacing:.65px;color:#245f7a;margin-bottom:13px}
+.chase-hero strong{display:block;color:#0d604a;font-size:clamp(20px,1.7vw,27px);font-weight:850;line-height:1.15}
+.chase-hero .chase-gap{font-size:19px;color:#196aa3}
+.chase-hero small{display:block;color:#3c6370;font-size:13px;font-weight:650;line-height:1.55;margin-top:9px}
+.chase-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;margin-bottom:22px}
+.chase-config,.chase-next,.chase-roadmap{padding:27px}
+.chase-config .panel-head h3,.chase-next .panel-head h3,.chase-roadmap .panel-head h3{font-size:22px!important;color:#0e4d58!important}
+.chase-config .panel-head p,.chase-next .panel-head p,.chase-roadmap .panel-head p{font-size:15px!important;color:#365b68!important}
+.chase-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:24px}
+.chase-form label,.chase-swap label{display:flex;flex-direction:column;gap:8px;font-size:14px;color:#264957;font-weight:800}
+.chase-form input,.chase-form select,.chase-swap select{width:100%;padding:12px 13px;border:1px solid #c5dcd5;border-radius:10px;font:inherit;background:#fff;color:#203e49;min-height:47px}
+.chase-chips{border:1px solid #d0e7de;border-radius:12px;background:#f7fbf8;padding:15px;display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}
+.chase-chips legend{font-size:14px;font-weight:850;color:#175e55;padding:0 6px}
+.chase-chips label{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:#294d5c}
+.chase-chips input{width:17px;height:17px;accent-color:#087b59}
+.chase-config .button{min-height:48px}
+.chase-assumption{margin-top:19px;border-left:4px solid #258e9c;padding:13px 16px;background:#f2f8fb;color:#245265;font-size:14px;line-height:1.65;border-radius:4px 10px 10px 4px}
+.chase-action{display:inline-block;background:#e2f5e9;color:#086044;border:1px solid #b2debf;padding:11px 16px;border-radius:11px;font-size:13px;font-weight:850;letter-spacing:.5px;margin-top:22px}
+.chase-headline{font-size:25px;font-weight:850;color:#103b51;margin:20px 0 15px;line-height:1.45}
+.chase-next>p{font-size:15px;line-height:1.7;color:#3c5a6b}
+.chase-brief{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:18px 0}
+.chase-brief>div{padding:15px 16px;border:1px solid #dce9e9;border-radius:12px;background:#f6faf9}
+.chase-brief span{display:block;color:#3c6671;font-size:12px;font-weight:750;margin-bottom:10px}
+.chase-brief strong{display:block;color:#0d604a;font-size:20px;font-weight:850;line-height:1.3}
+.chase-brief strong small{font-size:12px;font-weight:700}
+.chase-roadmap .data-table{min-width:860px}
+.chase-roadmap .data-table td{padding:16px 13px;font-size:13px!important;line-height:1.7}
+.chase-notes{background:#f4f8fc;border:1px solid #d5e4ed;padding:16px 20px;border-radius:12px;margin:16px 0 26px;color:#355a6e}
+.chase-notes p{font-size:13px;line-height:1.7;margin:6px 0}
+.chase-swap{padding:23px;margin-top:15px;display:grid;gap:15px}
+.chase-swap h3{font-size:19px;color:#0b604b}
+.chase-swap p{font-size:14px;line-height:1.6;color:#385e6a}
+.chase-swap .button{font-size:14px!important;min-height:44px}
+@media(max-width:1200px){.chase-hero{grid-template-columns:repeat(2,minmax(0,1fr))}.chase-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.chase-hero{grid-template-columns:1fr}.chase-form,.chase-brief{grid-template-columns:1fr}.chase-config,.chase-next,.chase-roadmap{padding:18px}}
+
+/* Keep every analytics navigation button reachable when the menu is taller than the screen. */
+.sidebar {overflow-y:auto;scrollbar-width:thin;}
+.sidebar-bottom {flex-shrink:0;margin-top:20px;}

@@ -5,6 +5,7 @@ import {
 } from './model.js';
 import { forecastVortex, type AppearanceSummary, type Appearance } from './vortex-analytics.js';
 import { solveDeepPlan, type DeepPlan } from './deep-solver.js';
+import { buildRankChaseAdvice, parseRankChaseProfile, TARGET_GW, TARGET_RANK, AVAILABLE_CHIPS, type RankChaseProfile, type RankChaseAdvice } from './rank-chase.js';
 
 const root = document.querySelector<HTMLElement>('#app');
 if (!root) throw new Error('Missing application root');
@@ -13,6 +14,7 @@ const appRoot: HTMLElement = root;
 const pages = [
   { slug: 'overview', label: 'Command Center', icon: '◫', category: 'workspace' },
   { slug: 'squad', label: 'Squad Forge', icon: '♙', category: 'workspace' },
+  { slug: 'chase', label: 'Top 5K · GW19', icon: '♛', category: 'workspace' },
   { slug: 'players', label: 'Player Intelligence', icon: '◎', category: 'workspace' },
   { slug: 'fixtures', label: 'Fixture Matrix', icon: '▦', category: 'workspace' },
   { slug: 'goals', label: 'Goals + Assists', icon: '◎', category: 'intelligence' },
@@ -41,6 +43,21 @@ const appearanceRows = new Map<number,Appearance[]>();
 function advancedForecast(player:Player,period:number){return forecastVortex(player,period,appearanceRows.get(player.id)??[],appearanceStatus==='licensed');}
 let appearanceStatus: 'unrequested' | 'loading' | 'licensed' | 'unavailable' = 'unrequested';
 let solvedPlan: DeepPlan | null = null;
+let rankProfile:RankChaseProfile = (()=>{
+  try { return parseRankChaseProfile(JSON.parse(window.localStorage.getItem('fplvortex-rank-chase-v1')||'null')); }
+  catch { return parseRankChaseProfile(null); }
+})();
+let rankAdvice:RankChaseAdvice|null=null;
+let lastAdviceKey='';
+function cachedRankAdvice():RankChaseAdvice {
+  const signature=JSON.stringify([state.gw,state.squad,rankProfile]);
+  if(!rankAdvice||signature!==lastAdviceKey){
+    rankAdvice=buildRankChaseAdvice(demoPlayers,state.squad,state.gw,rankProfile);
+    lastAdviceKey=signature;
+  }
+  return rankAdvice;
+}
+
 const saved = (() => { try { return window.localStorage.getItem('fplvortex-demo-squad-v1'); } catch { return null; } })();
 const state: { page: Page; gw: number; horizon: number; search: string; position: 'ALL' | Position; squad: SquadSnapshot; sort: 'forecast' | 'price' | 'ownership'; menuOpen: boolean; notice: string; fixtureSortGw: number; goalSort:'goals'|'assists'|'total'; priceDirection:'rise'|'fall' } = {
   page: getCurrentPage(), gw: 7, horizon: 5, search: '', position: 'ALL', squad: parseSquad(saved), sort: 'forecast', menuOpen: false, notice: '', fixtureSortGw: 7, goalSort:'goals', priceDirection:'rise'
@@ -128,7 +145,7 @@ function dashboard(): string {
   const topCaptain = [...top11].sort((a,b)=>b.projection-a.projection)[0];
   const expected = top11.reduce((sum,p)=>sum+p.projection,0) + (topCaptain?.projection ?? 0);
   const highest = [...demoPlayers].sort((a,b)=>currentHorizonPoints(b)-currentHorizonPoints(a)).slice(0,5);
-  return `${header('Your edge, <span class="title-accent">engineered.</span>', 'An intelligent command center for sharper fantasy decisions.', 'FPLVORTEX / COMMAND CENTER', '<a class="button button-primary" href="#/squad">Open Squad Forge <span>↗</span></a>')}
+  return `${header('Your edge, <span class="title-accent">engineered.</span>', 'An intelligent command center for sharper fantasy decisions.', 'FPLVORTEX / COMMAND CENTER', '<a class="button button-primary" href="#/chase">Top 5K GW19 plan <span>↗</span></a>')}
     ${globalFilters()}
     <section class="hero-banner"><div class="hero-copy"><span class="hero-tag">THE VORTEX ADVANTAGE <span>✦</span></span><h2>See the game<br/><em>before it happens.</em></h2><p>Forecasts, fixtures and smarter squad decisions — designed to keep you ahead of the curve.</p><a href="#/strategy" class="hero-cta">Explore Strategy Engine <span>↗</span></a></div><div class="hero-art"><img src="/assets/fplvortex-logo.webp" alt="FPLVORTEX crowned lion logo" /></div><span class="hero-number">01 / 04</span></section>
     <div class="section-top"><div><h2>At a glance</h2><p>Illustrative forecast signals for GW ${state.gw}</p></div><span class="section-hint">Updated in demo mode <span class="green-dot"></span></span></div>
@@ -185,13 +202,54 @@ function solverPage():string {
 function displayDeepPlan(plan:DeepPlan):string {
   return `<div class="solver-stats"><div><span>Candidate plans explored</span><strong>${plan.explored}</strong></div><div><span>Projected total (demo)</span><strong>${plan.expectedTotal.toFixed(1)}</strong></div><div><span>Vs hold-only baseline</span><strong>${plan.gain>=0?'+':''}${plan.gain.toFixed(1)}</strong></div></div><div class="table-scroll"><table class="data-table"><thead><tr><th>GW</th><th>CHIP</th><th>TRANSFERS</th><th>CAPTAIN</th><th>FREE TRANSFERS NEXT</th><th>SIMULATED POINTS</th></tr></thead><tbody>${plan.stages.map(step=>`<tr><td><strong>GW${step.gameweek}</strong></td><td><span class="chip-pill">${step.chip==='none'?'—':escapeHtml(step.chip)}</span></td><td>${step.transfers.length?step.transfers.map(move=>`${escapeHtml(byId.get(move.out)?.name??'?')} → ${escapeHtml(byId.get(move.in)?.name??'?')}`).join('<br>'):'Save FT'}</td><td>${escapeHtml(byId.get(step.captainId)?.name??'—')}</td><td>${step.freeTransfersNext}</td><td class="emphasis">${step.points.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>`;
 }
+function chasePage():string {
+  const advice=cachedRankAdvice();
+  const profile=rankProfile;
+  const first=advice.first;
+  const playerName=(id:number)=>escapeHtml(byId.get(id)?.name??'Unknown player');
+  const firstTransfers=first.transfers.length?first.transfers.map(t=>`${playerName(t.out)} → ${playerName(t.in)}`).join('<br>'):'No transfer; save FT';
+  const gap=advice.rankGap===null?'Not supplied':advice.rankGap===0?'Inside target today':`${advice.rankGap.toLocaleString()} places outside target`;
+  return `${header('Road to <span class="title-accent">top 5,000.</span>','Your weekly decision desk for pursuing a top-5K overall finish by GW19.','VORTEX / RANK CHASE','<a class="button button-primary" href="#/squad">Edit squad ↗</a>')}
+    ${globalFilters()}
+    <section class="chase-hero" aria-label="Rank target summary">
+      <div><span class="chase-kicker">OVERALL RANK TARGET</span><strong>Top ${TARGET_RANK.toLocaleString()}</strong><small>By the end of GW${TARGET_GW}</small></div>
+      <div><span class="chase-kicker">GAMEWEEKS LEFT</span><strong>${advice.remainingToTarget}</strong><small>Including GW${state.gw}</small></div>
+      <div><span class="chase-kicker">YOUR RANK GAP</span><strong class="chase-gap">${gap}</strong><small>${profile.overallRank===null?'Enter your verified current rank below':'Updated manually, not live'}</small></div>
+      <div><span class="chase-kicker">CURRENT PLAN COVERAGE</span><strong>Through GW${advice.planningUntilGW}</strong><small>Forecasts after GW16 not yet available</small></div>
+    </section>
+    <section class="chase-grid">
+      <article class="panel chase-config"><div class="panel-head"><div><h3>Manager profile & target</h3><p>All information stays in this browser. Team ID does not automatically connect to official FPL.</p></div><span class="tag tag-neutral">NO VERIFIED FPL SYNC</span></div>
+        <div class="chase-form">
+          <label>FPL entry ID <input id="chase-entry" type="number" min="1" step="1" placeholder="Enter your FPL team ID" value="${profile.entryId??''}" /></label>
+          <label>Current overall rank <input id="chase-rank" type="number" min="1" step="1" placeholder="e.g. 75,000" value="${profile.overallRank??''}" /></label>
+          <label>Current total FPL points <input id="chase-points" type="number" min="0" step="1" placeholder="From your FPL account" value="${profile.overallPoints??''}" /></label>
+          <label>Hypothetical points total at GW19 <input id="chase-benchmark" type="number" min="0" step="1" placeholder="Optional · no verified rank benchmark" value="${profile.hypotheticalGw19Points??''}" /></label>
+          <label>Decision filter <select id="chase-risk"><option value="conservative" ${profile.risk==='conservative'?'selected':''}>Conservative — require clearer edge</option><option value="balanced" ${profile.risk==='balanced'?'selected':''}>Balanced — default</option><option value="aggressive" ${profile.risk==='aggressive'?'selected':''}>Aggressive — review smaller edges</option></select></label>
+        </div>
+        <fieldset class="chase-chips"><legend>Chips still available — select only those you own</legend>${AVAILABLE_CHIPS.map(chip=>`<label><input type="checkbox" name="chase-chip" value="${chip}" ${profile.availableChips.includes(chip)?'checked':''}/> ${chip==='triplecaptain'?'Triple Captain':chip==='benchboost'?'Bench Boost':chip==='freehit'?'Free Hit':'Wildcard'}</label>`).join('')}</fieldset>
+        <button class="button button-primary" id="chase-save" type="button">Update my roadmap ↗</button>
+        ${advice.hypotheticalPointsPerWeek===null?'<p class="chase-assumption">A points-per-week target cannot be estimated from rank alone. A points benchmark must be explicitly supplied; no top-5K points cutoff is invented.</p>':`<p class="chase-assumption"><strong>${advice.hypotheticalPointsPerWeek.toFixed(1)} points/GW</strong> would reach your <em>hypothetical</em> points total, assuming ${profile.overallPoints} verified current points. This does not predict your finishing rank.</p>`}
+      </article>
+      <article class="panel chase-next"><div class="panel-head"><div><h3>Next decision · GW${first.gameweek}</h3><p>Automatic bounded-search output based on the currently selected <strong>DEMO squad</strong>, not your imported FPL team.</p></div><span class="tag tag-neutral">RESEARCH ONLY</span></div>
+        <span class="chase-action">${advice.action}</span>
+        <div class="chase-headline">${first.chip!=='none'?`Evaluate ${escapeHtml(first.chip)}`:firstTransfers}</div>
+        <p>${escapeHtml(advice.description)}</p>
+        <div class="chase-brief"><div><span>Captain candidate</span><strong>${playerName(first.captainId)}</strong></div><div><span>Expected points</span><strong>${first.points.toFixed(1)} <small>demo</small></strong></div><div><span>Next free transfers</span><strong>${first.freeTransfersNext}</strong></div><div><span>Simulated plan edge</span><strong>${advice.plan.gain>=0?'+':''}${advice.plan.gain.toFixed(1)} <small>over hold only</small></strong></div></div>
+        <p class="chase-assumption">This is a what-if search result, NOT an instruction to execute the transfer or play a chip. Check real squad, live minutes, suspensions, available chips and selling prices.</p>
+      </article>
+    </section>
+    <section class="panel chase-roadmap"><div class="panel-head"><div><h3>Automatic weekly roadmap — GW${state.gw} to GW${advice.planningUntilGW}</h3><p>Recalculate after every deadline. The full goal remains GW19; forecasts GW17–19 are not yet available.</p></div><a class="button button-outline" href="#/solver">Full Deep Solver ↗</a></div>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>GW</th><th>SCENARIO</th><th>TRANSFER / HOLD</th><th>CAPTAIN</th><th>FREE TRANSFERS</th><th>DEMO xPTS</th></tr></thead><tbody>${advice.plan.stages.map(stage=>`<tr><td><strong>GW${stage.gameweek}</strong></td><td>${stage.chip==='none'?'Normal':`<span class="chip-pill">${escapeHtml(stage.chip)}</span>`}</td><td>${stage.transfers.length?stage.transfers.map(t=>`${playerName(t.out)} → ${playerName(t.in)}`).join('<br>'):'Save transfer'}</td><td>${playerName(stage.captainId)}</td><td class="tabular">${stage.freeTransfersNext}</td><td class="tabular emphasis">${stage.points.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>
+    </section>
+    <section class="chase-notes" aria-label="Data integrity notes">${advice.warnings.map(w=>`<p>ⓘ ${escapeHtml(w)}</p>`).join('')}</section>`;
+}
 function squadPage(): string {
   const squadPlayers=state.squad.selectedIds.map(id=>byId.get(id)).filter((player):player is Player=>Boolean(player));
   const groups:Position[]=['GKP','DEF','MID','FWD'];
   const totalCost=squadPlayers.reduce((total,player)=>total+player.price,0);
   const totalPts=squadPlayers.reduce((total,player)=>total+currentHorizonPoints(player),0);
   return `${header('Squad <span class="title-accent">Forge.</span>', 'Make every place, pound and gameweek count.', 'PLANNING / SQUAD FORGE', '<button id="reset-squad" class="button button-outline">↺ Reset demo squad</button>')}
-    ${globalFilters()}<div class="squad-layout"><div class="panel pitch-panel"><div class="panel-head"><div><h3>Squad formation</h3><p>15 players · 2 GK / 5 DEF / 5 MID / 3 FWD</p></div><span class="tag tag-green">DEMO SQUAD</span></div><div class="pitch-field"><span class="pitch-middle"></span><span class="pitch-center"></span>${groups.map(position=>`<div class="pitch-line line-${position.toLowerCase()}">${squadPlayers.filter(player=>player.position===position).map(player=>`<button class="pitch-player captain-toggle" data-id="${player.id}" title="Make ${escapeHtml(player.name)} captain">${portrait(player,'medium')}<span class="pitch-name">${escapeHtml(player.name.split(' ').slice(-1)[0]??player.name)}${player.id===state.squad.captainId?'<b class="captain-mark">C</b>':''}</span><small>${currentHorizonPoints(player).toFixed(1)} xPts</small></button>`).join('')}</div>`).join('')}</div><div class="pitch-caption">Select a player to set captain. Plan data is stored locally in this browser.</div></div><aside class="squad-right"><div class="panel squad-summary"><div class="panel-head"><h3>Your squad snapshot</h3></div><div class="summary-grid"><div><span>Squad value</span><strong>£${totalCost.toFixed(1)}m</strong></div><div><span>Cash in bank</span><strong>£${state.squad.bank.toFixed(1)}m</strong></div><div><span>${state.horizon}-week total EV</span><strong>${totalPts.toFixed(1)}</strong></div><div><span>Free transfers</span><strong>${state.squad.freeTransfers}</strong></div></div><div class="squad-form"><label>Bank (£m)<input id="bank-input" type="number" min="0" max="30" step="0.1" value="${state.squad.bank}" /></label><label>Free transfers<select id="ft-input">${[0,1,2,3,4,5].map(value=>`<option value="${value}" ${state.squad.freeTransfers===value?'selected':''}>${value}</option>`).join('')}</select></label></div><button class="button button-primary block" id="save-squad">Save squad settings ↗</button></div><div class="panel squad-tip"><span class="tip-icon">✦</span><h3>A smarter squad starts here.</h3><p>Run your single-transfer opportunities against squad budget and club limits.</p><a href="#/strategy" class="button button-outline block">Open Strategy Engine ↗</a></div></aside></div>`;
+    ${globalFilters()}<div class="squad-layout"><div class="panel pitch-panel"><div class="panel-head"><div><h3>Squad formation</h3><p>15 players · 2 GK / 5 DEF / 5 MID / 3 FWD</p></div><span class="tag tag-green">DEMO SQUAD</span></div><div class="pitch-field"><span class="pitch-middle"></span><span class="pitch-center"></span>${groups.map(position=>`<div class="pitch-line line-${position.toLowerCase()}">${squadPlayers.filter(player=>player.position===position).map(player=>`<button class="pitch-player captain-toggle" data-id="${player.id}" title="Make ${escapeHtml(player.name)} captain">${portrait(player,'medium')}<span class="pitch-name">${escapeHtml(player.name.split(' ').slice(-1)[0]??player.name)}${player.id===state.squad.captainId?'<b class="captain-mark">C</b>':''}</span><small>${currentHorizonPoints(player).toFixed(1)} xPts</small></button>`).join('')}</div>`).join('')}</div><div class="pitch-caption">Select a player to set captain. Plan data is stored locally in this browser.</div></div><aside class="squad-right"><div class="panel squad-summary"><div class="panel-head"><h3>Your squad snapshot</h3></div><div class="summary-grid"><div><span>Squad value</span><strong>£${totalCost.toFixed(1)}m</strong></div><div><span>Cash in bank</span><strong>£${state.squad.bank.toFixed(1)}m</strong></div><div><span>${state.horizon}-week total EV</span><strong>${totalPts.toFixed(1)}</strong></div><div><span>Free transfers</span><strong>${state.squad.freeTransfers}</strong></div></div><div class="squad-form"><label>Bank (£m)<input id="bank-input" type="number" min="0" max="30" step="0.1" value="${state.squad.bank}" /></label><label>Free transfers<select id="ft-input">${[0,1,2,3,4,5].map(value=>`<option value="${value}" ${state.squad.freeTransfers===value?'selected':''}>${value}</option>`).join('')}</select></label></div><button class="button button-primary block" id="save-squad">Save squad settings ↗</button></div><div class="panel chase-swap"><h3>Modify demonstration squad</h3><p>Replace a model player with a same-position option. Prices are illustrative; this is NOT your live FPL roster.</p><label>Player out<select id="swap-out-player">${squadPlayers.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} · ${p.position}</option>`).join('')}</select></label><label>Player in<select id="swap-in-player">${demoPlayers.filter(p=>!state.squad.selectedIds.includes(p.id)).map(p=>`<option value="${p.id}">${escapeHtml(p.name)} · ${p.position} · £${p.price.toFixed(1)}</option>`).join('')}</select></label><button type="button" class="button button-outline block" id="swap-squad-player">Swap player ↗</button><a href="#/chase" class="button button-primary block">Go to Top 5K Adviser ↗</a></div><div class="panel squad-tip"><span class="tip-icon">✦</span><h3>A smarter squad starts here.</h3><p>Run your single-transfer opportunities against squad budget and club limits.</p><a href="#/strategy" class="button button-outline block">Open Strategy Engine ↗</a></div></aside></div>`;
 }
 function strategyPage(): string {
   const recommendations=optimizeOneTransfer(demoPlayers,state.squad,state.horizon);
@@ -233,7 +291,7 @@ function reviewPage():string {
 }
 function render(): void {
   state.page = getCurrentPage();
-  const views:Record<Page,()=>string>={overview:dashboard,squad:squadPage,players:playersPage,fixtures:fixturesPage,goals:attackingPage,cleansheets:cleanSheetPage,solver:solverPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage,data:dataPage};
+  const views:Record<Page,()=>string>={overview:dashboard,squad:squadPage,chase:chasePage,players:playersPage,fixtures:fixturesPage,goals:attackingPage,cleansheets:cleanSheetPage,solver:solverPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage,data:dataPage};
   appRoot.innerHTML=shell(views[state.page]());
   bind();
   if (state.page === 'data') { void refreshDatasetStatus(); void loadPublicLeagueAudit(); }
@@ -400,6 +458,39 @@ function downloadCsv():void {
   URL.revokeObjectURL(address);
 }
 function bind():void {
+  document.querySelector<HTMLButtonElement>('#chase-save')?.addEventListener('click',()=>{
+    const get=(id:string):number|null=>{
+      const input=document.querySelector<HTMLInputElement>(id)?.value.trim()??'';
+      if(input==='')return null;
+      const number=Number(input);
+      return Number.isSafeInteger(number)&&number>=0?number:null;
+    };
+    const present=(id:string)=>document.querySelector<HTMLInputElement>(id)?.value.trim()??'';
+    if((present('#chase-entry') && !get('#chase-entry')) || (present('#chase-rank')&&!get('#chase-rank')) || (present('#chase-points') && get('#chase-points')===null) || (present('#chase-benchmark') && get('#chase-benchmark')===null)){
+      notify('Enter valid nonnegative whole numbers for team ID, rank and points.'); return;
+    }
+    const availableChips=Array.from(document.querySelectorAll<HTMLInputElement>('input[name="chase-chip"]:checked')).map(item=>item.value);
+    const risk=document.querySelector<HTMLSelectElement>('#chase-risk')?.value??'balanced';
+    rankProfile=parseRankChaseProfile({entryId:get('#chase-entry'),overallRank:get('#chase-rank'),overallPoints:get('#chase-points'),hypotheticalGw19Points:get('#chase-benchmark'),risk,availableChips});
+    try {window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch {/* private browsing: use in-memory state */}
+    rankAdvice=null;render();
+  });
+  document.querySelector<HTMLButtonElement>('#swap-squad-player')?.addEventListener('click',()=>{
+    const out=Number(document.querySelector<HTMLSelectElement>('#swap-out-player')?.value);
+    const incoming=Number(document.querySelector<HTMLSelectElement>('#swap-in-player')?.value);
+    const old=byId.get(out), replacement=byId.get(incoming);
+    if(!old||!replacement||old.position!==replacement.position||!state.squad.selectedIds.includes(out)||state.squad.selectedIds.includes(incoming)){
+      notify('Choose a valid same-position replacement outside your squad.');return;
+    }
+    const newIds=state.squad.selectedIds.map(id=>id===out?incoming:id);
+    const error=validateSquad(demoPlayers,newIds);
+    if(error.length){notify(error.join('; '));return;}
+    const bank=Math.round((state.squad.bank+old.price-replacement.price)*10)/10;
+    if(bank<-0.0001){notify('Not enough cash for that replacement.');return;}
+    state.squad={...state.squad,selectedIds:newIds,bank:Math.max(0,bank),captainId:state.squad.captainId===out?incoming:state.squad.captainId};
+    rankAdvice=null;solvedPlan=null;saveSquad();
+  });
+
   document.querySelectorAll<HTMLButtonElement>('[data-gw-sort]').forEach(button=>button.addEventListener('click',()=>{state.fixtureSortGw=Number(button.dataset.gwSort);render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-goal-sort]').forEach(button=>button.addEventListener('click',()=>{state.goalSort=button.dataset.goalSort as typeof state.goalSort;render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-price-direction]').forEach(button=>button.addEventListener('click',()=>{state.priceDirection=button.dataset.priceDirection as typeof state.priceDirection;render();}));
