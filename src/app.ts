@@ -1,3 +1,5 @@
+import { decisionDesk, type PublicSnapshot } from './official-view.js';
+import {checkTransfer} from './official-planner.js';
 import {
   csvForPlayers, demoPlayers, fixtureDifficulty, initialSquad,
   optimizeOneTransfer, parseSquad, projectPlayer, projectedHorizon, validateSquad,
@@ -51,6 +53,8 @@ let rankAdvice:RankChaseAdvice|null=null;
 type LiveResearchResult = {nextGameweek:number;throughGameweek:number;samplePlayers:number;captain:{name:string;score:number}|null;ownPlayers:{id:number;name:string;club:string;starts:number|null;teamMatches:number|null;minutes:number;ninetyEquivalents:number;averageMinutesPerTeamMatch:number|null;status:string;news:string;chanceNext:number|null;expectedNext:number|null;expectedThree:number|null;future:{gw:number;opponent:string;venue:'H'|'A';fdr:number;points:number}[]}[];suggestedActions:{action:string;out:string;incoming:string|null;edge:number|null;reason:string;priceCaution:string}[];roadmap:{gw:number;captain:string|null;captainPoints:number|null;warnings:string}[];caution:string[]};
 type LiveEntrySquad = {fetchedAt:string;liveResearch:LiveResearchResult|null;chipsPlayed:{name:string;gameweek:number}[];bankInTenths:number|null;teamValueInTenths:number|null;picks:{gameweek:number;players:{id:number;name:string|null;club:string|null;positionName:string|null;multiplier:number|null;isCaptain:boolean;isViceCaptain:boolean;priceTenths:number|null;officialStatus:string|null;officialNews:string|null;reportedStarts:number|null;reportedMinutes:number|null;chanceNext:number|null}[]}|null};
 let liveEntrySquad:LiveEntrySquad|null=null;
+let officialSnapshot:PublicSnapshot|null=null;
+let syncGeneration=0;
 let liveRankStatus: 'idle'|'loading'|'verified'|'failed'|'manual' = 'idle';
 let liveRankDetail = 'No live entry sync performed in this browser session.';
 
@@ -131,7 +135,7 @@ function shell(content: string): string {
   const title = pages.find(page => page.slug === state.page)?.label || 'Command Center';
   return `${navMarkup()}<div class="app-shell"><header class="topbar">
     <div class="topbar-left"><button class="mobile-toggle" id="mobile-toggle" aria-label="Open menu">☰</button><div class="breadcrumbs">Platform <span>/</span> <strong>${escapeHtml(title)}</strong></div></div>
-    <div class="topbar-right"><span class="demo-indicator"><span class="demo-dot"></span> ILLUSTRATIVE DATA</span><span class="header-divider"></span><span class="topbar-avatar">FV</span></div>
+    <div class="topbar-right"><span class="demo-indicator"><span class="demo-dot"></span> ${state.page==='chase'&&officialSnapshot?'OFFICIAL FACTS · DEMO TOOLS':'ILLUSTRATIVE DATA'}</span><span class="header-divider"></span><span class="topbar-avatar">FV</span></div>
   </header><main class="main-content">${content}</main><footer class="page-footer"><span>© 2026 FPLVORTEX · Independent fantasy intelligence.</span><span>Prototype dataset · No real-time predictions</span></footer></div>${state.notice ? `<div class="toast" role="status">${escapeHtml(state.notice)}</div>` : ''}`;
 }
 function header(title: string, subtitle: string, kicker: string, actions = ''): string {
@@ -215,48 +219,45 @@ function chasePage():string {
   const playerName=(id:number)=>escapeHtml(byId.get(id)?.name??'Unknown player');
   const firstTransfers=first.transfers.length?first.transfers.map(t=>`${playerName(t.out)} → ${playerName(t.in)}`).join('<br>'):'No transfer; save FT';
   const gap=advice.rankGap===null?'Not supplied':advice.rankGap===0?'Inside target today':`${advice.rankGap.toLocaleString()} places outside target`;
-  return `${header('Road to <span class="title-accent">top 5,000.</span>','Your weekly decision desk for pursuing a top-5K overall finish by GW19.','VORTEX / RANK CHASE','<a class="button button-primary" href="#/squad">Edit squad ↗</a>')}
-    ${globalFilters()}
+  return `${header('Road to <span class="title-accent">top 5,000.</span>','Your weekly decision desk for pursuing a top-5K overall finish by GW19.','VORTEX / RANK CHASE','<a class="button button-primary" href="#/squad">Open demo squad ↗</a>')}
     <section class="chase-hero" aria-label="Rank target summary">
       <div><span class="chase-kicker">OVERALL RANK TARGET</span><strong>Top ${TARGET_RANK.toLocaleString()}</strong><small>By the end of GW${TARGET_GW}</small></div>
-      <div><span class="chase-kicker">GAMEWEEKS LEFT</span><strong>${advice.remainingToTarget}</strong><small>Including GW${state.gw}</small></div>
+      <div><span class="chase-kicker">GAMEWEEKS LEFT</span><strong>${officialSnapshot?.officialPlan?.roadmap.length??advice.remainingToTarget}</strong><small>${officialSnapshot?'Upcoming deadlines to GW19':`Demo horizon begins GW${state.gw}`}</small></div>
       <div><span class="chase-kicker">YOUR RANK GAP</span><strong class="chase-gap">${gap}</strong><small>${liveRankStatus==='verified'?'Fetched from FPL website':profile.overallRank===null?'No rank synced yet':'Entered manually; not verified live'}</small></div>
-      <div><span class="chase-kicker">CURRENT PLAN COVERAGE</span><strong>Through GW${advice.planningUntilGW}</strong><small>Forecasts after GW16 not yet available</small></div>
+      <div><span class="chase-kicker">CURRENT PLAN COVERAGE</span><strong>${officialSnapshot?.officialPlan?.roadmap.length?'Through GW19':'Not synced'}</strong><small>Official fixture facts; no rank probability</small></div>
     </section>
+    ${officialSnapshot?decisionDesk(officialSnapshot):''}
     <section class="chase-grid">
-      <article class="panel chase-config"><div class="panel-head"><div><h3>Manager profile & target</h3><p>Fetch public FPL entry data on demand. This does not import model-ready player projections or authorize bulk use.</p></div><span class="tag tag-neutral">ON-DEMAND FPL SYNC</span></div>
+      <article class="panel chase-config"><div class="panel-head"><div><h3>Manager profile & target</h3><p>Sync your last public squad, reported rank, chips and transfers. Private pre-deadline changes remain unavailable.</p></div><span class="tag tag-neutral">ON-DEMAND FPL SYNC</span></div>
         <div class="chase-form">
-          <label>FPL entry ID <input id="chase-entry" type="number" min="1" step="1" placeholder="Enter your FPL team ID" value="${profile.entryId??''}" /></label>
+          <label>FPL entry ID <input id="chase-entry" type="number" min="1" step="1" placeholder="Enter your FPL team ID" value="${profile.entryId??145784}" /></label>
           <label>Current overall rank <input id="chase-rank" type="number" min="1" step="1" placeholder="e.g. 75,000" value="${profile.overallRank??''}" /></label>
           <label>Current total FPL points <input id="chase-points" type="number" min="0" step="1" placeholder="From your FPL account" value="${profile.overallPoints??''}" /></label>
           <label>Hypothetical points total at GW19 <input id="chase-benchmark" type="number" min="0" step="1" placeholder="Optional · no verified rank benchmark" value="${profile.hypotheticalGw19Points??''}" /></label>
           <label>Decision filter <select id="chase-risk"><option value="conservative" ${profile.risk==='conservative'?'selected':''}>Conservative — require clearer edge</option><option value="balanced" ${profile.risk==='balanced'?'selected':''}>Balanced — default</option><option value="aggressive" ${profile.risk==='aggressive'?'selected':''}>Aggressive — review smaller edges</option></select></label>
         </div>
-        <fieldset class="chase-chips"><legend>Chips still available — select only those you own</legend>${AVAILABLE_CHIPS.map(chip=>`<label><input type="checkbox" name="chase-chip" value="${chip}" ${profile.availableChips.includes(chip)?'checked':''}/> ${chip==='triplecaptain'?'Triple Captain':chip==='benchboost'?'Bench Boost':chip==='freehit'?'Free Hit':'Wildcard'}</label>`).join('')}</fieldset>
-        <div class="chase-sync-controls"><button class="button button-primary" id="chase-sync-live" type="button">↻ Sync live FPL rank</button><button class="button button-outline" id="chase-save" type="button">Save profile & roadmap ↗</button></div>
+        <fieldset class="chase-chips"><legend>Demo solver chips — manually supplied, not synced</legend>${AVAILABLE_CHIPS.map(chip=>`<label><input type="checkbox" name="chase-chip" value="${chip}" ${profile.availableChips.includes(chip)?'checked':''}/> ${chip==='triplecaptain'?'Triple Captain':chip==='benchboost'?'Bench Boost':chip==='freehit'?'Free Hit':'Wildcard'}</label>`).join('')}</fieldset>
+        <div class="chase-sync-controls"><button class="button button-primary" id="chase-sync-live" type="button">↻ Sync live FPL rank</button><button class="button button-outline" id="chase-save" type="button">Save manual demo profile ↗</button></div>
         <p id="chase-live-status" class="chase-assumption" role="status" aria-live="polite">${escapeHtml(liveRankDetail)}</p>
         ${advice.hypotheticalPointsPerWeek===null?'<p class="chase-assumption">A points-per-week target cannot be estimated from rank alone. A points benchmark must be explicitly supplied; no top-5K points cutoff is invented.</p>':`<p class="chase-assumption"><strong>${advice.hypotheticalPointsPerWeek.toFixed(1)} points/GW</strong> would reach your <em>hypothetical</em> points total, assuming ${profile.overallPoints} verified current points. This does not predict your finishing rank.</p>`}
       </article>
-      <article class="panel chase-next"><div class="panel-head"><div><h3>Next decision · GW${first.gameweek}</h3><p>Automatic bounded-search output based on the currently selected <strong>DEMO squad</strong>, not your imported FPL team.</p></div><span class="tag tag-neutral">RESEARCH ONLY</span></div>
+      <details class="panel chase-next"><summary>Demo solver · fictional squad · expand separately</summary><div class="panel-head"><div><h3>Next decision · GW${first.gameweek}</h3><p>Automatic bounded-search output based on the currently selected <strong>DEMO squad</strong>, not your imported FPL team.</p></div><span class="tag tag-neutral">RESEARCH ONLY</span></div>
         <span class="chase-action">${advice.action}</span>
         <div class="chase-headline">${first.chip!=='none'?`Evaluate ${escapeHtml(first.chip)}`:firstTransfers}</div>
         <p>${escapeHtml(advice.description)}</p>
         <div class="chase-brief"><div><span>Captain candidate</span><strong>${playerName(first.captainId)}</strong></div><div><span>Expected points</span><strong>${first.points.toFixed(1)} <small>demo</small></strong></div><div><span>Next free transfers</span><strong>${first.freeTransfersNext}</strong></div><div><span>Simulated plan edge</span><strong>${advice.plan.gain>=0?'+':''}${advice.plan.gain.toFixed(1)} <small>over hold only</small></strong></div></div>
         <p class="chase-assumption">This is a what-if search result, NOT an instruction to execute the transfer or play a chip. Check real squad, live minutes, suspensions, available chips and selling prices.</p>
-      </article>
+      </details>
     </section>
-    ${liveEntrySquad?.picks?.players?.length===15 ? `<section class="panel chase-live-squad"><div class="panel-head"><div><h3>Your FPL squad · GW${liveEntrySquad.picks.gameweek}</h3><p>Actual publicly returned team selections · ${escapeHtml(liveEntrySquad.fetchedAt)} · independent of simulated solver picks</p></div><span class="tag tag-green">SOURCE: FPL</span></div>
-      <div class="chase-live-meta"><span>Last-deadline bank <strong>${liveEntrySquad.bankInTenths===null?'Not reported':`£${(liveEntrySquad.bankInTenths/10).toFixed(1)}m`}</strong></span><span>Team value <strong>${liveEntrySquad.teamValueInTenths===null?'Not reported':`£${(liveEntrySquad.teamValueInTenths/10).toFixed(1)}m`}</strong></span><span>Chips reported as used <strong>${escapeHtml(liveEntrySquad.chipsPlayed.length?liveEntrySquad.chipsPlayed.map(c=>`${c.name} GW${c.gameweek}`).join(' · '):'None reported')}</strong></span></div>
-      <div class="table-scroll"><table class="data-table"><thead><tr><th>PLAYER</th><th>TEAM</th><th>POS</th><th>FPL PRICE</th><th>SELECTION</th><th>STATUS</th><th>STARTS</th><th>MINUTES</th><th>AVAILABILITY NEWS</th></tr></thead><tbody>${liveEntrySquad.picks.players.map(p=>`<tr><td><strong>${escapeHtml(p.name??`Player ID ${p.id}`)}</strong></td><td>${escapeHtml(p.club??'—')}</td><td>${escapeHtml(p.positionName??'—')}</td><td>${p.priceTenths===null?'—':`£${(p.priceTenths/10).toFixed(1)}m`}</td><td>${p.isCaptain?'Captain':p.isViceCaptain?'Vice captain':p.multiplier===0?'Bench':'Starter'}</td><td>${escapeHtml(p.officialStatus??'Not reported')}</td><td>${p.reportedStarts===null?'—':`${p.reportedStarts} (season)`}</td><td>${p.reportedMinutes??'—'}</td><td>${escapeHtml(p.officialNews|| (p.chanceNext!==null?`${p.chanceNext}% availability estimate`: 'No news reported'))}</td></tr>`).join('')}</tbody></table></div><p class="chase-assumption">FPL roster data are real source values. Forecasts and transfer routes elsewhere remain model demonstrations and are NOT calculated from these official player IDs.</p></section>` : ''}
-    ${liveEntrySquad?.liveResearch ? `<section class="panel chase-live-analysis" aria-label="Real-source player research"><div class="panel-head"><div><h3>Actual squad · independent decision research</h3><p>FPL source inputs for GW${liveEntrySquad.liveResearch.nextGameweek}–GW${liveEntrySquad.liveResearch.throughGameweek}; calculation: VORTEX v0.8 shrinkage baseline, untrained and uncalibrated.</p></div><span class="tag tag-neutral">PROVISIONAL MODEL · NOT TRANSFER ADVICE</span></div>
+    ${liveEntrySquad?.liveResearch ? `<details class="panel official-provenance"><summary>Optional speculative model · unvalidated research</summary><section class="panel chase-live-analysis" aria-label="Real-source player research"><div class="panel-head"><div><h3>Actual squad · independent decision research</h3><p>FPL source inputs for GW${liveEntrySquad.liveResearch.nextGameweek}–GW${liveEntrySquad.liveResearch.throughGameweek}; calculation: VORTEX v0.8 shrinkage baseline, untrained and uncalibrated.</p></div><span class="tag tag-neutral">PROVISIONAL MODEL · NOT TRANSFER ADVICE</span></div>
        <div class="live-analysis-signal"><div><span>Next deadline to plan</span><strong>GW${liveEntrySquad.liveResearch.nextGameweek}</strong></div><div><span>Captain research</span><strong>${escapeHtml(liveEntrySquad.liveResearch.captain?.name??'Unavailable')}</strong></div><div><span>Real players matched</span><strong>${liveEntrySquad.liveResearch.ownPlayers.length}/15</strong></div></div>
        <h4>Transfer research · review before acting</h4><div class="live-action-cards">${liveEntrySquad.liveResearch.suggestedActions.map(item=>`<article><span class="live-action-label">${escapeHtml(item.action)}</span><strong>${escapeHtml(item.out)}${item.incoming?` → ${escapeHtml(item.incoming)}`:''}</strong><p>${item.edge===null?'':`Illustrative three-GW differential: +${item.edge.toFixed(2)} points · `}${escapeHtml(item.reason)}</p><small>${escapeHtml(item.priceCaution)}</small></article>`).join('')}</div>
        <h4>10-GW hold-squad captain research (no chips/transfers)</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>GW</th><th>MODELED CAPTAIN</th><th>PROVISIONAL xPTS</th><th>NOTES</th></tr></thead><tbody>${liveEntrySquad.liveResearch.roadmap.map(w=>`<tr><td>GW${w.gw}</td><td><strong>${escapeHtml(w.captain??'—')}</strong></td><td>${w.captainPoints===null?'—':w.captainPoints.toFixed(2)}</td><td>${escapeHtml(w.warnings)}</td></tr>`).join('')}</tbody></table></div>
        <h4>Real player minutes and match context</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>PLAYER</th><th>SEASON STARTS</th><th>TEAM MATCHES FINISHED</th><th>MINUTES</th><th>MIN / TEAM MATCH</th><th>90s</th><th>STATUS</th><th>UPCOMING</th><th>3GW RESEARCH xPTS</th></tr></thead><tbody>${liveEntrySquad.liveResearch.ownPlayers.map(p=>`<tr><td><strong>${escapeHtml(p.name)}</strong> · ${escapeHtml(p.club)}</td><td>${p.starts===null||p.teamMatches===null?'—':`${p.starts}/${p.teamMatches}`}</td><td>${p.teamMatches??'—'}</td><td>${p.minutes}</td><td>${p.averageMinutesPerTeamMatch?.toFixed(1)??'—'}</td><td>${p.ninetyEquivalents.toFixed(2)}</td><td>${escapeHtml(p.status)} ${escapeHtml(p.news)}</td><td>${p.future.slice(0,2).map(f=>`${escapeHtml(f.opponent)} [${f.venue}] - ${f.fdr}`).join(' · ')||'—'}</td><td>${p.expectedThree?.toFixed(2)??'—'}</td></tr>`).join('')}</tbody></table></div>
-       <div class="chase-notes">${liveEntrySquad.liveResearch.caution.map(note=>`<p>ⓘ ${escapeHtml(note)}</p>`).join('')}</div></section>` : liveRankStatus==='verified'?'<section class="chase-notes"><strong>Fixture research unavailable.</strong> The real squad was fetched, but the fixture and player dataset was not available. No live-source projections were produced.</section>':''}
-    <section class="panel chase-roadmap"><div class="panel-head"><div><h3>Automatic weekly roadmap — GW${state.gw} to GW${advice.planningUntilGW}</h3><p>Recalculate after every deadline. The full goal remains GW19; forecasts GW17–19 are not yet available.</p></div><a class="button button-outline" href="#/solver">Full Deep Solver ↗</a></div>
+       <div class="chase-notes">${liveEntrySquad.liveResearch.caution.map(note=>`<p>ⓘ ${escapeHtml(note)}</p>`).join('')}</div></section></details>` : liveRankStatus==='verified'?'<section class="chase-notes"><strong>Fixture research unavailable.</strong> The real squad was fetched, but the fixture and player dataset was not available. No live-source projections were produced.</section>':''}
+    <details class="panel chase-roadmap"><summary>Demo ten-week transfer/chip roadmap · separate from your real team</summary><div class="panel-head"><div><h3>Automatic weekly roadmap — GW${state.gw} to GW${advice.planningUntilGW}</h3><p>Recalculate after every deadline. The full goal remains GW19; forecasts GW17–19 are not yet available.</p></div><a class="button button-outline" href="#/solver">Full Deep Solver ↗</a></div>
       <div class="table-scroll"><table class="data-table"><thead><tr><th>GW</th><th>SCENARIO</th><th>TRANSFER / HOLD</th><th>CAPTAIN</th><th>FREE TRANSFERS</th><th>DEMO xPTS</th></tr></thead><tbody>${advice.plan.stages.map(stage=>`<tr><td><strong>GW${stage.gameweek}</strong></td><td>${stage.chip==='none'?'Normal':`<span class="chip-pill">${escapeHtml(stage.chip)}</span>`}</td><td>${stage.transfers.length?stage.transfers.map(t=>`${playerName(t.out)} → ${playerName(t.in)}`).join('<br>'):'Save transfer'}</td><td>${playerName(stage.captainId)}</td><td class="tabular">${stage.freeTransfersNext}</td><td class="tabular emphasis">${stage.points.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>
-    </section>
+    </details>
     <section class="chase-notes" aria-label="Data integrity notes">${advice.warnings.map(w=>`<p>ⓘ ${escapeHtml(w)}</p>`).join('')}</section>`;
 }
 function squadPage(): string {
@@ -475,7 +476,7 @@ function downloadCsv():void {
 }
 
 /** Keep the source's real rank separate from illustrative transfer recommendations. */
-async function syncFplLiveRank():Promise<void> {
+async function syncFplLiveRank(includeAppearances=false):Promise<void> {
   const input=document.querySelector<HTMLInputElement>('#chase-entry')?.value.trim()??'';
   if(!/^[1-9]\d{0,8}$/.test(input)){
     const node=document.querySelector<HTMLElement>('#chase-live-status');
@@ -487,13 +488,18 @@ async function syncFplLiveRank():Promise<void> {
   if(button)button.disabled=true;
   if(status)status.textContent='Contacting FPL website for the current entry profile…';
   liveRankStatus='loading';
+  const generation=++syncGeneration;
+  liveEntrySquad=null;officialSnapshot=null;
+  document.querySelector('.official-desk')?.remove();document.querySelector('.chase-live-analysis')?.closest('details')?.remove();
   try {
-    const response=await fetch(`/api/v1/fpl/entry?entryId=${encodeURIComponent(input)}`,{cache:'no-store'});
+    const response=await fetch(`/api/v1/fpl/entry?entryId=${encodeURIComponent(input)}${includeAppearances?'&appearances=1':''}`,{cache:'no-store'});
     if(!response.ok)throw new Error(`FPL source unavailable (HTTP ${response.status}); try again when connected.`);
     const raw:unknown=await response.json();
     if(!raw || typeof raw!=='object')throw new Error('Invalid FPL profile response');
     const source=raw as {mode?:string;entryId?:number;overallRank?:number|null;overallPoints?:number|null;currentGameweek?:number|null;teamName?:string;fetchedAt?:string;chipsPlayed?:{name:string;gameweek:number}[];bankInTenths?:number|null;teamValueInTenths?:number|null;liveResearch?:LiveResearchResult|null;picks?:LiveEntrySquad['picks'] & {playerIds:number[]}|null};
-    if(source.mode!=='live-source-response'||source.entryId!==Number(input)||!Number.isInteger(source.overallRank)||!Number.isInteger(source.overallPoints))throw new Error('FPL has not published a complete verified rank and points snapshot yet.');
+    if(generation!==syncGeneration)return;
+    if(source.mode!=='live-source-response'||source.entryId!==Number(input))throw new Error('Invalid official entry response.');
+    officialSnapshot=raw as PublicSnapshot;
     rankProfile=parseRankChaseProfile({...rankProfile,entryId:source.entryId,overallRank:source.overallRank,overallPoints:source.overallPoints});
     try{window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch{/* local storage optional */}
     liveRankStatus='verified';
@@ -503,10 +509,12 @@ async function syncFplLiveRank():Promise<void> {
     rankAdvice=null;
     if(state.page==='chase')render();
   }catch(error){
-    liveRankStatus='failed';
+    if(generation!==syncGeneration)return;
+    liveRankStatus='failed';liveEntrySquad=null;officialSnapshot=null;
     liveRankDetail=error instanceof Error?error.message:'FPL source unreachable. No rank was imported.';
     const current=document.querySelector<HTMLElement>('#chase-live-status');
     if(current)current.textContent=liveRankDetail;
+    if(state.page==='chase')render();
   }finally{const current=document.querySelector<HTMLButtonElement>('#chase-sync-live');if(current)current.disabled=false;}
 }
 
@@ -526,10 +534,24 @@ function bind():void {
     const risk=document.querySelector<HTMLSelectElement>('#chase-risk')?.value??'balanced';
     rankProfile=parseRankChaseProfile({entryId:get('#chase-entry'),overallRank:get('#chase-rank'),overallPoints:get('#chase-points'),hypotheticalGw19Points:get('#chase-benchmark'),risk,availableChips});
     try {window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch {/* private browsing: use in-memory state */}
-    liveRankStatus='manual'; liveEntrySquad=null; liveRankDetail='Profile values were entered manually; live rank not verified in this session.';
+    liveRankStatus='manual'; liveEntrySquad=null;officialSnapshot=null; liveRankDetail='Profile values were entered manually; live rank not verified in this session.';
     rankAdvice=null;render();
   });
   document.querySelector<HTMLButtonElement>('#chase-sync-live')?.addEventListener('click',()=>{void syncFplLiveRank();});
+  document.querySelector<HTMLButtonElement>('#load-official-appearances')?.addEventListener('click',()=>{void syncFplLiveRank(true);});
+  document.querySelector<HTMLButtonElement>('#refresh-official-squad')?.addEventListener('click',()=>{void syncFplLiveRank();});
+  const outSelect=document.querySelector<HTMLSelectElement>('#official-out'),inSelect=document.querySelector<HTMLSelectElement>('#official-in');
+  const filterAlternatives=()=>{if(!outSelect||!inSelect||!officialSnapshot?.officialPlan)return;const pos=officialSnapshot.officialPlan.roster.find(p=>p.id===Number(outSelect.value))?.position;inSelect.replaceChildren(...officialSnapshot.officialPlan.watchlist.filter(p=>p.position===pos).map(p=>new Option(`${p.name} · ${p.position} · ${p.priceTenths===null?'price unknown':`£${(p.priceTenths/10).toFixed(1)}m`} · ${p.starts} starts`,String(p.id))));};
+  outSelect?.addEventListener('change',filterAlternatives);filterAlternatives();
+
+  document.querySelector<HTMLInputElement>('#chase-entry')?.addEventListener('input',()=>{++syncGeneration;officialSnapshot=null;liveEntrySquad=null;liveRankStatus='idle';document.querySelector('.official-desk')?.remove();document.querySelector('.chase-live-analysis')?.remove();const status=document.querySelector('#chase-live-status');if(status)status.textContent='Entry ID changed. Sync this entry before using its facts.';});
+  document.querySelector<HTMLButtonElement>('#official-check-transfer')?.addEventListener('click',()=>{
+    if(!officialSnapshot?.officialPlan)return;
+    const numeric=(id:string,tenths=false)=>{const raw=document.querySelector<HTMLInputElement>(id)?.value.trim();if(!raw||document.querySelector<HTMLInputElement>(id)?.validity.valid===false)return null;const n=Number(raw);return Number.isFinite(n)?tenths?Math.round(n*10):n:null;};
+    const result=checkTransfer(officialSnapshot.officialPlan,Number(document.querySelector<HTMLSelectElement>('#official-out')?.value),Number(document.querySelector<HTMLSelectElement>('#official-in')?.value),{bankTenths:numeric('#official-bank',true),saleTenths:numeric('#official-sale',true),freeTransfers:numeric('#official-ft'),confirmed:document.querySelector<HTMLInputElement>('#official-confirm')?.checked===true});
+    const node=document.querySelector('#official-transfer-result');if(node)node.textContent=result.feasible?`Feasible under your confirmed inputs. Bank after: £${(result.bankAfterTenths!/10).toFixed(1)}m. Standard transfer hit: ${result.hit} points. ${result.verdict}`:`Check blocked: ${result.errors.join(' ')} ${result.verdict}`;
+  });
+
   document.querySelector<HTMLButtonElement>('#swap-squad-player')?.addEventListener('click',()=>{
     const out=Number(document.querySelector<HTMLSelectElement>('#swap-out-player')?.value);
     const incoming=Number(document.querySelector<HTMLSelectElement>('#swap-in-player')?.value);
@@ -595,3 +617,5 @@ function bind():void {
 }
 window.addEventListener('hashchange',()=>{state.menuOpen=false;state.notice='';render();window.scrollTo({top:0,behavior:'instant'});});
 render();
+// Freshness changes locally; no network polling or automatic re-sync.
+window.setInterval(()=>{const node=document.querySelector<HTMLElement>('#official-freshness');if(node&&(!node.dataset.expires||Date.now()>Date.parse(node.dataset.expires))){node.textContent='Snapshot stale or planning unavailable. Sync again before decisions; the facts below are historical.';node.classList.add('official-alert');const button=document.querySelector<HTMLButtonElement>('#official-check-transfer');if(button)button.disabled=true;}},30_000);
