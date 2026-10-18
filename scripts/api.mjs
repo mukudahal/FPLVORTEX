@@ -42,7 +42,7 @@ export async function handleApi(request, response, address) {
     if (address.pathname === '/api/v1/health') {
       respond(response, 200, { ok: true, product: 'FPLVORTEX', apiVersion: 'v1' }, isHead);
     } else if (address.pathname === '/api/v1/fpl/entry') {
-      const snapshot=await fetchLiveFplEntry(address.searchParams.get('entryId'));
+      const snapshot=await fetchLiveFplEntry(address.searchParams.get('entryId'),{includeAppearances:address.searchParams.get('appearances')==='1'});
       respond(response,200,snapshot,isHead);
     } else if (address.pathname === '/api/v1/data/status') {
       respond(response, 200, await getDatasetStatus(), isHead);
