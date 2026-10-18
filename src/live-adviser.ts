@@ -40,10 +40,10 @@ function nextRound(events:readonly JsonObject[]|undefined, completed:number):num
 }
 function deriveTeamMatches(fixtures:readonly JsonObject[],teamId:number,nextGw:number):number|null {
   if(!fixtures.length)return null;
-  return fixtures.filter(f=>f.finished===true && numeric(f.event)!==null && Number(f.event)<nextGw && (f.team_h===teamId||f.team_a===teamId)).length;
+  return fixtures.filter(f=>(f.finished===true||f.finished_provisional===true) && numeric(f.event)!==null && Number(f.event)<nextGw && (f.team_h===teamId||f.team_a===teamId)).length;
 }
 function opponentCalendar(fixtures:readonly JsonObject[],teamId:number,clubs:Map<number,string>,nextGw:number,horizon:number) {
-  const map=new Map<number,{gw:number;opponent:string;venue:'H'|'A';fdr:number}>();
+  const map=new Map<number,{gw:number;opponent:string;venue:'H'|'A';fdr:number}[]>();
   for(const f of fixtures){
     const gw=validateId(f.event);
     if(gw===null||gw<nextGw||gw>=nextGw+horizon||f.finished===true)continue;
@@ -51,9 +51,7 @@ function opponentCalendar(fixtures:readonly JsonObject[],teamId:number,clubs:Map
     const fdr=numeric(home?f.team_h_difficulty:f.team_a_difficulty);
     const opponent=validateId(home?f.team_a:f.team_h);
     if(opponent===null||fdr===null||fdr<1||fdr>5)continue;
-    // Multiple fixtures in a double gameweek: handled conservatively as the first observed fixture;
-    // withheld from actionable advice when this simplification might distort rankings.
-    if(!map.has(gw))map.set(gw,{gw,venue:home?'H':'A',opponent:clubs.get(opponent)??'TBC',fdr});
+    const rows=map.get(gw)??[];rows.push({gw,venue:home?'H':'A',opponent:clubs.get(opponent)??'TBC',fdr});map.set(gw,rows);
   }
   return map;
 }
@@ -78,8 +76,7 @@ function makePlayer(raw:JsonObject,team:JsonObject|undefined,fixtures:readonly J
   const perGW=opponentCalendar(fixtures,clubId,clubNames,nextGw,horizon);
   const future:LiveResearchPlayer['future']=[];
   for(let gw=nextGw;gw<nextGw+horizon;gw++){
-    const f=perGW.get(gw);
-    if(!f)continue;
+    for(const f of perGW.get(gw)??[]){
     const adj=clamp(Math.exp((3-f.fdr)*0.13),0.63,1.52);
     const exposure=expectedMinutes/90;
     const gx=clamp(attackRate*exposure*adj,0,2.5), ax=clamp(assistRate*exposure*adj,0,2.0);
@@ -89,6 +86,7 @@ function makePlayer(raw:JsonObject,team:JsonObject|undefined,fixtures:readonly J
     const appPoints=expectedMinutes>=60?1.8:expectedMinutes>0?0.96:0;
     const points=r(appPoints+positionGoalPoints*gx+3*ax+cleanPoints*cs*exposure,2);
     future.push({...f,points,xg:r(gx,3),xa:r(ax,3),cs:r(cs,3)});
+    }
   }
   const periods=(n:number)=>{const rows=future.filter(f=>f.gw<nextGw+n);return rows.length? r(rows.reduce((sum,f)=>sum+f.points,0)):null;};
   return {id,name:text(raw.web_name)||`#${id}`,club:clubNames.get(clubId)??'TBC',position:POS[position] as LiveResearchPlayer['position'],priceTenths:price,status:text(raw.status),news:text(raw.news),chanceNext:officialChance,starts:validStarts,teamMatches:completed,minutes,ninetyEquivalents:r(full90),averageMinutesPerTeamMatch:average===null?null:r(average,1),xg90:r(attackRate,3),xa90:r(assistRate,3),ownership:numeric(raw.selected_by_percent)??0,future,expectedNext:periods(1),expectedThree:periods(3)};
@@ -109,29 +107,24 @@ export function buildLiveResearch({bootstrap,fixtures,picks,latestGW}: {
   const byId=new Map(list.map(p=>[p.id,p]));
   const ownPlayers=picks.map(p=>byId.get(p.id)).filter((p):p is LiveResearchPlayer=>Boolean(p));
   const isComplete=ownPlayers.length===15;
-  const lineup=ownPlayers.map(p=>({playerId:p.id,name:p.name,score:p.expectedNext??0})).sort((a,b)=>b.score-a.score).slice(0,11);
-  const captain=lineup[0] && lineup[0].score>0?lineup[0]:null;
-  const squadIds=new Set(picks.map(p=>p.id));
-  const actions:LiveAdvice['suggestedActions']=[];
-  for(const owned of [...ownPlayers].sort((a,b)=>(a.expectedThree??0)-(b.expectedThree??0))){
-    const candidates=list.filter(other=>other.position===owned.position&&!squadIds.has(other.id)&&other.status==='a'&&other.future.length>=2)
-      .filter(other=>other.priceTenths<=owned.priceTenths+30)
-      .filter(other=>ownPlayers.filter(x=>x.club===other.club).length<3)
-      .sort((a,b)=>(b.expectedThree??-999)-(a.expectedThree??-999));
-    const best=candidates[0];
-    if(!best||owned.expectedThree===null||best.expectedThree===null)continue;
-    const edge=r(best.expectedThree-owned.expectedThree);
-    if(edge<=1.5)continue;
-    const health=owned.status==='i'||owned.status==='u'||owned.status==='s';
-    const risk=health?'Official player status indicates an availability concern; verify new reports and deadline news.':'Provisional 3-GW model edge, not a validated FPL points prediction.';
-    actions.push({action:'REVIEW TRANSFER',out:owned.name,incoming:best.name,edge,reason:risk,priceCaution:'List prices are NOT your sale prices; actual affordability, bank, free transfers, hits and club/team rules must be checked before any move.'});
-    if(actions.length===3)break;
+  // Enumerate legal formations; a high-scoring second keeper must never enter the XI.
+  let best:LiveResearchPlayer[]=[];let bestScore=-Infinity;
+  if(isComplete){
+    const ranked=(pos:LiveResearchPlayer['position'])=>ownPlayers.filter(p=>p.position===pos&&p.expectedNext!==null).sort((a,b)=>b.expectedNext!-a.expectedNext!);
+    for(let defenders=3;defenders<=5;defenders++)for(let mids=2;mids<=5;mids++){
+      const forwards=10-defenders-mids;if(forwards<1||forwards>3)continue;
+      const formation=[...ranked('GKP').slice(0,1),...ranked('DEF').slice(0,defenders),...ranked('MID').slice(0,mids),...ranked('FWD').slice(0,forwards)];
+      if(formation.length!==11)continue;const score=formation.reduce((sum,p)=>sum+p.expectedNext!,0);
+      if(score>bestScore){best=formation;bestScore=score;}
+    }
   }
-  if(!actions.length)actions.push({action:'MONITOR',out:'Current squad',incoming:null,edge:null,reason:'No clear uncalibrated transfer edge detected. Recheck official news and gameweek deadline.',priceCaution:'No transfer recommendation is automatically actionable.'});
+  const lineup=best.map(p=>({playerId:p.id,name:p.name,score:p.expectedNext!})).sort((a,b)=>b.score-a.score);
+  const captain=lineup[0]&&lineup[0].score>0?lineup[0]:null;
+  const actions:LiveAdvice['suggestedActions']=[{action:'MONITOR',out:'Current squad',incoming:null,edge:null,reason:'Use the facts-based decision desk to check availability and a proposed move. Uncalibrated point differences alone cannot justify a transfer.',priceCaution:'No automatic transfer shortlist: confirm bank, selling prices, free transfers and club limits.'}];
   const roadmap=Array.from({length:weeks},(_,index)=>{
     const gw=nextGw+index;
-    const scored=ownPlayers.map(p=>({player:p,fixture:p.future.find(f=>f.gw===gw)})).filter((x):x is {player:LiveResearchPlayer;fixture:NonNullable<typeof x.fixture>}=>Boolean(x.fixture)).sort((a,b)=>b.fixture.points-a.fixture.points);
-    return {gw,captain:scored[0]?.player.name??null,captainPoints:scored[0]?.fixture.points??null,warnings:scored.length===15?'Hold-squad scenario only; no transfers or chips scheduled.':'At least one squad player has no usable fixture projection this GW.'};
+    const scored=ownPlayers.map(p=>({player:p,fixture:(()=>{const rows=p.future.filter(f=>f.gw===gw);return rows.length?{points:rows.reduce((sum,f)=>sum+f.points,0)}:undefined;})()})).filter((x):x is {player:LiveResearchPlayer;fixture:NonNullable<typeof x.fixture>}=>Boolean(x.fixture)).sort((a,b)=>b.fixture.points-a.fixture.points);
+    return {gw,captain:isComplete&&scored[0]&&scored[0].fixture.points>0?scored[0].player.name:null,captainPoints:isComplete&&scored[0]&&scored[0].fixture.points>0?scored[0].fixture.points:null,warnings:scored.length===15?'Hold-squad scenario only; no transfers or chips scheduled.':'At least one squad player has no usable fixture projection this GW.'};
   });
   return {mode:'live-inputs-uncalibrated',model:'vortex-shrinkage-v0.8',nextGameweek:nextGw,throughGameweek:nextGw+weeks-1,
     source:'FPL website JSON: public catalogue, fixture observations and manager picks (unsupported interface)',samplePlayers:list.length,
