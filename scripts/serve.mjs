@@ -36,7 +36,7 @@ createServer(async (req, res) => {
       'cache-control': extname(filename) === '.html' ? 'no-cache' : 'public, max-age=3600',
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'strict-origin-when-cross-origin',
-      'content-security-policy': "default-src 'self'; img-src 'self' https://resources.premierleague.com data:; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+      'content-security-policy': "default-src 'self'; img-src 'self' https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org data:; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'"
     }).end(req.method === 'HEAD' ? undefined : bytes);
   } catch (error) {
     console.error(error);

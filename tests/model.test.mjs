@@ -17,7 +17,7 @@ test('projection has sensible positive finite components', () => {
 });
 test('invalid gameweek index cannot silently use undefined difficulty', () => {
   assert.throws(() => projectPlayer(demoPlayers[0], -1), RangeError);
-  assert.throws(() => projectPlayer(demoPlayers[0], 6), RangeError);
+  assert.throws(() => projectPlayer(demoPlayers[0], 10), RangeError);
 });
 test('injury status reduces projection', () => {
   const base = demoPlayers[0];
@@ -59,7 +59,7 @@ test('extra transfers incur a four-point hit', () => {
   assert.equal(pair.netGain - corresponding.netGain,4);
 });
 test('horizon validation guards partial projections', () => {
-  assert.throws(() => projectedHorizon(demoPlayers[0],7), RangeError);
+  assert.throws(() => projectedHorizon(demoPlayers[0],11), RangeError);
 });
 test('CSV quotes strings and preserves selected horizon', () => {
   const csv = csvForPlayers(demoPlayers.slice(0,2),3);

@@ -2,6 +2,7 @@ import { demoPlayers } from '../dist/js/model.js';
 import { forecastDistribution } from '../dist/js/forecast-distribution.js';
 import { getDatasetStatus, readCurrentSnapshot } from './read-snapshot.mjs';
 import { createDatabasePool, readBacktest } from './history-store.mjs';
+import { readAppearanceSummary } from './appearance-store.mjs';
 
 let researchPoolPromise;
 async function researchPool() {
@@ -39,6 +40,8 @@ export async function handleApi(request, response, address) {
       respond(response, 200, { ok: true, product: 'FPLVORTEX', apiVersion: 'v1' }, isHead);
     } else if (address.pathname === '/api/v1/data/status') {
       respond(response, 200, await getDatasetStatus(), isHead);
+    } else if (address.pathname === '/api/v1/data/appearances') {
+      respond(response, 200, await readAppearanceSummary(), isHead);
     } else if (address.pathname === '/api/v1/data/players') {
       const result = await readCurrentSnapshot();
       if (!result) {
@@ -58,6 +61,14 @@ export async function handleApi(request, response, address) {
       const modelId = address.searchParams.get('modelId');
       const result = await readBacktest(await researchPool(), season, modelId);
       respond(response, 200, { ...result, warning: 'Temporal data checks do not prove forecasts were independently archived before kickoff. These metrics are exploratory until independently verified.' }, isHead);
+    } else if (address.pathname === '/api/v1/research/gw-validation') {
+      if (!process.env.DATABASE_URL) {
+        respond(response, 200, {season:'2026/27', targetGameweeks:[1,2,3,4,5,6], readiness:'awaiting archived pre-deadline predictions and verified results', byGameweek:[], metrics:null}, isHead);
+      } else {
+        const modelId = address.searchParams.get('modelId') ?? 'vortex-research-v1';
+        const results=await readBacktest(await researchPool(),'2026/27',modelId);
+        respond(response, 200, {season:'2026/27',targetGameweeks:[1,2,3,4,5,6],readiness:results.metrics?'exploratory imported evaluation':'awaiting archived pre-deadline predictions and verified results',byGameweek:results.metrics?.byGameweek.filter(item=>item.gameweek<=6)??[],metrics:results.metrics??null,warning:'Do not interpret scores as percentage accuracy or true out-of-sample validation without independently archived timestamps.'},isHead);
+      }
     } else if (address.pathname === '/api/v1/model/distribution') {
       const playerId = queryInteger(address.searchParams.get('playerId'), 'playerId', 1, 20_000_000);
       const gwIndex = queryInteger(address.searchParams.get('gameweekIndex') ?? '0', 'gameweekIndex', 0, 13);

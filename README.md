@@ -1,4 +1,4 @@
-# FPLVORTEX
+# FPLVORTEX v0.4
 
 **An original premium fantasy football decision platform.** This first commit contains a usable, dependency-light TypeScript application, independently written analytical demo functions, a responsive white/green/blue design, the user's transparent lion logo, and the Replica workflow planning documents.
 
@@ -74,3 +74,16 @@ DATABASE_URL='postgres://app:password@localhost:5432/fplvortex' node scripts/imp
 ```
 
 Then query `GET /api/v1/research/backtest?season=2025%2F26&modelId=vortex-prototype-0.2` to see MAE, RMSE, bias, starting-probability Brier score and calibration. No real history has been connected, and the model remains untrained. Archived predictions need independent provenance to qualify for true out-of-sample validation. See [Historical evaluation](docs/historical-evaluation.md).
+
+
+## v0.4 Premium Analytics & 10-GW Research Solver
+
+The interactive app now has larger accessible navigation/type, the top-left transparent lion brand, sortable ten-column filled-FDR fixture grid (`TOT [H] - 2`), separate attacking xG/xA and CS% screens, and a bounded 10-GW transfer + chip strategy planner. Player Intelligence offers columns for recorded starts / GWs, substitute-on counts, substituted-off starts, actual average minutes and ninety-equivalents, with truthful blanks until an approved appearance source exists.
+
+The standalone **independent research formula** is in `src/vortex-analytics.ts`, the **beam-search solver** in `src/deep-solver.ts`. All demo predictions remain illustrative and untrained. There are no claims of matching or outperforming Opta, FPLReview, or any other commercially trained model. See `docs/v0.4-validation-plan.md` for a source-rights and temporal holdout evaluation plan; `/api/v1/research/gw-validation` exposes GW1–GW6 archival status.
+
+Real credited player images (Haaland and Saka) use Wikimedia Commons with author and CC BY-SA attribution in `docs/photo-credits.md`. Every remaining player falls back to initials rather than using unlicensed third-party shirt/jersey images. Production photo expansion requires a rights-cleared catalog.
+
+The official [2026/27 chip rules](https://www.premierleague.com/en/news/4679879/whats-happening-with-fpl-chips-in-202627) allow one of each chip in both halves of the season, with one chip per gameweek, and WC/FH retaining banked free transfers. The research solver currently supports the first-half GW7–GW16 demo horizon and is not a complete official-rules solver.
+
+**No real historical backtest metrics are available until an authorized source and pre-deadline forecast archives are imported.** The user can open the GW1–GW6 audit in Data Studio to see coverage and real MAE/RMSE only after those prerequisites.

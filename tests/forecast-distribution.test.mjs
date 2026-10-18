@@ -31,7 +31,7 @@ test('an easier opponent produces better simulated output for the same player', 
   assert.ok(easy.expectedPoints > hard.expectedPoints);
 });
 test('invalid seeds, horizons and simulation budgets are rejected', () => {
-  assert.throws(() => forecastDistribution(demoPlayers[0], 6), RangeError);
+  assert.throws(() => forecastDistribution(demoPlayers[0], 10), RangeError);
   assert.throws(() => forecastDistribution(demoPlayers[0], 0, 99), RangeError);
   assert.throws(() => forecastDistribution(demoPlayers[0], 0, 100, -1), RangeError);
   assert.throws(() => forecastDistribution(demoPlayers[0], 0, 100, 2**40), RangeError);
