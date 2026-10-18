@@ -20,3 +20,6 @@
 .simulation-result{min-height:64px;margin:12px 0;padding:18px;background:#edf8f2;color:#104f3d;border-radius:12px;line-height:1.6;font-weight:650}
 .simulation-panel .disclaimer-strip{margin:12px 0 0}
 @media(max-width:650px){.simulation-controls{flex-direction:column;align-items:stretch}.simulation-controls .select-wrapper{width:100%}}
+
+/* Research queries retain the established neutral, green and blue palette. */
+.backtest-panel{margin-top:20px}.backtest-panel .simulation-controls{flex-wrap:wrap}.backtest-panel input{background:#fff;border:1px solid #d8e5e1;border-radius:10px;padding:11px 14px;color:#172a31;font:inherit;max-width:250px}.backtest-panel .source-state{line-height:1.8;word-break:break-word}

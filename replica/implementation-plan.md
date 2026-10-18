@@ -74,3 +74,13 @@ Project/product name, where code should be created, whether launch is public/com
 - GitHub Actions test workflow prepared; remote CI execution must be confirmed independently.
 
 **Not implemented:** licensed provider connector, historical backtesting, PostgreSQL persistence, automatically scheduled refresh, real ML training, multigameweek solver, authenticated user account, commercial headshot distribution and production launch. The earlier milestone durations remain planning estimates only.
+
+## Phase 3 — Historical validation and PostgreSQL research (implemented as a draft)
+
+- Research migration `migrations/0001_historical_backtests.sql` defines append-only imports and per-player-gameweek outcomes.
+- `scripts/import-history.mjs` validates operator-attested rights, strict as-of dates, player/week uniqueness and probabilistic bounds. Preview with `--validate-only`; PostgreSQL writes require `--write` and `DATABASE_URL`.
+- Model evaluation reports MAE, RMSE, bias, starting XI Brier, per-GW error and reliability bands. All results remain labelled unverified archival evidence.
+- `Data Studio` provides an optional historical report lookup. No source history is loaded by default.
+- Unit/API tests pass locally. A real PostgreSQL integration test is configured for GitHub Actions and skipped when `TEST_DATABASE_URL` is unavailable.
+
+**Not yet complete:** independently time-stamped forecast archives, provider licensing review, training pipelines, real FPL player/headshot datasets, model calibration, live refresh automation, browser E2E tests and deployment. Do not merge or deploy as a production prediction service yet.

@@ -61,3 +61,16 @@ Product feature audits: https://fplreview.com/ , https://docs.fplreview.com/ , h
 The `feat/premium-vortex-foundation` branch now includes a read-only JSON API, manual **authorized** source ingestion, hash-verified immutable snapshots, freshness reporting in Data Studio, deterministic Monte Carlo research, and extra unit/integration tests. This is **not a live FPL feed** and has no trained forecasting model. The dashboard remains explicitly illustrative even when data snapshots have been imported.
 
 Run `npm test` for unit and HTTP/import integration tests. Read [data ingestion instructions](docs/data-ingestion.md) before using your own licensed source.
+
+## Phase 3: PostgreSQL and historical evaluation (v0.3)
+
+The optional historical research service uses PostgreSQL 16+ via `pg`. Without `DATABASE_URL`, the demo UI runs normally, and history requests explicitly return 503.
+
+```sh
+npm install
+DATABASE_URL='postgres://app:password@localhost:5432/fplvortex' npm run db:migrate
+node scripts/import-history.mjs --input /path/to/authorized-history.json --validate-only
+DATABASE_URL='postgres://app:password@localhost:5432/fplvortex' node scripts/import-history.mjs --input /path/to/authorized-history.json --write
+```
+
+Then query `GET /api/v1/research/backtest?season=2025%2F26&modelId=vortex-prototype-0.2` to see MAE, RMSE, bias, starting-probability Brier score and calibration. No real history has been connected, and the model remains untrained. Archived predictions need independent provenance to qualify for true out-of-sample validation. See [Historical evaluation](docs/historical-evaluation.md).

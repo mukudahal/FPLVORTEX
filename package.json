@@ -1,9 +1,9 @@
 {
   "name": "fplvortex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Original fantasy football decision platform \u2014 demo-first architecture",
+  "description": "Original FPL analytics, licensed-data contracts and reproducible historical evaluation",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build.mjs",
     "dev": "npm run build && node scripts/serve.mjs",
@@ -11,12 +11,18 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "check": "npm run test",
     "import:data": "npm run build && node scripts/import-snapshot.mjs",
-    "validate:data": "npm run build && node scripts/import-snapshot.mjs --validate-only"
+    "validate:data": "npm run build && node scripts/import-snapshot.mjs --validate-only",
+    "db:migrate": "node scripts/migrate.mjs",
+    "history:validate": "node scripts/import-history.mjs --validate-only",
+    "history:import": "node scripts/import-history.mjs --write"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
   }
 }

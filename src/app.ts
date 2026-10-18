@@ -196,6 +196,31 @@ async function refreshDatasetStatus(): Promise<void> {
     if (current) current.textContent = 'Data service unavailable. All model outputs shown elsewhere are illustrative.';
   }
 }
+async function loadBacktest(): Promise<void> {
+  const output = document.querySelector<HTMLElement>('#backtest-output');
+  const season = document.querySelector<HTMLSelectElement>('#backtest-season')?.value;
+  const modelId = document.querySelector<HTMLInputElement>('#backtest-model')?.value.trim();
+  if (!output || !season || !modelId || !/^[a-zA-Z0-9][\w.-]{0,99}$/.test(modelId)) {
+    if (output) output.textContent = 'Provide a valid model ID.';
+    return;
+  }
+  output.textContent = 'Checking the research database…';
+  try {
+    const params = new URLSearchParams({season, modelId});
+    const response = await fetch(`/api/v1/research/backtest?${params.toString()}`, {cache:'no-store'});
+    if (!response.ok) {
+      const failure: unknown = await response.json();
+      const reason = failure && typeof failure === 'object' && 'error' in failure && typeof failure.error === 'string' ? failure.error : `HTTP ${response.status}`;
+      throw new Error(reason);
+    }
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== 'object' || !('metrics' in payload)) throw new Error('Invalid evaluation response');
+    const summary = payload as {metrics: null | {samples:number;gameweeks:number;mae:number;rmse:number;meanBias:number;startingBrier:number;caution:string|null}};
+    if (!summary.metrics) { output.textContent = 'No archived evaluation records for that season and model.'; return; }
+    const metrics = summary.metrics;
+    output.textContent = `${metrics.samples} archived player-GW observations across ${metrics.gameweeks} GWs · MAE ${metrics.mae.toFixed(2)} · RMSE ${metrics.rmse.toFixed(2)} · Bias ${metrics.meanBias.toFixed(2)} · Start Brier ${metrics.startingBrier.toFixed(3)}. ${metrics.caution ?? ''} These are exploratory until independent forecast timestamps are verified.`;
+  } catch(error) { output.textContent = error instanceof Error ? error.message : 'Research database unavailable'; }
+}
 async function runSimulation(): Promise<void> {
   const output = document.querySelector<HTMLElement>('#simulation-result');
   const playerId = Number(document.querySelector<HTMLSelectElement>('#simulation-player')?.value);
@@ -230,6 +255,7 @@ function downloadCsv():void {
 function bind():void {
   document.querySelectorAll<HTMLImageElement>('.portrait img').forEach(image=>image.addEventListener('error',()=>image.remove()));
   document.querySelector<HTMLButtonElement>('#refresh-source')?.addEventListener('click', () => { void refreshDatasetStatus(); });
+  document.querySelector<HTMLButtonElement>('#load-backtest')?.addEventListener('click', () => { void loadBacktest(); });
   document.querySelector<HTMLButtonElement>('#run-simulation')?.addEventListener('click', () => { void runSimulation(); });
   document.querySelector<HTMLButtonElement>('#mobile-toggle')?.addEventListener('click',()=>{state.menuOpen=!state.menuOpen;render();});
   document.querySelector<HTMLSelectElement>('#gw-select')?.addEventListener('change',event=>{const value=Number((event.target as HTMLSelectElement).value);state.gw=value;render();});

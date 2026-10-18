@@ -1,6 +1,13 @@
 import { demoPlayers } from '../dist/js/model.js';
 import { forecastDistribution } from '../dist/js/forecast-distribution.js';
 import { getDatasetStatus, readCurrentSnapshot } from './read-snapshot.mjs';
+import { createDatabasePool, readBacktest } from './history-store.mjs';
+
+let researchPoolPromise;
+async function researchPool() {
+  if (!researchPoolPromise) researchPoolPromise = createDatabasePool().catch(error=>{researchPoolPromise=undefined;throw error;});
+  return researchPoolPromise;
+}
 
 function respond(response, statusCode, body, isHead = false) {
   const bytes = JSON.stringify(body);
@@ -40,6 +47,17 @@ export async function handleApi(request, response, address) {
       }
       const status = await getDatasetStatus();
       respond(response, 200, { status, players: result.snapshot.players }, isHead);
+    } else if (address.pathname === '/api/v1/research/status') {
+      respond(response, 200, { databaseConfigured: Boolean(process.env.DATABASE_URL), historicalEvaluation: 'requires validated archived forecasts', trainedModelAvailable: false }, isHead);
+    } else if (address.pathname === '/api/v1/research/backtest') {
+      if (!process.env.DATABASE_URL) {
+        respond(response, 503, { error: 'Research database not configured', metrics: null }, isHead);
+        return true;
+      }
+      const season = address.searchParams.get('season');
+      const modelId = address.searchParams.get('modelId');
+      const result = await readBacktest(await researchPool(), season, modelId);
+      respond(response, 200, { ...result, warning: 'Temporal data checks do not prove forecasts were independently archived before kickoff. These metrics are exploratory until independently verified.' }, isHead);
     } else if (address.pathname === '/api/v1/model/distribution') {
       const playerId = queryInteger(address.searchParams.get('playerId'), 'playerId', 1, 20_000_000);
       const gwIndex = queryInteger(address.searchParams.get('gameweekIndex') ?? '0', 'gameweekIndex', 0, 13);
