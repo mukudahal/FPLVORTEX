@@ -9,7 +9,24 @@ const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;'
 const amount=(value:number|null,decimals=0)=>value===null?'—':value.toFixed(decimals);
 const gbp=(tenths:number|null)=>tenths===null?'—':`£${(tenths/10).toFixed(1)}m`;
 const compact=(n:number|null)=>n===null?'—':Math.abs(n)>=1000?`${(n/1000).toFixed(1)}k`:n.toLocaleString();
-const teams:Record<string,string>={MCI:'#74cfeb',ARS:'#e74d55',MUN:'#ed5b52',LIV:'#d73c58',CHE:'#427cea',TOT:'#e3e7f0',NEW:'#232d42',AVL:'#ab4970',BHA:'#4787e5',EVE:'#4477e6',LEE:'#f4d954',BRE:'#dd5165'};
+/** Club colors identify clubs; amber/red statuses identify availability risk, not club affiliation. */
+const clubPalette:Record<string,{primary:string;secondary:string;text:string}>={
+  ARS:{primary:'#bd1239',secondary:'#f53b65',text:'#fff'},AVL:{primary:'#660a34',secondary:'#a84d82',text:'#fff'},
+  BHA:{primary:'#0958ad',secondary:'#238dde',text:'#fff'},BOU:{primary:'#bb1737',secondary:'#e53854',text:'#fff'},
+  BRE:{primary:'#c71224',secondary:'#f44950',text:'#fff'},CHE:{primary:'#0630b9',secondary:'#3180f5',text:'#fff'},
+  CRY:{primary:'#2338b3',secondary:'#e23c57',text:'#fff'},COV:{primary:'#0878a9',secondary:'#37a4da',text:'#fff'},
+  EVE:{primary:'#0734ab',secondary:'#4269ec',text:'#fff'},FUL:{primary:'#303e52',secondary:'#64748b',text:'#fff'},
+  HUL:{primary:'#b26205',secondary:'#ea9e1a',text:'#111827'},IPS:{primary:'#0046a9',secondary:'#317de8',text:'#fff'},
+  LEE:{primary:'#e2b518',secondary:'#ffe85f',text:'#1d2939'},LIV:{primary:'#ac0b26',secondary:'#e8344c',text:'#fff'},
+  MCI:{primary:'#1383c8',secondary:'#69c9f4',text:'#0b2742'},MUN:{primary:'#af1d18',secondary:'#ee4d49',text:'#fff'},
+  NEW:{primary:'#18202d',secondary:'#596579',text:'#fff'},NFO:{primary:'#b91c1c',secondary:'#f04f55',text:'#fff'},
+  SUN:{primary:'#ca1726',secondary:'#f15958',text:'#fff'},TOT:{primary:'#102443',secondary:'#3d5e8d',text:'#fff'}
+};
+const palette=(club:string)=>clubPalette[club]??{primary:'#135b77',secondary:'#24a0b4',text:'#fff'};
+const availabilityTone=(status:string|null|undefined):'ready'|'doubt'|'out'|'unknown'=>{
+  if(status==='a')return 'ready';if(status==='d')return 'doubt';
+  if(['i','s','u','n'].includes(status??''))return 'out';return 'unknown';
+};
 const knownPhotos:Record<string,{name:string;url:string;license:string}>={
   'haaland':{name:'Bryan Berlin / WikiPortraits',url:'Erling_Haaland_France_v_Norway_26_June_26-008.jpg',license:'CC BY-SA 4.0'},
   'saka':{name:'Bryan Berlin / WikiPortraits',url:'Bukayo_Saka_England_v_Panama_27_June_26-108_(cropped).jpg',license:'CC BY-SA 4.0'},
@@ -21,7 +38,8 @@ function portrait(name:string,club='',size='medium'){
   const key=name.toLowerCase().replace(/[^\p{L} ]/gu,'').trim();
   const credit=knownPhotos[key]??(key.includes('haaland')?knownPhotos.haaland:key.includes('saka')?knownPhotos.saka:key.includes('watkins')?knownPhotos.watkins:key.includes('van dijk')?knownPhotos['van dijk']:key==='eze'?knownPhotos.eze:undefined);
   const photo=credit?`<img loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(credit.url)}?width=140" alt="${esc(name)}" title="${esc(credit.name)} · ${esc(credit.license)}" />`:'';
-  return `<span class="home-portrait home-portrait-${size}" style="--home-club:${teams[club]??'#c4f5eb'}"><b>${esc(name.slice(0,2).toUpperCase())}</b>${photo}</span>`;
+  const colors=palette(club);
+  return `<span class="home-portrait home-portrait-${size}" style="--home-club:${colors.primary};--home-club-secondary:${colors.secondary};--home-club-ink:${colors.text}" aria-label="${esc(name)} portrait or initials"><b>${esc(name.split(/\s+/).map(x=>x[0]??'').slice(-2).join('').toUpperCase())}</b>${photo}</span>`;
 }
 function tab(key:string,label:string,selected:boolean,attr:string){return `<button type="button" class="home-tab ${selected?'is-selected':''}" data-${attr}="${esc(key)}" aria-pressed="${selected}">${esc(label)}</button>`;}
 export function orderLeaders(players:HomePlayer[],by:HomeUi['leaderSort']){
@@ -42,7 +60,10 @@ function pitch(data:HomePayload|null,ui:HomeUi){
   const card=(p:HomePick)=>{
     const source=catalog.get(p.id);const name=p.name??source?.name??`Player #${p.id}`;
     const pts=entry?.picks?.gameweek===data?.currentGameweek?source?.gwPoints:null;
-    return `<div class="home-pitch-player" title="${esc(name)} · ${esc(p.club??source?.club??'')} · ${pts??'points pending'}"><div class="home-pitch-head">${portrait(name,p.club??source?.club??'','large')}${p.isCaptain?'<span class="home-pitch-captain">C</span>':p.isViceCaptain?'<span class="home-pitch-vice">V</span>':''}</div><b>${esc(name)}</b><small>${pts??'—'} ${pts===null?'':'pts'}</small></div>`;
+    const club=p.club??source?.club??'';const colors=palette(club);
+    const status=availabilityTone(source?.status??p.officialStatus);
+    const statusLabel=status==='out'?'Reported unavailable':status==='doubt'?'Availability doubt':status==='ready'?'FPL available':'Availability not reported';
+    return `<div class="home-pitch-player home-status-${status}" style="--home-club:${colors.primary};--home-club-secondary:${colors.secondary};--home-club-ink:${colors.text}" title="${esc(name)} · ${esc(club)} · ${pts??'GW points pending'} · ${esc(statusLabel)}"><div class="home-pitch-head">${portrait(name,club,'large')}${p.isCaptain?'<span class="home-pitch-captain" aria-label="Captain">C</span>':p.isViceCaptain?'<span class="home-pitch-vice" aria-label="Vice captain">V</span>':''}${status==='out'||status==='doubt'?`<span class="home-pitch-risk" aria-label="${esc(statusLabel)}">!</span>`:''}</div><div class="home-player-clubline">${esc(club||'TEAM')} · ${esc(key(p))}</div><b>${esc(name)}</b><small aria-label="${pts??'Unknown'} gameweek points">${pts??'—'} ${pts===null?'pending':'pts'}</small></div>`;
   };
   if(selected.length===0)return `<div class="home-pitch-empty"><span class="home-empty-mark">⚽</span><strong>${ui.waiting?'Connecting to your FPL squad…':'Your live squad goes here'}</strong><p>${esc(ui.error||'Use Refresh live data to retrieve your current 15-player team from FPL. No demo squad is presented as your real team.')}</p><button type="button" data-home-reload class="home-btn home-btn-lime">↻ Refresh live squad</button></div>`;
   const groups=['GKP','DEF','MID','FWD'].map(pos=>selected.filter(p=>key(p)===pos));

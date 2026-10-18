@@ -69,3 +69,18 @@ test('Home emits no invented squad if source is unavailable',()=>{
  assert.match(html,/Your live squad goes here/);assert.match(html,/Goals/);assert.match(html,/CS %/);assert.match(html,/Win %/);
  assert.match(html,/Latest FPLVORTEX videos/);assert.match(html,/data-home-reload/);
 });
+
+test('Home pitch preserves team-colored player cards, captaincy and semantic injury colors',()=>{
+ const pickRows=Array.from({length:15},(_,i)=>({id:100+i,position:i+1,multiplier:i<11?1:0,isCaptain:i===0,isViceCaptain:i===1,name:i===0?'Haaland':i===1?'Saka':`Test ${i+1}`,club:i===0?'MCI':i===1?'ARS':'LIV',positionName:i===0?'GKP':i<4?'DEF':i<8?'MID':'FWD',priceTenths:50,officialStatus:i===0?'a':i===1?'d':'a'}));
+ const roster=pickRows.map((p,i)=>({id:p.id,name:p.name,fullName:p.name,club:p.club,position:p.positionName,points:12,gwPoints:3,priceTenths:50,selected:5,transferIn:0,transferOut:0,costChangeEvent:0,status:i===1?'d':'a',news:i===1?'Possible knock':'',chance:i===1?75:null,photo:null}));
+ const page=renderHome({entryId:145784,asOf:'2026-10-18',currentGameweek:7,nextGameweek:8,entry:{entryId:145784,teamName:'Fixture test',overallRank:40000,overallPoints:450,eventPoints:39,currentGameweek:7,bankInTenths:10,teamValueInTenths:990,picks:{gameweek:7,players:pickRows}},players:roster,fixtures:[],predictions:[],live:{entry:true,players:true,fixtures:false,model:false},video:{ids:[],channelUrl:null},notices:[]},{goalSort:'xg',leaderSort:'points',leaderPage:0,fixturePage:0,marketPage:0,injuryFilter:'all',preview:false,waiting:false,error:''});
+ assert.match(page,/home-pitch-player home-status-ready/);
+ assert.match(page,/home-pitch-player home-status-doubt/);
+ assert.match(page,/--home-club:#1383c8/);
+ assert.match(page,/--home-club:#bd1239/);
+ assert.match(page,/home-pitch-captain/);
+ assert.match(page,/home-pitch-vice/);
+ assert.match(page,/SUBSTITUTES/);
+ assert.match(page,/Reported unavailable|Availability doubt/);
+ assert.match(page,/Special:FilePath\/Erling_Haaland/);
+});
