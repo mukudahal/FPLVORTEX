@@ -24,7 +24,7 @@ test('sync reads public manager rank, points, chip history and picks without dem
  const s=source();const result=await fetchLiveFplEntry(145784,{fetchImpl:s.fetchImpl,now:()=>Date.UTC(2026,9,17),bypassCache:true});
  assert.equal(result.entryId,145784);assert.equal(result.overallRank,10345);assert.equal(result.overallPoints,443);
  assert.equal(result.chipsPlayed[0].gameweek,4);assert.equal(result.picks.playerIds.length,15);
- assert.equal(result.picks.captainId,1);assert.equal(result.picks.players[0].name,'Player 1');assert.equal(result.picks.players[0].club,'ARS');assert.equal(result.picks.players[1].isViceCaptain,true);assert.equal(s.seen.length,5);
+ assert.equal(result.picks.captainId,1);assert.equal(result.picks.players[0].name,'Player 1');assert.equal(result.picks.players[0].club,'ARS');assert.equal(result.picks.players[1].isViceCaptain,true);assert.equal(s.seen.length,6);
  assert.equal(result.bankInTenths,14);
  assert.match(result.caution,/not automatically mapped/);
 });
@@ -32,8 +32,8 @@ test('blocked pick calls do not make an otherwise valid rank disappear',async()=
  const s=source({missingPicks:true});const result=await fetchLiveFplEntry(145784,{fetchImpl:s.fetchImpl,now:()=>Date.now(),bypassCache:true});
  assert.equal(result.overallRank,10345);assert.equal(result.picks,null);
 });
-test('malformed history rejected rather than manufacturing rank or chip data',async()=>{
- const s=source({badHistory:true});await assert.rejects(()=>fetchLiveFplEntry(145784,{fetchImpl:s.fetchImpl,bypassCache:true}),/history/);
+test('malformed history preserves profile but reports unknown chip history',async()=>{
+ const s=source({badHistory:true});const result=await fetchLiveFplEntry(145784,{fetchImpl:s.fetchImpl,bypassCache:true});assert.equal(result.overallRank,10345);assert.equal(result.chipHistoryKnown,false);assert.deepEqual(result.chipsPlayed,[]);assert.ok(result.warnings.some(w=>w.includes('history')));
 });
 test('mismatched entry response rejected',async()=>{
  const fetchImpl=async url=>json(url.endsWith('/history/')?{current:[],chips:[]}:{id:12});
