@@ -1,5 +1,16 @@
 # FPLVORTEX
 
+## v0.9 — Official squad decision desk
+
+On-demand sync now shows the actual last-deadline 15-player roster, captain/vice captain, reported bank/value, GW/rank/points, chip history and public transfer log. Entry 145784 is prefilled; no personal snapshot is bundled. Source facts and editorial review priorities are separate from optional, unvalidated model estimates and fictional demo solver tools.
+
+A facts-based calendar covers every upcoming GW through GW19 (currently GW8–19), including multiple fixtures and missing coverage. A single-move checker requires manager-confirmed bank, sale price and FTs before checking affordability, position, club limits and standard hit. It does not optimize real transfers or chips. Optional match-history loading provides starts/sub-on and minutes per appearance; sub-off stays unknown.
+
+Run `npm ci`, `npm run typecheck`, `npm test`, then `npm start`. The read-only sync uses the official FPL host and no credentials or polling. Source failures preserve available facts with explicit warnings. No validated player forecast or top-5K probability is claimed. See [v0.9 scope and verification](docs/v0.9-decision-desk.md). Do not deploy this draft.
+
+The following sections document earlier milestones and their historical limitations.
+
+
 ## v0.8 — Live-squad decision research
 
 The **Top 5K · GW19** tab can now show independently calculated, provisional next-GW player projections from a manager-initiated FPL profile, public player catalogue and a single public fixture snapshot. After entering an FPL ID, press **Sync live FPL rank**. A 10-GW hold-squad captain roadmap, opponent/FDR, starts/club matches, minutes, 90s, official availability/news, and ranked **review-only** candidate alternatives appear only after the upstream source succeeds. No price-transaction or chip action occurs.
