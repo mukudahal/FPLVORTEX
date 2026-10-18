@@ -6,6 +6,7 @@ import { readAppearanceSummary } from './appearance-store.mjs';
 import { readPublicLeague } from './public-league-store.mjs';
 import { fixtureMatrix, leagueCoverage, retrospectiveTeamBacktest } from '../src/public-league.mjs';
 import { fetchLiveFplEntry } from './fpl-entry-client.mjs';
+import { getHomeOverview } from './home-data.mjs';
 
 let researchPoolPromise;
 async function researchPool() {
@@ -41,6 +42,10 @@ export async function handleApi(request, response, address) {
   try {
     if (address.pathname === '/api/v1/health') {
       respond(response, 200, { ok: true, product: 'FPLVORTEX', apiVersion: 'v1' }, isHead);
+    } else if (address.pathname === '/api/v1/home/overview') {
+      const rawGw=address.searchParams.get('gw');
+      const gw=rawGw===null?null:queryInteger(rawGw,'gw',1,38);
+      respond(response,200,await getHomeOverview(address.searchParams.get('entryId'),{gw}),isHead);
     } else if (address.pathname === '/api/v1/fpl/entry') {
       const snapshot=await fetchLiveFplEntry(address.searchParams.get('entryId'),{includeAppearances:address.searchParams.get('appearances')==='1'});
       respond(response,200,snapshot,isHead);

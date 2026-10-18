@@ -1,3 +1,7 @@
+## Home interface upgrade — premium horizontal dashboard
+
+The **Home** route is redesigned for the user's screenshots, retaining a distinct FPLVORTEX layout: top-horizontal gradient navigation (only Home visible until subsequent tab names are chosen), top-left lion logo, live FPL squad pitch, current-GW match center, next-GW Goals/CS%/Win% sorted research columns, top players, separate price changes vs net transfers, injury flags and configurable owner-owned YouTube videos. On-demand source reports are distinguished from uncalibrated, independent projections. See `docs/home-v0.10.md`. No commercial photo use is claimed for unlicensed portraits.
+
 # FPLVORTEX
 
 ## v0.9 — Official squad decision desk

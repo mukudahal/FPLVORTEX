@@ -8,13 +8,14 @@ import {
 import { forecastVortex, type AppearanceSummary, type Appearance } from './vortex-analytics.js';
 import { solveDeepPlan, type DeepPlan } from './deep-solver.js';
 import { buildRankChaseAdvice, parseRankChaseProfile, TARGET_GW, TARGET_RANK, AVAILABLE_CHIPS, type RankChaseProfile, type RankChaseAdvice } from './rank-chase.js';
+import { renderHome, type HomePayload, type HomeUi } from './home.js';
 
 const root = document.querySelector<HTMLElement>('#app');
 if (!root) throw new Error('Missing application root');
 const appRoot: HTMLElement = root;
 
 const pages = [
-  { slug: 'overview', label: 'Command Center', icon: '◫', category: 'workspace' },
+  { slug: 'overview', label: 'Home', icon: '◫', category: 'workspace' },
   { slug: 'squad', label: 'Squad Forge', icon: '♙', category: 'workspace' },
   { slug: 'chase', label: 'Top 5K · GW19', icon: '♛', category: 'workspace' },
   { slug: 'players', label: 'Player Intelligence', icon: '◎', category: 'workspace' },
@@ -118,26 +119,31 @@ function playerRow(player: Player, rank: number): string {
   </tr>`;
 }
 function navMarkup(): string {
-  return `<aside class="sidebar ${state.menuOpen ? 'sidebar-open' : ''}">
-    <a class="sidebar-brand" href="#/overview" aria-label="FPLVORTEX home"><img class="brand-logo" src="/assets/fplvortex-logo.webp" alt="FPLVORTEX crowned lion logo" /><span class="brand-tagline">FANTASY INTELLIGENCE</span></a>
-    <div class="sidebar-divider"></div>
-    <p class="nav-caption">WORKSPACE</p>
-    <nav aria-label="Primary navigation">${pages.filter(page => page.category === 'workspace').map(page => navItem(page)).join('')}</nav>
-    <p class="nav-caption nav-caption-second">INTELLIGENCE SUITE</p>
-    <nav aria-label="Analytics navigation">${pages.filter(page => page.category === 'intelligence').map(page => navItem(page)).join('')}</nav>
-    <div class="sidebar-bottom"><div class="status-circle"></div><div><strong>Vortex Studio</strong><small>Prototype environment</small></div><span class="sidebar-bottom-arrow">↗</span></div>
-  </aside>`;
-}
-function navItem(page: typeof pages[number]): string {
-  return `<a href="#/${page.slug}" class="nav-link ${state.page === page.slug ? 'active' : ''}" ${state.page === page.slug ? 'aria-current="page"' : ''}><span class="nav-icon">${page.icon}</span><span>${page.label}</span>${page.slug === 'strategy' ? '<span class="nav-new">NEW</span>' : ''}</a>`;
+  return `<header class="vortex-horizontal-header"><a class="vortex-brand" href="#/overview" aria-label="FPLVORTEX Home"><img src="/assets/fplvortex-logo.webp" alt="FPLVORTEX crowned lion logo" /><span>FPL<span>VORTEX</span><small>FANTASY INTELLIGENCE</small></span></a><nav class="vortex-horizontal-tabs" aria-label="Main navigation"><a href="#/overview" class="vortex-nav-home ${state.page==='overview'?'is-active':''}" aria-current="${state.page==='overview'?'page':'false'}">⌂ <span>Home</span></a></nav><div class="vortex-header-trailing"><span class="vortex-season">⚽ 2026/27</span><span class="vortex-rank-target">♛ TARGET <b>TOP 5K · GW19</b></span></div></header>`;
 }
 function shell(content: string): string {
-  const title = pages.find(page => page.slug === state.page)?.label || 'Command Center';
-  return `${navMarkup()}<div class="app-shell"><header class="topbar">
-    <div class="topbar-left"><button class="mobile-toggle" id="mobile-toggle" aria-label="Open menu">☰</button><div class="breadcrumbs">Platform <span>/</span> <strong>${escapeHtml(title)}</strong></div></div>
-    <div class="topbar-right"><span class="demo-indicator"><span class="demo-dot"></span> ${state.page==='chase'&&officialSnapshot?'OFFICIAL FACTS · DEMO TOOLS':'ILLUSTRATIVE DATA'}</span><span class="header-divider"></span><span class="topbar-avatar">FV</span></div>
-  </header><main class="main-content">${content}</main><footer class="page-footer"><span>© 2026 FPLVORTEX · Independent fantasy intelligence.</span><span>Prototype dataset · No real-time predictions</span></footer></div>${state.notice ? `<div class="toast" role="status">${escapeHtml(state.notice)}</div>` : ''}`;
+  return `${navMarkup()}<div class="app-shell vortex-wide-shell"><main class="main-content ${state.page==='overview'?'home-main':''}">${content}</main><footer class="page-footer"><span>© 2026 FPLVORTEX · Original fantasy intelligence.</span><span>Verified source facts are labeled separately from experimental forecasts.</span></footer></div>${state.notice ? `<div class="toast" role="status">${escapeHtml(state.notice)}</div>` : ''}`;
 }
+let homeData:HomePayload|null=null;
+const homeUi:HomeUi={goalSort:'xg',leaderSort:'points',leaderPage:0,fixturePage:0,marketPage:0,injuryFilter:'all',preview:false,waiting:false,error:''};
+let homeAttempted=false;
+let homeSelectedGw:number|null=null;
+function homePage():string{return renderHome(homeData,homeUi);}
+async function loadHome(force=false):Promise<void>{
+  if(homeUi.waiting||(!force&&homeAttempted))return;
+  homeAttempted=true;homeUi.waiting=true;homeUi.error='';if(state.page==='overview')render();
+  try{
+    const params=new URLSearchParams({entryId:String(rankProfile.entryId??145784)});
+    if(homeSelectedGw!==null)params.set('gw',String(homeSelectedGw));
+    const res=await fetch(`/api/v1/home/overview?${params}`,{cache:'no-store'});
+    if(!res.ok)throw new Error(`Home data service returned HTTP ${res.status}`);
+    const parsed:unknown=await res.json();
+    if(!parsed||typeof parsed!=='object'||!('live' in parsed)||!('entryId' in parsed))throw new Error('Invalid home service response');
+    homeData=parsed as HomePayload;
+  }catch(error){homeUi.error=error instanceof Error?error.message:'Unable to load FPL home data';}
+  finally{homeUi.waiting=false;if(state.page==='overview')render();}
+}
+
 function header(title: string, subtitle: string, kicker: string, actions = ''): string {
   return `<div class="page-heading"><div><span class="eyebrow"><span class="eyebrow-dash"></span>${escapeHtml(kicker)}</span><h1>${title}</h1><p>${escapeHtml(subtitle)}</p></div><div class="heading-actions">${actions}</div></div>`;
 }
@@ -308,9 +314,10 @@ function reviewPage():string {
 }
 function render(): void {
   state.page = getCurrentPage();
-  const views:Record<Page,()=>string>={overview:dashboard,squad:squadPage,chase:chasePage,players:playersPage,fixtures:fixturesPage,goals:attackingPage,cleansheets:cleanSheetPage,solver:solverPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage,data:dataPage};
+  const views:Record<Page,()=>string>={overview:homePage,squad:squadPage,chase:chasePage,players:playersPage,fixtures:fixturesPage,goals:attackingPage,cleansheets:cleanSheetPage,solver:solverPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage,data:dataPage};
   appRoot.innerHTML=shell(views[state.page]());
   bind();
+  if (state.page === 'overview' && !homeAttempted) void loadHome();
   if (state.page === 'data') { void refreshDatasetStatus(); void loadPublicLeagueAudit(); }
   if (state.page === 'fixtures') void loadPublicFixtureMatrix();
   if (state.page === 'players' && appearanceStatus === 'unrequested') void loadAppearances();
@@ -519,6 +526,14 @@ async function syncFplLiveRank(includeAppearances=false):Promise<void> {
 }
 
 function bind():void {
+  document.querySelectorAll<HTMLButtonElement>('[data-home-goal]').forEach(btn=>btn.addEventListener('click',()=>{homeUi.goalSort=btn.dataset.homeGoal as HomeUi['goalSort'];render();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-home-leader]').forEach(btn=>btn.addEventListener('click',()=>{homeUi.leaderSort=btn.dataset.homeLeader as HomeUi['leaderSort'];homeUi.leaderPage=0;render();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-home-injury]').forEach(btn=>btn.addEventListener('click',()=>{homeUi.injuryFilter=btn.dataset.homeInjury as HomeUi['injuryFilter'];render();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-home-page]').forEach(btn=>btn.addEventListener('click',()=>{const [kind,direction]=String(btn.dataset.homePage).split(':');const key=kind==='leaders'?'leaderPage':'marketPage';homeUi[key]=Math.max(0,homeUi[key]+(direction==='next'?1:-1));render();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-home-gw]').forEach(btn=>btn.addEventListener('click',()=>{const current=homeSelectedGw??homeData?.currentGameweek??7;homeSelectedGw=Math.min(38,Math.max(1,current+(btn.dataset.homeGw==='next'?1:-1)));homeData=null;homeAttempted=false;void loadHome();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-home-reload]').forEach(btn=>btn.addEventListener('click',()=>{homeAttempted=false;void loadHome(true);}));
+
+
   document.querySelector<HTMLButtonElement>('#chase-save')?.addEventListener('click',()=>{
     const get=(id:string):number|null=>{
       const input=document.querySelector<HTMLInputElement>(id)?.value.trim()??'';
@@ -584,7 +599,7 @@ function bind():void {
       }catch(error){const destination=document.querySelector<HTMLElement>('#deep-plan');if(destination)destination.textContent=error instanceof Error?error.message:'Solver failed';}
     },30);
   });
-  document.querySelectorAll<HTMLImageElement>('.portrait img').forEach(image=>image.addEventListener('error',()=>image.remove()));
+  document.querySelectorAll<HTMLImageElement>('.portrait img, .home-portrait img').forEach(image=>image.addEventListener('error',()=>image.remove()));
   document.querySelector<HTMLButtonElement>('#public-league-audit-refresh')?.addEventListener('click',()=>{void loadPublicLeagueAudit();});
   document.querySelector<HTMLButtonElement>('#run-week-audit')?.addEventListener('click',()=>{void runWeekAudit();});
   document.querySelector<HTMLButtonElement>('#refresh-source')?.addEventListener('click', () => { void refreshDatasetStatus(); });
