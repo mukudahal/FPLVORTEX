@@ -1,4 +1,12 @@
-# FPLVORTEX v0.6
+# FPLVORTEX
+
+## v0.8 — Live-squad decision research
+
+The **Top 5K · GW19** tab can now show independently calculated, provisional next-GW player projections from a manager-initiated FPL profile, public player catalogue and a single public fixture snapshot. After entering an FPL ID, press **Sync live FPL rank**. A 10-GW hold-squad captain roadmap, opponent/FDR, starts/club matches, minutes, 90s, official availability/news, and ranked **review-only** candidate alternatives appear only after the upstream source succeeds. No price-transaction or chip action occurs.
+
+**Research limits:** This is not an FPLReview-style calibrated solver or ranked top-5000 probability model. Formulas shrink observed xG and xA toward neutral position priors, adjust for minutes/availability and use opponent FDR. No independent pre-deadline player-level backtest yet exists. Bank and selling prices, actual free-transfer state, historical substitutions, doubles/blanks, and precise chip mechanics are not verified. Do not perform transfers from the model alone. The independent calculations do not use FPL-provided `ep_next` or proprietary forecasts. FPL website JSON is unsupported; source/portrait rights review required before commercial release.
+
+ v0.6
 
 **An original premium fantasy football decision platform.** This first commit contains a usable, dependency-light TypeScript application, independently written analytical demo functions, a responsive white/green/blue design, the user's transparent lion logo, and the Replica workflow planning documents.
 

@@ -162,3 +162,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { 
 .chase-live-meta { display:flex;gap:14px;flex-wrap:wrap;padding:12px 22px;line-height:1.8;font-size:14px; }
 .chase-live-meta>span { display:flex;flex-direction:column;padding:9px 15px;border:1px solid #dfece5;border-radius:9px;background:#f9fcfa; }
 .chase-live-meta strong {font-size:16px;color:#164f43;}
+/* v0.8 — live-source research; distinguish independent, uncalibrated output from facts. */
+.chase-live-analysis{padding:26px 27px;margin:20px 0 26px;border:2px solid #c9e6df;border-radius:16px}
+.chase-live-analysis .panel-head h3{font-size:23px!important;line-height:1.32;color:#085e54!important}
+.chase-live-analysis .panel-head p{font-size:15px!important;line-height:1.6;color:#3b5d66!important}
+.chase-live-analysis h4{font-size:19px;font-weight:850;color:#155876;margin:26px 0 12px}
+.live-analysis-signal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:22px 0}
+.live-analysis-signal>div{padding:18px;border-radius:12px;background:#f0faf7;border:1px solid #c8e5db}
+.live-analysis-signal span{display:block;font-size:13px;font-weight:750;color:#397276}
+.live-analysis-signal strong{display:block;font-size:23px;font-weight:850;color:#097356;margin-top:7px}
+.live-action-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.live-action-cards article{padding:19px;background:#f8fbff;border:1px solid #cfe0ed;border-radius:13px;display:grid;gap:8px}
+.live-action-cards strong{font-size:17px;color:#16466d;font-weight:850}
+.live-action-cards p{font-size:14px;color:#345d6a;line-height:1.65}
+.live-action-cards small{color:#61707e;font-size:12px;line-height:1.5}
+.live-action-label{font-size:12px;color:#08755b;font-weight:850;letter-spacing:.5px}
+.chase-live-analysis .data-table{min-width:1100px}
+.chase-live-analysis .data-table th{font-size:12px!important;color:#1d566f!important}
+.chase-live-analysis .data-table td{font-size:13px!important;line-height:1.5}
+@media(max-width:700px){.live-analysis-signal{grid-template-columns:1fr}.chase-live-analysis{padding:17px}}

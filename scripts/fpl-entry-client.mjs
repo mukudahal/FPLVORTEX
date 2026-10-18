@@ -1,6 +1,7 @@
 /** Read-only, on-demand FPL manager snapshot. Uses public website JSON endpoints, not an official supported API.
  * No cookies, no credentials, no polling, no bulk extraction. Review source terms before production use.
  */
+import { buildLiveResearch } from '../dist/js/live-adviser.js';
 const API = 'https://fantasy.premierleague.com/api';
 const CACHE_MS = 60_000;
 const cache = new Map();
@@ -71,6 +72,7 @@ export async function fetchLiveFplEntry(rawId, {fetchImpl=fetch, now=Date.now, b
       overallRank:finiteRank(row.overall_rank)
     })),
     picks:null,
+    liveResearch:null,
     caution:'The FPL website API is not officially supported. Rank updates may lag the live gameweek. Squad and forecasts are not automatically mapped to demo player IDs.'
   };
   // Picks may be hidden around deadline or blocked by source; profile/history remain useful.
@@ -102,9 +104,22 @@ export async function fetchLiveFplEntry(rawId, {fetchImpl=fetch, now=Date.now, b
           club:team?restrictName(team.short_name):null,
           positionName:{1:'GKP',2:'DEF',3:'MID',4:'FWD'}[player?.element_type]??null,
           priceTenths:finiteInt(player?.now_cost),
-          officialStatus:player?restrictName(player.status):null
+          officialStatus:player?restrictName(player.status):null,
+          officialNews:player?restrictName(player.news):null,
+          reportedStarts:finiteInt(player?.starts),
+          reportedMinutes:finiteInt(player?.minutes),
+          chanceNext:finiteInt(player?.chance_of_playing_next_round)
         };
       });
+      // Request one public fixture list only after manager-picks sync has been explicitly initiated.
+      // Unavailable fixtures must never fabricate recommendations.
+      try {
+        const fixturesResponse=await fetchImpl(`${API}/fixtures/`,{method:'GET',headers:{accept:'application/json'},signal:AbortSignal.timeout(8500)});
+        if(!fixturesResponse?.ok)throw new Error('Fixture data unavailable');
+        const fixtures=await fixturesResponse.json();
+        if(!Array.isArray(fixtures)||fixtures.length>900)throw new Error('Invalid fixture dataset');
+        data.liveResearch=buildLiveResearch({bootstrap,fixtures,picks:data.picks.players,latestGW:data.latestHistoryGameweek??gw});
+      }catch{/* No forecast if fixture coverage unavailable. */}
     }catch{/* Still return the original public picks, never invent player identities. */}
   }
   cache.set(key,{timestamp:now(),data});
