@@ -62,7 +62,7 @@ export async function fetchLiveFplEntry(rawId, {fetchImpl=fetch, now=Date.now, b
     overallPoints:finiteInt(profile.summary_overall_points) ?? finiteInt(latest?.total_points),
     eventPoints:finiteInt(profile.summary_event_points) ?? finiteInt(latest?.points),
     currentGameweek:gw,
-    latestCompletedGameweek:finiteInt(latest?.event),
+    latestHistoryGameweek:finiteInt(latest?.event),
     bankInTenths:finiteInt(profile.last_deadline_bank),
     teamValueInTenths:finiteInt(profile.last_deadline_value),
     chipsPlayed:played,
@@ -83,10 +83,29 @@ export async function fetchLiveFplEntry(rawId, {fetchImpl=fetch, now=Date.now, b
           playerIds:squad.picks.map(p=>finiteInt(p.element)).filter(v=>v!==null),
           captainId:finiteInt(squad.picks.find(p=>p.is_captain)?.element),
           activeChip:typeof squad.active_chip==='string'?restrictName(squad.active_chip):null,
-          note:'FPL player IDs only. No mapping to synthetic VORTEX squad.'
+          players:squad.picks.map(p=>({id:finiteInt(p.element),position:finiteInt(p.position),multiplier:finiteInt(p.multiplier),isCaptain:p.is_captain===true,isViceCaptain:p.is_vice_captain===true})),
+          note:'Official FPL squad IDs, not synthetic VORTEX model IDs.'
         };
       }
     } catch { /* No pick disclosure is not a profile sync failure. */ }
+  }
+  if(data.picks?.players?.length===15){
+    try {
+      const bootstrap=await getJSON('/bootstrap-static/',fetchImpl);
+      if(!Array.isArray(bootstrap.elements) || !Array.isArray(bootstrap.teams)) throw new Error('Invalid FPL catalog');
+      const playersById=new Map(bootstrap.elements.filter(p=>finiteInt(p.id)!==null).map(p=>[p.id,p]));
+      const teamsById=new Map(bootstrap.teams.filter(t=>finiteInt(t.id)!==null).map(t=>[t.id,t]));
+      data.picks.players=data.picks.players.map(p=>{
+        const player=playersById.get(p.id),team=teamsById.get(player?.team);
+        return {...p,
+          name:player?restrictName(player.web_name):null,
+          club:team?restrictName(team.short_name):null,
+          positionName:{1:'GKP',2:'DEF',3:'MID',4:'FWD'}[player?.element_type]??null,
+          priceTenths:finiteInt(player?.now_cost),
+          officialStatus:player?restrictName(player.status):null
+        };
+      });
+    }catch{/* Still return the original public picks, never invent player identities. */}
   }
   cache.set(key,{timestamp:now(),data});
   return data;

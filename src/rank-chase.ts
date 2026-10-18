@@ -67,7 +67,7 @@ export function buildRankChaseAdvice(players:readonly Player[],squad:SquadSnapsh
   const required=profile.hypotheticalGw19Points!==null&&profile.overallPoints!==null
     ? Math.max(0,(profile.hypotheticalGw19Points-profile.overallPoints)/remaining):null;
   const warnings=[
-    'Illustrative player projections; not verified live FPL recommendations. Current rank and score are user-entered, not synchronized.',
+    'Illustrative player projections; not verified live FPL recommendations. Rank/score can be entered or fetched on demand, but player projections and simulated squad are not live FPL synced.',
     'No statistical probability of reaching the top 5,000 can be given without real rank/points distributions and a validated player model.',
     'Model prices are not verified purchase/sale values; chip, auto-sub and transfer rules still require production verification.'
   ];

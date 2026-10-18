@@ -30,25 +30,3 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Typecheck, build, and test
         run: npm test
-      - name: FPL one-time connectivity check (requested by account owner)
-        env:
-          FPL_ENTRY_ID: "145784"
-        run: |
-          node --input-type=module <<'JS'
-          import { fetchLiveFplEntry } from './scripts/fpl-entry-client.mjs';
-          try {
-            const p=await fetchLiveFplEntry(process.env.FPL_ENTRY_ID,{bypassCache:true});
-            console.log('FPL_ENTRY_CHECK',JSON.stringify({
-              id:p.entryId,
-              overallRank:p.overallRank,
-              overallPoints:p.overallPoints,
-              eventPoints:p.eventPoints,
-              currentGameweek:p.currentGameweek,
-              latestCompletedGameweek:p.latestCompletedGameweek,
-              timestamp:p.fetchedAt,
-              picksCount:p.picks?.playerIds?.length??0
-            }));
-          } catch (error) {
-            console.log('FPL_ENTRY_UNAVAILABLE',error.message);
-          }
-          JS

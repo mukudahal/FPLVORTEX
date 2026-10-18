@@ -48,6 +48,8 @@ let rankProfile:RankChaseProfile = (()=>{
   catch { return parseRankChaseProfile(null); }
 })();
 let rankAdvice:RankChaseAdvice|null=null;
+type LiveEntrySquad = {fetchedAt:string;chipsPlayed:{name:string;gameweek:number}[];bankInTenths:number|null;teamValueInTenths:number|null;picks:{gameweek:number;players:{id:number;name:string|null;club:string|null;positionName:string|null;multiplier:number|null;isCaptain:boolean;isViceCaptain:boolean;priceTenths:number|null;officialStatus:string|null}[]}|null};
+let liveEntrySquad:LiveEntrySquad|null=null;
 let liveRankStatus: 'idle'|'loading'|'verified'|'failed'|'manual' = 'idle';
 let liveRankDetail = 'No live entry sync performed in this browser session.';
 
@@ -242,6 +244,9 @@ function chasePage():string {
         <p class="chase-assumption">This is a what-if search result, NOT an instruction to execute the transfer or play a chip. Check real squad, live minutes, suspensions, available chips and selling prices.</p>
       </article>
     </section>
+    ${liveEntrySquad?.picks?.players?.length===15 ? `<section class="panel chase-live-squad"><div class="panel-head"><div><h3>Your FPL squad · GW${liveEntrySquad.picks.gameweek}</h3><p>Actual publicly returned team selections · ${escapeHtml(liveEntrySquad.fetchedAt)} · independent of simulated solver picks</p></div><span class="tag tag-green">SOURCE: FPL</span></div>
+      <div class="chase-live-meta"><span>Last-deadline bank <strong>${liveEntrySquad.bankInTenths===null?'Not reported':`£${(liveEntrySquad.bankInTenths/10).toFixed(1)}m`}</strong></span><span>Team value <strong>${liveEntrySquad.teamValueInTenths===null?'Not reported':`£${(liveEntrySquad.teamValueInTenths/10).toFixed(1)}m`}</strong></span><span>Chips reported as used <strong>${escapeHtml(liveEntrySquad.chipsPlayed.length?liveEntrySquad.chipsPlayed.map(c=>`${c.name} GW${c.gameweek}`).join(' · '):'None reported')}</strong></span></div>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>PLAYER</th><th>TEAM</th><th>POS</th><th>FPL PRICE</th><th>SELECTION</th><th>STATUS</th></tr></thead><tbody>${liveEntrySquad.picks.players.map(p=>`<tr><td><strong>${escapeHtml(p.name??`Player ID ${p.id}`)}</strong></td><td>${escapeHtml(p.club??'—')}</td><td>${escapeHtml(p.positionName??'—')}</td><td>${p.priceTenths===null?'—':`£${(p.priceTenths/10).toFixed(1)}m`}</td><td>${p.isCaptain?'Captain':p.isViceCaptain?'Vice captain':p.multiplier===0?'Bench':'Starter'}</td><td>${escapeHtml(p.officialStatus??'Not reported')}</td></tr>`).join('')}</tbody></table></div><p class="chase-assumption">FPL roster data are real source values. Forecasts and transfer routes elsewhere remain model demonstrations and are NOT calculated from these official player IDs.</p></section>` : ''}
     <section class="panel chase-roadmap"><div class="panel-head"><div><h3>Automatic weekly roadmap — GW${state.gw} to GW${advice.planningUntilGW}</h3><p>Recalculate after every deadline. The full goal remains GW19; forecasts GW17–19 are not yet available.</p></div><a class="button button-outline" href="#/solver">Full Deep Solver ↗</a></div>
       <div class="table-scroll"><table class="data-table"><thead><tr><th>GW</th><th>SCENARIO</th><th>TRANSFER / HOLD</th><th>CAPTAIN</th><th>FREE TRANSFERS</th><th>DEMO xPTS</th></tr></thead><tbody>${advice.plan.stages.map(stage=>`<tr><td><strong>GW${stage.gameweek}</strong></td><td>${stage.chip==='none'?'Normal':`<span class="chip-pill">${escapeHtml(stage.chip)}</span>`}</td><td>${stage.transfers.length?stage.transfers.map(t=>`${playerName(t.out)} → ${playerName(t.in)}`).join('<br>'):'Save transfer'}</td><td>${playerName(stage.captainId)}</td><td class="tabular">${stage.freeTransfersNext}</td><td class="tabular emphasis">${stage.points.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>
     </section>
@@ -480,11 +485,12 @@ async function syncFplLiveRank():Promise<void> {
     if(!response.ok)throw new Error(`FPL source unavailable (HTTP ${response.status}); try again when connected.`);
     const raw:unknown=await response.json();
     if(!raw || typeof raw!=='object')throw new Error('Invalid FPL profile response');
-    const source=raw as {mode?:string;entryId?:number;overallRank?:number|null;overallPoints?:number|null;currentGameweek?:number|null;teamName?:string;fetchedAt?:string;chipsPlayed?:{name:string;gameweek:number}[];picks?:{playerIds:number[]}|null};
+    const source=raw as {mode?:string;entryId?:number;overallRank?:number|null;overallPoints?:number|null;currentGameweek?:number|null;teamName?:string;fetchedAt?:string;chipsPlayed?:{name:string;gameweek:number}[];bankInTenths?:number|null;teamValueInTenths?:number|null;picks?:LiveEntrySquad['picks'] & {playerIds:number[]}|null};
     if(source.mode!=='live-source-response'||source.entryId!==Number(input)||!Number.isInteger(source.overallRank)||!Number.isInteger(source.overallPoints))throw new Error('FPL has not published a complete verified rank and points snapshot yet.');
     rankProfile=parseRankChaseProfile({...rankProfile,entryId:source.entryId,overallRank:source.overallRank,overallPoints:source.overallPoints});
     try{window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch{/* local storage optional */}
     liveRankStatus='verified';
+    liveEntrySquad={fetchedAt:source.fetchedAt??new Date().toISOString(),chipsPlayed:source.chipsPlayed??[],bankInTenths:source.bankInTenths??null,teamValueInTenths:source.teamValueInTenths??null,picks:source.picks??null};
     const used=source.chipsPlayed?.map(item=>`${item.name} GW${item.gameweek}`).join(', ') || 'not reported';
     liveRankDetail=`FPL response ${source.fetchedAt??'just now'} · ${source.teamName??'Team'} · overall rank ${source.overallRank?.toLocaleString()} · ${source.overallPoints} points · current GW${source.currentGameweek??'?'} · recorded chips: ${used} · ${source.picks?.playerIds?.length??0} current picks returned. These facts do NOT validate the demo squad or transfer advice.`;
     rankAdvice=null;
@@ -513,7 +519,7 @@ function bind():void {
     const risk=document.querySelector<HTMLSelectElement>('#chase-risk')?.value??'balanced';
     rankProfile=parseRankChaseProfile({entryId:get('#chase-entry'),overallRank:get('#chase-rank'),overallPoints:get('#chase-points'),hypotheticalGw19Points:get('#chase-benchmark'),risk,availableChips});
     try {window.localStorage.setItem('fplvortex-rank-chase-v1',JSON.stringify(rankProfile));}catch {/* private browsing: use in-memory state */}
-    liveRankStatus='manual'; liveRankDetail='Profile values were entered manually; live rank not verified in this session.';
+    liveRankStatus='manual'; liveEntrySquad=null; liveRankDetail='Profile values were entered manually; live rank not verified in this session.';
     rankAdvice=null;render();
   });
   document.querySelector<HTMLButtonElement>('#chase-sync-live')?.addEventListener('click',()=>{void syncFplLiveRank();});
