@@ -16,7 +16,8 @@ const pages = [
   { slug: 'strategy', label: 'Strategy Engine', icon: '✧', category: 'intelligence' },
   { slug: 'model', label: 'Model Lab', icon: '◈', category: 'intelligence' },
   { slug: 'prices', label: 'Price Pulse', icon: '↗', category: 'intelligence' },
-  { slug: 'review', label: 'Performance Journal', icon: '▤', category: 'intelligence' }
+  { slug: 'review', label: 'Performance Journal', icon: '▤', category: 'intelligence' },
+  { slug: 'data', label: 'Data Studio', icon: '◉', category: 'intelligence' }
 ] as const;
 type Page = typeof pages[number]['slug'];
 const byId = new Map(demoPlayers.map(player => [player.id, player]));
@@ -139,7 +140,25 @@ function strategyPage(): string {
 function modelPage(): string {
   const ranked=[...demoPlayers].sort((a,b)=>projectedHorizon(b,state.horizon)-projectedHorizon(a,state.horizon)).slice(0,6);
   return `${header('Model <span class="title-accent">Lab.</span>', 'Understand the reasoning behind every projection.', 'RESEARCH / MODEL LAB')}
-    ${globalFilters()}<div class="model-grid"><div class="panel model-main"><div class="panel-head"><div><h3>Forecast decomposition</h3><p>Expected contribution across scoring categories · next gameweek</p></div><span class="tag tag-neutral">BASELINE v0.1</span></div><div class="model-bars">${ranked.map(player=>{const p=projectPlayer(player,0);const total=p.expectedPoints||1;return `<div class="model-row"><div class="model-row-name">${portrait(player)}<span>${escapeHtml(player.name)}</span></div><div class="stacked-bar"><span style="width:${p.appearancePoints/total*100}%;background:#9cd8c4"></span><span style="width:${p.attackPoints/total*100}%;background:#056b52"></span><span style="width:${p.cleanSheetPoints/total*100}%;background:#5b91e6"></span><span style="width:${p.bonusPoints/total*100}%;background:#e6c179"></span></div><strong>${p.expectedPoints.toFixed(1)}</strong></div>`}).join('')}</div><div class="chart-legend"><span><i style="background:#9cd8c4"></i> Appearance</span><span><i style="background:#056b52"></i> Attack</span><span><i style="background:#5b91e6"></i> Clean sheet</span><span><i style="background:#e6c179"></i> Bonus</span></div></div><div class="panel model-side"><span class="strategy-symbol">◈</span><h3>Built on evidence. Improved by iteration.</h3><p>The demo baseline combines expected minutes, attacking rates, role-specific scoring and opponent difficulty. It does not claim machine-learning accuracy.</p><div class="model-metrics"><div><span>Player samples</span><strong>${demoPlayers.length}</strong></div><div><span>Fixture horizon</span><strong>6 GWs</strong></div><div><span>Trained model</span><strong>Pending</strong></div><div><span>Validated accuracy</span><strong>Not yet</strong></div></div></div></div><section class="panel model-roadmap"><div class="panel-head"><div><h3>Research roadmap</h3><p>How the independent Vortex forecast engine will mature</p></div></div><div class="roadmap-steps"><div><span>01</span><strong>Data lineage</strong><p>Licensed events, lineups, minutes and fixture history.</p></div><div><span>02</span><strong>Probabilistic models</strong><p>Appearance, xG, assists and clean-sheet distributions.</p></div><div><span>03</span><strong>Walk-forward validation</strong><p>Backtest against held-out gameweeks with calibration.</p></div><div><span>04</span><strong>Optimization</strong><p>Multi-week planning under realistic constraints.</p></div></div></section>`;
+    ${globalFilters()}<div class="model-grid"><div class="panel model-main"><div class="panel-head"><div><h3>Forecast decomposition</h3><p>Expected contribution across scoring categories · next gameweek</p></div><span class="tag tag-neutral">BASELINE v0.1</span></div><div class="model-bars">${ranked.map(player=>{const p=projectPlayer(player,0);const total=p.expectedPoints||1;return `<div class="model-row"><div class="model-row-name">${portrait(player)}<span>${escapeHtml(player.name)}</span></div><div class="stacked-bar"><span style="width:${p.appearancePoints/total*100}%;background:#9cd8c4"></span><span style="width:${p.attackPoints/total*100}%;background:#056b52"></span><span style="width:${p.cleanSheetPoints/total*100}%;background:#5b91e6"></span><span style="width:${p.bonusPoints/total*100}%;background:#e6c179"></span></div><strong>${p.expectedPoints.toFixed(1)}</strong></div>`}).join('')}</div><div class="chart-legend"><span><i style="background:#9cd8c4"></i> Appearance</span><span><i style="background:#056b52"></i> Attack</span><span><i style="background:#5b91e6"></i> Clean sheet</span><span><i style="background:#e6c179"></i> Bonus</span></div></div><div class="panel model-side"><span class="strategy-symbol">◈</span><h3>Built on evidence. Improved by iteration.</h3><p>The demo baseline combines expected minutes, attacking rates, role-specific scoring and opponent difficulty. It does not claim machine-learning accuracy.</p><div class="model-metrics"><div><span>Player samples</span><strong>${demoPlayers.length}</strong></div><div><span>Fixture horizon</span><strong>6 GWs</strong></div><div><span>Trained model</span><strong>Pending</strong></div><div><span>Validated accuracy</span><strong>Not yet</strong></div></div></div></div><section class="panel simulation-panel"><div class="panel-head"><div><h3>Uncertainty explorer</h3><p>2,000 seeded simulations · intentionally uncalibrated demonstration</p></div><span class="tag tag-neutral">DEMO · MONTE CARLO</span></div>
+    <div class="simulation-controls"><label class="select-wrapper"><span>Player</span><select id="simulation-player" aria-label="Simulation player">${demoPlayers.slice(0,16).map(player=>`<option value="${player.id}">${escapeHtml(player.name)}</option>`).join('')}</select></label>
+    <label class="select-wrapper"><span>Fixture</span><select id="simulation-gw" aria-label="Simulation gameweek">${Array.from({length:6},(_,index)=>`<option value="${index}">GW ${7+index}</option>`).join('')}</select></label>
+    <button id="run-simulation" class="button button-primary" type="button">Run simulation ↗</button></div>
+    <div id="simulation-result" class="simulation-result" aria-live="polite" role="status">Choose a player and run the simulation to see expected points, P10/P50/P90 and scoring probabilities.</div>
+    <div class="disclaimer-strip">ⓘ This simulates illustrative goals, assists, appearances and clean sheets. It is not a calibrated model or live recommendation.</div></section>
+    <section class="panel model-roadmap"><div class="panel-head"><div><h3>Research roadmap</h3><p>How the independent Vortex forecast engine will mature</p></div></div><div class="roadmap-steps"><div><span>01</span><strong>Data lineage</strong><p>Licensed events, lineups, minutes and fixture history.</p></div><div><span>02</span><strong>Probabilistic models</strong><p>Appearance, xG, assists and clean-sheet distributions.</p></div><div><span>03</span><strong>Walk-forward validation</strong><p>Backtest against held-out gameweeks with calibration.</p></div><div><span>04</span><strong>Optimization</strong><p>Multi-week planning under realistic constraints.</p></div></div></section>`;
+}
+function dataPage(): string {
+  return `${header('Data <span class="title-accent">Studio.</span>', 'Transparent sources. Reproducible research. No invented freshness.', 'RESEARCH / DATA STUDIO')}
+    <div class="data-studio-grid"><section class="panel source-panel"><div class="panel-head"><div><h3>Source integrity</h3><p>Authorized data can be imported without scraping public websites.</p></div><span class="tag tag-neutral">PROVENANCE FIRST</span></div>
+    <div id="data-studio-status" class="source-state" role="status" aria-live="polite"><span class="source-pulse"></span> Checking local data service…</div>
+    <div class="rule"><span>01</span><div>Supplier and usage rights are recorded for every imported snapshot.</div><span>✓</span></div>
+    <div class="rule"><span>02</span><div>SHA-256 integrity checks detect modified snapshot files.</div><span>✓</span></div>
+    <div class="rule"><span>03</span><div>Outdated data is labeled — never presented as real-time.</div><span>✓</span></div>
+    <button id="refresh-source" class="button button-outline" type="button">Refresh data status ↻</button></section>
+    <section class="panel strategy-explain"><span class="strategy-symbol">◇</span><h3>Model maturity</h3><p>Player projections on the public dashboard remain illustrative until the independent model is trained, evaluated, and approved for publishing.</p>
+    <div class="model-metrics"><div><span>Raw data ingestion</span><strong>Ready</strong></div><div><span>API contract</span><strong>v1</strong></div><div><span>Calibrated predictive model</span><strong>Pending</strong></div><div><span>Rights-cleared photographs</span><strong>Pending</strong></div></div></section></div>
+    <div class="disclaimer-strip">ⓘ Import snapshots using the documented CLI and an authorized source. There is no automated scraping or proprietary FPLReview model in FPLVORTEX.</div>`;
 }
 function pricesPage():string {
   const ranked=[...demoPlayers].sort((a,b)=>b.ownership-a.ownership);
@@ -150,9 +169,50 @@ function reviewPage():string {
 }
 function render(): void {
   state.page = getCurrentPage();
-  const views:Record<Page,()=>string>={overview:dashboard,squad:squadPage,players:playersPage,fixtures:fixturesPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage};
+  const views:Record<Page,()=>string>={overview:dashboard,squad:squadPage,players:playersPage,fixtures:fixturesPage,strategy:strategyPage,model:modelPage,prices:pricesPage,review:reviewPage,data:dataPage};
   appRoot.innerHTML=shell(views[state.page]());
   bind();
+  if (state.page === 'data') void refreshDatasetStatus();
+}
+async function refreshDatasetStatus(): Promise<void> {
+  const node = document.querySelector<HTMLElement>('#data-studio-status');
+  if (!node) return;
+  try {
+    const response = await fetch('/api/v1/data/status', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Data service returned ${response.status}`);
+    const details: unknown = await response.json();
+    if (details === null || typeof details !== 'object') throw new Error('Invalid data status');
+    const status = details as { mode?: string; playerCount?: number; capturedAt?: string | null; stale?: boolean; rights?: {sourceName?: string} | null };
+    const current = document.querySelector<HTMLElement>('#data-studio-status');
+    if (!current) return;
+    if (status.mode !== 'licensed') {
+      current.textContent = 'Demo mode — no licensed data source connected. Dashboard predictions are illustrative.';
+    } else {
+      const source = status.rights?.sourceName ?? 'Authorized source';
+      current.textContent = `${source} · ${status.playerCount ?? 0} players · Captured ${status.capturedAt ?? 'unknown'} · ${status.stale ? 'Stale snapshot' : 'Within configured freshness window'} · Trained model pending`;
+    }
+  } catch {
+    const current = document.querySelector<HTMLElement>('#data-studio-status');
+    if (current) current.textContent = 'Data service unavailable. All model outputs shown elsewhere are illustrative.';
+  }
+}
+async function runSimulation(): Promise<void> {
+  const output = document.querySelector<HTMLElement>('#simulation-result');
+  const playerId = Number(document.querySelector<HTMLSelectElement>('#simulation-player')?.value);
+  const gameweekIndex = Number(document.querySelector<HTMLSelectElement>('#simulation-gw')?.value);
+  if (!output || !byId.has(playerId) || !Number.isInteger(gameweekIndex) || gameweekIndex < 0 || gameweekIndex > 5) return;
+  output.textContent = 'Calculating illustrative distribution…';
+  try {
+    const response = await fetch(`/api/v1/model/distribution?playerId=${playerId}&gameweekIndex=${gameweekIndex}`, {cache: 'no-store'});
+    if (!response.ok) throw new Error('Distribution unavailable');
+    const result: unknown = await response.json();
+    const payload = result as {mode?:string; model?: {expectedPoints?: number;p10?:number;p50?:number;p90?:number;probabilityOfBlank?:number;probabilityOfReturn?:number}};
+    const forecast = payload.model;
+    if (payload.mode !== 'illustrative' || !forecast || ![forecast.expectedPoints,forecast.p10,forecast.p50,forecast.p90,forecast.probabilityOfBlank,forecast.probabilityOfReturn].every(value=>typeof value === 'number' && Number.isFinite(value))) throw new Error('Invalid simulation result');
+    output.textContent = `${byId.get(playerId)?.name ?? 'Player'} · Mean ${forecast.expectedPoints?.toFixed(2)} xPts · P10 ${forecast.p10?.toFixed(1)} · Median ${forecast.p50?.toFixed(1)} · P90 ${forecast.p90?.toFixed(1)} · Blank ${(Number(forecast.probabilityOfBlank)*100).toFixed(0)}% · Goal/assist return ${(Number(forecast.probabilityOfReturn)*100).toFixed(0)}%`;
+  } catch {
+    output.textContent = 'Simulation service unavailable. No forecast was generated.';
+  }
 }
 function notify(message:string):void {state.notice=message;render();}
 function saveSquad():void {
@@ -169,6 +229,8 @@ function downloadCsv():void {
 }
 function bind():void {
   document.querySelectorAll<HTMLImageElement>('.portrait img').forEach(image=>image.addEventListener('error',()=>image.remove()));
+  document.querySelector<HTMLButtonElement>('#refresh-source')?.addEventListener('click', () => { void refreshDatasetStatus(); });
+  document.querySelector<HTMLButtonElement>('#run-simulation')?.addEventListener('click', () => { void runSimulation(); });
   document.querySelector<HTMLButtonElement>('#mobile-toggle')?.addEventListener('click',()=>{state.menuOpen=!state.menuOpen;render();});
   document.querySelector<HTMLSelectElement>('#gw-select')?.addEventListener('change',event=>{const value=Number((event.target as HTMLSelectElement).value);state.gw=value;render();});
   document.querySelector<HTMLSelectElement>('#horizon-select')?.addEventListener('change',event=>{const value=Number((event.target as HTMLSelectElement).value);state.horizon=value;render();});

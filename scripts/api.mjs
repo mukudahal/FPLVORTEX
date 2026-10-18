@@ -1,0 +1,65 @@
+import { demoPlayers } from '../dist/js/model.js';
+import { forecastDistribution } from '../dist/js/forecast-distribution.js';
+import { getDatasetStatus, readCurrentSnapshot } from './read-snapshot.mjs';
+
+function respond(response, statusCode, body, isHead = false) {
+  const bytes = JSON.stringify(body);
+  response.writeHead(statusCode, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+    'content-security-policy': "default-src 'none'; frame-ancestors 'none'"
+  });
+  response.end(isHead ? undefined : bytes);
+}
+function queryInteger(raw, name, minimum, maximum) {
+  if (!raw || !/^\d+$/.test(raw)) throw new RangeError(`${name} must be an integer`);
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) throw new RangeError(`${name} must be from ${minimum} to ${maximum}`);
+  return parsed;
+}
+export async function handleApi(request, response, address) {
+  if (!address.pathname.startsWith('/api/')) return false;
+  const isHead = request.method === 'HEAD';
+  if (request.method !== 'GET' && !isHead) {
+    response.setHeader('allow', 'GET, HEAD');
+    respond(response, 405, { error: 'Method not allowed' });
+    return true;
+  }
+  try {
+    if (address.pathname === '/api/v1/health') {
+      respond(response, 200, { ok: true, product: 'FPLVORTEX', apiVersion: 'v1' }, isHead);
+    } else if (address.pathname === '/api/v1/data/status') {
+      respond(response, 200, await getDatasetStatus(), isHead);
+    } else if (address.pathname === '/api/v1/data/players') {
+      const result = await readCurrentSnapshot();
+      if (!result) {
+        respond(response, 503, { error: 'No authorized player data connected', mode: 'demo' }, isHead);
+        return true;
+      }
+      const status = await getDatasetStatus();
+      respond(response, 200, { status, players: result.snapshot.players }, isHead);
+    } else if (address.pathname === '/api/v1/model/distribution') {
+      const playerId = queryInteger(address.searchParams.get('playerId'), 'playerId', 1, 20_000_000);
+      const gwIndex = queryInteger(address.searchParams.get('gameweekIndex') ?? '0', 'gameweekIndex', 0, 13);
+      const player = demoPlayers.find(candidate => candidate.id === playerId);
+      if (!player) {
+        respond(response, 404, { error: 'Demo player not found' }, isHead);
+        return true;
+      }
+      const forecast = forecastDistribution(player, gwIndex, 2_000, 1001);
+      respond(response, 200, { mode: 'illustrative', trained: false, model: forecast }, isHead);
+    } else {
+      respond(response, 404, { error: 'API endpoint not found' }, isHead);
+    }
+  } catch (error) {
+    if (error instanceof RangeError || error instanceof TypeError) {
+      respond(response, 400, { error: error.message }, isHead);
+    } else {
+      console.error('API request failed:', error);
+      respond(response, 503, { error: 'Data or service temporarily unavailable' }, isHead);
+    }
+  }
+  return true;
+}

@@ -1,16 +1,22 @@
 {
   "name": "fplvortex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Original fantasy football decision platform — demo-first architecture",
+  "description": "Original fantasy football decision platform \u2014 demo-first architecture",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build.mjs",
     "dev": "npm run build && node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
     "test": "npm run build && node --test tests/*.test.mjs",
-    "check": "npm run test"
+    "check": "npm run test",
+    "import:data": "npm run build && node scripts/import-snapshot.mjs",
+    "validate:data": "npm run build && node scripts/import-snapshot.mjs --validate-only"
   },
-  "engines": { "node": ">=20" },
-  "devDependencies": { "typescript": "^5.9.3" }
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
 }

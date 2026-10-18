@@ -63,3 +63,14 @@ T16 deployment: preview/release rollback and backup restore.
 
 ## Blocks requiring user decisions
 Project/product name, where code should be created, whether launch is public/commercial, and approval/licensed sources for FPL stats and real player imagery. Do not silently purchase or provision production services.
+
+## Implemented on `feat/premium-vortex-foundation` (v0.2 development update)
+
+- Read-only HTTP API with explicit demo/licensed status, data-service health and player-data endpoint.
+- Manual licensed-source importer with input validation, usage-rights metadata, canonical SHA-256 storage and atomic pointer writes.
+- Data Studio interface with freshness/provenance status; no false live-source claim.
+- Monte Carlo uncertainty research endpoints and UI for seeded demonstration P10/P50/P90 output.
+- Automated tests for malformed sources, integrity/idempotency, expired and future timestamps, illegal rights, HTTP methods and simulated distributions.
+- GitHub Actions test workflow prepared; remote CI execution must be confirmed independently.
+
+**Not implemented:** licensed provider connector, historical backtesting, PostgreSQL persistence, automatically scheduled refresh, real ML training, multigameweek solver, authenticated user account, commercial headshot distribution and production launch. The earlier milestone durations remain planning estimates only.

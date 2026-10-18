@@ -7,3 +7,6 @@ dist/
 coverage/
 playwright-report/
 test-results/
+
+# Licensed provider data must never be committed.
+data/
