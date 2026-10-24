@@ -1,0 +1,107 @@
+{
+  "schema": "vortex-report-v1",
+  "season": "2026/27",
+  "gameweek": 8,
+  "generatedAt": "2026-10-23T12:00:00.000Z",
+  "modelEvidence": "observed_official_data",
+  "teamName": "DEMO TEAM \u2014 SYNTHETIC TEST FIXTURE",
+  "managerDisplayName": "TEST ONLY",
+  "actualPoints": 72,
+  "overallRank": 123456,
+  "totalPoints": 602,
+  "hitCost": 0,
+  "benchPoints": 7,
+  "captainName": "Synthetic Captain",
+  "playerSource": "official_fpl",
+  "note": "SYNTHETIC DEMO ONLY. Never publish as an actual result.",
+  "rows": [
+    {
+      "player": "Test Player 1",
+      "position": "DEF",
+      "role": "Captain",
+      "actualPoints": 1,
+      "effectivePoints": 2,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 2",
+      "position": "MID",
+      "role": "XI",
+      "actualPoints": 2,
+      "effectivePoints": 2,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 3",
+      "position": "FWD",
+      "role": "XI",
+      "actualPoints": 3,
+      "effectivePoints": 3,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 4",
+      "position": "GK",
+      "role": "XI",
+      "actualPoints": 4,
+      "effectivePoints": 4,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 5",
+      "position": "DEF",
+      "role": "XI",
+      "actualPoints": 5,
+      "effectivePoints": 5,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 6",
+      "position": "MID",
+      "role": "XI",
+      "actualPoints": 6,
+      "effectivePoints": 6,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 7",
+      "position": "FWD",
+      "role": "XI",
+      "actualPoints": 7,
+      "effectivePoints": 7,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 8",
+      "position": "GK",
+      "role": "XI",
+      "actualPoints": 0,
+      "effectivePoints": 0,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 9",
+      "position": "DEF",
+      "role": "XI",
+      "actualPoints": 1,
+      "effectivePoints": 1,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 10",
+      "position": "MID",
+      "role": "XI",
+      "actualPoints": 2,
+      "effectivePoints": 2,
+      "minutes": 90
+    },
+    {
+      "player": "Test Player 11",
+      "position": "FWD",
+      "role": "XI",
+      "actualPoints": 3,
+      "effectivePoints": 3,
+      "minutes": 90
+    }
+  ]
+}

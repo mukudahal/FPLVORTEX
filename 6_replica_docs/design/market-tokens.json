@@ -1,0 +1,162 @@
+{
+  "colors": {
+    "surface": "#101d2b",
+    "raised": "#17293b",
+    "text": "#eef3f8",
+    "muted": "#b9c8d8",
+    "accent": "#e3c480",
+    "up": "#73dfc5",
+    "down": "#ff93a4",
+    "bright": "#f2f7fb",
+    "brightText": "#182d40",
+    "brightMuted": "#354e64",
+    "yellow": "#fff7df",
+    "yellowText": "#72500e",
+    "outBg": "#ffe0e7",
+    "outText": "#a3183c",
+    "doubtBg": "#ffe9aa",
+    "doubtText": "#694810",
+    "availableBg": "#d4f1e7",
+    "availableText": "#12674f",
+    "lightSurface": "#f9fbfd",
+    "lightRaised": "#e9f0f5",
+    "lightText": "#142b3e",
+    "lightMuted": "#425b6e",
+    "lightGold": "#78591b",
+    "lightUp": "#12674f",
+    "lightDown": "#b62a49"
+  },
+  "pairs": [
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "raised"
+    ],
+    [
+      "muted",
+      "surface"
+    ],
+    [
+      "muted",
+      "raised"
+    ],
+    [
+      "accent",
+      "surface"
+    ],
+    [
+      "accent",
+      "raised"
+    ],
+    [
+      "up",
+      "surface"
+    ],
+    [
+      "up",
+      "raised"
+    ],
+    [
+      "down",
+      "surface"
+    ],
+    [
+      "down",
+      "raised"
+    ],
+    [
+      "lightText",
+      "lightSurface"
+    ],
+    [
+      "lightText",
+      "lightRaised"
+    ],
+    [
+      "lightMuted",
+      "lightSurface"
+    ],
+    [
+      "lightMuted",
+      "lightRaised"
+    ],
+    [
+      "lightGold",
+      "lightSurface"
+    ],
+    [
+      "lightGold",
+      "lightRaised"
+    ],
+    [
+      "lightUp",
+      "lightSurface"
+    ],
+    [
+      "lightUp",
+      "lightRaised"
+    ],
+    [
+      "lightDown",
+      "lightSurface"
+    ],
+    [
+      "lightDown",
+      "lightRaised"
+    ],
+    [
+      "brightText",
+      "bright"
+    ],
+    [
+      "brightMuted",
+      "bright"
+    ],
+    [
+      "yellowText",
+      "yellow"
+    ],
+    [
+      "outText",
+      "outBg"
+    ],
+    [
+      "doubtText",
+      "doubtBg"
+    ],
+    [
+      "availableText",
+      "availableBg"
+    ],
+    [
+      "brightText",
+      "accent"
+    ]
+  ],
+  "font": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif",
+  "typeScale": [
+    10,
+    12,
+    14,
+    15,
+    20,
+    32
+  ],
+  "spacing": [
+    4,
+    6,
+    8,
+    12,
+    16,
+    18,
+    24
+  ],
+  "radius": [
+    7,
+    10,
+    14
+  ]
+}

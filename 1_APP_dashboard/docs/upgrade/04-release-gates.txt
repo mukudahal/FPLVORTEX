@@ -1,0 +1,6 @@
+
+> check:release
+> node scripts/release-gates.cjs
+
+RELEASE BLOCKED: cleanInstall, typecheck, lint, productionBuild, stagingDatabaseMigrations, crossUserAuthorization, queueCronReplay, modelBacktest, desktopMobileE2E, realStagingSmoke, backupRestoreVerified, termsDataLicensingReviewed
+Provide independently collected staging evidence, not guessed pass flags.

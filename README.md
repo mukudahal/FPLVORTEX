@@ -1,56 +1,47 @@
-# FPLVORTEX
+# FPL VORTEX
 
-**An original premium fantasy football decision platform.** This first commit contains a usable, dependency-light TypeScript application, independently written analytical demo functions, a responsive white/green/blue design, the user's transparent lion logo, and the Replica workflow planning documents.
+Private source repository for the merged FPL VORTEX project and the deployed Model Lab.
 
-## Run locally
+## What to edit
 
-Requires Node.js 20+ and TypeScript 5.9+ for compilation. Install dev dependencies, then:
+| Folder | Purpose |
+| --- | --- |
+| `site/` | Current private website: dashboard, official FPL API routes, shared prediction maths and simulation UI. |
+| `1_APP_dashboard/` | Original larger Next.js application, backend and optimisation source. Its database and background jobs are not deployed by the lightweight site. |
+| `2_notebooks/` | Original analytical notebooks, including their saved outputs. |
+| `3_data_third_party/` | Supplied data files; these are snapshots, not a live data service. |
+| `4_backup/` through `9_dashboard_reference/` | Preserved backups, design references, reports and project documentation. |
+| `design-tools/` | Imported design tooling. |
+
+The source was imported from `FPL_VORTEX_MERGED.zip`. Nested Git metadata and runtime/build caches are excluded. The original ZIP remains saved in the project files.
+
+## Run the current website
+
+Use Node.js 22 or newer. No dependency installation is required for the lightweight site:
 
 ```sh
-npm install
-npm test
+cd site
+npm run build
+npm run validate
+node scripts/smoke-test.mjs
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open the local URL printed by the server. The live site remains private:
+https://fpl-vortex-lab-muku-1024.wavysnipe6.chatgpt.site/
 
-The demo itself has **zero runtime dependencies**. The `npm run build` script compiles TypeScript to `dist/js` and copies static assets. `npm start` serves `dist/` with sensible security headers and a single-page-app fallback.
+## Real data and storage
 
-## Working prototype features
+The deployed server reads official FPL player, fixture, manager, picks, history and live-score APIs. Browser responses include data-source and retrieval-time headers. Player portraits load from the Premier League image host with a second-size retry and an unavailable-photo fallback.
 
-- **Command Center:** live local controls for gameweek/horizon, KPIs, ranking table, fixture signals.
-- **Squad Forge:** 15-player formation pitch with individual headshots (falling back to initials), captain selection and local save.
-- **Player Intelligence:** search, sort, filter and export a demonstration CSV.
-- **Fixture Matrix:** colored filled FDR cells and team-level comparison.
-- **Strategy Engine:** a deterministic, validated *single-transfer* optimizer obeying position, bank, club limit and 4-point-hit rules.
-- **Model Lab:** explainable, deterministic demo projections and an independently developed model roadmap.
-- **Price Pulse:** exploratory ownership watchlist; no live price-rise predictions yet.
-- **Performance Journal:** staged interface for future authenticated historical review.
+Browser-local test squads and the linked manager number are not synced across devices. Forecasts are computed in the browser. There is no persistent historical-statistics database or unattended ingestion worker yet. Do not commit personal API captures, credentials, `.env` files or browser QA captures.
 
-## Data honesty and photo rights
+Forecasts remain unvalidated. The repository does not contain licensed FPLReview forecasts or establish a predictive advantage over FPLReview. Gameweek Analysis is a placeholder awaiting design.
 
-All player statistics, fixture difficulty sequences and projections bundled in `src/model.ts` are **illustrative demo inputs**, not verified 2026/27 live feeds or the FPLReview Massive Data Model. Live ingestion, trained forecasts, optimization over multiple weeks, background jobs, auth and persistence are **not implemented yet**. Always display this distinction in the product.
+## Updates and deployment
 
-The prototype can preview actual player images from an external Premier League image host, with initials fallbacks. **Commercial hosting or production distribution must not depend on unauthorized image hotlinking.** Secure licensed headshots and then change `portrait()` to your authorized provider. The lion brand image is supplied by the project owner.
+GitHub tracks reviewable source changes and runs the site build/smoke checks. Changes can be prepared here in chat or through GitHub.
 
-## Repository layout
+The private hosted Site currently uses its own managed source repository. A GitHub commit alone does **not** deploy it. To release a GitHub change, ask in this project to sync the desired commit, run the checks and deploy it to the existing private Site. Automatic GitHub-to-host deployment is not configured.
 
-- `src/` — typed data model, forecast heuristics, constraint solver, UI interactions.
-- `public/` — logo, CSS and HTML shell.
-- `scripts/` — build and static server (built-in Node.js modules only).
-- `tests/` — deterministic regression tests via Node test runner.
-- `replica/` — original source audit, database blueprint, feature matrix and roadmap.
-- `docs/` — architecture and next-phase decisions.
-
-## Next production milestones
-
-1. Confirm licensing/terms for player events, fixtures, team IDs and portraits.
-2. Add a PostgreSQL-backed API and historical data ingestion jobs with provenance, idempotency and snapshot versioning.
-3. Train probability models on historical seasons; evaluate with walk-forward holdouts and calibration charts.
-4. Replace the single-transfer demonstrator with a robust multi-GW solver including FTs, chips, captain, subs, team constraints and risk preferences.
-5. Add real user authentication, squad import, multiple saved drafts and opt-in alerts.
-6. Enable CI and end-to-end tests with licensed-data fixtures, verify responsiveness/accessibility and production release gates.
-
-## References / attribution
-
-Product feature audits: https://fplreview.com/ , https://docs.fplreview.com/ , https://www.fplcore.com/ . This application does not contain their proprietary application code or visual assets. Developed as an original FPLVORTEX project.
+See `site/scripts/smoke-test.mjs` for the hosting-cache regression test and `1_APP_dashboard/docs/MATH_CORRECTIONS.md` for the mathematics audit.

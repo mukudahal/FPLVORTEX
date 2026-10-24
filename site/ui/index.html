@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A private workspace to inspect FPL forecasts, build a legal squad and test model assumptions.">
+  <title>FPL VORTEX — Model Lab</title><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="FPL Vortex home"><img class="brand-symbol" src="/logo.svg" alt="FPL VORTEX"><span>FPL VORTEX<small>MODEL LAB / v0.2</small></span></a>
+    <div class="workspace-label">YOUR WORKSPACE</div>
+    <nav aria-label="Main navigation">
+      <button class="nav-item active" data-tab="dashboard"><span>▦</span> Dashboard</button>
+      <button class="nav-item" data-tab="forecasts"><span>◈</span> Player forecasts</button>
+      <button class="nav-item" data-tab="squad"><span>▦</span> Squad lab <b id="squad-count">0</b></button>
+      <button class="nav-item" data-tab="math"><span>∑</span> Math & simulation</button>
+      <button class="nav-item" data-tab="validation"><span>◎</span> Validation</button>
+    </nav>
+    <div class="sidebar-foot"><span class="private-dot"></span> Private workspace<p>Visible to your account.<br>Changes can be requested in chat.</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>Research workspace <span class="slash">/</span> <strong id="page-name">Player forecasts</strong></span><span class="version-badge">Independent model · Unvalidated</span></header>
+    <section class="page-head"><div><div class="eyebrow" id="season-label">FPL VORTEX</div><h1 id="page-title">Find your next edge.</h1><p id="page-description">Explore the forecast. Inspect the assumptions. Make the decision.</p></div><div class="head-actions"><label class="file-button">Import data<input id="data-import" type="file" accept="application/json,.json" hidden></label><button id="refresh" class="primary">↻ Refresh data</button></div></section>
+    <div class="data-banner" id="data-banner" role="status"><span class="status-dot"></span><span id="data-message">Loading official data…</span><span id="data-time"></span></div>
+    <section class="metrics" aria-label="Forecast overview"><div><span>Upcoming gameweek</span><strong id="metric-gw">—</strong><small id="metric-deadline">Waiting for data</small></div><div><span>Top player forecast</span><strong id="metric-xpts">—</strong><small id="metric-player">Expected points</small></div><div><span>Players in the pool</span><strong id="metric-pool">—</strong><small>Fixture-level estimates</small></div><div><span>Model validation</span><strong class="metric-text">Not proven</strong><small>Benchmark data required</small></div></section>
+    <section id="view-dashboard" class="view active"><div id="dashboard-mount"></div></section>
+    <section id="view-forecasts" class="view">
+      <div class="content-grid"><div class="panel table-panel"><div class="panel-heading"><div><h2>Player projections</h2><p>Click a heading to sort. Select a player to inspect.</p></div><button class="quiet" id="export">↓ Export</button></div>
+      <div class="table-controls"><label class="search"><span>⌕</span><input id="search" placeholder="Search player or club" aria-label="Search players"></label><select id="position" aria-label="Filter position"><option value="0">All positions</option><option value="1">Goalkeepers</option><option value="2">Defenders</option><option value="3">Midfielders</option><option value="4">Forwards</option></select><select id="horizon" aria-label="Forecast horizon"><option value="1">Next GW</option><option value="3">Next 3 GWs</option><option value="5">Next 5 GWs</option><option value="10">Next 10 GWs</option></select></div>
+      <div class="table-scroll"><table><thead><tr><th><button data-sort="name">Player ↕</button></th><th><button data-sort="price">Price ↕</button></th><th><button data-sort="minutes">xMins ↕</button></th><th><button data-sort="points">xPts ↕</button></th><th><button data-sort="ownership">Owned ↕</button></th><th>Squad</th></tr></thead><tbody id="players-body"></tbody></table></div><div class="table-footer" id="table-footer"></div></div>
+      <aside class="panel detail-panel"><div class="panel-heading"><h2>Inside the forecast</h2><span class="small-tag">NEXT GW</span></div><div id="player-detail" class="detail-empty">Choose a player to inspect the model.</div></aside></div>
+    </section>
+    <section id="view-squad" class="view"><div class="content-grid"><div class="panel"><div class="panel-heading"><div><h2>Your test squad</h2><p>2 GK · 5 DEF · 5 MID · 3 FWD · maximum 3 per club</p></div><button id="clear-squad" class="quiet">Clear</button></div><div class="squad-summary"><span id="squad-budget">£0.0m / £100.0m</span><span id="squad-status">Add players from the forecasts table.</span></div><div id="pitch" class="pitch"></div><div id="squad-list" class="squad-list"></div></div><aside class="panel note-panel"><h2>Lineup objective</h2><p>The lineup solver maximises starting XI points plus the captain's extra points across every legal formation.</p><div class="objective" id="squad-total">—<small>Projected XI + captain</small></div><p>Captain fallback and autosubs are evaluated in simulation. This test squad is stored in this browser.</p><button class="primary wide" id="solve">Solve my XI</button><p id="solve-message" role="status"></p></aside></div></section>
+    <section id="view-math" class="view"><div class="content-grid"><div class="panel"><div class="panel-heading"><div><h2>Distribution, not a promise.</h2><p>Simulate the selected player's points using the same fixture components as xPts.</p></div><button class="primary" id="simulate">Run 10,000 draws</button></div><div id="simulation-player" class="simulation-player">Select a player in forecasts.</div><div id="histogram" class="histogram"><p>Run a simulation to see possible outcomes.</p></div><div id="simulation-result" class="simulation-stats"></div></div><aside class="panel note-panel"><h2>Math corrected</h2><ul class="check-list"><li>Goalkeeper goals score 10 points</li><li>Short appearances include attacking returns</li><li>Saves and conceded goals use exact scoring thresholds</li><li>Integer scoring events in simulations</li><li>One shared minutes distribution</li><li>Ties reported separately from wins</li></ul><p>Minutes, fixture multipliers and distribution parameters still require independent calibration. This is a component simulator, not a complete match-scoreline model.</p></aside></div></section>
+    <section id="view-validation" class="view"><div class="panel validation-intro"><span class="small-tag">EVIDENCE FIRST</span><h2>Earn the accuracy claim.</h2><p>Compare frozen VORTEX forecasts with an independent reference on identical players and gameweeks. No FPLReview comparison has been run yet.</p><div class="validation-actions"><label class="primary file-button">Upload benchmark JSON<input id="benchmark-import" type="file" accept="application/json,.json" hidden></label><button id="benchmark-template" class="quiet">Download input format</button></div><div id="benchmark-result" role="status"></div></div><div class="method-grid"><div class="panel"><h3>Same information cutoff</h3><p>Both forecasts must exist at least 60 minutes before the same deadline. Late forecasts are rejected.</p></div><div class="panel"><h3>Paired evaluation</h3><p>Points MAE, RMSE and 60-minute Brier scores use identical matched samples.</p></div><div class="panel"><h3>Uncertainty included</h3><p>Intervals resample whole gameweeks. Fewer than 8 gameweeks is flagged as insufficient data.</p></div></div></section>
+    <footer><span>FPL VORTEX / Independent research</span><span>Automatic refresh every 15 minutes while open. No background reports enabled.</span></footer>
+  </main>
+</div><div id="toast" role="status" aria-live="polite"></div><script type="module" src="/app.js"></script>
+</body></html>

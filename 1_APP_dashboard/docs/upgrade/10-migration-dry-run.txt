@@ -1,0 +1,8 @@
+
+> db:migrate:dry-run
+> node scripts/migrate-db.cjs --dry-run
+
+0001_legacy_baseline.sql sha256:6d9b066c6c1cdc8c5ee60f20aa7e97f3d8bb8ef984a9c88f5f091fd027466f1b
+0002_analytics_domains.sql sha256:2ce3cbb885c7e9e075aade872d7c299e7f58f7e74a736af38fd8230aa0fc7157
+0003_auth.sql sha256:ec3b7638e0d56c01956e3c3a7a5d9f1100bccbd60b0618726a3ed61f34aa612e
+DRY RUN: no connection and no database writes.

@@ -1,0 +1,10 @@
+{
+  "name": "fpl-vortex-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "validate": "node scripts/validate-artifact.mjs",
+    "dev": "FPL_QA_DIRECTORY=.openai/qa-data node scripts/dev-server.mjs"
+  }
+}

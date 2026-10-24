@@ -1,0 +1,2683 @@
+{
+  "source_archive": "FPL_VORTEX_MERGED.zip",
+  "active_site_source_commit": "9bd3768ba988272d136a2512cab736839794807b",
+  "note": "Imported from the saved merged archive, with the active site replaced by the verified private deployment source. Nested Git metadata and runtime caches remain in the original archive.",
+  "files": [
+    {
+      "path": ".github/workflows/check-site.yml",
+      "bytes": 521,
+      "sha256": "a55eaf8ad89ca42ab897c2e861886f57b4a412e5d351c74a457ea5bcc2c55530",
+      "git_blob_sha": "1ea616bdd36cd2765e6c5b2777580972b2b9ef3d"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 134,
+      "sha256": "619d372a2b995f64cb631edb27412485cdea0d7a6a5098dd0bfe2c80c0938e1c",
+      "git_blob_sha": "6971761641d60cd8940718ef57cb544b24332b80"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/INSTALL-NOTES.md",
+      "bytes": 1059,
+      "sha256": "6890ff008cdfdf7cb45f13cda1f70b3001c73d4f39aafe9af223913d4bcabef0",
+      "git_blob_sha": "c8a88f9c13f2c5fb1cc6c12603b78868a19b433e"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/LICENSE",
+      "bytes": 1075,
+      "sha256": "738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014",
+      "git_blob_sha": "1e71cbf26660f31903807d099fe902c098fc7e4c"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/SKILL.md",
+      "bytes": 15784,
+      "sha256": "26af3755fa199b243dd51b221beb6aeead9eeb57c2caf05b87b45b1f1d01f1fe",
+      "git_blob_sha": "079a3b765d878ed0a0a1a9dce55b4dece4977ae7"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/app-interface.csv",
+      "bytes": 11046,
+      "sha256": "331e7cf2c0b222d80c566c5f255c63cb339f65bfd02e471a720f28e4864a9f08",
+      "git_blob_sha": "95e328c807a23be02c9c32c736d0fa19109c6076"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/catalog-summary.json",
+      "bytes": 2392,
+      "sha256": "6638da97231c07fb5cef3cd9d3ce483ca7b2f9748980f8c27490eb03968d8894",
+      "git_blob_sha": "f911c3ae48fac5863a5a5e210866ec5cabece164"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/charts.csv",
+      "bytes": 23365,
+      "sha256": "4115cf1120680f2cedef0676cb648f30c7ef4699e2a947535d4113e71ed3b12a",
+      "git_blob_sha": "c6f4f875fd5b34379f24dbb541539492366a1058"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/colors.csv",
+      "bytes": 37940,
+      "sha256": "8162429222bce22df62b564085946a30d07cc9722c58d0a3a494bd0d1d00841c",
+      "git_blob_sha": "5d2bf7389105f8a824b504b57cc93c00dc1d7e0a"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/data-provenance.json",
+      "bytes": 36686,
+      "sha256": "e82fb33ed49375a300e93d9c11ccd1c1493c999e84ee7ee295e527634786e2e0",
+      "git_blob_sha": "e41d2e553bdc7e5a8e6d16f5daab565faf372188"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/google-font-licenses.json",
+      "bytes": 433127,
+      "sha256": "35688523f2955795caa1a47c53b83099e60c1708461476f9cc3a050cf3b0148a",
+      "git_blob_sha": "3ac2c34e80665bc902e265c52ab6c27b1654524c"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/google-fonts.csv",
+      "bytes": 747241,
+      "sha256": "1c8c3b2ea1faf6a1012da463756def8b3889db33f2226f0343bb4daa80307d03",
+      "git_blob_sha": "d7f87e3e0159b1caba083b9954793d9852256aa0"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/icons.csv",
+      "bytes": 57945,
+      "sha256": "50816c6012030178195a16ee481ebf58b47bd985d70e8ec58886cc83f6eddafc",
+      "git_blob_sha": "cfc3f1eccd7e5aee15d8d70f86d8fa17ba737958"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/landing.csv",
+      "bytes": 25449,
+      "sha256": "9a2edd3bb676c2a58f00ade7a062e285222d4297bfd847c8d5b056f0dbbf52d0",
+      "git_blob_sha": "34858160aa2789c49dca274d48bb116d51dd3f0a"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/motion.csv",
+      "bytes": 14679,
+      "sha256": "381affe8df8ea1f66fbbda2598827f9f54299107bbe6a1b4e9b68f6b62091ceb",
+      "git_blob_sha": "8e0ca9ceb0e4cd4832aee60ac74713e1e1830de8"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/phosphor-icons-upstream.json",
+      "bytes": 823933,
+      "sha256": "2399325233b277b5c97a80e6a5e8941154f5d057beee4e7613db87c87d700236",
+      "git_blob_sha": "ec1d76b8117ccbfdce5df214bf0d993e41a75318"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/products.csv",
+      "bytes": 75623,
+      "sha256": "42473f75e8dde5987bdf89ce55d8c168091b80a356cae691dd60247d80720b70",
+      "git_blob_sha": "9f40f1d1f9743c4a81603076dfbfd115bbb55246"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/react-performance.csv",
+      "bytes": 15080,
+      "sha256": "3d925802539abac5afeb63ae8aa1960b7229ad271b3a47caed40ab2d97ad0734",
+      "git_blob_sha": "425a8e76c6b3bae40e8c633ffbf7ad6222c9f73a"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/angular.csv",
+      "bytes": 19863,
+      "sha256": "704be83f2bad30c7e6de01afb113ffa01e0c458762f48b7102f31ba2367b5553",
+      "git_blob_sha": "5a1878dbee2b3c55c6468cbb18699b84d1a8c4d2"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/astro.csv",
+      "bytes": 14591,
+      "sha256": "2c2f55fadaafc05e04cc321c8194a1a28b656e6757fe2ba316f41b16428299c6",
+      "git_blob_sha": "1fd2492420b20a0b311295ab883597fadb8245a6"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/avalonia.csv",
+      "bytes": 27327,
+      "sha256": "442fca14675a020683473e7e49f08abb27b9df0765c80efe54aef61f1a4ac258",
+      "git_blob_sha": "c67f4117105865587eda9020c57d8c209f3a929a"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/flutter.csv",
+      "bytes": 14192,
+      "sha256": "64dba0ac17349f28bce517a0f5f48c54d9ed2e487ec0c0258303463b382f41a0",
+      "git_blob_sha": "731805c4076bd9f2755ca4bd7def5be6f6df7e9c"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/html-tailwind.csv",
+      "bytes": 16551,
+      "sha256": "d05a581d20af57b8ca0104a6d31d90a07c437d500662a96c3029fc2f9a4678ee",
+      "git_blob_sha": "9089eb0fc821ff0c8d135f8ee503be345e8fcb84"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/javafx.csv",
+      "bytes": 33577,
+      "sha256": "2e819b8d5abdd23ad4dae0991650fdb57af497aabd68b37463aa9c442944c869",
+      "git_blob_sha": "744bd80f437f12bfb5bb9c84630a58022604675a"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/jetpack-compose.csv",
+      "bytes": 12295,
+      "sha256": "699de218b286948eaec7d15767b6e1350ee299167e49bf476d82e3ff58724e0a",
+      "git_blob_sha": "8daa0b8f9a2ca3f0f1711664d9d677cd1c38dd9e"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/laravel.csv",
+      "bytes": 20163,
+      "sha256": "854ea4daa5fc61292d22235ad33b49ba3fe22423c3de8d3cb03758ffed3b59f9",
+      "git_blob_sha": "ed11b0fba457e02857f996d1542fb0b8e1271756"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/nextjs.csv",
+      "bytes": 18687,
+      "sha256": "ecd2c27b2ea0127d203ae726060efcdd7335b5e83f96b99e4f3befbbfeebd5a4",
+      "git_blob_sha": "acdaf097dff26ba0d3b22ab4544bf6169c87afd4"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/nuxt-ui.csv",
+      "bytes": 28700,
+      "sha256": "fce682a338cfcdbf35d318d20e5befbe7b5d81b05abc37f87677a6d9cde84dc6",
+      "git_blob_sha": "e2aaeca45faa8b987bf94010162b14d458811dde"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/nuxtjs.csv",
+      "bytes": 23014,
+      "sha256": "3d9b54ed2d151bd9c86e9e5609b8a6f88a00c4c52fa601a30af96c49b2c4d176",
+      "git_blob_sha": "ceab9cf3358d2788af0bd7dc14cb3fab769740d0"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/react-native.csv",
+      "bytes": 14049,
+      "sha256": "ba31dd9c0c04da6bc02a74448bf121f9c0728ae5ba3b4d47b487778b0a1135b5",
+      "git_blob_sha": "a5aea45dc1d0341b11ee42076a86db842d4d2a19"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/react.csv",
+      "bytes": 21166,
+      "sha256": "4dd176a9787e5c6306b5df94158d75955adcdc6edab41ce5286641a5842303c1",
+      "git_blob_sha": "fe8f001e695a978733449e04e99d7135af0f1bf3"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/shadcn.csv",
+      "bytes": 23184,
+      "sha256": "e56cfde5b74907836ac3582a4779d5b7f3d206a702ab81b8669a1b668c3eeb51",
+      "git_blob_sha": "0e8bedf3084e7a40d6310bcd3011c437efcb1700"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/svelte.csv",
+      "bytes": 15078,
+      "sha256": "f6e379ba802941ba26b01d4ffbe3cd39120f2587659a1d93851c707f66bc13db",
+      "git_blob_sha": "51684fe70448e15333cd16207db7da8aea0508e6"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/swiftui.csv",
+      "bytes": 15323,
+      "sha256": "bdd9231ff3ad658f4e7c063e1eb49df2fd09ac8d90631a86df899b39833b9623",
+      "git_blob_sha": "ea9b95e8922e663b2adf27a7346e2c2f44c7a215"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/threejs.csv",
+      "bytes": 46769,
+      "sha256": "155d583b9c64da0df4b6c6cb060c02eab222505e0734d6353da02c9e2b5d982b",
+      "git_blob_sha": "f62286320038beabbdc5e11e07ca2818d8e959a4"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/uno.csv",
+      "bytes": 30091,
+      "sha256": "a0474363e4225b5367214d5675fd3e075f137026f9500f0d04357882ef4f6d48",
+      "git_blob_sha": "9cab32326b4ad3a3cf43451a3c24553a41126cc1"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/uwp.csv",
+      "bytes": 24692,
+      "sha256": "c409f08c1fbba1f1029f1acaa554e7b4471cc85517a5751c9f2e62465badcd5c",
+      "git_blob_sha": "04a84ea092a7657fef11e5daa97982be52dc6f59"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/vue.csv",
+      "bytes": 12813,
+      "sha256": "b655f1ebb9dff2652d15981f31b1784c8a6d4759efd2815a14f3088257569f95",
+      "git_blob_sha": "83997c515775170f22b638635aae0a67a46dfc87"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/winui.csv",
+      "bytes": 27890,
+      "sha256": "e676dc1c13ee6c205c40b0746f1335150a346c7a49a0616d2545bc3d2c930c85",
+      "git_blob_sha": "107ecead11728a83ec0ea10d815a9d1f43a35792"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/stacks/wpf.csv",
+      "bytes": 24158,
+      "sha256": "9781a9950b20333637b30a02e498b7efca21b618a3eeb8665836f3ac6e974da7",
+      "git_blob_sha": "4e88d6750833a74f85ba487cf2b8f4ff6ebd2f4a"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/styles.csv",
+      "bytes": 149478,
+      "sha256": "a93a4d9d7025856575d7b7583bda020be9043013432c5af7c58af9dbdfb206b7",
+      "git_blob_sha": "d1eb2c216e453005ffa8232ffb94491c183afe3c"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/typography.csv",
+      "bytes": 49997,
+      "sha256": "321fc446e89024488ebae96dda93efc4d2307bd8bddb240857ad51364f6782c8",
+      "git_blob_sha": "70d107d107de30150863c965767320ec33ef29ad"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/ui-reasoning.csv",
+      "bytes": 77360,
+      "sha256": "f0774dd741cecdad5eec842034bd6d5e9ea50e9f220a1910069748daa0bb8e9a",
+      "git_blob_sha": "8931d4c809f8e22ddac00ce612ce0c35f34a59b6"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/data/ux-guidelines.csv",
+      "bytes": 27516,
+      "sha256": "ff81ec613f70ba9fc3fcce52dbe4ae35d44b2079dbe6dc066d2d6e38c28facd5",
+      "git_blob_sha": "4e7d52b296537a03513b18b2c3f2b946cc802051"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/references/pro-rules.md",
+      "bytes": 10909,
+      "sha256": "d28442d61c310b49c054a4ea736f89fb3008beebdbbc38c4b3a540b8f7fadf23",
+      "git_blob_sha": "b2ce233287e37ec9ca13476c4014b922e9d5a0e9"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/references/quick-reference.md",
+      "bytes": 24526,
+      "sha256": "0609bc7c89dacb40472465d8fc14257b56b2c43439660fc8d6fa3b8c022e1876",
+      "git_blob_sha": "7acc7e7540ca6981d878a90aae4455c1638e2385"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/scripts/core.py",
+      "bytes": 41236,
+      "sha256": "c3be4b23e7150e6b45095213158cfa3c8ad96502f01dde3f6ffff9de64a4f481",
+      "git_blob_sha": "670fe33070cfe706401da4ff276831257dbf1e25"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/scripts/design_system.py",
+      "bytes": 71537,
+      "sha256": "e7d1c94c4b2eada17c5551157668362659ccf9626d34dbd58e68142410f90103",
+      "git_blob_sha": "d5fe1575f00d839f919603bd09b44fe7e9def4fb"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/scripts/reasoning_contract.py",
+      "bytes": 5824,
+      "sha256": "b8bac1af82aa280d3e06f00aabaeac4337e632996b07fed874e2b6ee6e9c5913",
+      "git_blob_sha": "63652a666b130c249ea1e2954316f1ac8a5a73d5"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/scripts/search.py",
+      "bytes": 9373,
+      "sha256": "d54e648fe0ec2932cac66684220cc17be4bd4b4eba1d23d3195d509d398db374",
+      "git_blob_sha": "5038aa875a0d39f24dea803a4c73b38f8f56915f"
+    },
+    {
+      "path": "1_APP_dashboard/.claude/skills/ui-ux-pro-max/scripts/validate_data.py",
+      "bytes": 52230,
+      "sha256": "a599aa256049cf30954d1f164721b99e453eb7e4cb8241bcab2d5573e6cf58b8",
+      "git_blob_sha": "8b6c7941f6ad3e51cb9d412b11185133e7763001"
+    },
+    {
+      "path": "1_APP_dashboard/.env.example",
+      "bytes": 726,
+      "sha256": "b71b0c098b0fde289c964c9cb6c612b72fad8838a66627db9e1be4d33d4c1fc2",
+      "git_blob_sha": "2fec1e58043d0b43d673fd841c40fb72b63f3e30"
+    },
+    {
+      "path": "1_APP_dashboard/.github/workflows/ci.yml",
+      "bytes": 998,
+      "sha256": "de922056237aad2035b39aacfc7a41de295f715b32a964a1759b4e56dfda533b",
+      "git_blob_sha": "a055cf971585633082769b31d2b58cb70723d9b6"
+    },
+    {
+      "path": "1_APP_dashboard/.gitignore",
+      "bytes": 86,
+      "sha256": "f747037b8c85edea59b6a97a2fdc9841c593dd23f51385c1f01e7c5d5d41dc2b",
+      "git_blob_sha": "6997ed8be43f2cd47ceecaeb1e574b53cde8c98a"
+    },
+    {
+      "path": "1_APP_dashboard/UPGRADE_README.md",
+      "bytes": 5126,
+      "sha256": "33074c4344fcb56ed829404d1d309fe455d619c7de252a8e170285c605068fbe",
+      "git_blob_sha": "5821d1584482e1636c5dd7258282cdc3a2c5b42f"
+    },
+    {
+      "path": "1_APP_dashboard/docs/MATH_CORRECTIONS.md",
+      "bytes": 3644,
+      "sha256": "00967a341cf3a8e1d439eb008462760ac65eab6415b1119b524869495df272d5",
+      "git_blob_sha": "fd05935963f26629a7120ae4f249e4aa87e05f16"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/01-16-progress.md",
+      "bytes": 6294,
+      "sha256": "997ebcb4b57135341e86a69525f8ef564ff073d6463a897157bfb4f658df3b51",
+      "git_blob_sha": "de5afe795ed529a0efc80e039cd3a031b1ed5110"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/02-baseline-test-results.txt",
+      "bytes": 4573,
+      "sha256": "3f157132158361fd6fbc5bf60fa46a80c3cc385ecf21ed98483d5eb1720dee1b",
+      "git_blob_sha": "e8417b6e571f981652202b6b5773763cce2630f5"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/02-baseline-verification.md",
+      "bytes": 2493,
+      "sha256": "201e726ceaf97f62de7622910593c86b9f87f136bc30fc5ecb8c85b5ebbe8469",
+      "git_blob_sha": "03206526f8eb7c7da79a1ee11af93594ef3326b5"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/02-toolchain.txt",
+      "bytes": 49,
+      "sha256": "24fc5076cd0ecb5eb491aa7983be99fc6f23c4fdcef0cd2ac0e33f61e7866e38",
+      "git_blob_sha": "4fa4c7fa83435c12f90fc19b0f4324abc8acfe9a"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/03-feature-inventory.csv",
+      "bytes": 5860,
+      "sha256": "f0f38070a3466a1549bc68a9fd0273ca1350e051b531c1f8fd724d72fc3eecfa",
+      "git_blob_sha": "32b5008df83812af18705a12f0d92dfc1b758eed"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/03-inventory-summary.md",
+      "bytes": 3659,
+      "sha256": "fe3a1ffe02349113288bc93b8b49e5527966aeda9904cae985a78806a13393b0",
+      "git_blob_sha": "888917aced85169b7cd6ed3fc6a0cdb703a071b5"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/03-source-files.csv",
+      "bytes": 14311,
+      "sha256": "aae04411d73d8dc2f2e23e4d28c48d9892158a10b3f4872f3e3c7cccc75177f4",
+      "git_blob_sha": "89b037b01ea4df9c90b54a1fb434580fa40ba3be"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/04-architecture.md",
+      "bytes": 8314,
+      "sha256": "5ce7f7208d30962226dd177417e8711364560f2ce5c909072591fd3b32608017",
+      "git_blob_sha": "f416745eabcc0001ef3da07fb699097e07400799"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/04-migrations-dry-run.txt",
+      "bytes": 996,
+      "sha256": "a52d6ee3096f5bf315959d5e87efc5fae1c721cb8c860489269c66dd492dd6b6",
+      "git_blob_sha": "85561f0ae666370e1791ce4e4cbe9daa1db77a0d"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/04-release-gates.txt",
+      "bytes": 359,
+      "sha256": "a07e388aae0109074dc6a1504584fcc2a1d73f09740730c39bbf164a73b47534",
+      "git_blob_sha": "0e847355c2be3d6dfb95877bd1263f1ef0ba45f0"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/04-stage04-progress.md",
+      "bytes": 9249,
+      "sha256": "e1e2933332d06d16f2744fdacbf59d9dcb671f439c37d29dcdf4d7cf78887715",
+      "git_blob_sha": "e405824cea6be306a235983a815db7266f6126d5"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/04-test-results.txt",
+      "bytes": 21086,
+      "sha256": "b7e5a9e640d96396ada5ddf40454ea17f546ae8b4e2d7b803b1eefd4a1fa7c8e",
+      "git_blob_sha": "7764db28f22554c5195387b0100d2b73464dca24"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/05-planner-consolidation.md",
+      "bytes": 4573,
+      "sha256": "5517f295554c9bb712519eeaf11693cd2d08aadcd6d923d95afd0143253da00b",
+      "git_blob_sha": "2249566c6ef3cc63b0d53bc6adf59ab8d4c6c410"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/05-planner-test-results.txt",
+      "bytes": 6418,
+      "sha256": "0ec0eca2f9fa51bce426e4df221f4b5ec658f3184f0ffe2ea58ae3bda3e73c1a",
+      "git_blob_sha": "8378fe6df6f2210576868c62b2f8ca11b1bcf5d3"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/06-scoring-consolidation.md",
+      "bytes": 1649,
+      "sha256": "5254d06064a7aa8c82aa5844108ed4209d4269d42b98caf4455ab06e8d793aeb",
+      "git_blob_sha": "d43d65276cac0b02a6a95b194e7359ca60d7fda8"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/07-runtime-configuration.md",
+      "bytes": 930,
+      "sha256": "c8b2a783c61ce13f34e05f991b7b05289b96ae68e6886948b3b759f9927fd6e5",
+      "git_blob_sha": "ae1146c2eb14e9a6e3d375c1a671074735a553d5"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/08-migrations.md",
+      "bytes": 2066,
+      "sha256": "92906e6105c9b92167e331234a9a40aaea4da3f6bb04cc0635f9d8145d47c0ea",
+      "git_blob_sha": "1460d9dda8c795e093b885898ef81566d7298a5f"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/09-analytics-schema.md",
+      "bytes": 1831,
+      "sha256": "24c24f6ae6325d1aa6246782ba3160efdcb274f62d1f33142ce09f8ebf68b7ad",
+      "git_blob_sha": "87e6281a6f174ec3e74b4b697079a0555f848ff7"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/10-authentication.md",
+      "bytes": 1866,
+      "sha256": "ec42bd6ae56fd8c0d62d71b59fa89f0e146a065ed01039c3f7269ed5bf2bd823",
+      "git_blob_sha": "e1f28ad2ab06815c297af412ffd5c611a8bbedd9"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/10-migration-dry-run.txt",
+      "bytes": 392,
+      "sha256": "b331704572e391f010ae6d40e268ed80359f46cdbb33e7cec43f88449905ac94",
+      "git_blob_sha": "2e521c0cc84fb0e25b54b16b09efaa3ac2fe8948"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/11-access-control.md",
+      "bytes": 1900,
+      "sha256": "4d0ea09ee5b028009f233e3b6f1a393d03d97f45f4ceb3a89ff8db5f22495f73",
+      "git_blob_sha": "ab7a841479e001b925a8dd2bbd2a44a0b96e4008"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/12-fpl-data-pipeline.md",
+      "bytes": 1402,
+      "sha256": "9f0905b29d78e59fd924bc1c9ab62848d89800457e35016d65afd03148b98537",
+      "git_blob_sha": "3710668f2980b7796340cea05d311a40ebc6223f"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/13-immutable-fpl-snapshots.md",
+      "bytes": 1650,
+      "sha256": "6e82942dafa94c3732b0615a95ca5f1a33dcf9945dc7af35f6a4838f3468496d",
+      "git_blob_sha": "7e4484e6fa228732871684e4aff11c758d887fef"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/14-fpl-api-reliability.md",
+      "bytes": 1451,
+      "sha256": "141aa50c0f8375ced147e439447c3d6a98016b58a2257aa00527cbf8111a2860",
+      "git_blob_sha": "2403f4b7450ae9f727c251ac52fafabd4f263200"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/15-background-jobs.md",
+      "bytes": 1866,
+      "sha256": "6d67c108aedd5049b007bde952226b80ff87d204045da2ab842ea0c308c7279d",
+      "git_blob_sha": "11b70c945f7b1bf3b5a5c39965243ffc46e2f06c"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/16-migration-dry-run.txt",
+      "bytes": 789,
+      "sha256": "4d34cd8d6d808d2adf2430c4a6efd105e99900fea14eb2ac8647bfe93ab7919d",
+      "git_blob_sha": "e6d1e1f50bd6bf866a968b6158cabb3e0bc388cb"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/16-regression-test-results.txt",
+      "bytes": 16840,
+      "sha256": "2c23fa422b551a5e9841b2de4cf9037483138cc9ef351f3d750565664a97c09c",
+      "git_blob_sha": "12bb5afd27882c337dacdf132876fae815a8af90"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/16-scheduled-automation.md",
+      "bytes": 1879,
+      "sha256": "9b714db08a8a89c71640891cccccc6a4ee5b246fb44c785430e6692e2c434f55",
+      "git_blob_sha": "f35b88525c100b1651c065091e94a460b3d0e738"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/17-61-implementation.md",
+      "bytes": 4822,
+      "sha256": "ab5ad000d085a12fa6bc10f5448c7e676b937659f8144232e7395bee538aba6b",
+      "git_blob_sha": "cddf8036303b6e3140bc429aa2628ba6b5f355a4"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/57-staging-setup.md",
+      "bytes": 1762,
+      "sha256": "46ebe9f0edf7975be81e998e83906fda0fd815be8a97238fd93a6a467cee8ce3",
+      "git_blob_sha": "ae6ef607fd04d8b1c370bbcf6bc6f7ae5f0c779b"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/PROGRESS.csv",
+      "bytes": 10601,
+      "sha256": "8b5f4881b2cb3fa95b6f92e2052419032ce06a7033e246096a01c1f27231afc5",
+      "git_blob_sha": "b75829e921e3e06212b753683b9633d494ffc1a4"
+    },
+    {
+      "path": "1_APP_dashboard/docs/upgrade/SOURCE_ZIP_SHA256.txt",
+      "bytes": 117,
+      "sha256": "0d194b368182d1f6129958a7039554ed31e055c6282fe4637f691d1598f99915",
+      "git_blob_sha": "49cdd68f9a1005c8b49eb3c28bd66bd491f2ff13"
+    },
+    {
+      "path": "1_APP_dashboard/drizzle.config.ts",
+      "bytes": 369,
+      "sha256": "e80f0dbdceedafe816d7ac61ef5ce1353d3f43c333d461de56864915ea6612a6",
+      "git_blob_sha": "d13b42eb24045017465f55b1f557a5a1f98333df"
+    },
+    {
+      "path": "1_APP_dashboard/eslint.config.mjs",
+      "bytes": 365,
+      "sha256": "c971926abccc506da1532570c55a95d5298b606901c4801866a4862969c13302",
+      "git_blob_sha": "74262a0e39ae3b3eeb7b42ae77a6e9c52536e635"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0001_legacy_baseline.sql",
+      "bytes": 2015,
+      "sha256": "6d9b066c6c1cdc8c5ee60f20aa7e97f3d8bb8ef984a9c88f5f091fd027466f1b",
+      "git_blob_sha": "6acfc77694d1c3a22eea88100c47bf286949580a"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0002_analytics_domains.sql",
+      "bytes": 10721,
+      "sha256": "2ce3cbb885c7e9e075aade872d7c299e7f58f7e74a736af38fd8230aa0fc7157",
+      "git_blob_sha": "62e4455afe41a062489d2038dc47b2b92f830d5a"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0003_auth.sql",
+      "bytes": 1279,
+      "sha256": "ec3b7638e0d56c01956e3c3a7a5d9f1100bccbd60b0618726a3ed61f34aa612e",
+      "git_blob_sha": "6493efb1b1e937f3635b90678bc2267620254d2f"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0004_saved_plan_ownership.sql",
+      "bytes": 305,
+      "sha256": "6171a5179b6e0a4bffdbe96089789580ee58fea4744f2421bcba391b6c5ba704",
+      "git_blob_sha": "d393bbb41e28a0c8ba21236f8070ac63ac6477e3"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0005_immutable_snapshots.sql",
+      "bytes": 409,
+      "sha256": "98a3cc00692d6610d3a21c76f743f51d745efd7435e862c0fa24be65ccc9dd7c",
+      "git_blob_sha": "8e395c5e7182ea1b9b173fa8e62551b9bfbe3a32"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0006_background_jobs.sql",
+      "bytes": 1173,
+      "sha256": "9ea8a6f85fd8dbc566b8962214f1bb8449bf028e6403f8cae878b59b3c1271e0",
+      "git_blob_sha": "73424d526dc912dbb97964c7af5e5dfb3ff27d34"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0007_live_automation.sql",
+      "bytes": 272,
+      "sha256": "cd5e55487693b1e4dc679db5a029b56b4c0ec26bccbc8d5200431ffd6fa78682",
+      "git_blob_sha": "89581a1735048106314acc4e77607cfe420a90fb"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0008_report_schedules.sql",
+      "bytes": 1169,
+      "sha256": "a451ccf06161d5ff05be25142c1cbd58d6b062b7c96de4091dc5e8e1f7fa9b83",
+      "git_blob_sha": "3e838c95d11df254e6e4a651a24e7d73670fa53e"
+    },
+    {
+      "path": "1_APP_dashboard/migrations/0009_report_delivery_idempotency.sql",
+      "bytes": 227,
+      "sha256": "5e26e3bd835708c26884737ffe498d37d89cf84c11a5b4edb901df10a9abe595",
+      "git_blob_sha": "bf0cf8c3ec38f2929b9e94cf757bc45b59c497e6"
+    },
+    {
+      "path": "1_APP_dashboard/next-env.d.ts",
+      "bytes": 247,
+      "sha256": "7b550dda9686c16f36a17bf9051d5dbf31e98555b30d114ac49fc49a1e712651",
+      "git_blob_sha": "9edff1c7cacb3bfac9a1eadcf6f51eaa99565e38"
+    },
+    {
+      "path": "1_APP_dashboard/next.config.ts",
+      "bytes": 508,
+      "sha256": "38d4c270249b2da8c61381d152768fceba912803bd962616ba6e0eba40ec1af9",
+      "git_blob_sha": "a83d4a54ceff05932f0c9614f9a5c39acd16c9b1"
+    },
+    {
+      "path": "1_APP_dashboard/package-lock.json",
+      "bytes": 290006,
+      "sha256": "a09cc434fcde28cc42aa37b5415c0e01d66df813e4053e4bac13240f7f9e0887",
+      "git_blob_sha": "118c14128ec2715a4b03d92dc9273a0130901c63"
+    },
+    {
+      "path": "1_APP_dashboard/package.json",
+      "bytes": 1646,
+      "sha256": "6ab74b05f9ff0f6a19ce34e78b47e2b23a218ab16388015d5bf3f9cca4688c75",
+      "git_blob_sha": "950c45903f459bffda7ba44d80094cd955c5acd8"
+    },
+    {
+      "path": "1_APP_dashboard/postcss.config.mjs",
+      "bytes": 108,
+      "sha256": "b8cd36495468ea54e029eb4b2e0e98f0feff6f95d6513e70db37a71c0e3bfba4",
+      "git_blob_sha": "999cd7b9d2cd26ba7b02c69c272868b39bea0674"
+    },
+    {
+      "path": "1_APP_dashboard/public/apple-touch-icon.png",
+      "bytes": 1672,
+      "sha256": "1d12895cb2bd3955a42992791d531a53b66d4fa24c83cd06a128cb18718afc9d",
+      "git_blob_sha": "d16505c7c801194291f58f38a28223cdd864d00a"
+    },
+    {
+      "path": "1_APP_dashboard/public/favicon-32.png",
+      "bytes": 355,
+      "sha256": "02bdfc08fe751030f5667ba5094b96a85293c33a27ede450f0fd1dc6b342ff59",
+      "git_blob_sha": "73c00a776cb180e82d6098ed67e195bb71635eb0"
+    },
+    {
+      "path": "1_APP_dashboard/public/favicon.png",
+      "bytes": 579,
+      "sha256": "dfb8e0905b896984150b13704aa67847c7195c781a439716a220ae6a06e897b9",
+      "git_blob_sha": "96d72d710854f6eb1bbbbef86047652c2451b20d"
+    },
+    {
+      "path": "1_APP_dashboard/public/icons/icon-192.png",
+      "bytes": 1813,
+      "sha256": "c891bcbd3bda497d1694b6bc272238ee2aefab24555d4816763cb9ee24706a79",
+      "git_blob_sha": "501cc04ec10e8603a5f85157843f66c141e5a451"
+    },
+    {
+      "path": "1_APP_dashboard/public/icons/icon-512.png",
+      "bytes": 5173,
+      "sha256": "aa7e9beb327877f84b2fc778477a9362bb0eb31a9aa66b513b480afef939a897",
+      "git_blob_sha": "bacd5a59609d6afce00a3ed465a76aedfd875cd4"
+    },
+    {
+      "path": "1_APP_dashboard/public/icons/maskable-512.png",
+      "bytes": 5173,
+      "sha256": "aa7e9beb327877f84b2fc778477a9362bb0eb31a9aa66b513b480afef939a897",
+      "git_blob_sha": "bacd5a59609d6afce00a3ed465a76aedfd875cd4"
+    },
+    {
+      "path": "1_APP_dashboard/public/manifest.webmanifest",
+      "bytes": 628,
+      "sha256": "6edbae8a9632f8c8e30c9d1fa54bb84ec69c9928da43263cd42868e3c5d2f87a",
+      "git_blob_sha": "2281588f25167f71ffa023389c1ae4c1148e1e38"
+    },
+    {
+      "path": "1_APP_dashboard/public/og-image.png",
+      "bytes": 37348,
+      "sha256": "59a3f5b7088ed6ff28673727bc90021e3bbc6c59a839b7af02539f4a350d1d94",
+      "git_blob_sha": "89accbb37fd8c28ab1cb8b2dfd882c1ac169a4ed"
+    },
+    {
+      "path": "1_APP_dashboard/requirements.txt",
+      "bytes": 299,
+      "sha256": "046440771e2d3e210fbbce91f7874c542ab9ee6dbc70dac38a241963e3a0a5e2",
+      "git_blob_sha": "4320baf33b3862ad0bf97602a16d05e58cd7bd0d"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/auth-crypto.test.cjs",
+      "bytes": 2508,
+      "sha256": "3ee682a3d0897acc8b954982b5759e83d2219adc1f658e50ad235e476ac18d42",
+      "git_blob_sha": "7798f8fe1e969eef766c251984df72f62bf2a162"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/background-jobs.test.cjs",
+      "bytes": 2602,
+      "sha256": "853e4d284b13851959a5ed519619d945226f865de3d9c57b828374195afa5252",
+      "git_blob_sha": "5711a1b11b0975a943eda511ea1c81cf2b5f793c"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/background-worker.mjs",
+      "bytes": 226,
+      "sha256": "e335c9af1ce1e6f38c89b8e5b5d4076fbc3e8eb0b85fb7040f656829101c4f45",
+      "git_blob_sha": "98700717f7588b6e1fcef400d17d5a5b1fd9af67"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/check-env.cjs",
+      "bytes": 886,
+      "sha256": "cfa7b208b59b589e1be76bb527671c7d13400f2e71503a07f01d231c3dc87664",
+      "git_blob_sha": "37ad8a5f8ece1c00b07aa5a39188b9e5e48aba19"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/check-upgrade-progress.py",
+      "bytes": 1524,
+      "sha256": "83d439d8b7f381eb9009feb0a514e215f0b7e64df9cd3e0096ff21b1e0f1a53c",
+      "git_blob_sha": "b06cf0730db2c0f24875cc688abd35a8bf63e855"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/db-schema-contract.cjs",
+      "bytes": 853,
+      "sha256": "ea4c5390cd7c89f216ab58d40043fa79240511646426b2b92b839e220367b00e",
+      "git_blob_sha": "40cbf77cce6322e38849d43d1cdf1823deafc1e6"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/forecast-science.test.cjs",
+      "bytes": 2382,
+      "sha256": "30458d15b1e611d3eb16236efcdd62f7313cca955e6357513c98b4640dfdbdd7",
+      "git_blob_sha": "9b69b1cdc6521c4772d51506ac67a6d586cd6ad1"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/fpl-data.test.cjs",
+      "bytes": 3258,
+      "sha256": "765c53984c14bdf0f23aa68533f2e8ea68f691e01ddf8cf88b8140f847125fce",
+      "git_blob_sha": "32177fafc9faada779eb4760180e53312392a29e"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/fpl-reliability.test.cjs",
+      "bytes": 2059,
+      "sha256": "3f1d2d4646e543ea95e37067fca7237da5949975356b56dfd4b89177185207df",
+      "git_blob_sha": "2a0520adc3233045523a4273e281837f68b74682"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/intelligence.test.cjs",
+      "bytes": 3167,
+      "sha256": "a433e335a89efe4125e142a23a64b6b399cd625edb195dd163dc30a97c7c370d",
+      "git_blob_sha": "7949fda7545ee6a173bb345ac5f720f13935cede"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/inventory.py",
+      "bytes": 2525,
+      "sha256": "3c410c898861b4b4499f2a7d627b34960075fcb8a63b444b75e23b0eb90e0bc8",
+      "git_blob_sha": "9f4c5ab2c0d34d83f43591cae52767b53e82b6f3"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/live-analysis.test.cjs",
+      "bytes": 5501,
+      "sha256": "eef2fdbc8c8dc44d25cf271be70ba17842ed388e908fb0380eb52b0524c04e20",
+      "git_blob_sha": "833e14b5634092cad64b68a73b41886ed72f08b7"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/logo-assets.mjs",
+      "bytes": 5940,
+      "sha256": "c7c802b947ccedb0012ff7da98fbad9bacf26301e391677bc1e975c193cc2ebf",
+      "git_blob_sha": "228e8b8aa10f30bd404fdeaaf6b986f5f51991c2"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/manual-lineups.test.cjs",
+      "bytes": 4751,
+      "sha256": "5f6e8c14f6b04f2927c4782dc3a43e084cd85982230450f9e75645bae11b4cb4",
+      "git_blob_sha": "0fd20efd58b75beb96c30819b390f7975c985562"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/market-browser-check.cjs",
+      "bytes": 6066,
+      "sha256": "1bc0c563fd6e6e96c020663244ba0a6b39130bb9931e14e1ff5fc45a12d3632e",
+      "git_blob_sha": "e43bf7a3338d52803dcbee13e9d882fe5b741f39"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/market-resilience-check.cjs",
+      "bytes": 2532,
+      "sha256": "d9b05830901f14987f9577519333a468dab227f86975e59ee26d63431a5527d3",
+      "git_blob_sha": "e752ee09fa9569cf594232d395c765f0537dfc51"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/math-corrections.test.cjs",
+      "bytes": 9936,
+      "sha256": "c69b73289a880b00740a8d40b75f21c5354d6a7c5022c3828ab0adcdf7eb68e1",
+      "git_blob_sha": "1fb0abf759678337408174117e5d18aa7442b2d8"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/migrate-db.cjs",
+      "bytes": 6669,
+      "sha256": "3e888b80225c11f2fc7318bc68722be6c5951ad791fce15d0521466fcbe1501b",
+      "git_blob_sha": "9944e1d82094ef774c9c239ddba5dfb11dc0fe86"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/migrations.test.cjs",
+      "bytes": 1571,
+      "sha256": "5e4ed04a7824aff613f87b042475007e75b4009c194f1828801cf28cf6ec9d2b",
+      "git_blob_sha": "f273a912d2fc4171673a3f12f241690bd858d319"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/model-drift.test.cjs",
+      "bytes": 764,
+      "sha256": "fd9abaa57271a4ca25e8d4a1d212805600949b75ab79112ebd17577df351c161",
+      "git_blob_sha": "468b43190c672dba4280d439b7436a4392e0a163"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/monte-carlo-chips.test.cjs",
+      "bytes": 1005,
+      "sha256": "a39d7d0297a0361e88164c201c7b52d27505093e8087bc62b927227216f42d90",
+      "git_blob_sha": "80b7ea7de1fc7624160c7e17d87d9897f847de3c"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/ownership.test.cjs",
+      "bytes": 1927,
+      "sha256": "ea1f1f6cbeb15ced73783e2eb17b0b81ad32c06b0a2f5448808d0db03f2d32af",
+      "git_blob_sha": "dd53bb99c28030e5c380ab9af5731e377a59a502"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/planner-consolidation.test.cjs",
+      "bytes": 5666,
+      "sha256": "c0a80b69257b3e375c3dd8e59a148bc9b8c77ffbd308814c4bcad35b5dc8152a",
+      "git_blob_sha": "e5800131e73aa37af7f68c683df987d4a6a1e497"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/quality-smoke.cjs",
+      "bytes": 1175,
+      "sha256": "9b412ee23f8dcdc2e4df81dd1318679111c6d1d44830997d65525bd2edd0b407",
+      "git_blob_sha": "4f5b5854ff639f237e202dc2f1f99331993d8282"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/refresh-schedule.test.cjs",
+      "bytes": 2271,
+      "sha256": "3de72c0fb4ac0487de6e0c5e7cdbf13d31ab43227b1c78c60028b81621cade36",
+      "git_blob_sha": "1dce965f04b731b4b5b5412193ad518551588d39"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/register-typescript.cjs",
+      "bytes": 422,
+      "sha256": "a867aae46b79139af5c25c359ec718181749a5c2e93518cb1d7c937511931f4b",
+      "git_blob_sha": "07d07d1cb9a5bd4586996922270e1431df93ca99"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/release-gates.cjs",
+      "bytes": 1267,
+      "sha256": "e692d5fcdd129ff465ce1e644bfc21547239e4e5ead2c08d41e0972ce199feaa",
+      "git_blob_sha": "b1b94f90a2fbf133a8ddfb1cc3e958de656e81d6"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/report-payload.test.cjs",
+      "bytes": 1222,
+      "sha256": "8b1e707a60c2927cc84037acf6121fa3de7d2974793c4735c19c1de6339ec81d",
+      "git_blob_sha": "e5e92e70522f5ae6e115937b9fd69e465c2267e2"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/report-scheduling.test.cjs",
+      "bytes": 855,
+      "sha256": "7472b3edce18cf93eb8b0b1adaee0295fc06ea0e67a32511edfdde292f9149ae",
+      "git_blob_sha": "595a2ef813dd62a11448ce58efe59120aa65824c"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/README.md",
+      "bytes": 827,
+      "sha256": "5b793615099ff7e5037a658d6264f332cb9555ede5edefc52c81ccf5b9af0bb4",
+      "git_blob_sha": "e7dcfd3dbb072abc2af5768a2c93b0e6bd3a63cd"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/demo-output/README.md",
+      "bytes": 605,
+      "sha256": "459184ef264889dc1339f5e9bc8de05b456a46830b4599cff1fa9dc64a388161",
+      "git_blob_sha": "a0e0e83622cf820b37cb3e9d28e5913dfb33bf28"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/demo-output/vortex_gw8.pdf",
+      "bytes": 797985,
+      "sha256": "f6b87ca7b85a138acd2a669985c8aa5c132eb1000eedaad748c01115c632222f",
+      "git_blob_sha": "a68cdd25622d2a9821b8cb482428024a456c3eab"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/demo-output/vortex_gw8.pptx",
+      "bytes": 397912,
+      "sha256": "874ee5411feb88bbfaa4e7b867924a470e1bb7e696f9c9eadaf44bdc64751d03",
+      "git_blob_sha": "13a7a5dfd37f426d88dc7efcd2862bb5f28c6be2"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/demo-output/vortex_gw8_01.png",
+      "bytes": 139825,
+      "sha256": "8f79695dfee74dfb5009853d812ef4c6d79929c43b916f16a3746c051fd0d7fb",
+      "git_blob_sha": "b221a131f7c5142d255686b01a4fa2a3ddd8a380"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/demo-output/vortex_gw8_02.png",
+      "bytes": 180307,
+      "sha256": "52769dd9e81754bd9cbeb506375761d259f8671d39b82ac0822c4b6c1ff3b225",
+      "git_blob_sha": "c0d85d49221140eb837d660dec023dd54ab56afb"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/demo-output/vortex_gw8_03.png",
+      "bytes": 130818,
+      "sha256": "ba14d5d8bcadd4b81999700413ec34eb1170f643fa06df45afaafb8baa61f629",
+      "git_blob_sha": "092b530891fc6d0b536c947e8efe2f721c3c2130"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/render_report.py",
+      "bytes": 7121,
+      "sha256": "6eeeae977c65c1d8da7de064b312d4e38539c3890cd44368fbdc2b8c64fa0289",
+      "git_blob_sha": "493661e0bd217808ed68f9c8e9e09135f31f1acf"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/requirements.txt",
+      "bytes": 37,
+      "sha256": "8e9fdc1cf5ac41381ae15d7b41871ba18f89b8cb0eb4c9fa28ac4e662fed8464",
+      "git_blob_sha": "1ee98d41c2f9f7d2d2d37735be46d864ac6bb4df"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/reporting/sample-report.json",
+      "bytes": 2330,
+      "sha256": "fcbc0374ea99a34fb9c03009a49a006d33c3b81b3226de43ac289b4db765bb91",
+      "git_blob_sha": "b73e67ce84b52e61abe0a8f6299a92f68e6a0abb"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/request-body.test.cjs",
+      "bytes": 1706,
+      "sha256": "b58b3d347c7051101b25442cd834e82dd39ad87b14d42ed36f35f6994f45905c",
+      "git_blob_sha": "b597050731f2fe313d527a25ab39078294131a18"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/runtime-config.test.cjs",
+      "bytes": 1957,
+      "sha256": "b068048766fcc7c26755ec49b565334c96ccdb60bb0564668424c1fda935f51c",
+      "git_blob_sha": "6b8b22d195d11f358332db5680b794b2a1f81b89"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/schema-contract.test.cjs",
+      "bytes": 2420,
+      "sha256": "49d97192a5bc26876958a008d3722ebf6d9e2ef3c97874f355f3cc7a9b425537",
+      "git_blob_sha": "f1929f3ed04367071b4e5fc56d5f01c56f64a8ee"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/scoring.test.cjs",
+      "bytes": 3007,
+      "sha256": "ce81209830e5e4ed5ac099220e307da576386c3b29cdc094e314bfca01c1f3c9",
+      "git_blob_sha": "2a9574c2928008ad258cc4aa35be3f09e5f2691a"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/season-rules.test.cjs",
+      "bytes": 1717,
+      "sha256": "99833f59050dec58900233ed0d0b07b5c002655caf19b8e3c21350a0ee9e58a3",
+      "git_blob_sha": "0e6f94308a1ae60fe2edac0ff2d3dd68a0e2731a"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/snapshots.test.cjs",
+      "bytes": 2410,
+      "sha256": "5e8c8ca7065c9b2418dd75020cbf2140510cca847a8fd71f66ca1735cafd9f26",
+      "git_blob_sha": "58826c0768739606bbe72d40b4f1e156026ea1d6"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/strategy-market.test.cjs",
+      "bytes": 2590,
+      "sha256": "2e3681de897e5bb6ac83ec67bd536b9080d006cebe5f5c65b7368434caa71bc1",
+      "git_blob_sha": "30b12f4e21ba7c30db9673c75cc30c1543aaeac7"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/upgrade-integrations.test.cjs",
+      "bytes": 1831,
+      "sha256": "c4bec725cc7de0958e0f1cb36f677823ac38afa77312d6436050d43bff3dcde8",
+      "git_blob_sha": "5a91915a2ab7246520ec1d004e2979f2e17ab629"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/upgrade-ui.test.cjs",
+      "bytes": 1179,
+      "sha256": "50892a9c1a0246f13399c59de5276a9b19c33f475ca3fda2690a91c3fec8e7e8",
+      "git_blob_sha": "868c44b3f9baa3090e6407d9892706ed88e63da2"
+    },
+    {
+      "path": "1_APP_dashboard/scripts/worker-loader.mjs",
+      "bytes": 846,
+      "sha256": "349bb311f4c75ab7502459f0970ea3b155db38f9e1635466fbd740b809432a1e",
+      "git_blob_sha": "503ec42b517bc6843aa01ac053c7dcb4ad699152"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/account/page.tsx",
+      "bytes": 3760,
+      "sha256": "a99c35d5db45a6f27ea30c3a810c1731df4f4355a027bae326d3f504a83fec5c",
+      "git_blob_sha": "e966eaadd2902bb608a6f32b2057ddff704b5507"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/analysis/[id]/route.ts",
+      "bytes": 3714,
+      "sha256": "0c9907f4ed340be20a16861582035cb63d458e3fee6f42aafd8fcd0497e61fe6",
+      "git_blob_sha": "841fca6af1169f86e478e53e8e71bef963aeedf5"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/login/route.ts",
+      "bytes": 1673,
+      "sha256": "2e25fa35e82274779d50c45e4267019f4399d3fb06aa8e778535ed05e7656958",
+      "git_blob_sha": "6ab788114524b86abfc5dbdc23d05efbe30c5efd"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/logout/route.ts",
+      "bytes": 534,
+      "sha256": "547f86d031366bfd26e32132e4949eb4728bcb35313cd55c4d7a765b81c84a22",
+      "git_blob_sha": "0765fc3b89abd722b46d376531accc3dbb35375c"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/manager/route.ts",
+      "bytes": 1771,
+      "sha256": "6f9140bec2050f8380f431f230b6edddd4499cab619fb57a62b8481e4ca4ecb2",
+      "git_blob_sha": "6d6cf6b1bc242d243aae988b526c580e9c744bbb"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/me/route.ts",
+      "bytes": 324,
+      "sha256": "f846f83e0cd2519d38737292c22143c6aaf96eb5f92f9da4c14f3496ac02205e",
+      "git_blob_sha": "60ab70092d134dfc016050d273fdf2069a0e0e2c"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/register/route.ts",
+      "bytes": 2357,
+      "sha256": "fce4ff390092af724a0f4a7e01154591a7893a8153dce90784f7f9460e66c189",
+      "git_blob_sha": "ceb85d179330fc7391e104a3a691e8605a68d335"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/request-reset/route.ts",
+      "bytes": 1416,
+      "sha256": "a155345efd3b4f05acd49782bfdddcd767ea9b988c3c63e2c7d358bf6537d25d",
+      "git_blob_sha": "74f357c2df80c2a8f053d8c42dd57cc9bbafbcc7"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/resend/route.ts",
+      "bytes": 1423,
+      "sha256": "ebf4f6aa5b1ccf40da77addee9b01765bbde7d8d68924dc58f9acdbeab576b66",
+      "git_blob_sha": "676e28bc06b1fa7f06b196035f22edaea58326ad"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/reset/route.ts",
+      "bytes": 1081,
+      "sha256": "a2f3ac9574958b06295368ffe7c56e7fd87804057725adab15d35fa7dbdb20d2",
+      "git_blob_sha": "c48c9508900d8812025c3a1a2900140122df3f72"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/auth/verify/route.ts",
+      "bytes": 644,
+      "sha256": "aff3532ecb510370d3303d20729fd4b60154e28620c12636d65781b719e08e53",
+      "git_blob_sha": "74d73418dfaff71228f7ee0f830a0ff611ab2139"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/automation/status/route.ts",
+      "bytes": 707,
+      "sha256": "f42e845193a03e5b5f42c4be103a684c451121dd828d94e6e8d3fca59a5454f2",
+      "git_blob_sha": "35231c76be2865949e5e94d1001bc82fa5eb5c6d"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/copilot/route.ts",
+      "bytes": 4120,
+      "sha256": "8224441a6af1a7c5064a7f680548d97f2d90c297e0952b27453065d04b9c78a5",
+      "git_blob_sha": "9934008cb5e36d56795ecdc029bae1798a262480"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/cron/refresh/route.ts",
+      "bytes": 2264,
+      "sha256": "da9416ede789e1d76b6fa409d12d0a975cdf9709196b89243f47b261a8afe533",
+      "git_blob_sha": "d16703934f82857055cc2504623b32749599ab11"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/cron/schedule/route.ts",
+      "bytes": 1939,
+      "sha256": "646f22f9a6dcdcf7f09147b494e60f153f10e316c182c417c6bfa93900924df2",
+      "git_blob_sha": "a7fd5a8f8ff32c0d7f67a61475aa8eb85994ec56"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/bootstrap/route.ts",
+      "bytes": 912,
+      "sha256": "d1848390a723ed919d91dedaf42d28cb4948d725d0022609405adce99efaebcd",
+      "git_blob_sha": "516e07081592d79ee99668b12f836bdfdf34f5c1"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/element/[id]/route.ts",
+      "bytes": 792,
+      "sha256": "f635cdad856ea4fc602a583893440e5ab8e532b2fe9c8a7674539046438e37f1",
+      "git_blob_sha": "a166a2fe58c36ec4da87d30c8d3b42777c5ee42a"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/entry/[id]/picks/[gw]/route.ts",
+      "bytes": 1064,
+      "sha256": "2b0576aa6147c99b4fe860bbec3be925fa51d0cd0f30b844e317ea91c1401246",
+      "git_blob_sha": "df77967e57b21ef24a87eb71d93a8e0e947bc9b1"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/entry/[id]/route.ts",
+      "bytes": 2178,
+      "sha256": "0f3f66a67c68aa4b7f9f1b4ea8bcc25294866bf0fb1b3f07c6fe3d7018db25b6",
+      "git_blob_sha": "7f069e445f7328f0e4a69fd69cbcde35d17fd38b"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/entry/[id]/transfers/route.ts",
+      "bytes": 778,
+      "sha256": "4bcf88c2ac8812e1f69db29929830feae3504da1564fcd21f83834fe1a802ac5",
+      "git_blob_sha": "d91806c509bb0414381289b923c0a2e7cce98e61"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/fixtures/route.ts",
+      "bytes": 533,
+      "sha256": "b6a1c62563f4f106ec00907704c1578c830de1bd5e722cd55346c69f591e5b8b",
+      "git_blob_sha": "1f3de6a47c608fa25b4051307d9ad5acf8faa4c3"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/league/[id]/route.ts",
+      "bytes": 1289,
+      "sha256": "12c62e37336002918e27c51879ac272b9de4f2e495bcf0f73f406ebd6e505941",
+      "git_blob_sha": "114186dc81ccb2e1169fe139ed287879b4476dbc"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/fpl/live/[gw]/route.ts",
+      "bytes": 959,
+      "sha256": "8bbb0eb66cdba529c70568391a2a5d560ae7b294bd970d5bbb96216bc32b46c4",
+      "git_blob_sha": "1bbb2e5310603bb33f3733c8128a136fc22ab79b"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/health/route.ts",
+      "bytes": 295,
+      "sha256": "85ecde9db86952d444d593f4133df2b517ed768accc487350d35bb0db498357f",
+      "git_blob_sha": "dce49f08441f8d86f7424b3f58843ddfd63f3836"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/img/player/[code]/route.ts",
+      "bytes": 1052,
+      "sha256": "cf8a344f365cafad2bdcea342acc19283a4920e0f1e33fb2317a5e0dc91e7fef",
+      "git_blob_sha": "bd309bbd5db64ec7d57e0bd2663ad5c394fa330d"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/jobs/[id]/route.ts",
+      "bytes": 956,
+      "sha256": "d86ca1827b2af4f466d36978dd4954e229cefdc93da20abeee4901e93a9b010a",
+      "git_blob_sha": "27ee78acef4375a095fd9c6cfc973344e170a7fa"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/jobs/route.ts",
+      "bytes": 1513,
+      "sha256": "f19303814395d9aae9944866b061bc9c699017a4cc72c96f2d69b3d2e83cc505",
+      "git_blob_sha": "ead05dc7b3cec44fe013dd236cb4eb24e60b86b8"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/leagues/[id]/ownership/route.ts",
+      "bytes": 2231,
+      "sha256": "96cacc8f0de928e3e8e5f3af88f5890743fa8217a36bd9bd4d229a31e5307e3d",
+      "git_blob_sha": "dd7c04ea3b4b252839ebf200137371af79a1dba6"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/model/health/route.ts",
+      "bytes": 948,
+      "sha256": "c7458e82c49eae4f99cb832ea1613fb21e68cdaac985ba739fef58785225462b",
+      "git_blob_sha": "2b205b9e33c121f9baef6cf78c65e98e103e1ea0"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/optimizer/[id]/route.ts",
+      "bytes": 1045,
+      "sha256": "075bfa146998778d12dcc7473cee88670f5f5c6df2dc20e2917d99d9b674fcad",
+      "git_blob_sha": "bc4a01b0b0374b9726ddcdd8aada64fe51022a5b"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/plan/[id]/route.ts",
+      "bytes": 5212,
+      "sha256": "790d508403020d272b52b68fdd42860d9b1f88185f8d136708c1e52bd9be7ff4",
+      "git_blob_sha": "3658218ec9d8efaa8775933baa6236ce07f8f81a"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/plans/route.ts",
+      "bytes": 4833,
+      "sha256": "700599d5bbc324a4d1c504a5a357f29201af58fbd99b3dcfa7eb71bf26379364",
+      "git_blob_sha": "cfe5c7592cb065b67e0350363326ac40462b787d"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/press/route.ts",
+      "bytes": 5124,
+      "sha256": "8511ffb1887ae230fb2744ee8d25b6441ba69666fa19532b4df31fcd37880c37",
+      "git_blob_sha": "53227637ef86d6b667004a4a979305b8b80de00a"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/price/route.ts",
+      "bytes": 10199,
+      "sha256": "9df0e2bef3e9e67eeb04e15850b27771b942c0ee40397a1bca13be6ee6e533a4",
+      "git_blob_sha": "584a87a3babc6dbc4336cb7e439d61889c183642"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/recent/route.ts",
+      "bytes": 747,
+      "sha256": "d3ef3574b5ea1aac86c359a3c6a27b769ceefdd02c6534c94432d4a894ed59ff",
+      "git_blob_sha": "94057cb7b133ae1ae661a6be8a70f60d184f16e2"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/report-schedule/route.ts",
+      "bytes": 2236,
+      "sha256": "7d000d9987328c65db0034c1d1ba5ad0a547090c72c8b7973c09c8958493998a",
+      "git_blob_sha": "752a5acc2d233b557b979d04a224f6da94a47f53"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/reports/[id]/[gw]/png/route.ts",
+      "bytes": 1398,
+      "sha256": "c80d26be1acf7957b73bce16762a177af782559e81190706ff9389fdd36cec4f",
+      "git_blob_sha": "794df701ec18b577b18fdc2aef751c3247796942"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/reports/[id]/[gw]/route.ts",
+      "bytes": 680,
+      "sha256": "74dd707c0f34ef811032e483d757136f96b286ef43635f25db684f18629eb6d0",
+      "git_blob_sha": "ab52576afacea123dba53cb7836bb880bbc77b62"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/reports/archive/route.ts",
+      "bytes": 542,
+      "sha256": "ae6636d87f3f333739157c7887489ec799ab25e030cc9efac4af358588478a60",
+      "git_blob_sha": "b49c80b926e59f6856c74c22427d1b00fad177a9"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/rivals/route.ts",
+      "bytes": 2026,
+      "sha256": "830ce5dd5865a9d90ad2bcb18f046de64d03f95a302b3933f48a6eab34151284",
+      "git_blob_sha": "2cb04f4be12cc397f6b42c5e2c9c95a8583ed326"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/status/route.ts",
+      "bytes": 3648,
+      "sha256": "a043271b3fd37bbc8da84d285677240bc95de5b5b5e6a54dba5eaf074f000bdf",
+      "git_blob_sha": "36b26618aff216b25c6c7ebbbce9b09772936611"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/api/videos/route.ts",
+      "bytes": 1615,
+      "sha256": "7b98324bd3e4c32de91190d2f98cc0a8c7a1544b9957e972d243fb9c3bc92f22",
+      "git_blob_sha": "5c4374fe8f0981a4e12d9cd933ac06fa6d4abfe4"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/auth/forgot/page.tsx",
+      "bytes": 139,
+      "sha256": "faebf22853b88cfec3b8b8ea2ca78025057397b8612ebed1a2b7fdf9527e6f5b",
+      "git_blob_sha": "994f0e3ee724fd1363a6580952fdfa1d7c02d60f"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/auth/reset/page.tsx",
+      "bytes": 1904,
+      "sha256": "8340810d490cd44ddad534f629f1dc397b24f0dd2259f9b1607936229a961eb2",
+      "git_blob_sha": "68b622fdc405741ae5f2e8b03007eaa4c64fd1c3"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/auth/verify/page.tsx",
+      "bytes": 1194,
+      "sha256": "67aba8dad73d8c41a8f211606b51730daf89e8c89cc4c4efc0ec64f1ac200d9d",
+      "git_blob_sha": "ba1f979bb522737538a901efee4d5db7d93ca97f"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/captaincy/page.tsx",
+      "bytes": 171,
+      "sha256": "0d6ec55406e75fc103300c4266a6bae51601697a979f131798ca6586ddc84e9f",
+      "git_blob_sha": "8df63da4e92215924c6c0089724367b14fb27e9e"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/dashboard/[id]/page.tsx",
+      "bytes": 138,
+      "sha256": "1b0170d75d9fc8ef558afda450904d8261e5251ac4514de28bd9c1bde83e3c06",
+      "git_blob_sha": "d004e4c39d579264934beec472d851bd20fd62c6"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/fixtures/page.tsx",
+      "bytes": 200,
+      "sha256": "2474dde45a3e5e98d2576fed15d5a3e66e8c6ffc3bb2683e2d9ebf41349d98b6",
+      "git_blob_sha": "5a4be785a26af18818732a42a3d7d1514ea16aeb"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/globals.css",
+      "bytes": 57764,
+      "sha256": "405cc3288d9af4ccbcff4bf5f6b1465ab408108c9dcb71dbe779ec634b998ddc",
+      "git_blob_sha": "92e4ce587ec05a3ee15aa1c21ba63508b1a8b89e"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/injuries/page.tsx",
+      "bytes": 170,
+      "sha256": "0e148ffa652fcbfe7de929279418bf1ee3f0c03b5884a07f093fd0c549a78347",
+      "git_blob_sha": "101b5526c8a26b614caf0324950461d72a8f15d6"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/layout.tsx",
+      "bytes": 2816,
+      "sha256": "690ece0220a216c5ece9696741aee7c788ac1288f9294d9976ca3180e67a9e3f",
+      "git_blob_sha": "3f9d2476918162f414452d3a4979d0c5a4092007"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/leagues/page.tsx",
+      "bytes": 168,
+      "sha256": "a419b55ced535077953a277e3775375dcec70d55ff2293ee0b942c8d144f3d86",
+      "git_blob_sha": "3e1c141e8b351d38f12c88194933fd9388cc178e"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/login/page.tsx",
+      "bytes": 129,
+      "sha256": "0bc0ba01abe47bb9099c0ffa7322643abc43d6ec85d9a06b41316b3f51a47742",
+      "git_blob_sha": "6d2d0796f7a39cb6edb8652af867a49a93342695"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/market/page.tsx",
+      "bytes": 168,
+      "sha256": "3c45ebfb6d95ede1dc8ac67f43b22b90d5e2445f3c24c0262e52c9c6df8e9f18",
+      "git_blob_sha": "5bc5c349bb28d80b21e63a75279a247f3bfc8d9e"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/page.tsx",
+      "bytes": 133,
+      "sha256": "48c41a9b671f00d90752dab07cbb282a8f0ba6280d230f900eb27bf9613edc37",
+      "git_blob_sha": "b3bd074b605bd946ad166ffa3bb68f0cc1e5a27b"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/plan/[id]/page.tsx",
+      "bytes": 410,
+      "sha256": "575da075a3998765d06c24d5feb605ac43fe990f7f774a56183329278e464382",
+      "git_blob_sha": "56eecc9dcd5d24aed17e45d0fa5a8074005ac7c1"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/planner/[id]/page.tsx",
+      "bytes": 428,
+      "sha256": "8136a2233ce4bcc5eb3f783f8a8aa36e7bfe14e7356ee8c831538764742f9bc4",
+      "git_blob_sha": "1f83b46c98e88be6540d1b8c6f766de68ee7639f"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/planner/page.tsx",
+      "bytes": 133,
+      "sha256": "8a5c472db795965109496721e26bbc21f84649702fa483644e88bbfcb4f833b8",
+      "git_blob_sha": "5392c61a7eb7b1898114191361711d535d1c8427"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/players/page.tsx",
+      "bytes": 203,
+      "sha256": "2391f6cc9981ebe00f179bd335812a0d2e1dc40af70a0b57a034d8cf8a73e4f7",
+      "git_blob_sha": "86f398c1badf1b53e86fa756f7c46718815d90d0"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/predictions/page.tsx",
+      "bytes": 173,
+      "sha256": "a0748deeb9499611a1a98c3c46e21724bafecafb52b279d08e13095d7601a1e6",
+      "git_blob_sha": "13b62bac72219a7d7685d60bc0cc2ba2a2d7488a"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/register/page.tsx",
+      "bytes": 135,
+      "sha256": "30b894d77f2a434ad5035e4d30f6581f2e34f3e1613cd4c4baeefdf7ad147093",
+      "git_blob_sha": "1fa281c79ecb2ae91c1d6ff3caa23d905fd99145"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/reports/page.tsx",
+      "bytes": 138,
+      "sha256": "a69ed9e740e30cf5f0f8ae71871725f539af3916c1f5f6c7bc5cbc96aebdc5d0",
+      "git_blob_sha": "18b5f62c1dce8ba1ac0792bbc2a269518abf5ac7"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/review/[id]/[gw]/page.tsx",
+      "bytes": 474,
+      "sha256": "78456d1e2056f8bc0f930c7531338891151ea64a631ecb5fa141f732fd677e90",
+      "git_blob_sha": "cb9bb1e655361ccb7ea4a68cb67e2dd5869f374a"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/review/page.tsx",
+      "bytes": 168,
+      "sha256": "8146ad433c7de9581918c7bcf82e68dac1d9bb641ddea7155c7b801547e16e90",
+      "git_blob_sha": "247ff37fec99c149e0a5987ad863cd7e6a6b3bef"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/status/page.tsx",
+      "bytes": 1006,
+      "sha256": "78edd55899c332b627d38f75c6c40fd53a3c8371045c7593b001a4ec95a6be2c",
+      "git_blob_sha": "8b2520923c0e917e5e55214af8563de07354b5b1"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/team/[id]/page.tsx",
+      "bytes": 468,
+      "sha256": "d4e0fa35d12da8f18c1092d6bd13d96641c8f59094da823b1cb0a22f5f3d69d4",
+      "git_blob_sha": "644369778a4ca7ae0abbfc058b6c765041580865"
+    },
+    {
+      "path": "1_APP_dashboard/src/app/threats/page.tsx",
+      "bytes": 169,
+      "sha256": "44b8824503c00df3c62970d475f5abb0fb589290f3e10d42e3bc6f15cde4ae42",
+      "git_blob_sha": "2d2bb9e76640123a54497db8beb79c16c616e834"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/BottomNav.tsx",
+      "bytes": 3062,
+      "sha256": "5df0d1027d150e976818727a76563f71dbba094afef09c15aa39beec329e94d1",
+      "git_blob_sha": "e7b3da0697a02d90f313450791b4cd24817b3903"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/DataModelStatus.tsx",
+      "bytes": 8442,
+      "sha256": "a49662501e4fc30b08125f066fe45c46f3087a7daf0731c449b888dae51254e9",
+      "git_blob_sha": "7b33f7661096a898dc1829393c04118300eed085"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/ErrorBoundary.tsx",
+      "bytes": 2778,
+      "sha256": "24940233c0aa87155e72b29386ac5f39f12c4544a1e5e996e3d69e7aae51a5fc",
+      "git_blob_sha": "c679ff913e56afdcc2a3bf137b6eaf9bce20f4ac"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/Logo.tsx",
+      "bytes": 4092,
+      "sha256": "d4d8a08dbc693aecf502bad06aac74c541867e703bdf9a9e95cab1e78cffdc26",
+      "git_blob_sha": "63c0045ef8c9d534e77990a7724ee53bbd6b805b"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/Pitch.tsx",
+      "bytes": 8417,
+      "sha256": "8b7aaec44407aebd37dd5b2efbf62506eb77dc4db835ae5a55f910995916364d",
+      "git_blob_sha": "e18e91f5ddb77c624ae5ba39b456f6cdce6979c1"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/PlayerPhoto.tsx",
+      "bytes": 951,
+      "sha256": "41818730fc9a4a6a8e3f486d1a8bdfa3443776bcf3750bd50ec7ad22bda69c29",
+      "git_blob_sha": "007e39fb3e94a5582983ea1600225c742da15d8b"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/TeamBadge.tsx",
+      "bytes": 850,
+      "sha256": "8bb69081212b32be764cd2b1a1b78b3176bf07c957ce5ca3b88335a6d406b753",
+      "git_blob_sha": "c83eb33a950c5842b765023f40bb456b77809cee"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/ThemeToggle.tsx",
+      "bytes": 2524,
+      "sha256": "91b0a3f7fe9529106ca97d3fa96902165e9709c52bd476eae098f236793cf170",
+      "git_blob_sha": "d0ec943e62acf2c9341a0a77e205b68df78bb0b8"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/TopBar.tsx",
+      "bytes": 3997,
+      "sha256": "b9fcfbe127f488e8b758327768be481f4b071c1dc2bb2330368fa3ea923dd602",
+      "git_blob_sha": "b057c0b433f92d2e844f6df3cd77b2f4c06f8fcc"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/auth/AuthForm.tsx",
+      "bytes": 3418,
+      "sha256": "db93cb48f39cb9b5526fe7f3cf83fc83393e69f97f20e1c5e1938db3faba1548",
+      "git_blob_sha": "f9e64a0dd5065e02df49a08113e7d36275e41ea3"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/fixtures/FixturesView.tsx",
+      "bytes": 10154,
+      "sha256": "17b0fc15ef6f2a4713a44855cec3682c0a51acaccedda1b991b9b2cc164605b7",
+      "git_blob_sha": "d29e9f38b226d25df7f37217b9f517cd2c703e2a"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/home/AutomationHealth.tsx",
+      "bytes": 1153,
+      "sha256": "50e46d50a6f8a1e139d1f227ce2e653efeaa881cab97cda10f3907bf98724b84",
+      "git_blob_sha": "c5f21947436bfc5a1fd79757fdf381462cfe35f9"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/home/HomeDashboard.tsx",
+      "bytes": 32286,
+      "sha256": "7a5ececdfed3d11334610406cd3d04f066558e7c0a3cb97ba4a6d13e05e13154",
+      "git_blob_sha": "51c854e656327817868725009a020ae1fb0c3c31"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/home/HomePitch.tsx",
+      "bytes": 4691,
+      "sha256": "9464c2d6cbd45c380f48c4e77f5d5836a83d4d6f87d77547ba3805b0d2db0214",
+      "git_blob_sha": "5caf5461f933c72f927f2b2ed13123d7b5a86df5"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/home/IntelligencePanel.tsx",
+      "bytes": 7583,
+      "sha256": "f0b85b1e84df4d56f51c4f4b3c60ff6e06fb4e6bb6b3ffe286beff7292049e17",
+      "git_blob_sha": "07cd39e4bfbaefaaab03c472a77a836357925a16"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/home/TeamReviewPanel.tsx",
+      "bytes": 9593,
+      "sha256": "0177b18f60f5a0fd25a3a984bf700d1e2f3b78a054751996b5c91c33998fc3b9",
+      "git_blob_sha": "11698bfa577816caf9c1d0b8c50e51bfae279af8"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/home/ui.tsx",
+      "bytes": 3392,
+      "sha256": "365c7a507aa5288e8f7bbc5ce9f9f309921a58a0a59ef30379d665e083489941",
+      "git_blob_sha": "27892d63c00aaaa8b9fe0604a65a5f49d51b7c68"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/plan/LabPanel.tsx",
+      "bytes": 6751,
+      "sha256": "7fb044121528c20a0030e65f6227df5699a6c7ea742bb82e01fd2a453662c4bf",
+      "git_blob_sha": "9b2bbb677f0137109a9e1e16e366f5b6bf8e7d14"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/plan/SummaryTab.tsx",
+      "bytes": 4888,
+      "sha256": "f79378098a5052d21404bea86b0fff6faf7c90bfb8f35a3b52cca58ec9f4b87f",
+      "git_blob_sha": "229087aa518a3a15080344b9bb5e7021da9ccfa5"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/plan/TickerTab.tsx",
+      "bytes": 6391,
+      "sha256": "74c6e7f364385dfa5419022ef8bca137098f7d02d38b7f7ddd32673cf40e1ca2",
+      "git_blob_sha": "cfd8e5b4de1f9df0eac87b2dda0d37979eb68eb8"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/plan/planUi.tsx",
+      "bytes": 4289,
+      "sha256": "a34d9129eec05db2fa5daf4b9168bf1f9d182f01370c2e427b5fab393ae8309b",
+      "git_blob_sha": "b784e189ecfde4dd5dc94370e0e6ad8c3915cb29"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/MarketPanel.tsx",
+      "bytes": 9542,
+      "sha256": "e0e276df111b40a39787a26e95dbb596cfae43e0e01a1e4482e79821d7806582",
+      "git_blob_sha": "5e50a0503ac6091c0ca668c3ba23dd424a1d5666"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/PlannerExtras.tsx",
+      "bytes": 7951,
+      "sha256": "87afa7a1cb5a1d3c969fe34b7c7fff8f69af6bde4ef176bbd6df95f1bb12eb1b",
+      "git_blob_sha": "4c13a04d5acc97c3b1302a89c5d41570dadf8c41"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/PlannerView.tsx",
+      "bytes": 56068,
+      "sha256": "369de1619a519df9498419e92bc91da90fe19cf1d8325f38a1b14728d9b3bdca",
+      "git_blob_sha": "83f00b4a4e6e9426d70fe8197315a36826d424ba"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/ProjectionsView.tsx",
+      "bytes": 8705,
+      "sha256": "979373ab424ee1e2e64ec599210fa22589a7dab0a51d22c23cad3f00bc014e23",
+      "git_blob_sha": "88edc66fa20656fec162e672c0922c2bd9fc2a28"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/SavedPlansView.tsx",
+      "bytes": 6371,
+      "sha256": "5f19e1cc5a1a62806995f8c25cb46e88c897b1293b84eeb23f01433a1d226cb7",
+      "git_blob_sha": "47eac2ea9cff13f5b458b61d08d091c645856c9f"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/SolverView.tsx",
+      "bytes": 17803,
+      "sha256": "d8e82f2b764a61298609421d612dd0f50a68592c1eaff367cbb794bcc5d677cd",
+      "git_blob_sha": "febf08c736f3bcdddac63a54fc9d4f5e0a3f864b"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/StrategyInsightsView.tsx",
+      "bytes": 5718,
+      "sha256": "672f45d14e0a32f77c75fc3bec0b936d8a9be0f54ea42809e3dd023edb090cd9",
+      "git_blob_sha": "f443a841b07432d3329d92768cea5677873ff4c8"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/TeamPlanner.tsx",
+      "bytes": 16077,
+      "sha256": "75c736770549cd45b09b2dd30139d940f6fa2da08f08795011f40a01a3b4445f",
+      "git_blob_sha": "dc36dab35df7e9848594af4d423f12cead547eb7"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/planner/shared.ts",
+      "bytes": 1424,
+      "sha256": "e55383a5aed4289bb5639d9af618529f9233e9d84ebe6382f8ccb9fe4c3f18b6",
+      "git_blob_sha": "d2a74c6e9d39b5a2118a7d19abf1ed29405860af"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/players/PlayerModal.tsx",
+      "bytes": 7164,
+      "sha256": "71abd13b9fd0487a713a978199cdb41997e2e5a4d0225c65af5c1dd84178c9ed",
+      "git_blob_sha": "6d7d0ea3754f7c84d21582fc1bcb2decb489422a"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/players/PlayersBrowser.tsx",
+      "bytes": 7056,
+      "sha256": "f81a182ee750b22d3a4705e12460e75d1b8dc63efc957f22adf9222a3a31052d",
+      "git_blob_sha": "b1d484dfa9110e81d3f568c247cb7577f7be19d6"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/premium/IntelligenceWorkspace.tsx",
+      "bytes": 22485,
+      "sha256": "f4b711bb22d13d70742bfde2ad11bd02413daa3e50a263d25f7701f8d5db6c12",
+      "git_blob_sha": "138aa940fac31eafe40017462bfc411848c34054"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/premium/ModelHealthView.tsx",
+      "bytes": 1359,
+      "sha256": "231c72e2c9ca9f08dc2f1cde707a4f31d1620abfbab3389a3cc199d2c023ff0f",
+      "git_blob_sha": "ded782beb5de0c659747019dbb798d1ee9667a69"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/premium/ReportAutomationSettings.tsx",
+      "bytes": 3509,
+      "sha256": "9cf74a8645bf1f0afa2c6fe1ee4376e6cae105f7bd869f622655f9fe09f31a5a",
+      "git_blob_sha": "b809a5c3731895eaa5bbf8f124e9ecfb00a3e719"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/premium/ReportsWorkspace.tsx",
+      "bytes": 3534,
+      "sha256": "3761e78701da0b2f7ef0c287ee9efb36dc506de546ce07c49e9b15dff44ea05b",
+      "git_blob_sha": "c0323814de7c5249b6c12d67f8902a38a80f09d1"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/AnalysisLiveView.tsx",
+      "bytes": 21442,
+      "sha256": "0f71ce1f690c62b61cb1889d299e58870b949c63c93826919d3619425c24c088",
+      "git_blob_sha": "e0cbf9cd194327c9a30339d482f9988ad0058a91"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/AutoOptimizedView.tsx",
+      "bytes": 10022,
+      "sha256": "85f48fd3d8b4b62c92b571c5f4b22f051b594612e2eaa237a81bc8f393e08432",
+      "git_blob_sha": "060ef5f81039dfa111642e67b6702df8b886027c"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/ChipsView.tsx",
+      "bytes": 11829,
+      "sha256": "7364abd62d65098406349b3944006fa5dd980099991bb8b14c9114547d460eb3",
+      "git_blob_sha": "fa7bf8abbc7af120a4d9a08dee1fc21c521ebcaa"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/CopilotChat.tsx",
+      "bytes": 7914,
+      "sha256": "11ee091ce7e8be9067b4d0caf65270928e63bfc657570e993059c84b4ac28de9",
+      "git_blob_sha": "4b67bc1bfbd2b8f11f24a818e4c886c56413cb8e"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/ExplainView.tsx",
+      "bytes": 29355,
+      "sha256": "6d11dcc21b308a0eb0480fc4245ab49f4483a3db7b7154727d4a9eac21850f24",
+      "git_blob_sha": "1d3df022a06402cb8846ef7c9670006c906d5f50"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/HistoryView.tsx",
+      "bytes": 6235,
+      "sha256": "85952743e5e8f496597cd12a6d4c38459a19ec4e5da2cceb09bc52cd46bc33ce",
+      "git_blob_sha": "1e47b6ea3d099d5842c574e38b614dc5be2dbc6f"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/MatchesView.tsx",
+      "bytes": 8379,
+      "sha256": "d9564a579873b1df607e558971b3298a0da6609ff7a6bdb42fa514d72285ad54",
+      "git_blob_sha": "875eb29fc708dfa3c6d94acdba0c2f690bf97daa"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/MonteCarloPanel.tsx",
+      "bytes": 13276,
+      "sha256": "3aa432d3256987c4c627a41beaaa6086d8ea3ad67c26b8df2f724fd7c9dfe5ad",
+      "git_blob_sha": "aa1541281e10a4ebeffc1e3880bfd826916127dd"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/NewsView.tsx",
+      "bytes": 6064,
+      "sha256": "744b64632ea7962e232d84c2ffc7dfce344a4481be2675dc3551cc4436c8e7ed",
+      "git_blob_sha": "c492e744e13d1f30200dc555fe85368cc8df9378"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/PitchView.tsx",
+      "bytes": 3488,
+      "sha256": "230cab74f0c07adcddd4069021b6a49e5e2d54a01a329cd989011af1aa08e5dd",
+      "git_blob_sha": "5eb32cb61ce6fb649b6179eece9292cc656c0726"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/PriceView.tsx",
+      "bytes": 9986,
+      "sha256": "3b2e170f09eee7c4725f2330b66d2d13e3513f0647640f6eb6d30944d1299d1c",
+      "git_blob_sha": "ec58e141988c97cc74d6f0b6f4c7d9f04b599ae1"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/RivalsView.tsx",
+      "bytes": 10608,
+      "sha256": "6f2ccec3a2b1c35a12e9b498bf941096d8aa8f565ff7d037fbf254dc51eebc74",
+      "git_blob_sha": "d0924ca8f20e97077175cc0f1698f5fc9bd8a4d7"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/TeamDashboard.tsx",
+      "bytes": 18232,
+      "sha256": "bb22edf1654d42b41592d2704836c634f3a771a3621373f295bb6db19e73d5e2",
+      "git_blob_sha": "0fa7000d13a86313c20200532de1edc7b41c5eef"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/TransfersView.tsx",
+      "bytes": 3001,
+      "sha256": "e32f6f101cd99c6cb524c9ef32d97b6cb27de2c7237cf37a1a4f21460551753e",
+      "git_blob_sha": "4661e8250881eb6ba448ac4117b8da532855429b"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/team/VerdictView.tsx",
+      "bytes": 31277,
+      "sha256": "e73013b2ce66ec1493f5cc9ba03117fc3d3086f1a70d07d8d7efd350692b0728",
+      "git_blob_sha": "904d16c7e64bfa04525b7fb33024fa284144f59e"
+    },
+    {
+      "path": "1_APP_dashboard/src/components/ui.tsx",
+      "bytes": 2086,
+      "sha256": "3cfc231a318cd22de5b9f2215d2aef33e2d02088c85b743de0abef67c15463fe",
+      "git_blob_sha": "93c3a8fd85d22c4fed58830172fa672038d241ba"
+    },
+    {
+      "path": "1_APP_dashboard/src/db/index.ts",
+      "bytes": 606,
+      "sha256": "8249a3e42a6ca762bc762079c3aa93c669f0d14e7dfb0bb1575600efada65f7d",
+      "git_blob_sha": "0b57ec484bf9a78c8d3f8a1113a6966f8663acf5"
+    },
+    {
+      "path": "1_APP_dashboard/src/db/schema.ts",
+      "bytes": 20220,
+      "sha256": "62d43075eb0f953b3e27531707c311112aaf41488d85a4ae2e92f11d68f86168",
+      "git_blob_sha": "1f2baf4e8358243bc39ffdb8e7b5eac15d47146c"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/aiAnalyst.ts",
+      "bytes": 3141,
+      "sha256": "cf9b8b919203ab5f012a14cefad3262d11c3eebacc7b04f604a018653e689c94",
+      "git_blob_sha": "517c0f1b3933ed86118c85331fe058615750a11a"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/authCrypto.ts",
+      "bytes": 2172,
+      "sha256": "35d21258d3fd50bd67a06707497eb927304acec039011fc06d4d834f0d79c463",
+      "git_blob_sha": "3146d7748a35e33794b09561026dce2bf01eb687"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/clubMatch.ts",
+      "bytes": 2474,
+      "sha256": "8199cf9cfb2e7a8e7ebae627850729f39eee4864d530e2e7f87335abed0841c0",
+      "git_blob_sha": "5ff05c8fc7d17333c207add8e950f878cff612ea"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/copilot.ts",
+      "bytes": 7732,
+      "sha256": "e587182167a3b65c79ebc8b75cef2286f85c8f7d338b886267bb0a5e7e47530a",
+      "git_blob_sha": "4c56f44a6a73d65a101c7351472df1f8e03bd9d5"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/dashboardMath.ts",
+      "bytes": 4948,
+      "sha256": "21a39dff968d3b1a76fa9c5f375ac3f11f9af472bab8421300d462f6d49df829",
+      "git_blob_sha": "b4afe8aea0972a00e0899870de1be2f918425aa2"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/explain.ts",
+      "bytes": 5781,
+      "sha256": "3ec8186e46d321f1dea1b1ad5f022c52364b1d471b4937d3088b08919baf2722",
+      "git_blob_sha": "a549b9971810a7d4fb5f15cd378240a7eeca46aa"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/forecastBenchmark.ts",
+      "bytes": 6860,
+      "sha256": "cc913a799e3d4baae93501fd87e8b1f2eb9fd04dac21fe9b2ce2b111a3d9b7d6",
+      "git_blob_sha": "66dd6af4c6e00c1ef2a8320be121e20dba8b40b8"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/forecastScience.ts",
+      "bytes": 6421,
+      "sha256": "1c8ea0fcad65202470bcf4748b25b84977115e7094be0b750dbd2eff79253b9b",
+      "git_blob_sha": "3b6e911fcb7021d516fa0063df49dd704f1c1546"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/fpl.ts",
+      "bytes": 5887,
+      "sha256": "7e02cef8086ed489a0b01699ccaf50da0fc2fb752e3b338abd52a3e986f46719",
+      "git_blob_sha": "ac300bda1aecdcaf014774000787f669b9dc4835"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/fplNormalize.ts",
+      "bytes": 7249,
+      "sha256": "33125fb2c61c57ac25775b8f2804f1c1506df714fc1f2280c655eae6d8411ac9",
+      "git_blob_sha": "5e28c03b8f18e4468a94c3c962ae07d9f479258b"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/fplReliability.ts",
+      "bytes": 1017,
+      "sha256": "9ad698c5c3bcf84573e247e2ec4370339262b6f8ee4130310611701c2bf0bd64",
+      "git_blob_sha": "4997587910d318bad88dad5e115354c3de0f368e"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/helpers.ts",
+      "bytes": 2814,
+      "sha256": "3bb71778643bb68c1ba5f9f1ae345af8aa4bcaf754b306d255f242718a763c44",
+      "git_blob_sha": "5fb63fb9a006ca42d9515d253eccb1285f6b5830"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/intelligence.ts",
+      "bytes": 3478,
+      "sha256": "404b6b186dfc9e6773453979f26073a4555944fa0058c37aedae12892b45fbf9",
+      "git_blob_sha": "868e8d1f690adeba72242105d65253a4595a0273"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/jobPolicy.ts",
+      "bytes": 1338,
+      "sha256": "00a3e46fc013305d02b44634ae7e85f71480762a049bc886aba3b0beb894bfbf",
+      "git_blob_sha": "85266d25a3cb8ad7bbf0983f0c12bd7a74b194d2"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/lineup.ts",
+      "bytes": 4699,
+      "sha256": "2be7bfcb3ecc271d3dfb4d36dab2153bf378c74ae4c3cf03dfa3ed372701250f",
+      "git_blob_sha": "8743183ebb84620da0151423d9d9fc3ecc3e6ce7"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/liveAnalysis.ts",
+      "bytes": 6867,
+      "sha256": "539a3299363cb2a2784d631dfd29ba5e63bcc6e411205aab4a8f0dd3a693d7b6",
+      "git_blob_sha": "43984605726cdd9a67e1fcb3d5888fb0d064c46d"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/logoMeta.ts",
+      "bytes": 455,
+      "sha256": "0355959ecf1e0275806c8e63699ac3a7d74777880f594dcf79d5dfab463ee597",
+      "git_blob_sha": "bebb05fdd1989fc42dded363312d325b3ef9edcd"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/marketLeague.ts",
+      "bytes": 7157,
+      "sha256": "afbdd23ac4a06bafba3c1a56b90e16b55b9301fe66ff32388c99277d81fea657",
+      "git_blob_sha": "681d5c9cdc89d4645e34976f8450718c272fe142"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/minutes.ts",
+      "bytes": 4592,
+      "sha256": "63b0390606f634c4f804b5f4081785175f6fb95b7a1dbad551b5c55bdd48bf11",
+      "git_blob_sha": "30986001dea6764aa6a5df68b5213c611b6bb766"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/modelDrift.ts",
+      "bytes": 1414,
+      "sha256": "2f00e3bc55d6bb5fbc64144be52788fb6b2a1b80422672f16c8f4b20255e437f",
+      "git_blob_sha": "3ec5cdb0c99bc3d793ea28dccf18edf08406f374"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/monteCarlo.ts",
+      "bytes": 19868,
+      "sha256": "73147e97169f7dc430f725680e9be15942a1eec81380753c1bb3a9f067709249",
+      "git_blob_sha": "601d01238a764cf78dde5d62cf6bf99dd65cd17d"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/optimizer.ts",
+      "bytes": 37612,
+      "sha256": "4de28905d36492c85ef177d56bb83a49d90a8c4a2b7ca8eae988f95dcf016421",
+      "git_blob_sha": "9eff12e4ff7ceb6c64429b44f2df9a715b201e74"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/planEngine.ts",
+      "bytes": 17926,
+      "sha256": "1d0bbdb0585cdb58bde1bd537cb282fe84840770b1d4ee14bce68c61cbc3b92b",
+      "git_blob_sha": "d142ad35d2461a2d66dd8249045c414f83acba58"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/planShare.ts",
+      "bytes": 3805,
+      "sha256": "19afa84bdb8d7e38cf61bd5c4ef76457caa43bba14b5dc6a22cd88a0237f20d3",
+      "git_blob_sha": "00d015daa9a187b8ad1a5a2da00bb5c67a280c87"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/planStorage.ts",
+      "bytes": 3513,
+      "sha256": "6e59e73b58b3983c272f6244ab2256b49148090d2fa48d17a182f31be4462e93",
+      "git_blob_sha": "401bf638c7e9924ae0167b8b20fa40983ffe33e9"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/planTypes.ts",
+      "bytes": 1787,
+      "sha256": "69196ccb2e4dd7152ee22606e0ffbd0545d829ffe9e24db31df17ee09692017e",
+      "git_blob_sha": "116782d90db8d49913585b648ab4fe612aecf18b"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/plannerPersistence.ts",
+      "bytes": 5406,
+      "sha256": "daed80459c13568bd6c54fb8bc4b4f025cf8262f315dbfe5c8d219070ae3c6c1",
+      "git_blob_sha": "812d39360847939c2160867d9292e264611945bf"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/playerImageResolver.ts",
+      "bytes": 14475,
+      "sha256": "91eba592550bb4df624d91cb5ed446980dcda3d90c3ad238535f6389ec8a306a",
+      "git_blob_sha": "dee7d84890ed73a21569c4e7aa21c02e246bc534"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/playerModel.ts",
+      "bytes": 5372,
+      "sha256": "db558957ec1735b6fc65a832c25b9e0e4fb1c8751388f40f7621e8bce5135a6f",
+      "git_blob_sha": "9e380203b0ff36f2e4d023c3471e1035853f562d"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/playerPhotoPaths.ts",
+      "bytes": 3536,
+      "sha256": "09f1094d67e801ba3682899298977c857a20a1bffddc28b683caa06f29c30929",
+      "git_blob_sha": "1cd9187499c3ccb28c2a93feeb9bf6f17b9a5f60"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/probability.ts",
+      "bytes": 4198,
+      "sha256": "1b88de853c179aa8ec520a52b3ea8352c0ab4ab9b82516ac0b2eb301c530e460",
+      "git_blob_sha": "abd710ed7f4c50dd2a3fad3acf28a1c72ffe948c"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/refreshSchedule.ts",
+      "bytes": 1246,
+      "sha256": "e848eb65a705f4d83c8796406df3431f29c7eecc4a6ec071b8aa6f58a0b6a488",
+      "git_blob_sha": "0360c8bb84c5b1e62b5e26e3e30d66aeae948798"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/reportPayload.ts",
+      "bytes": 5807,
+      "sha256": "7bc8036567b85b331eb733b9bf5ffe89e84909265df2a26c64338afb7c732570",
+      "git_blob_sha": "11c105ec2f44b1de309159312df08bfabd044107"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/reportScheduling.ts",
+      "bytes": 1096,
+      "sha256": "37c640cbf265860dc56a854fb866ca6eb0e0262f085067a35ab4c0c53b83d2ba",
+      "git_blob_sha": "ccbf5e0b3618ac0c4fbdce60cb879f2683603efc"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/runtimeConfig.ts",
+      "bytes": 2070,
+      "sha256": "82a027155e9ae5dcc13012ad7c8f1e902460333def3126f693cecdd786565734",
+      "git_blob_sha": "90fc3c2449b55849574df3e2659eb107bd6a1ba8"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/scoring.ts",
+      "bytes": 5477,
+      "sha256": "ccb3b99d245459f863058e8ea032ba736565662e20f61cfb7126d59721db5849",
+      "git_blob_sha": "516a38fbd134b6527edcb3739903cab2a54f532a"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/seasonRules.ts",
+      "bytes": 4325,
+      "sha256": "304fc5c20c994aace4e5b8cf0be2b6068ae29df6ddc7fbe75894bc447d9c008d",
+      "git_blob_sha": "90ecfab8394ce9782c86b137b4d386c256a12849"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/snapshotIdentity.ts",
+      "bytes": 1987,
+      "sha256": "4fee3b96656231b601d0a3c971009ff2ea9f9d01f0063b8302990a5792ad9725",
+      "git_blob_sha": "a69344a3523862bb09e52b47f849456c3f138eea"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/solver.py",
+      "bytes": 23019,
+      "sha256": "cfafa07603ceb4cea928b39615616d14548956f1e00b9f846bcb6ceb08b497b5",
+      "git_blob_sha": "4710ba3cbb5a5cf49b51ae46fd09359e41b6f6e4"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/strategyEngine.ts",
+      "bytes": 7274,
+      "sha256": "29efb4198f8b219239816af314a61e25ded3a99130c7e333715a820ff775bca4",
+      "git_blob_sha": "4995967c9a814e77a7737fa298576228210b924f"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/types.ts",
+      "bytes": 13670,
+      "sha256": "3df525ff5631503686cc8a2e354ee2c52be2cc843fc9b8569dfd326189f97480",
+      "git_blob_sha": "b5fcff05896c96b5c25302946ed41b676210a1ea"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/useJson.ts",
+      "bytes": 3137,
+      "sha256": "79f8aafd978c55d2fa9ce1361238b28b61a78c9da6d37cb1c17f4b5f894a70bf",
+      "git_blob_sha": "4652828123da17912390ae9ecf07cc1f09a5ecd7"
+    },
+    {
+      "path": "1_APP_dashboard/src/lib/xpts.ts",
+      "bytes": 20901,
+      "sha256": "917385a0a3f21ccc1db8d4745413628d60359c0ea5b942922b8ab7b11700ae3b",
+      "git_blob_sha": "f1b37614db8abf456de2615aa65df3a12bbfb92f"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/auth.ts",
+      "bytes": 4310,
+      "sha256": "962270e51cae7f9c9047e172ccbee57a84fa546a77aaa01356f2ddeadec07c7c",
+      "git_blob_sha": "17ccb25cf862bc62764b3f4a8f31120ac28a225f"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/authEmail.ts",
+      "bytes": 1325,
+      "sha256": "5b05fdb9e79f3cb391a20f1c977e713473fd0885754c5c7781bb8c6daaa5b88a",
+      "git_blob_sha": "58e9357b20558d88c518015bfa9fbc5fff9d5835"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/authTokens.ts",
+      "bytes": 2307,
+      "sha256": "94de3a33415c39a433fee2622a1c8145e50f371ce3988a11b87c50c5b490cb63",
+      "git_blob_sha": "f58644f212b50d01357d579ea1023869f04d9d1c"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/forecastIdentity.ts",
+      "bytes": 2225,
+      "sha256": "fb8d447caa070455295470e546e450be3275bdc6c18634119e1dc340225d9686",
+      "git_blob_sha": "77ac600e7a217da07b3211624e02e62e19285d64"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/fplData.ts",
+      "bytes": 4456,
+      "sha256": "cc8a2e45af328f3a61a8c5352037104e286052909567ea31e5860994d7729cbe",
+      "git_blob_sha": "1c804dda14f471502856698f314deb19fb5c3f21"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/gameweekReport.ts",
+      "bytes": 742,
+      "sha256": "acea5f1e7323211709c101966b8040a5c216a620b14d63d4bf26fe561a6e8a3c",
+      "git_blob_sha": "c58e3287d7117959de52353c35fc9c0d28005d75"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/jobs/queue.ts",
+      "bytes": 5253,
+      "sha256": "08768be3fff8f1cafb19d733d6d04615816525ee24ea0adef34721965ddbc0f2",
+      "git_blob_sha": "0b4b9d65168faab3f7a089856f7a0f823e6fd636"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/jobs/runner.ts",
+      "bytes": 5318,
+      "sha256": "d1c084ee59464fc2873ca9e981d42a9629f00a046d3007dfba17941c6720f70e",
+      "git_blob_sha": "0f8793af8714b36fe9c220c7636786cf3cde0ca9"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/optimizerTask.ts",
+      "bytes": 2057,
+      "sha256": "0e15b7d4263ec429cea8ae525bc3ccb1657b35b65c8b2ab13f34de38d43f9dcb",
+      "git_blob_sha": "60c5c2997461f1ccc2c6a69f7cc42187b3e92ceb"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/reportAutomation.ts",
+      "bytes": 1364,
+      "sha256": "5a65ade7840c7d2a9fa4eadfb583d95ab73a85ab79e84a291d866d27149a3bb0",
+      "git_blob_sha": "329caa7d16ccf5cf2e7de0ce3fe7bd2692b29106"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/requestBody.ts",
+      "bytes": 1203,
+      "sha256": "c53a12fb8a4d92774fbc50866210128f9f3992ea1204546dfbb2e83533b4f254",
+      "git_blob_sha": "35381a2c032407a7f80d9832a870f9d88c3effc3"
+    },
+    {
+      "path": "1_APP_dashboard/src/server/snapshots.ts",
+      "bytes": 5045,
+      "sha256": "8eb1f714fe7d9bf94f5f3a6175e49d5c20a0f7dbb6f1a304495d3c1cce80ef44",
+      "git_blob_sha": "c2f8a91d088318928fd22b93a7ddd854b2544902"
+    },
+    {
+      "path": "1_APP_dashboard/tsconfig.json",
+      "bytes": 758,
+      "sha256": "85254f5120df08dcda27afac07a6d79fbf81cdbcea1a0d46c317dd62540b5cea",
+      "git_blob_sha": "64fcdc3543d040cb15bf480827ab79bfe6fb5306"
+    },
+    {
+      "path": "1_APP_dashboard/vercel.json",
+      "bytes": 140,
+      "sha256": "6b7e3439e8efc47f201668919241e4016d8731922091fae4f4f2fbab23e96c6d",
+      "git_blob_sha": "0e169f6e5a168f36903c9f04cef777f4f8d393df"
+    },
+    {
+      "path": "2_notebooks/FPLVORTEX_V4_6_INLINE_UPDATED.ipynb",
+      "bytes": 320172,
+      "sha256": "c209a76c86254c176f8bcbae1bce78c15fcc239adbbfd258ccc705771371505f",
+      "git_blob_sha": "039fc3b1ca09a32bbdeba63368382429e63830a0"
+    },
+    {
+      "path": "2_notebooks/FPL_VORTEX_DEFCON_FIXED.ipynb",
+      "bytes": 132208,
+      "sha256": "dcf9d97587fcc4369bf904928b206a08113f0805d54ccff0f043f9ec688e9d6a",
+      "git_blob_sha": "6d4644f1ffba02343a2347b05ab8c7666ef1adfc"
+    },
+    {
+      "path": "2_notebooks/FPL_VORTEX_WC_FH_DEFENDER_TWO_WAY_LIVE_FIXED.ipynb",
+      "bytes": 9722247,
+      "sha256": "1dfb900b3e0f3d984059c2a774fe8cc0f38c7e5aaa6d1e349f05bc3befab0582",
+      "git_blob_sha": "aa40b8c9411ef55e74eeb281ac9f05b9febf5283"
+    },
+    {
+      "path": "2_notebooks/FPL_VORTEX_Wildcard_Slides1_to_4_Premium_Captaincy.ipynb",
+      "bytes": 9635819,
+      "sha256": "0f1634002a39a9b50f4468702c1819c182a95bbf39fb73c69500a0e9ffd666a8",
+      "git_blob_sha": "868845806bb7767570369e7ec4451c5172a3de6f"
+    },
+    {
+      "path": "3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv",
+      "bytes": 68621,
+      "sha256": "3035824c12e7f7be098ec58a81d911a5e23dc7c1e8d57ee4a203e59635f0df39",
+      "git_blob_sha": "e821141523aa8864697e08e932f6acb0b15fe960"
+    },
+    {
+      "path": "4_backup/fpl-command-center-backup-2026-10-14-monte-carlo.zip",
+      "bytes": 811583,
+      "sha256": "ec6398d5cf1e3a979ddacf711f1ed07bce9fba64652a0fa0b800cd49417ffafb",
+      "git_blob_sha": "396845aa0ff4bc7c058029c70de915d43388e049"
+    },
+    {
+      "path": "5_screenshots_reference/1 (9).png",
+      "bytes": 1710186,
+      "sha256": "d581d8a15ff1ca78d1f039798f222bca497468f338088b55b7e91fa0141f9dcb",
+      "git_blob_sha": "2687f0f23060df3670b9f031de98c0baae976ea5"
+    },
+    {
+      "path": "5_screenshots_reference/2.png",
+      "bytes": 2084383,
+      "sha256": "d3b1fc8ef4d8f790e171ac6236880a7e2aedcec5d66cc5a1affec95b69bf2c70",
+      "git_blob_sha": "8c16ae525a5fe702c383f20e81ef91fe23428ece"
+    },
+    {
+      "path": "5_screenshots_reference/9.png",
+      "bytes": 1373408,
+      "sha256": "f4cbc2ca10d3a32f418a19140f1c136197b6e1a6cd777377f6900761c69a1515",
+      "git_blob_sha": "bc97ed9174e3abf54eb32096adb64bf3126cdfcf"
+    },
+    {
+      "path": "5_screenshots_reference/FPL_VORTEX_DATA_EDGE_GW6_ASSIST_MIRAGE_2026-10-13_1603ET.png",
+      "bytes": 2212209,
+      "sha256": "531b9a6806115d22b132b77c861619c764f27a20645dbc7e394bc2c015341783",
+      "git_blob_sha": "72306c49bc895f24fda2323e5dc9dda510fed1ca"
+    },
+    {
+      "path": "5_screenshots_reference/FPL_VORTEX_EPL_Insider_2026-10-13_1500_ET_Brentford_Two_Routes.png",
+      "bytes": 2183473,
+      "sha256": "dea61b7d660705281cb9adb1496e2ca2cb2b371973562721b869dd67a4f2fdd4",
+      "git_blob_sha": "c7d4bf4818a3c8d678248f25dad3c322c4752e2e"
+    },
+    {
+      "path": "6_replica_docs/design/market-components.md",
+      "bytes": 1686,
+      "sha256": "a10970d5290dbb205424c09fc207c70aa9d6ede2ec5ca3f51b5c597fb1422912",
+      "git_blob_sha": "d3d7a8b041ed6cfc6135f7ec09f2e8451d343ec2"
+    },
+    {
+      "path": "6_replica_docs/design/market-contrast.txt",
+      "bytes": 1835,
+      "sha256": "d9a58684fb56de3c0014b4f951ee8d6c3d7be82ff24303550bf663f8f9b9f82f",
+      "git_blob_sha": "cc926f0d333cf1862a51a463b1b94d1242a14c2c"
+    },
+    {
+      "path": "6_replica_docs/design/market-tokens.json",
+      "bytes": 2283,
+      "sha256": "c0118a1665632189203cca92ef610e6d2ca6a4e876bca787ec89139fb6598b56",
+      "git_blob_sha": "5cba26aa950f66c046cf2363233be132843a107a"
+    },
+    {
+      "path": "6_replica_docs/features.csv",
+      "bytes": 1556,
+      "sha256": "0950f17bb026a0f1b8264d4b0e5e6acd656ed3e23c91f9f3b71b14b353201668",
+      "git_blob_sha": "1bc9b54697d51133c844775eba26383507a62b46"
+    },
+    {
+      "path": "6_replica_docs/parity.txt",
+      "bytes": 604,
+      "sha256": "7ee38ae8b4316dcbd8a2a6514c673d5ab871934be7fe82ad55d3d0e3667e673d",
+      "git_blob_sha": "d385863fa3bc509df406d3cba0ed865f3742f60a"
+    },
+    {
+      "path": "6_replica_docs/recon.md",
+      "bytes": 3043,
+      "sha256": "5d4a6558e6e5d978d96575573f776256df87e47c888171b6ae910e8cc83581cf",
+      "git_blob_sha": "5bbfade4ef6f6975d012cecfc3b2785cc7ead386"
+    },
+    {
+      "path": "6_replica_docs/screens/S01-transfer-planner.png",
+      "bytes": 2176640,
+      "sha256": "2db060e2cff2ceb4aedf303fda70f68d22d9670ce7e4c2d1635715ec5d1d293b",
+      "git_blob_sha": "dc2bde14141940c3163389cfa4a9affb3accfaca"
+    },
+    {
+      "path": "7_skills/fpl-team-planner.skill",
+      "bytes": 1679,
+      "sha256": "d9b4a62e52a4f24c155738593141712495118620892b571012376e6ad15a554c",
+      "git_blob_sha": "6e3717eef522435e45cf05aadffc3deec18bcb02"
+    },
+    {
+      "path": "8_project_reports/01_Steps_01-16_Progress.md",
+      "bytes": 6294,
+      "sha256": "997ebcb4b57135341e86a69525f8ef564ff073d6463a897157bfb4f658df3b51",
+      "git_blob_sha": "de5afe795ed529a0efc80e039cd3a031b1ed5110"
+    },
+    {
+      "path": "8_project_reports/02_Steps_17-61_Progress.md",
+      "bytes": 9249,
+      "sha256": "e1e2933332d06d16f2744fdacbf59d9dcb671f439c37d29dcdf4d7cf78887715",
+      "git_blob_sha": "e405824cea6be306a235983a815db7266f6126d5"
+    },
+    {
+      "path": "8_project_reports/03_Principal_Engineer_Handoff.md",
+      "bytes": 27316,
+      "sha256": "bb29d715c3c5982aea9ca49a3ab1d31d354fdd21ff9af6cbcaa5b36a2304e34b",
+      "git_blob_sha": "7bb04bcc9202571d72a30bc4d06f1b1f51a0866e"
+    },
+    {
+      "path": "9_dashboard_reference/dashboard-reference-1.png",
+      "bytes": 1533395,
+      "sha256": "37dc6b4d2bd435cc01688b7532c25e24b78d5413c0e165a0e6ad4cba8cd49541",
+      "git_blob_sha": "fe5a429c00b44853a9b7be648dc718075db2ece8"
+    },
+    {
+      "path": "9_dashboard_reference/dashboard-reference-2.png",
+      "bytes": 1460191,
+      "sha256": "a3f4afc15f1452058aa56334d4f394360c16f53c3b7561e557b6fdc6c9196923",
+      "git_blob_sha": "67348bcd96d78eb0e4569fa0cc7686c6f689abb6"
+    },
+    {
+      "path": "CHANGES_LIVE_ANALYSIS.md",
+      "bytes": 6202,
+      "sha256": "cbc8f943648a1f33c91b4a4fff6ff8f041df0995e5c401d15886f750b0b3a647",
+      "git_blob_sha": "e72bf7f7afadb760d3b0750f2f109ac949c51b60"
+    },
+    {
+      "path": "CHANGES_TEAM_PLANNER.md",
+      "bytes": 1122,
+      "sha256": "70a848fcc35b09ff0a5358e6f1aa2de049cfbc14eafce1c595ce129febe49327",
+      "git_blob_sha": "03be6f98f8c6082b5e6c33c9d4dedf7ab4d3e78a"
+    },
+    {
+      "path": "DASHBOARD_PREVIEW.html",
+      "bytes": 182360,
+      "sha256": "93f5f93561290a387a1a6821b4ea575409b71265a1ccdd79d4205fc12d12ae97",
+      "git_blob_sha": "67173c04032f4383bbd3ea2ea6dd6fd5d4076230"
+    },
+    {
+      "path": "MERGE_MANIFEST.json",
+      "bytes": 539329,
+      "sha256": "2b5ba840b15e1aff313de6607d8473e73d2c37f47addf7bc2b51e1d30f8e9574",
+      "git_blob_sha": "2084017d8df7c4d29e4813a3a2f6c34400241ccd"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2731,
+      "sha256": "8eb574ac78146daa02c81b8e5e9a9c4b576ec212f90aa5f8dc027cc39a408480",
+      "git_blob_sha": "8f2396b6fc540481d71a54504d85a1321d4e180c"
+    },
+    {
+      "path": "README.txt",
+      "bytes": 1328,
+      "sha256": "4948ce9534182027c3bd970ab4461e8b81f547af92dcdf0ead9e776ff10718d3",
+      "git_blob_sha": "892a34fdaa413a4881dc181940ac8fb44dde6c30"
+    },
+    {
+      "path": "START_HERE.md",
+      "bytes": 1732,
+      "sha256": "18c42329e7701ffbe571cb6ad5013261b5ce365f7ab2dee5373b17f8bad689ed",
+      "git_blob_sha": "1b6ab30662236c91c59999618dfb4f0c534b8fd7"
+    },
+    {
+      "path": "START_HERE_UPGRADE_STATUS.md",
+      "bytes": 2860,
+      "sha256": "1c1a421132feccc2fd9e7b9c918fa7f70d16ef5ba54c5f04bc6ef7d67f81a5dd",
+      "git_blob_sha": "3cd580266dcd9553983777a0116bbb7e4d13436b"
+    },
+    {
+      "path": "UPDATE_STATUS.md",
+      "bytes": 3370,
+      "sha256": "0d1edf5850f71241bb646f9dac06ebf3a4ab0f13a7675c046fee4cb6ed8c0833",
+      "git_blob_sha": "34482ea0dce4e7deba2fd9a08a416060a871c537"
+    },
+    {
+      "path": "UPGRADE_NOTES_2026_10_23.md",
+      "bytes": 3507,
+      "sha256": "5689504b79396d37f69edcb5b89e326cae79d6e3f18dd3827b54adf8b6f628b0",
+      "git_blob_sha": "fddaa01a5be584f26138166f8c355e01d3663547"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/README.md",
+      "bytes": 5345,
+      "sha256": "5e33fd716b3e1ffaca9340f645d44c193f9b446107fa67f0cce498d33025672c",
+      "git_blob_sha": "a98ba126ce373ba5e639560d8628834d5fa43347"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/SKILL.md",
+      "bytes": 38458,
+      "sha256": "d955dae4ba8ab2d994f4bb06b4bf412a1d9875433a8597939c391f4bae91dd7a",
+      "git_blob_sha": "433d92105c76671250013e0312d82cb413f552bc"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/assets/app.css",
+      "bytes": 15918,
+      "sha256": "16518c3a999fb81b2698137f1f743128c189272e8b1d411c4b02598c6755b67f",
+      "git_blob_sha": "865e4ed4804556aaff51897d22bf0c1bcbee9549"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/assets/base.css",
+      "bytes": 6520,
+      "sha256": "aa6ea21613c79e06e06dea3d33200c78590c89b0346bb976ec07947bb45ceafa",
+      "git_blob_sha": "75915d3b1ea8780090a365eabfb5c4b697cc6e86"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/assets/base.js",
+      "bytes": 2162,
+      "sha256": "8d50416125596b84c0083d5d5ffba09add57db4b06cbf0eedac2d4999b7653bc",
+      "git_blob_sha": "86ec0afacba394f64db238c44b8e7b980f2383b3"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/assets/charts.js",
+      "bytes": 58705,
+      "sha256": "89071120bd09eb276d9e568bab433ed035ea8b3a1b72750a1fa204a63e3d4ab4",
+      "git_blob_sha": "fa0f459448daef137ad85900809695ad2617f512"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/assets/scenes/stage.css",
+      "bytes": 1141,
+      "sha256": "b5c587dac45ac6fcc34ae7cb4aa2b3e43797b2ef5d71fd32b48483bda3fca3e0",
+      "git_blob_sha": "190763d3c1661e7a602bec21fce952dece67bf15"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/assets/scenes/stage.js",
+      "bytes": 7522,
+      "sha256": "3012ade75e01a9c0c81b5835a60e9ade965ed310cd58d85a7ad10e4ed4a1ad16",
+      "git_blob_sha": "fd7ba541b69f4dda347e52764faf7c25c198e02b"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/evals/evals.json",
+      "bytes": 8198,
+      "sha256": "df0ee2a248cd5445c0e1600eb095dc0d43dd312f5b4bb4316a78471ae0d22a74",
+      "git_blob_sha": "f6d598008f22d980d135a863a7a151609822bb3f"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/app.json",
+      "bytes": 74229,
+      "sha256": "3678ccbe1e8d05feff6d4f07fa16a0d610aefeea5e697e842a876713ba763cf5",
+      "git_blob_sha": "c06fb45f8bb6b09398f19ba35b2f71ae2363a310"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/directions.json",
+      "bytes": 61466,
+      "sha256": "d71e3824af33a92d9e1ca543e17f80baa5b7a30c815df5125cfe3300a14892c1",
+      "git_blob_sha": "f7f82e1a921e7009da7ce6f88410d2c8a94cf214"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/heroes.json",
+      "bytes": 108240,
+      "sha256": "98d5e01104412a5fb27936f9c686f3bc0a5f76ce0793186d3de46b982c65b172",
+      "git_blob_sha": "74227d956a049f548d99f7b420ccc6218ae3c40e"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/motions.json",
+      "bytes": 9033,
+      "sha256": "51815dd09a823c829897f99ed9ea7dc5c35bd305ac989b8a0632ea6d42a3f08b",
+      "git_blob_sha": "ff3818f561f338b15dbe1ff45620729ef0ff8d3b"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/palettes.json",
+      "bytes": 34753,
+      "sha256": "a14be9f45baba848c53436f4aa44eb4f1925ad3e232c5d1dcddf4f565661a525",
+      "git_blob_sha": "9de29b16db9c9f57b977dd38648a47f866572e54"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/photos.json",
+      "bytes": 160632,
+      "sha256": "8fc3b76bca90f44675bd99d99bb4ce95b0756c6c5d4141b7e917d11d90e61520",
+      "git_blob_sha": "f403b772d3d6ae11ef07cfe44514fb019d918820"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/sections.json",
+      "bytes": 276146,
+      "sha256": "7c2c8a470a22501176948661f803434db8c542a511281752c717252de80c1ad8",
+      "git_blob_sha": "042b8ab18ef1aa6e67a6f0f2c171fa9357528623"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/sites.json",
+      "bytes": 869073,
+      "sha256": "a2bc4d0cff8ebff481f0dfd4879c106d5e1e16cb3122f9ab3702184a5e1f3502",
+      "git_blob_sha": "ef070e3ccdf5cb9c388bab1fd0aacb0371cba413"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/library/type.json",
+      "bytes": 82290,
+      "sha256": "01a36c53c4398f48ff945b0f31a256281c1c0c1075729747c11bec70867b6232",
+      "git_blob_sha": "72c1c1e493b006a5c10ec4ee18db69c99fdc4892"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/app-screens.md",
+      "bytes": 85358,
+      "sha256": "55e937ec30de605b53a11310b446f328a3ce7403de24fff008920a00be1a5ed4",
+      "git_blob_sha": "784439ed799484a98958764a5bf3ede2a1d25296"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/colour.md",
+      "bytes": 6853,
+      "sha256": "6556bcc7eed48b7bc2d0d281c28bf57c1b75e94d7ca0bde49f5d9df8c6a09351",
+      "git_blob_sha": "a20a810fa1f080414035a5e0fdc5002977e56ab2"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/copy.md",
+      "bytes": 9436,
+      "sha256": "676edbe75d5f3cfd8a793010ea9f730525ae074b231a674c2426264d3398262e",
+      "git_blob_sha": "69f20af2bff6d40cc07d4dcadaa45440ced550bf"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/critique.md",
+      "bytes": 11157,
+      "sha256": "9c2f4392674530b3f02ac529fba53d82ab37b85f401c4c1989fbe98d6217f0b4",
+      "git_blob_sha": "1989a85c83232e86aec66baf733a843947392b37"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/imagery.md",
+      "bytes": 51025,
+      "sha256": "518def6b2c643b295e13e66b09b66f2e3fc1421d3cf6c7dbb1dc749097ad2ad9",
+      "git_blob_sha": "ddd88d7a31dd3a5d7f4675ead4524f34d037f665"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/layout.md",
+      "bytes": 18315,
+      "sha256": "40080640719b07737afb94a8868afef87767a1ab4892814d9b6882e2d283453b",
+      "git_blob_sha": "dae26af173b4b60f96291f816700f390ffd8e37e"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/motion.md",
+      "bytes": 55400,
+      "sha256": "79f94d8469898d2bf6186c198ad86ddf691a67c6536eaec36a4ec101285d9a37",
+      "git_blob_sha": "c8f649d4fa45c369c53ce375a00d2f125182f181"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/research.md",
+      "bytes": 24262,
+      "sha256": "83433646a352cae588591e05bc0a75fe1deadff55ede8851bc8dd5dd483adfc5",
+      "git_blob_sha": "c38364af48f9e95dc90a2e6b47ae75ffdc24731e"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/scenes.md",
+      "bytes": 9817,
+      "sha256": "733ac7258a1a28f2f6ae8205bc36ba66c563594ad0a2e2f829c5eaaba3199a61",
+      "git_blob_sha": "c2c568b5f1d18128658b28a273e90028fc22bb30"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/tells.md",
+      "bytes": 7420,
+      "sha256": "8e6de4411c43d3108f832b3f33bb1a2a838148a72b92a176df893b67d99a0da9",
+      "git_blob_sha": "9cfa4a89e466eb6df81b7a1b776421c378aad840"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/references/type.md",
+      "bytes": 8495,
+      "sha256": "6353ff1d0ce2f9913628c88fbcb7dad3cc3877e61196848bce99e33a17d20611",
+      "git_blob_sha": "c1552b700e9bebb2fedf79f82c875615d0f876ac"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/assets.mjs",
+      "bytes": 64522,
+      "sha256": "b4b4b99b5634735f5a0b4213169cda5240ee6bbed8ed8042ad1bcf2b6607c1fa",
+      "git_blob_sha": "4f9c5b1c1fcc5a821685c5cea35f326bcf15d75b"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/draw.mjs",
+      "bytes": 54140,
+      "sha256": "6c2047d207d2400d3b099956dfe2ac306203b614246e66bc8760212a7f797dbf",
+      "git_blob_sha": "6db3d89422057902457c97643c13f4b351d1459b"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/inspect.mjs",
+      "bytes": 27839,
+      "sha256": "9482c546288d4d5c738a915905959e99394551ec27bc202ed443af12a02bd1f7",
+      "git_blob_sha": "105b0e5e0a9038244e04cfea4c79b2c66ae5833f"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/lib/app-draw.mjs",
+      "bytes": 14715,
+      "sha256": "aa0802d341d19b53ec14ec21746e428be49a8ec3ed7b30253194105fc18a8df6",
+      "git_blob_sha": "e246a38f15d4f3b163a3d3aa5378c71462a4c24f"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/lib/cdp.mjs",
+      "bytes": 11920,
+      "sha256": "320fb75c6454a97b88458e5c33559a1188042aa0041bd5eff53455900236c88a",
+      "git_blob_sha": "03ef99c144923d0905ffc6222189bc8901836f4a"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/lib/probe.mjs",
+      "bytes": 81280,
+      "sha256": "c14fd0bed7727855a1f3fcf5ade945fba97f314562fd7430354168b2da25433b",
+      "git_blob_sha": "911094e566b35508a15b344febdf1a51a1cae0cf"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/lib/rules.mjs",
+      "bytes": 37284,
+      "sha256": "5de058543b3bd6f3dd2f85ff1c1e5e1f91918ba9f4454e7ee0b8934c607982f9",
+      "git_blob_sha": "558fcccf246ae4432fa05e30a32a25d9e46d214e"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/lint.mjs",
+      "bytes": 11747,
+      "sha256": "05f2fae2f56fc051b539cdbacb43a6f78fbbfb9644bb74aa11be472ff12dcaf5",
+      "git_blob_sha": "9277761d18222e5fc75c85ed79aa032f3d086598"
+    },
+    {
+      "path": "design-tools/design-taste-frontend/scripts/scenes.mjs",
+      "bytes": 8980,
+      "sha256": "234ec582e2b841457c33033feeeba8535f9ac285495a74d08dc533a1566c90d5",
+      "git_blob_sha": "7bbde8e6bdf27859af0d54db1e1b2756de3a7d56"
+    },
+    {
+      "path": "site/.gitignore",
+      "bytes": 36,
+      "sha256": "eaa2af4dbbd873d691301e212eeb80e749c6a45e0bf79f9668ccf9fc91589d72",
+      "git_blob_sha": "90ba87c159cbfa413c53bff0bb37f8ecb5adc759"
+    },
+    {
+      "path": "site/.openai/hosting.json",
+      "bytes": 91,
+      "sha256": "4911194b9f162dcd8f5fab95ed3c4d004a9295100df8c5784446218e68caa654",
+      "git_blob_sha": "d558ae38f31597ab95da1686255b299243b97bc9"
+    },
+    {
+      "path": "site/README.md",
+      "bytes": 1597,
+      "sha256": "cac1c4cd0ab6266deb34b36f5565ca75bb543e1ac8c5ab8caeda00aa9e6eeb75",
+      "git_blob_sha": "ab121241cd4794fa00b313d5774e0d0764c8b48a"
+    },
+    {
+      "path": "site/model/dashboardMath.ts",
+      "bytes": 4948,
+      "sha256": "21a39dff968d3b1a76fa9c5f375ac3f11f9af472bab8421300d462f6d49df829",
+      "git_blob_sha": "b4afe8aea0972a00e0899870de1be2f918425aa2"
+    },
+    {
+      "path": "site/model/forecastBenchmark.ts",
+      "bytes": 6860,
+      "sha256": "cc913a799e3d4baae93501fd87e8b1f2eb9fd04dac21fe9b2ce2b111a3d9b7d6",
+      "git_blob_sha": "66dd6af4c6e00c1ef2a8320be121e20dba8b40b8"
+    },
+    {
+      "path": "site/model/forecastScience.ts",
+      "bytes": 6421,
+      "sha256": "1c8ea0fcad65202470bcf4748b25b84977115e7094be0b750dbd2eff79253b9b",
+      "git_blob_sha": "3b6e911fcb7021d516fa0063df49dd704f1c1546"
+    },
+    {
+      "path": "site/model/lineup.ts",
+      "bytes": 4699,
+      "sha256": "2be7bfcb3ecc271d3dfb4d36dab2153bf378c74ae4c3cf03dfa3ed372701250f",
+      "git_blob_sha": "8743183ebb84620da0151423d9d9fc3ecc3e6ce7"
+    },
+    {
+      "path": "site/model/minutes.ts",
+      "bytes": 4592,
+      "sha256": "63b0390606f634c4f804b5f4081785175f6fb95b7a1dbad551b5c55bdd48bf11",
+      "git_blob_sha": "30986001dea6764aa6a5df68b5213c611b6bb766"
+    },
+    {
+      "path": "site/model/monteCarlo.ts",
+      "bytes": 19868,
+      "sha256": "73147e97169f7dc430f725680e9be15942a1eec81380753c1bb3a9f067709249",
+      "git_blob_sha": "601d01238a764cf78dde5d62cf6bf99dd65cd17d"
+    },
+    {
+      "path": "site/model/playerModel.ts",
+      "bytes": 5372,
+      "sha256": "db558957ec1735b6fc65a832c25b9e0e4fb1c8751388f40f7621e8bce5135a6f",
+      "git_blob_sha": "9e380203b0ff36f2e4d023c3471e1035853f562d"
+    },
+    {
+      "path": "site/model/probability.ts",
+      "bytes": 4198,
+      "sha256": "1b88de853c179aa8ec520a52b3ea8352c0ab4ab9b82516ac0b2eb301c530e460",
+      "git_blob_sha": "abd710ed7f4c50dd2a3fad3acf28a1c72ffe948c"
+    },
+    {
+      "path": "site/model/scoring.ts",
+      "bytes": 5477,
+      "sha256": "ccb3b99d245459f863058e8ea032ba736565662e20f61cfb7126d59721db5849",
+      "git_blob_sha": "516a38fbd134b6527edcb3739903cab2a54f532a"
+    },
+    {
+      "path": "site/model/seasonRules.ts",
+      "bytes": 4325,
+      "sha256": "304fc5c20c994aace4e5b8cf0be2b6068ae29df6ddc7fbe75894bc447d9c008d",
+      "git_blob_sha": "90ecfab8394ce9782c86b137b4d386c256a12849"
+    },
+    {
+      "path": "site/model/strategyEngine.ts",
+      "bytes": 7274,
+      "sha256": "29efb4198f8b219239816af314a61e25ded3a99130c7e333715a820ff775bca4",
+      "git_blob_sha": "4995967c9a814e77a7737fa298576228210b924f"
+    },
+    {
+      "path": "site/model/types.ts",
+      "bytes": 13670,
+      "sha256": "3df525ff5631503686cc8a2e354ee2c52be2cc843fc9b8569dfd326189f97480",
+      "git_blob_sha": "b5fcff05896c96b5c25302946ed41b676210a1ea"
+    },
+    {
+      "path": "site/model/xpts.ts",
+      "bytes": 20901,
+      "sha256": "917385a0a3f21ccc1db8d4745413628d60359c0ea5b942922b8ab7b11700ae3b",
+      "git_blob_sha": "f1b37614db8abf456de2615aa65df3a12bbfb92f"
+    },
+    {
+      "path": "site/model-build.json",
+      "bytes": 1135,
+      "sha256": "92819402c41a1261768e56504e81e48f564e50356f687cb8f728e70f28708d3f",
+      "git_blob_sha": "bfff040ac99f13878a757e86f7a1b494018c7e10"
+    },
+    {
+      "path": "site/package.json",
+      "bytes": 262,
+      "sha256": "df38f08514c11a5ce05d7e38239fafad0ccb9eeec1456924d723a8903d531cf2",
+      "git_blob_sha": "1b3f504af94c864d55669e7fb7086597ae03d268"
+    },
+    {
+      "path": "site/scripts/build.sh",
+      "bytes": 411,
+      "sha256": "1567f5240c6d2aa74e6740ba200a72d8f7e3fee826a50efa06392099f9e7a471",
+      "git_blob_sha": "3a0ecc85fd5f7aec64a08378b74ed49596a84439"
+    },
+    {
+      "path": "site/scripts/dev-server.mjs",
+      "bytes": 1357,
+      "sha256": "b492795b599ea0d253f052773184a964caa50b852bf0c95346f07a76ebc2fec0",
+      "git_blob_sha": "315454a3112feabd69d10728421039956e2cde29"
+    },
+    {
+      "path": "site/scripts/pack-assets.mjs",
+      "bytes": 1608,
+      "sha256": "90cf6e20b11924e0e05e04f2a224e85c93734d8f2508c18e75e14835425d8f44",
+      "git_blob_sha": "d412ca5c265521d2460bb01346a1401348f8ef51"
+    },
+    {
+      "path": "site/scripts/prepare-model.mjs",
+      "bytes": 1740,
+      "sha256": "2822632044201b5a859dc294b1440132190bc4da3ed89490ef5709fdc03cd673",
+      "git_blob_sha": "29353d7576d77a45b4abd360999a74b082f0a39a"
+    },
+    {
+      "path": "site/scripts/smoke-test.mjs",
+      "bytes": 2636,
+      "sha256": "450bf267a876a677113c95ecbd31a7d53a22b744d375aa08591b64c8d9c6a53e",
+      "git_blob_sha": "36cc1e16b25c38195f94ab5371a1fa3a09ffba63"
+    },
+    {
+      "path": "site/scripts/standalone-preview.mjs",
+      "bytes": 2528,
+      "sha256": "ddb5aaa7a5bc27133a06f050027e3fa5b187e24d5bcfae049e8496f2d5369dc8",
+      "git_blob_sha": "3ef1f2ffa55caac883529dc467ff878211271ac2"
+    },
+    {
+      "path": "site/scripts/validate-artifact.mjs",
+      "bytes": 953,
+      "sha256": "39d9df53ac2461962466d5965c5f4d06f08024ceca40605952d8b753b88d41fd",
+      "git_blob_sha": "c8dee01eaaf9f856dc3a8a993a90741dfa3ec74c"
+    },
+    {
+      "path": "site/ui/app.js",
+      "bytes": 21209,
+      "sha256": "086b1a57d6c8a11a76b6d7d4ff1d7e0402459fe227fd1dfae94bf02c2ecd3c70",
+      "git_blob_sha": "82549b9beffe036f5d9db1b1bc0ffee23369b8b1"
+    },
+    {
+      "path": "site/ui/dashboard.js",
+      "bytes": 19449,
+      "sha256": "84e055b779ae264fbfd9eb91c28cfe8ded50faadf2d0a3f616f745e161cee0c2",
+      "git_blob_sha": "79e2d30ab94b2d1186c99f97b859b8f28f81c3cd"
+    },
+    {
+      "path": "site/ui/index.html",
+      "bytes": 8018,
+      "sha256": "4adf20052779bfd878562f935527e514787a5fc07af356a6806d95cc137340cd",
+      "git_blob_sha": "e54c75596649b5a992b17366c9fe7362ef83486c"
+    },
+    {
+      "path": "site/ui/logo.svg",
+      "bytes": 515,
+      "sha256": "cd0f04a13972d26e9742af1964a772add9a1f209b9495acaa7e9705501f497b5",
+      "git_blob_sha": "418ae16171729986f9cf7ed7f390abdff7da4eac"
+    },
+    {
+      "path": "site/ui/player-images.js",
+      "bytes": 1681,
+      "sha256": "c112fe2618804b14ceaa7b19bc2bd91c45e76b647b86fde2abb1a5c16b119688",
+      "git_blob_sha": "b2d1f6517044d26c1ed59b95711ce6fda2c37c82"
+    },
+    {
+      "path": "site/ui/style.css",
+      "bytes": 25642,
+      "sha256": "db5b76bde17ce55523194e017d46b4a4d4881eb914b7fdcd5e08d9ccfc1f3372",
+      "git_blob_sha": "32ecb5387c7becfd711b314fdb9ab67b87177148"
+    },
+    {
+      "path": "site/ui/videos.json",
+      "bytes": 9604,
+      "sha256": "7df51ea9d29df6ed8a848a03a6873677c8b0287694feabb3245c2e88401d00a2",
+      "git_blob_sha": "c357ce1cc24d33c04b496a521c6693322aa8f2a3"
+    },
+    {
+      "path": "site/worker/handler.js",
+      "bytes": 4559,
+      "sha256": "7f1176a927d8d9d28b3f48d06d5ded421d3d9d986dd37c899989a2f215fc0ce3",
+      "git_blob_sha": "d3d73e00a387c4c492a329872616b82c958a3b9b"
+    },
+    {
+      "path": "site/worker/index.js",
+      "bytes": 183814,
+      "sha256": "e82c325c4c74470a6ab25c7bd8b4044f540d604990b9a69138e6c5ad23625d02",
+      "git_blob_sha": "492951f13eba1c5dab571b5a539f90a65df363ed"
+    }
+  ]
+}

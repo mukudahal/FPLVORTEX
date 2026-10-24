@@ -1,0 +1,2461 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A private workspace to inspect FPL forecasts, build a legal squad and test model assumptions.">
+  <title>FPL VORTEX — Model Lab</title><style>:root{color-scheme:dark;--bg:#0b0e14;--panel:#121720;--surface:#181f2a;--line:#27313e;--text:#f1f4f8;--muted:#a1adbc;--accent:#c5f86b;--red:#ff9393;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-synthesis:none}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px}button,input,select{font:inherit}button,a,input,select{outline-offset:5px}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}a{color:inherit;text-decoration:none}.shell{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}.sidebar{padding:30px 20px;background:#10141c;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;letter-spacing:.03em}.brand-symbol{display:grid;place-items:center;width:34px;height:39px;background:var(--accent);color:#11190b;font-size:24px;font-style:italic;clip-path:polygon(0 0,100% 0,85% 80%,50% 100%,15% 80%)}.brand small{display:block;font-size:9px;color:var(--muted);letter-spacing:.15em;margin-top:5px}.workspace-label{font-size:10px;letter-spacing:.13em;color:var(--muted);margin:50px 12px 16px}nav{display:grid;gap:6px}.nav-item{border:0;background:transparent;color:var(--muted);text-align:left;padding:13px 12px;border-radius:7px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:600}.nav-item span{font-size:19px;width:19px}.nav-item.active{color:var(--accent);background:#222d1c}.nav-item:hover{background:var(--surface);color:var(--text)}.nav-item b{margin-left:auto;background:#303d28;padding:2px 6px;border-radius:4px}.sidebar-foot{margin-top:auto;font-size:11px;color:#d8e1cf;padding:15px 8px}.sidebar-foot p{color:var(--muted);line-height:1.9;font-size:11px}.private-dot,.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:7px}.topbar{height:72px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding:0 34px;color:var(--muted);font-size:11px}.topbar strong{color:#dae1ea;font-weight:500}.slash{margin:0 14px;color:#647181}.version-badge{background:var(--surface);padding:7px 10px;border-radius:5px;color:#c8d3df;font-size:10px}main{min-width:0}.page-head{padding:35px 34px 27px;display:flex;justify-content:space-between;align-items:center;gap:16px}.eyebrow{color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.14em;margin-bottom:12px}h1{font-size:clamp(25px,2.5vw,36px);font-weight:650;letter-spacing:-.045em;margin:0 0 10px}h2,h3{margin:0;font-weight:600;letter-spacing:-.02em}h2{font-size:16px}h3{font-size:14px}p{color:var(--muted);line-height:1.65}.page-head p{margin:0;font-size:12px}.head-actions{display:flex;gap:9px;flex-shrink:0}.primary,.file-button,.quiet{display:inline-flex;align-items:center;justify-content:center;border-radius:5px;padding:10px 13px;font-size:11px;font-weight:650;min-height:36px}.primary{background:var(--accent);color:#15200c;border:1px solid var(--accent)}.primary:hover{background:#dafba1}.file-button{cursor:pointer;border:1px solid var(--line);color:var(--text);background:var(--surface)}.file-button.primary{background:var(--accent);color:#15200c}.quiet{border:1px solid var(--line);color:#d6dfe8;background:transparent}.data-banner{margin:0 34px;padding:11px 14px;background:#17211b;color:#c7d8c9;border:1px solid #2a3b2d;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:3px;line-height:1.6}.data-banner.sample{background:#272118;border-color:#4e4025;color:#efcf8a}.data-banner.sample .status-dot{background:#efcf8a}#data-time{margin-left:auto;color:var(--muted);font-size:10px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:22px 34px}.metrics>div{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:19px 20px;min-height:115px}.metrics span,.metrics small{display:block;color:var(--muted);font-size:10px}.metrics strong{display:block;margin:11px 0 8px;font-size:27px;letter-spacing:-.03em;font-weight:650}.metrics strong.metric-text{font-size:22px;color:#d9dfe7}.metrics small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.view{display:none;margin:26px 34px}.view.active{display:block}.content-grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:20px;align-items:start}.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px}.panel-heading p{font-size:10px;margin:7px 0 0}.table-controls{padding:0 20px 18px;display:flex;gap:9px}.search{display:flex;align-items:center;gap:9px;flex:1;background:#0d121a;border:1px solid var(--line);border-radius:5px;padding:0 10px;min-width:100px}.search span{font-size:20px;color:var(--muted)}input,select{background:#0d121a;border:1px solid var(--line);border-radius:5px;color:var(--text);font-size:11px;min-height:35px}input{width:100%;padding:8px}.search input{border:0;padding:8px 0}select{padding:7px;max-width:120px}.table-scroll{overflow:auto;max-height:570px}table{border-collapse:collapse;width:100%;text-align:left;white-space:nowrap}thead{position:sticky;top:0;background:#1a212d;z-index:1}th{padding:12px 15px;color:var(--muted);font-size:9px;font-weight:600}th:first-child{padding-left:20px}th button{color:inherit;border:0;background:none;padding:0;font-size:inherit;font-weight:inherit}td{padding:13px 15px;border-bottom:1px solid #202935;font-size:11px}tbody tr{cursor:pointer}tbody tr:hover,tbody tr.selected{background:#1b2430}.player-cell{display:flex;align-items:center;gap:10px}.avatar{width:30px;height:34px;background:#26303d;border-radius:5px;display:grid;place-items:center;font-weight:700;color:#c3d0df;font-size:10px}.player-cell strong{font-size:11px;font-weight:600}.player-cell small{display:block;font-size:9px;color:var(--muted);margin-top:4px}.points{color:var(--accent);font-weight:650}.add-player{border:1px solid #3d4957;background:transparent;color:#d5e0ec;border-radius:4px;width:25px;height:25px}.add-player.added{color:var(--accent);border-color:#627d3f}.table-footer{padding:13px 20px;font-size:10px;color:var(--muted)}.small-tag{font-size:9px;background:var(--surface);padding:5px 7px;color:var(--muted);border-radius:4px;letter-spacing:.05em}.detail-panel .panel-heading h2{font-size:13px}.detail-empty{padding:20px}.detail-name{padding:0 20px 20px}.detail-name h3{font-size:22px;margin:0 0 5px}.detail-name p{font-size:11px;margin:0}.big-forecast{display:flex;justify-content:space-between;align-items:end;margin:0 20px 20px;padding:17px;background:#1c2719;border-radius:5px}.big-forecast strong{font-size:32px;color:var(--accent);font-weight:600;letter-spacing:-.04em}.big-forecast span{font-size:10px;color:#bac9ad}.breakdown{padding:0 20px}.breakdown-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #25303d;font-size:11px;color:var(--muted)}.breakdown-row strong{color:var(--text);font-weight:500}.player-note{padding:12px 20px;font-size:10px;color:var(--muted);line-height:1.7}.mini-bars{display:flex;align-items:end;height:58px;gap:5px;padding:0 20px}.mini-bars div{background:#4c6335;flex:1;min-height:3px;border-radius:2px 2px 0 0}.mini-bars div:first-child{background:var(--accent)}.mini-label{padding:8px 20px 18px;font-size:9px;color:var(--muted)}footer{padding:24px 34px;font-size:9px;color:var(--muted);display:flex;justify-content:space-between;gap:20px;line-height:1.7}#toast{position:fixed;bottom:24px;right:24px;max-width:min(400px,90vw);padding:13px 18px;background:#e4ecd8;color:#16220d;border-radius:7px;display:none;z-index:9;font-size:12px}.note-panel{padding:22px}.note-panel p{font-size:12px}.wide{width:100%}.objective{font-size:40px;color:var(--accent);margin:28px 0}.objective small{display:block;font-size:11px;color:var(--muted);margin-top:9px}.squad-summary{padding:0 20px 18px;display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--muted)}.squad-summary span:first-child{color:var(--accent);white-space:nowrap}.pitch{margin:0 20px 20px;min-height:220px;background:#182a20;border:1px solid #3a5142;border-radius:5px;padding:24px;display:grid;gap:22px}.pitch-row{display:flex;justify-content:space-evenly;gap:8px}.pitch-player{font-size:10px;text-align:center;max-width:90px}.pitch-player:before{content:'▾';display:block;font-size:28px;color:var(--accent);line-height:1.2}.pitch-player small{display:block;color:var(--muted);margin-top:4px}.squad-list{padding:0 20px 20px}.squad-list>div{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:11px}.simulation-player{padding:0 20px 20px;font-size:18px}.histogram{height:240px;margin:0 20px 25px;display:flex;align-items:end;gap:3px;border-bottom:1px solid #536170;padding-top:10px}.histogram>div{position:relative;background:#718c4c;flex:1;min-width:1px}.histogram>div span{position:absolute;bottom:-17px;left:0;color:var(--muted);font-size:8px}.histogram p{font-size:12px;margin:auto}.simulation-stats{display:flex;justify-content:space-around;padding:15px 15px 28px;gap:10px}.simulation-stats strong{font-size:22px;color:var(--accent)}.simulation-stats small{display:block;color:var(--muted);font-size:10px;margin-top:5px}.check-list{padding-left:19px;color:#d2dce7;line-height:2.3;font-size:11px}.check-list li::marker{color:var(--accent)}.validation-intro{padding:30px}.validation-intro h2{font-size:27px;margin-top:20px}.validation-intro p{max-width:700px;font-size:13px}.validation-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.method-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:20px}.method-grid .panel{padding:22px}.method-grid p{font-size:11px}#benchmark-result{margin-top:20px;font-size:13px;line-height:1.8;white-space:pre-wrap}
+@media(min-width:1500px){main{max-width:1550px;width:100%;margin:auto}.content-grid{grid-template-columns:minmax(0,1fr) 330px}}@media(max-width:1150px){.shell{grid-template-columns:190px minmax(0,1fr)}.sidebar{padding:24px 12px}.brand{font-size:14px}.content-grid{grid-template-columns:minmax(0,1fr)}.detail-panel{display:none}.metrics{gap:10px}.metrics>div{padding:16px 12px}.topbar,.page-head{padding-left:24px;padding-right:24px}.view,.metrics{margin-left:24px;margin-right:24px}.data-banner{margin-left:24px;margin-right:24px}.table-scroll{max-height:650px}.head-actions{flex-direction:column}.table-controls select{max-width:105px}}@media(max-width:680px){.shell{display:block}.sidebar{position:static;width:100%;height:auto;padding:16px;border-right:0;border-bottom:1px solid var(--line)}.brand{font-size:15px}.workspace-label,.sidebar-foot{display:none}nav{display:flex;overflow-x:auto;margin-top:18px;gap:4px}.nav-item{flex-shrink:0;font-size:10px;padding:9px 10px;gap:6px}.nav-item span{display:none}.nav-item b{font-size:9px}.topbar{height:48px;padding:0 16px;font-size:9px}.version-badge{font-size:8px;padding:5px}.slash{margin:0 6px}.page-head{padding:25px 16px 20px;align-items:start}.page-head p{max-width:210px;font-size:11px}h1{font-size:28px}.head-actions .file-button{display:none}.head-actions .primary{font-size:10px;padding:9px}.eyebrow{font-size:9px}.data-banner{margin:0 16px;align-items:start;font-size:10px}#data-time{display:none}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));margin:16px;gap:10px}.metrics>div{min-height:105px;padding:15px}.metrics strong{font-size:25px}.metrics strong.metric-text{font-size:21px}.metrics span,.metrics small{font-size:9px}.view{margin:20px 16px}.panel-heading{padding:16px}.panel-heading p{font-size:9px}h2{font-size:14px}.table-controls{padding:0 14px 14px;gap:6px;flex-wrap:wrap}.search{width:100%;flex-basis:100%}select{flex:1;max-width:none!important}th,td{padding:11px 12px}.player-cell strong{font-size:10px}.player-cell small{font-size:8px}.avatar{width:26px;height:30px}.table-scroll{max-height:600px}.method-grid{grid-template-columns:1fr;gap:12px}.validation-intro{padding:22px}.validation-intro h2{font-size:24px}footer{padding:12px 16px;flex-direction:column;gap:6px;font-size:9px}.squad-summary{flex-direction:column;gap:8px}.pitch{margin:0 12px 15px;padding:20px 8px}.pitch-player{font-size:9px}.histogram{height:190px}.simulation-stats strong{font-size:19px}.primary,.quiet,.file-button{min-height:36px}}
+:root .brand-symbol{background:none;clip-path:none;width:40px;height:40px}
+body.dashboard-mode{--bg:#f4f6f8;--panel:#fff;--surface:#eef2f5;--line:#dce3e8;--text:#14222c;--muted:#60717d;background:#f4f6f8;color:#14222c}
+.dashboard-mode .sidebar{background:#fff}.dashboard-mode .sidebar-foot{color:#496128}.dashboard-mode .topbar{background:#fff}.dashboard-mode .topbar strong{color:#14222c}.dashboard-mode .nav-item.active{color:#3d680a;background:#edf6df}.dashboard-mode .version-badge{color:#526172}.dashboard-mode .metrics{display:none}.dashboard-mode .page-head{padding-bottom:20px;padding-top:25px}.dashboard-mode .page-head h1{font-size:28px}.dashboard-mode .eyebrow{display:none}.dashboard-mode .data-banner{margin-bottom:8px}.dashboard-mode .view{margin-top:18px}.dashboard-mode input,.dashboard-mode select{background:#fff;color:#14222c}.dashboard-mode .quiet,.dashboard-mode .file-button{color:#253e4e}.dashboard-mode .head-actions .primary{background:linear-gradient(105deg,#cda228,#bbe682);border-color:#b8c99f;color:#15210c}.dashboard-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.dashboard-toolbar label{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}.dashboard-subtabs{display:flex;gap:7px}.dashboard-subtabs button,.dash-segment button{border:0;background:transparent;color:var(--muted);border-radius:6px;padding:9px 12px;font-weight:600;font-size:12px}.dashboard-subtabs button.active{background:#fff;color:#285d21;border:1px solid #d8e4ce}.dashboard-upper{display:grid;grid-template-columns:minmax(360px,2fr) minmax(225px,1fr) minmax(250px,1fr);gap:16px;align-items:stretch}.dash-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0;display:flex;flex-direction:column}.dash-card>header{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:15px 16px;border-bottom:1px solid var(--line);min-height:58px;flex-wrap:wrap}.dash-card h2{font-size:15px;font-weight:700;letter-spacing:-.025em}.dash-card h2 button{background:none;border:0;color:inherit;padding:0;font-weight:inherit;cursor:pointer;font-size:inherit;text-align:left}.dash-link{border:0;background:none;color:#327238;font-weight:650;font-size:11px;padding:0}.dash-muted{color:var(--muted);font-size:11px}.dash-scroll{overflow:auto;min-height:0;max-height:800px}.fixtures-card,.projections-card{max-height:1000px}.review-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;padding:18px 7px 10px}.review-stats>div{text-align:center;border-right:1px solid var(--line)}.review-stats>div:last-child{border:0}.review-stats strong{display:block;font-size:19px;letter-spacing:-.03em}.review-stats small{display:block;color:var(--muted);font-size:10px;margin-top:7px}.review-status{font-size:10px;color:var(--muted);margin:5px 15px 12px}.review-pitch{background:repeating-linear-gradient(0deg,#489f5a 0,#489f5a 90px,#56ad68 90px,#56ad68 180px);padding:15px 10px 10px;position:relative;border:8px solid #a4c279;border-radius:12px;margin:0 12px 12px;overflow:hidden}.pitch-sponsor{display:flex;justify-content:space-between;background:#fff;color:#264a24;font-size:12px;font-weight:800;border-radius:6px;padding:10px 12px;position:relative;z-index:1;margin:0 10px 15px}.pitch-lines{position:absolute;top:75px;left:22px;right:22px;bottom:160px;border:2px solid #fff9}.pitch-lines:before{content:'';position:absolute;top:0;left:20%;right:20%;height:18%;border:2px solid #fff9;border-top:0}.pitch-lines:after{content:'';position:absolute;top:62%;left:0;right:0;border-top:2px solid #fff9}.pitch-lines i{display:block;position:absolute;top:calc(62% - 38px);left:calc(50% - 38px);height:76px;width:76px;border:2px solid #fff9;border-radius:50%}.review-row{display:flex;justify-content:space-evenly;gap:7px;margin-bottom:22px;position:relative;z-index:1}.review-player{position:relative;width:20%;max-width:105px;min-width:53px;text-align:center}.portrait{width:30px;height:36px;position:relative;background:#e5ebed;color:#3f5970;border-radius:8px;display:inline-grid;place-items:center;flex-shrink:0;overflow:hidden}.portrait>span{font-size:16px;font-weight:700}.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}.portrait.large{height:76px;width:100%;border-radius:6px 6px 0 0;background:#ffffff1f}.portrait.large>span{font-size:30px;color:#fff}.review-player>strong,.review-player>span{display:block;padding:5px 3px;font-size:11px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.review-player>strong{background:#fff;color:#14222c;font-weight:750}.review-player>span{background:#e7eee6;color:#1b3a24;border-radius:0 0 7px 7px;font-weight:600}.review-player>.portrait{padding:0}.review-bench{display:flex;justify-content:space-evenly;gap:7px;padding:14px 5px 5px;background:#ffffff38;border-radius:13px;position:relative}.review-bench .portrait.large{height:60px}.captain-badge{position:absolute;top:0;right:-6px;border-radius:50%;background:#1f2e3a;color:#fff;z-index:2;width:19px;height:19px;font-size:11px;display:grid;place-items:center;border:1px solid #fff}.review-loading{min-height:500px;display:grid;place-items:center;padding:30px;text-align:center;color:var(--muted);font-size:13px}.fixture-played{font-size:11px;color:var(--muted);padding:0 16px 12px}.fixture-date{background:linear-gradient(100deg,#cda228,#bbe682);color:#173014;text-align:center;padding:9px;font-size:12px;font-weight:650}.fixture-match{padding:14px 12px 10px;border-bottom:1px solid var(--line)}.fixture-match summary{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;list-style:none;font-size:12px;font-weight:600}.fixture-match summary>span{display:flex;align-items:center;gap:7px}.fixture-match summary>b{padding:5px 7px;border:1px solid var(--line);border-radius:5px;font-size:12px;white-space:nowrap}.club-badge{width:23px;height:25px;object-fit:contain;flex-shrink:0}.club-placeholder{width:22px;display:inline-grid;place-items:center;background:#eef2f3;color:#536971;font-size:9px;border-radius:4px;min-height:24px}.fixture-bar{display:flex;height:6px;gap:2px;margin:13px 0 8px;border-radius:4px;overflow:hidden}.fixture-bar>span{flex:1;background:#b59a4f}.fixture-bar>span+span{background:#73a13e}.fixture-xg{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;gap:9px}.fixture-xg b{color:var(--text);font-size:12px}.fixture-match>p{display:none;font-size:11px}.fixture-match[open]>p{display:block}.projection-row{display:flex;align-items:center;gap:6px;padding:10px;border-bottom:1px solid var(--line);font-size:11px}.projection-row small{font-size:10px;white-space:nowrap;min-width:45px}.projection-row>strong{width:32px;text-align:right;font-size:12px}.row-rank{color:var(--muted);width:18px;flex-shrink:0;font-size:11px}.dash-bar-track{height:7px;min-width:20px;background:#edf1f2;border-radius:5px;flex:1;overflow:hidden}.dash-bar-track i{display:block;height:100%;background:linear-gradient(100deg,#cda228,#84d21c);border-radius:5px}.dash-segment{display:flex;gap:1px;background:var(--surface);border-radius:6px}.dash-segment button{padding:6px;font-size:10px}.dash-segment button.selected{background:#fff;color:#244a25;box-shadow:0 0 0 1px #dce2df}.dashboard-lower{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}.lower-card{max-height:630px}.lower-card>header{padding:15px 12px}.lower-card h2{font-size:14px}.dash-player-line{display:flex;align-items:center;gap:8px;min-width:0}.dash-player-line>span{min-width:0}.dash-player-line strong{font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#337342}.dash-player-line small{font-size:10px;display:block;color:var(--muted);margin-top:4px}.top-row{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px}.top-row .dash-player-line{min-width:125px;flex:1.3}.top-row .dash-bar-track{flex:1}.top-row>b{width:20px;text-align:right}.dash-transfer-table td,.dash-transfer-table th{padding:10px 8px;font-size:10px;border-bottom:1px solid var(--line)}.dash-transfer-table th:first-child{padding-left:10px}.dash-transfer-table thead{background:#f8faf9}.dash-transfer-table .dash-player-line strong{font-size:11px}.dash-transfer-table .portrait{width:26px;height:31px}.dash-transfer-table td:not(:first-child){text-align:right}.dash-footnote{font-size:9px;padding:7px 10px;line-height:1.6;color:var(--muted);margin:0;border-top:1px solid var(--line)}.injury-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line)}.injury-row>div{flex:1;min-width:0}.injury-row strong{display:block;font-size:12px;color:#337342}.injury-row small{display:block;font-size:10px;color:var(--muted);line-height:1.5;margin-top:3px}.dash-pager{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:10px;border-top:1px solid var(--line)}.dash-pager button{border:1px solid var(--line);background:#fff;border-radius:5px;padding:5px 10px;color:var(--text);font-size:11px}.videos-card{margin-top:16px}.dashboard-videos{display:flex;overflow:auto;gap:12px;padding:12px}.dashboard-videos>a{display:flex;gap:10px;flex-shrink:0;width:330px;max-width:86vw;border:1px solid var(--line);padding:8px;border-radius:8px}.dashboard-videos img{width:140px;height:80px;object-fit:cover;border-radius:5px;flex-shrink:0}.dashboard-videos strong{font-size:11px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:#203342}.dashboard-videos small{display:block;font-size:9px;color:var(--muted);line-height:1.5;margin-top:7px}.video-channel-links{display:flex;gap:20px;padding:14px 5px;color:#337342;font-size:11px;font-weight:600}.analysis-pending{padding:40px}.analysis-pending h3{font-size:24px}.analysis-pending p{font-size:13px}.manager-form{display:flex;align-items:end;gap:10px;padding:15px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:16px}.manager-form label{font-size:12px}.manager-form input{display:block;margin-top:8px}.dash-empty{padding:25px;text-align:center;font-size:12px}
+@media(max-width:1500px){.dashboard-upper{grid-template-columns:minmax(340px,1.45fr) minmax(240px,1fr)}.projections-card{grid-column:1/-1;max-height:360px}.projections-card .dash-scroll{display:grid;grid-template-columns:1fr 1fr}.dashboard-lower{grid-template-columns:1fr 1fr}.dashboard-lower>.dash-card:last-child{grid-column:1/-1;max-height:450px}}
+@media(max-width:900px){.dashboard-upper{grid-template-columns:1fr}.projections-card{grid-column:auto}.fixtures-card{max-height:520px}.dashboard-lower{grid-template-columns:1fr}.dashboard-lower>.dash-card:last-child{grid-column:auto}.review-pitch{max-width:650px;width:calc(100% - 24px);align-self:center}.review-player{max-width:95px}.review-row{margin-bottom:24px}}
+@media(max-width:680px){.dashboard-toolbar{align-items:start;gap:10px}.dashboard-subtabs button{font-size:10px;padding:8px}.dashboard-toolbar label{font-size:10px;gap:5px}.dashboard-toolbar select{min-height:31px;width:50px;flex:initial}.dashboard-upper,.dashboard-lower{gap:12px}.dash-card>header{padding:12px}.dash-card h2{font-size:14px}.review-stats strong{font-size:16px}.review-stats small{font-size:8px}.review-pitch{border-width:5px;padding:10px 4px 6px}.pitch-sponsor{font-size:10px;padding:8px;margin:0 5px 12px}.portrait.large{height:65px}.review-player>strong,.review-player>span{font-size:9px;padding:4px 2px}.review-row{gap:4px;margin-bottom:18px}.review-bench .portrait.large{height:53px}.review-bench{gap:4px}.projections-card .dash-scroll{grid-template-columns:1fr}.projections-card{max-height:460px}.review-status{font-size:9px}.video-channel-links{gap:14px;font-size:10px}.dashboard-mode .page-head{padding-top:20px}.dashboard-mode .page-head p{font-size:10px;max-width:180px}.manager-form{align-items:stretch;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="FPL Vortex home" onclick="location.reload();return false;"><img class="brand-symbol" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MiA1MiIgZmlsbD0ibm9uZSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJ2IiB4MT0iOCIgeTE9IjAiIHgyPSI0NyIgeTI9IjUyIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iI0NERjk5RCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzg0RDIxQyIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxwYXRoIGQ9Ik0yNiAzIDQ2IDEwdjE3YzAgMTIuNi03LjQgMTkuMS0yMCAyMkMxMy40IDQ2LjEgNiAzOS42IDYgMjdWMTBMMjYgM1oiIGZpbGw9IiMxMTIzMTkiIHN0cm9rZT0idXJsKCN2KSIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBhdGggZD0ibTEzIDE0IDkuNiAyM2g2LjhMMzkgMTRoLTcuM2wtNS43IDE1LTUuNy0xNUgxM1oiIGZpbGw9InVybCgjdikiLz48cGF0aCBkPSJtMjUgMTcgMy44IDZoLTVsLTEuOC0zIDMtM1oiIGZpbGw9IiNEMUFENDQiLz48L3N2Zz4=" alt="FPL VORTEX"><span>FPL VORTEX<small>MODEL LAB / v0.2</small></span></a>
+    <div class="workspace-label">YOUR WORKSPACE</div>
+    <nav aria-label="Main navigation">
+      <button class="nav-item active" data-tab="dashboard"><span>▦</span> Dashboard</button>
+      <button class="nav-item" data-tab="forecasts"><span>◈</span> Player forecasts</button>
+      <button class="nav-item" data-tab="squad"><span>▦</span> Squad lab <b id="squad-count">0</b></button>
+      <button class="nav-item" data-tab="math"><span>∑</span> Math & simulation</button>
+      <button class="nav-item" data-tab="validation"><span>◎</span> Validation</button>
+    </nav>
+    <div class="sidebar-foot"><span class="private-dot"></span> Private workspace<p>Visible to your account.<br>Changes can be requested in chat.</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>Research workspace <span class="slash">/</span> <strong id="page-name">Player forecasts</strong></span><span class="version-badge">Independent model · Unvalidated</span></header>
+    <section class="page-head"><div><div class="eyebrow" id="season-label">FPL VORTEX</div><h1 id="page-title">Find your next edge.</h1><p id="page-description">Explore the forecast. Inspect the assumptions. Make the decision.</p></div><div class="head-actions"><label class="file-button">Import data<input id="data-import" type="file" accept="application/json,.json" hidden></label><button id="refresh" class="primary">↻ Refresh data</button></div></section>
+    <div class="data-banner" id="data-banner" role="status"><span class="status-dot"></span><span id="data-message">Loading official data…</span><span id="data-time"></span></div>
+    <section class="metrics" aria-label="Forecast overview"><div><span>Upcoming gameweek</span><strong id="metric-gw">—</strong><small id="metric-deadline">Waiting for data</small></div><div><span>Top player forecast</span><strong id="metric-xpts">—</strong><small id="metric-player">Expected points</small></div><div><span>Players in the pool</span><strong id="metric-pool">—</strong><small>Fixture-level estimates</small></div><div><span>Model validation</span><strong class="metric-text">Not proven</strong><small>Benchmark data required</small></div></section>
+    <section id="view-dashboard" class="view active"><div id="dashboard-mount"></div></section>
+    <section id="view-forecasts" class="view">
+      <div class="content-grid"><div class="panel table-panel"><div class="panel-heading"><div><h2>Player projections</h2><p>Click a heading to sort. Select a player to inspect.</p></div><button class="quiet" id="export">↓ Export</button></div>
+      <div class="table-controls"><label class="search"><span>⌕</span><input id="search" placeholder="Search player or club" aria-label="Search players"></label><select id="position" aria-label="Filter position"><option value="0">All positions</option><option value="1">Goalkeepers</option><option value="2">Defenders</option><option value="3">Midfielders</option><option value="4">Forwards</option></select><select id="horizon" aria-label="Forecast horizon"><option value="1">Next GW</option><option value="3">Next 3 GWs</option><option value="5">Next 5 GWs</option><option value="10">Next 10 GWs</option></select></div>
+      <div class="table-scroll"><table><thead><tr><th><button data-sort="name">Player ↕</button></th><th><button data-sort="price">Price ↕</button></th><th><button data-sort="minutes">xMins ↕</button></th><th><button data-sort="points">xPts ↕</button></th><th><button data-sort="ownership">Owned ↕</button></th><th>Squad</th></tr></thead><tbody id="players-body"></tbody></table></div><div class="table-footer" id="table-footer"></div></div>
+      <aside class="panel detail-panel"><div class="panel-heading"><h2>Inside the forecast</h2><span class="small-tag">NEXT GW</span></div><div id="player-detail" class="detail-empty">Choose a player to inspect the model.</div></aside></div>
+    </section>
+    <section id="view-squad" class="view"><div class="content-grid"><div class="panel"><div class="panel-heading"><div><h2>Your test squad</h2><p>2 GK · 5 DEF · 5 MID · 3 FWD · maximum 3 per club</p></div><button id="clear-squad" class="quiet">Clear</button></div><div class="squad-summary"><span id="squad-budget">£0.0m / £100.0m</span><span id="squad-status">Add players from the forecasts table.</span></div><div id="pitch" class="pitch"></div><div id="squad-list" class="squad-list"></div></div><aside class="panel note-panel"><h2>Lineup objective</h2><p>The lineup solver maximises starting XI points plus the captain's extra points across every legal formation.</p><div class="objective" id="squad-total">—<small>Projected XI + captain</small></div><p>Captain fallback and autosubs are evaluated in simulation. This test squad is stored in this browser.</p><button class="primary wide" id="solve">Solve my XI</button><p id="solve-message" role="status"></p></aside></div></section>
+    <section id="view-math" class="view"><div class="content-grid"><div class="panel"><div class="panel-heading"><div><h2>Distribution, not a promise.</h2><p>Simulate the selected player's points using the same fixture components as xPts.</p></div><button class="primary" id="simulate">Run 10,000 draws</button></div><div id="simulation-player" class="simulation-player">Select a player in forecasts.</div><div id="histogram" class="histogram"><p>Run a simulation to see possible outcomes.</p></div><div id="simulation-result" class="simulation-stats"></div></div><aside class="panel note-panel"><h2>Math corrected</h2><ul class="check-list"><li>Goalkeeper goals score 10 points</li><li>Short appearances include attacking returns</li><li>Saves and conceded goals use exact scoring thresholds</li><li>Integer scoring events in simulations</li><li>One shared minutes distribution</li><li>Ties reported separately from wins</li></ul><p>Minutes, fixture multipliers and distribution parameters still require independent calibration. This is a component simulator, not a complete match-scoreline model.</p></aside></div></section>
+    <section id="view-validation" class="view"><div class="panel validation-intro"><span class="small-tag">EVIDENCE FIRST</span><h2>Earn the accuracy claim.</h2><p>Compare frozen VORTEX forecasts with an independent reference on identical players and gameweeks. No FPLReview comparison has been run yet.</p><div class="validation-actions"><label class="primary file-button">Upload benchmark JSON<input id="benchmark-import" type="file" accept="application/json,.json" hidden></label><button id="benchmark-template" class="quiet">Download input format</button></div><div id="benchmark-result" role="status"></div></div><div class="method-grid"><div class="panel"><h3>Same information cutoff</h3><p>Both forecasts must exist at least 60 minutes before the same deadline. Late forecasts are rejected.</p></div><div class="panel"><h3>Paired evaluation</h3><p>Points MAE, RMSE and 60-minute Brier scores use identical matched samples.</p></div><div class="panel"><h3>Uncertainty included</h3><p>Intervals resample whole gameweeks. Fewer than 8 gameweeks is flagged as insufficient data.</p></div></div></section>
+    <footer><span>FPL VORTEX / Independent research</span><span>Automatic refresh every 15 minutes while open. No background reports enabled.</span></footer>
+  </main>
+</div><div id="toast" role="status" aria-live="polite"></div><script>(()=>{const originalFetch=window.fetch.bind(window);window.fetch=(input,options)=>{const url=String(input);if(url==='/videos.json')return Promise.resolve(new Response("{\n  \"channelId\": \"UCDU7nEIN72xoiR3NtxCT6CQ\",\n  \"channelTitle\": \"FPL VORTEX\",\n  \"capturedAt\": \"2026-10-24T05:00:31.883Z\",\n  \"videos\": [\n    {\n      \"id\": \"TCP2HYD9djk\",\n      \"title\": \"FPL GW8 Free Hit Team: Best Picks, Fixtures & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-22T19:50:44Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/TCP2HYD9djk/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=TCP2HYD9djk\"\n    },\n    {\n      \"id\": \"BbpBksRewHc\",\n      \"title\": \"FPL GW8 Final Decisions: Transfers, Bench & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-22T03:17:00Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/BbpBksRewHc/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=BbpBksRewHc\"\n    },\n    {\n      \"id\": \"65WusHtnHZg\",\n      \"title\": \"FPL GW8 Final Decisions: Transfers, Bench & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-21T18:27:00Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/65WusHtnHZg/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=65WusHtnHZg\"\n    },\n    {\n      \"id\": \"34q4AyADyZc\",\n      \"title\": \"October 19 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague\",\n      \"published\": \"2026-10-19T22:48:22Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/34q4AyADyZc/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=34q4AyADyZc\"\n    },\n    {\n      \"id\": \"Vv4gjlb-YHk\",\n      \"title\": \"FPL GW8 Tips: Fixtures, Goals & Clean Sheets | GW7 Review (1/3) #FPL\",\n      \"published\": \"2026-10-19T02:50:49Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/Vv4gjlb-YHk/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=Vv4gjlb-YHk\"\n    },\n    {\n      \"id\": \"wgtwPbNL1Dc\",\n      \"title\": \"FPL GW7 Free Hit Team: Best Picks, Fixtures & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-17T21:17:28Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/wgtwPbNL1Dc/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=wgtwPbNL1Dc\"\n    },\n    {\n      \"id\": \"MuHMX0b8hHc\",\n      \"title\": \"FPL GW7 Wildcard Team: Best Picks, Fixtures & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-17T21:17:18Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/MuHMX0b8hHc/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=MuHMX0b8hHc\"\n    },\n    {\n      \"id\": \"0OHNX0qqqlc\",\n      \"title\": \"FPL GW7 Final Decisions: Transfers, Bench & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-14T10:19:03Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/0OHNX0qqqlc/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=0OHNX0qqqlc\"\n    },\n    {\n      \"id\": \"Mw_AEwcK47Y\",\n      \"title\": \"October 12 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague\",\n      \"published\": \"2026-10-13T00:20:32Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/Mw_AEwcK47Y/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=Mw_AEwcK47Y\"\n    },\n    {\n      \"id\": \"CtS5i_qR4-I\",\n      \"title\": \"FPL GW7 Tips: Fixtures, Goals & Clean Sheets | GW6 Review (1/3) #FPL\",\n      \"published\": \"2026-10-12T23:49:21Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/CtS5i_qR4-I/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=CtS5i_qR4-I\"\n    },\n    {\n      \"id\": \"nCz6s0mOWsM\",\n      \"title\": \"FPL GW6 Final Decisions: Transfers, Bench & Captain | FPL VORTEX\",\n      \"published\": \"2026-10-04T12:40:58Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/nCz6s0mOWsM/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=nCz6s0mOWsM\"\n    },\n    {\n      \"id\": \"q86X1Raporo\",\n      \"title\": \"September 21 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague\",\n      \"published\": \"2026-09-25T19:20:51Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/q86X1Raporo/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=q86X1Raporo\"\n    },\n    {\n      \"id\": \"JovaPZNGwZs\",\n      \"title\": \"FPL GW6 Tips: Fixtures, Goals & Clean Sheets | GW5 Review (1/3) #FPL\",\n      \"published\": \"2026-09-25T19:20:05Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/JovaPZNGwZs/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=JovaPZNGwZs\"\n    },\n    {\n      \"id\": \"EZ-dwM56nGs\",\n      \"title\": \"September 13 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague\",\n      \"published\": \"2026-09-14T10:46:54Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/EZ-dwM56nGs/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=EZ-dwM56nGs\"\n    },\n    {\n      \"id\": \"PhsbEhY9M1o\",\n      \"title\": \"FPL GW5 Tips: Fixtures, Goals & Clean Sheets | GW4 Review (1/3) #FPL\",\n      \"published\": \"2026-09-14T02:36:46Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/PhsbEhY9M1o/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=PhsbEhY9M1o\"\n    },\n    {\n      \"id\": \"9zcdgZK0Yw4\",\n      \"title\": \"September 07 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague\",\n      \"published\": \"2026-09-07T20:04:43Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/9zcdgZK0Yw4/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=9zcdgZK0Yw4\"\n    },\n    {\n      \"id\": \"zSaQfDvKEeI\",\n      \"title\": \"FPL GW4 Tips: Fixtures, Goals & Clean Sheets | GW3 Review (1/3) #FPL\",\n      \"published\": \"2026-09-07T19:44:14Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/zSaQfDvKEeI/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=zSaQfDvKEeI\"\n    },\n    {\n      \"id\": \"qG0x45ejFeE\",\n      \"title\": \"September 03 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague\",\n      \"published\": \"2026-09-03T17:08:33Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/qG0x45ejFeE/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=qG0x45ejFeE\"\n    },\n    {\n      \"id\": \"KUH07kIgAFU\",\n      \"title\": \"FPL GW3 Tips: Fixtures, Goals & Clean Sheets | GW2 Review (1/3) #FPL\",\n      \"published\": \"2026-08-31T14:07:40Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/KUH07kIgAFU/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=KUH07kIgAFU\"\n    },\n    {\n      \"id\": \"HAWNuBo3w1s\",\n      \"title\": \"FPL Gameweek Review: What the Numbers Say 📊 #FPL\",\n      \"published\": \"2026-08-27T21:02:06Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/HAWNuBo3w1s/sddefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=HAWNuBo3w1s\"\n    },\n    {\n      \"id\": \"JCcYJva_pAQ\",\n      \"title\": \"WORLD CUP 2026. Data based on 20,000 Monte Carlo iterations & Dixon-Coles adjustment. #worldcup2026\",\n      \"published\": \"2026-06-16T15:34:33Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/JCcYJva_pAQ/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=JCcYJva_pAQ\"\n    },\n    {\n      \"id\": \"9qS7ks9CRAk\",\n      \"title\": \"GW38 Final Ganeweek—  last-minute differentials, and premium . #FPL #GW38\",\n      \"published\": \"2026-05-21T13:21:49Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/9qS7ks9CRAk/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=9qS7ks9CRAk\"\n    },\n    {\n      \"id\": \"5hK4ZC3gqBs\",\n      \"title\": \"GW36 Review + GW37 Master Plan | FPL Vortex :#FPL #FantasyPremierLeague #GW37 #FPLAdvice #FPLCaptain\",\n      \"published\": \"2026-05-14T03:17:42Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/5hK4ZC3gqBs/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=5hK4ZC3gqBs\"\n    },\n    {\n      \"id\": \"g4g_pvywTYA\",\n      \"title\": \"FPL Gameweek 37 Preview & Master Plan |  .#FPL #FantasyPremierLeague #FPLGW37 #FPLCommunity #FPLTips\",\n      \"published\": \"2026-05-12T20:45:51Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/g4g_pvywTYA/sddefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=g4g_pvywTYA\"\n    },\n    {\n      \"id\": \"ebCjbD1fPIc\",\n      \"title\": \"FPL GW35: Ruthless Data-Driven Transfers & Blank Navigations 🚨 | FPL Vortex.#FPL\",\n      \"published\": \"2026-04-30T17:59:38Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/ebCjbD1fPIc/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=ebCjbD1fPIc\"\n    },\n    {\n      \"id\": \"C39dF_RvLYQ\",\n      \"title\": \"⏰ DEADLINE: Feb 10, 1 PM EST ⚠️GW26  #FPL\",\n      \"published\": \"2026-02-08T20:44:46Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/C39dF_RvLYQ/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=C39dF_RvLYQ\"\n    },\n    {\n      \"id\": \"7icZOu7IHM0\",\n      \"title\": \"🦁🌪️ GW26 Chaos• 🎯 GW26 Master Plan• 🟢 Follow the Green#FPL #FantasyPremierLeague #Gameweek26 #GW26\",\n      \"published\": \"2026-02-08T05:37:14Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/7icZOu7IHM0/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=7icZOu7IHM0\"\n    },\n    {\n      \"id\": \"sYzbBDsNsZo\",\n      \"title\": \"🚨🔥 The Next Two Gameweeks Can DEFINE Your FPL Season 📊 #FPL #FantasyPremierLeagueUSA#DGW26 #FPLUSA\",\n      \"published\": \"2026-02-06T03:48:28Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/sYzbBDsNsZo/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=sYzbBDsNsZo\"\n    },\n    {\n      \"id\": \"7reVJSvajlg\",\n      \"title\": \"🎯 GW24 or 32 WILDCARD ,Saka➡Rice 🔄 | 364 pts target #FPL #Wildcard #GW24#GW28 #GW32 #ExpectedPoints\",\n      \"published\": \"2026-01-27T23:49:48Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/7reVJSvajlg/sddefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=7reVJSvajlg\"\n    },\n    {\n      \"id\": \"AFJlr_3y07I\",\n      \"title\": \"Wildcard GW24, Bank Transfers for GW32, Win🎖️ #FPL #Wildcard #GW24\",\n      \"published\": \"2026-01-21T17:38:41Z\",\n      \"thumbnail\": \"https://i.ytimg.com/vi/AFJlr_3y07I/maxresdefault.jpg\",\n      \"url\": \"https://www.youtube.com/watch?v=AFJlr_3y07I\"\n    }\n  ]\n}\n",{headers:{'content-type':'application/json'}}));if(url.startsWith('/api/'))return Promise.resolve(new Response('{}',{status:503}));return originalFetch(input,options);};const factories={"/model/dashboardMath.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.API_BASE = void 0;
+exports.buildStrengths = buildStrengths;
+exports.projectMatch = projectMatch;
+/** Same strength scale the Vortex video pipeline uses when the FPL API provides it. */
+exports.API_BASE = 1100;
+const HOME_GOALS = 1.55;
+const AWAY_GOALS = 1.25;
+/** How many "average" games a team's early-season numbers are blended with. */
+const PRIOR_GAMES = 4;
+function clamp(v, lo, hi) {
+    return Math.min(hi, Math.max(lo, v));
+}
+/**
+ * Builds a strength rating for every team.
+ *  1. If the FPL API supplies attack/defence strengths (the classic ~1100 scale), use them:
+ *     HomeXG = 1.55 × (atk_h / 1100) ÷ (def_a / 1100).
+ *  2. Otherwise (the API now returns 0) derive them from the season's expected goals:
+ *     attack = team xG for per game, defence = xG against per 90 of the team's most-used
+ *     player, each divided by the league average and pulled toward 1 early in the season.
+ */
+function buildStrengths(teams, elements, fixtures) {
+    const out = new Map < number, TeamStrength;
+     > ();
+    const apiHasStrengths = teams.every((t) => (t.strength_attack_home ?? 0) > 0 &&
+        (t.strength_attack_away ?? 0) > 0 &&
+        (t.strength_defence_home ?? 0) > 0 &&
+        (t.strength_defence_away ?? 0) > 0);
+    if (apiHasStrengths) {
+        for (const t of teams) {
+            out.set(t.id, {
+                atkH: t.strength_attack_home / exports.API_BASE,
+                atkA: t.strength_attack_away / exports.API_BASE,
+                // the API "defence" number is higher = better, so weakness is its inverse
+                defWeakH: exports.API_BASE / t.strength_defence_home,
+                defWeakA: exports.API_BASE / t.strength_defence_away,
+            });
+        }
+        return out;
+    }
+    const games = new Map < number, number;
+     > ();
+    for (const f of fixtures) {
+        if (!f.finished)
+            continue;
+        games.set(f.team_h, (games.get(f.team_h) ?? 0) + 1);
+        games.set(f.team_a, (games.get(f.team_a) ?? 0) + 1);
+    }
+    const raw = teams.map((t) => {
+        const squad = elements.filter((p) => p.team === t.id);
+        const n = games.get(t.id) ?? 0;
+        const xgFor = squad.reduce((s, p) => s + (parseFloat(p.expected_goals) || 0), 0);
+        const anchor = squad.reduce < SlimElement | null > ((best, p) => (best === null || p.minutes > best.minutes ? p : best),
+            null,
+        );
+        return {
+            id: t.id,
+            n,
+            forPerGame: n > 0 ? xgFor / n : 0,
+            againstPer90: anchor && anchor.minutes > 0 ? anchor.expected_goals_conceded_per_90 : 0,
+        };
+    });
+    const played = raw.filter((r) => r.n > 0);
+    const avgFor = played.length
+        ? played.reduce((s, r) => s + r.forPerGame, 0) / played.length
+        : 0;
+    const avgAgainst = played.length
+        ? played.reduce((s, r) => s + r.againstPer90, 0) / played.length
+        : 0;
+    for (const r of raw) {
+        const w = r.n / (r.n + PRIOR_GAMES);
+        const atkRatio = avgFor > 0 && r.n > 0 ? r.forPerGame / avgFor : 1;
+        const defRatio = avgAgainst > 0 && r.n > 0 ? r.againstPer90 / avgAgainst : 1;
+        const atk = clamp(w * atkRatio + (1 - w), 0.55, 1.8);
+        const defWeak = clamp(w * defRatio + (1 - w), 0.55, 1.8);
+        out.set(r.id, { atkH: atk, atkA: atk, defWeakH: defWeak, defWeakA: defWeak });
+    }
+    return out;
+}
+function poissonPmf(k, lambda) {
+    let p = Math.exp(-lambda);
+    for (let i = 1; i <= k; i += 1)
+        p *= lambda / i;
+    return p;
+}
+/**
+ * HomeXG = 1.55 × attack(home) × leakiness(away),  AwayXG = 1.25 × attack(away) × leakiness(home).
+ * Clean sheet = e^(−xG conceded). Win % from an independent-Poisson score grid.
+ */
+function projectMatch(home, away) {
+    const homeXg = HOME_GOALS * home.atkH * away.defWeakA;
+    const awayXg = AWAY_GOALS * away.atkA * home.defWeakH;
+    if (![homeXg, awayXg].every(value => Number.isFinite(value) && value >= 0 && value <= 30))
+        throw new RangeError("Invalid match scoring intensity.");
+    let homeWin = 0;
+    let awayWin = 0;
+    let draw = 0;
+    const limit = Math.ceil(Math.max(homeXg, awayXg) + 12 * Math.sqrt(Math.max(homeXg, awayXg)) + 20);
+    for (let h = 0; h <= limit; h += 1) {
+        const ph = poissonPmf(h, homeXg);
+        for (let a = 0; a <= limit; a += 1) {
+            const p = ph * poissonPmf(a, awayXg);
+            if (h > a)
+                homeWin += p;
+            else if (a > h)
+                awayWin += p;
+            else
+                draw += p;
+        }
+    }
+    return {
+        homeXg,
+        awayXg,
+        homeWin,
+        awayWin,
+        draw,
+        homeCs: Math.exp(-awayXg),
+        awayCs: Math.exp(-homeXg),
+    };
+}
+
+},
+"/model/forecastBenchmark.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.compareFrozenForecasts = compareFrozenForecasts;
+const probability_1 = require("./probability");
+const forecastKey = (row) => `${row.season}:${row.gw}:${row.playerId}`;
+function identityValid(row) {
+    return typeof row.season === "string" && /^\d{4}\/\d{2}$/.test(row.season) &&
+        Number.isInteger(row.gw) && row.gw >= 1 && row.gw <= 38 && Number.isInteger(row.playerId) && row.playerId > 0;
+}
+function freeze(rows, cutoffMinutes) {
+    const accepted = new Map < string, FrozenForecast;
+     > ();
+    let rejected = 0;
+    for (const row of rows) {
+        const issued = Date.parse(row.issuedAt);
+        const deadline = Date.parse(row.deadlineAt);
+        if (!identityValid(row) || typeof row.modelVersion !== "string" || !row.modelVersion || !Number.isFinite(row.xPts) ||
+            !Number.isFinite(issued) || !Number.isFinite(deadline) || issued >= deadline || issued > deadline - cutoffMinutes * 60_000 ||
+            (row.p60 !== undefined && (!Number.isFinite(row.p60) || row.p60 < 0 || row.p60 > 1))) {
+            rejected++;
+            continue;
+        }
+        const key = forecastKey(row);
+        const previous = accepted.get(key);
+        if (previous && Date.parse(previous.issuedAt) === issued && (previous.xPts !== row.xPts || previous.p60 !== row.p60))
+            throw new RangeError(`Conflicting frozen forecasts for ${key}.`);
+        if (!previous || issued > Date.parse(previous.issuedAt))
+            accepted.set(key, row);
+    }
+    return { accepted, rejected };
+}
+/** Identical player/GW samples, fixed publication cutoffs, and paired gameweek-cluster resampling. */
+function compareFrozenForecasts(candidates, references, outcomes, options = {}) {
+    const draws = options.bootstrapDraws ?? 2000;
+    const minimumGameweeks = options.minimumGameweeks ?? 8;
+    const cutoffMinutes = options.cutoffMinutes ?? 60;
+    if (!Number.isInteger(draws) || draws < 100 || draws > 20_000 || !Number.isInteger(minimumGameweeks) || minimumGameweeks < 2 ||
+        !Number.isFinite(cutoffMinutes) || cutoffMinutes < 0)
+        throw new RangeError("Invalid benchmark configuration.");
+    const candidate = freeze(candidates, cutoffMinutes);
+    const reference = freeze(references, cutoffMinutes);
+    const actual = new Map < string, ForecastOutcome;
+     > ();
+    for (const row of outcomes) {
+        if (!identityValid(row) || !Number.isFinite(row.points) || (row.played60 !== undefined && typeof row.played60 !== "boolean"))
+            throw new RangeError("Invalid benchmark outcome.");
+        const key = forecastKey(row);
+        const previous = actual.get(key);
+        if (previous && (previous.points !== row.points || previous.played60 !== row.played60))
+            throw new RangeError(`Conflicting outcomes for ${key}.`);
+        actual.set(key, row);
+    }
+    const groups = new Map < string, { count: number };
+    candidateSquared: number;
+    referenceSquared: number;
+}
+ > ();
+let count = 0, candidateAbsolute = 0, referenceAbsolute = 0, candidateSquared = 0, referenceSquared = 0;
+let candidateBrier = 0, referenceBrier = 0, binaryCount = 0;
+for (const [key, forecast] of candidate.accepted) {
+    const comparison = reference.accepted.get(key);
+    const outcome = actual.get(key);
+    if (!comparison || !outcome || Date.parse(forecast.deadlineAt) !== Date.parse(comparison.deadlineAt))
+        continue;
+    const candidateError = forecast.xPts - outcome.points;
+    const referenceError = comparison.xPts - outcome.points;
+    candidateAbsolute += Math.abs(candidateError);
+    referenceAbsolute += Math.abs(referenceError);
+    candidateSquared += candidateError ** 2;
+    referenceSquared += referenceError ** 2;
+    count++;
+    const groupKey = `${forecast.season}:${forecast.gw}`;
+    const group = groups.get(groupKey) ?? { count: 0, candidateSquared: 0, referenceSquared: 0 };
+    group.count++;
+    group.candidateSquared += candidateError ** 2;
+    group.referenceSquared += referenceError ** 2;
+    groups.set(groupKey, group);
+    if (forecast.p60 !== undefined && comparison.p60 !== undefined && outcome.played60 !== undefined) {
+        candidateBrier += (forecast.p60 - Number(outcome.played60)) ** 2;
+        referenceBrier += (comparison.p60 - Number(outcome.played60)) ** 2;
+        binaryCount++;
+    }
+}
+const sortedGroups = [...groups.entries()].sort(([first], [second]) => first.localeCompare(second)).map(([, group]) => group);
+let interval = null;
+if (groups.size >= 2) {
+    const random = (0, probability_1.seededRandom)(options.seed ?? 20261024);
+    const differences = [];
+    for (let draw = 0; draw < draws; draw++) {
+        let sampleCount = 0, candidateLoss = 0, referenceLoss = 0;
+        for (let cluster = 0; cluster < sortedGroups.length; cluster++) {
+            const sampled = sortedGroups[Math.floor(random() * sortedGroups.length)];
+            sampleCount += sampled.count;
+            candidateLoss += sampled.candidateSquared;
+            referenceLoss += sampled.referenceSquared;
+        }
+        differences.push(Math.sqrt(candidateLoss / sampleCount) - Math.sqrt(referenceLoss / sampleCount));
+    }
+    differences.sort((first, second) => first - second);
+    interval = [differences[Math.floor(draws * 0.025)], differences[Math.min(draws - 1, Math.floor(draws * 0.975))]];
+}
+return {
+    sampleSize: count, gameweeks: groups.size, cutoffMinutes,
+    candidate: { mae: count ? candidateAbsolute / count : null, rmse: count ? Math.sqrt(candidateSquared / count) : null, p60Brier: binaryCount ? candidateBrier / binaryCount : null },
+    reference: { mae: count ? referenceAbsolute / count : null, rmse: count ? Math.sqrt(referenceSquared / count) : null, p60Brier: binaryCount ? referenceBrier / binaryCount : null },
+    rmseDifference95: interval,
+    rejectedCandidate: candidate.rejected, rejectedReference: reference.rejected,
+    verdict: groups.size < minimumGameweeks || !interval ? "insufficient_data" : interval[1] < 0 ? "candidate_lower_error" : interval[0] > 0 ? "reference_lower_error" : "inconclusive",
+    limitations: ["Publication timestamps and model versions must come from trusted immutable snapshots; this function cannot authenticate supplied files.", "Gameweek-cluster intervals assume gameweeks are independent and can understate season-level dependence. Winning this supplied sample is not proof of future superiority."],
+};
+
+},
+"/model/forecastScience.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.eligibleHistory = eligibleHistory;
+exports.fitPointsCalibration = fitPointsCalibration;
+exports.calibratedPoints = calibratedPoints;
+exports.forecastMinutes = forecastMinutes;
+exports.fixtureUncertainty = fixtureUncertainty;
+exports.validateHistoricalPredictions = validateHistoricalPredictions;
+const minutes_1 = require("./minutes");
+const clip = (value, lower, upper) => Math.max(lower, Math.min(upper, value));
+/** Read only frozen forecasts made before their deadline; reject hindsight leakage. */
+function eligibleHistory(history, throughGw) {
+    return history.filter((sample) => sample.gw < throughGw && sample.gw >= 1 && sample.gw <= 38 &&
+        [1, 2, 3, 4].includes(sample.position) && Number.isFinite(sample.predicted) &&
+        Number.isInteger(sample.gw) && Number.isFinite(sample.actual) && Number.isFinite(Date.parse(sample.predictedAt)) &&
+        Number.isFinite(Date.parse(sample.deadlineAt)) && Date.parse(sample.predictedAt) < Date.parse(sample.deadlineAt));
+}
+/** Fitting is not validation: candidates remain unverified until independently evaluated. */
+function fitPointsCalibration(history, targetGw) {
+    const samples = eligibleHistory(history, targetGw);
+    return [1, 2, 3, 4].map((group) => {
+        const rows = samples.filter((sample) => sample.position === group);
+        const n = rows.length;
+        if (n < 100)
+            return { sampleSize: n, group, scale: 1, bias: 0, verified: false };
+        const xMean = rows.reduce((sum, sample) => sum + sample.predicted, 0) / n;
+        const yMean = rows.reduce((sum, sample) => sum + sample.actual, 0) / n;
+        let cross = 0;
+        let variance = 0;
+        for (const sample of rows) {
+            cross += (sample.predicted - xMean) * (sample.actual - yMean);
+            variance += (sample.predicted - xMean) ** 2;
+        }
+        const slope = clip((cross + 20) / (variance + 20), 0.6, 1.4);
+        const bias = clip(yMean - slope * xMean, -2, 2);
+        return { sampleSize: n, group, scale: slope, bias, verified: false, fitted: true };
+    });
+}
+function calibratedPoints(rawXPts, calibration) {
+    if (!Number.isFinite(rawXPts))
+        throw new RangeError("Invalid raw xPts.");
+    return calibration?.verified ? rawXPts * calibration.scale + calibration.bias : rawXPts;
+}
+function forecastMinutes(player, teamMatchesPlayed, gwOffset = 0, evidence) {
+    const distribution = (0, minutes_1.estimateMinutesDistribution)(player, teamMatchesPlayed, gwOffset, evidence);
+    return {
+        p60: distribution.p60, pSub: distribution.pSub,
+        pAppear: distribution.p60 + distribution.pSub, pStartEstimate: distribution.pStart,
+        expectedMinutes: distribution.expectedMinutes, confidence: distribution.confidence, source: distribution.source,
+    };
+}
+function fixtureUncertainty(teamId, gw, fixtures) {
+    const matched = fixtures.filter((fixture) => fixture.event === gw && [fixture.team_h, fixture.team_a].includes(teamId));
+    const pending = fixtures.filter((fixture) => fixture.event === null && [fixture.team_h, fixture.team_a].includes(teamId));
+    const difficulties = matched.map((fixture) => fixture.team_h === teamId ? fixture.team_h_difficulty : fixture.team_a_difficulty);
+    return {
+        gw,
+        scheduled: matched.length,
+        unresolved: pending.length,
+        opponents: matched.map((fixture) => fixture.team_h === teamId ? fixture.team_a : fixture.team_h),
+        averageDifficulty: difficulties.length ? difficulties.reduce((sum, d) => sum + d, 0) / difficulties.length : null,
+        label: matched.length === 0 ? "blank" : matched.length === 1 ? "single" : matched.length === 2 ? "double" : "multiple",
+        scheduleConfidence: matched.some((fixture) => !fixture.kickoff_time) ? "pending_date" : matched.length ? "confirmed_schedule" : "no_scheduled_match",
+    };
+}
+function validateHistoricalPredictions(history, throughGw) {
+    const samples = eligibleHistory(history, throughGw);
+    const sampleSize = samples.length;
+    const abs = samples.reduce((sum, row) => sum + Math.abs(row.actual - row.predicted), 0);
+    const squared = samples.reduce((sum, row) => sum + (row.actual - row.predicted) ** 2, 0);
+    const bias = samples.reduce((sum, row) => sum + (row.predicted - row.actual), 0);
+    const binary = samples.filter((sample) => sample.p60 !== undefined && typeof sample.played60 === "boolean" && sample.p60 >= 0 && sample.p60 <= 1);
+    const p60Brier = binary.length ? binary.reduce((sum, row) => sum + ((row.p60 ?? 0) - Number(row.played60)) ** 2, 0) / binary.length : null;
+    const bins = Array.from({ length: 10 }, (_, index) => {
+        const inBin = binary.filter((sample) => Math.min(9, Math.floor((sample.p60 ?? 0) * 10)) === index);
+        return { center: (index + 0.5) / 10, count: inBin.length, observedRate: inBin.length ? inBin.reduce((sum, sample) => sum + Number(sample.played60), 0) / inBin.length : 0 };
+    });
+    return {
+        sampleSize, mae: sampleSize ? abs / sampleSize : null, rmse: sampleSize ? Math.sqrt(squared / sampleSize) : null,
+        bias: sampleSize ? bias / sampleSize : null, p60Brier, bins,
+        excludedAfterDeadline: history.filter((row) => Number.isFinite(Date.parse(row.predictedAt)) && Number.isFinite(Date.parse(row.deadlineAt)) && Date.parse(row.predictedAt) >= Date.parse(row.deadlineAt)).length,
+    };
+}
+
+},
+"/model/lineup.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.confirmedProvider = exports.modelProvider = void 0;
+exports.startConfidence = startConfidence;
+exports.getBestLineup = getBestLineup;
+exports.solveLineupTS = solveLineupTS;
+const minutes_1 = require("./minutes");
+const scoring_1 = require("./scoring");
+/** Start likelihood from recent starts share, minutes share and fitness flags. */
+function startConfidence(el, gamesPlayed) {
+    return Math.round((0, minutes_1.estimateMinutesDistribution)(el, gamesPlayed).pStart * 100);
+}
+const MODEL_LIMITS = scoring_1.FORMATION_LIMITS;
+/** Greedy best-XI: highest confidence while respecting formation limits. */
+exports.modelProvider = {
+    getLineup(teamId, elements) {
+        const squad = elements
+            .filter((e) => e.team === teamId && e.element_type >= 1 && e.element_type <= 4)
+            .map((e) => ({ element: e, confidence: 0 }));
+        if (squad.length < 11)
+            return null;
+        const gamesPlayed = Math.max(...elements.filter((e) => e.team === teamId).map((e) => e.starts), 1);
+        squad.forEach((p) => {
+            p.confidence = startConfidence(p.element, gamesPlayed);
+        });
+        squad.sort((a, b) => b.confidence - a.confidence);
+        const picked = [];
+        const count = { 1: 0, 2: 0, 3: 0, 4: 0 };
+        // Pass 1: fill minimums per position with best candidates
+        for (const type of [1, 2, 3, 4]) {
+            const min = MODEL_LIMITS[type][0];
+            for (const p of squad) {
+                if (count[type] >= min)
+                    break;
+                if (p.element.element_type === type && !picked.includes(p)) {
+                    picked.push(p);
+                    count[type]++;
+                }
+            }
+        }
+        // Pass 2: fill to 11 with best remaining under maximums
+        for (const p of squad) {
+            if (picked.length >= 11)
+                break;
+            const t = p.element.element_type;
+            if (!picked.includes(p) && count[t] < MODEL_LIMITS[t][1]) {
+                picked.push(p);
+                count[t]++;
+            }
+        }
+        if (picked.length < 11)
+            return null;
+        picked.sort((a, b) => a.element.element_type - b.element.element_type ||
+            b.confidence - a.confidence);
+        return {
+            teamId,
+            players: picked,
+            formation: `${count[2]}-${count[3]}-${count[4]}`,
+            source: "model",
+        };
+    },
+};
+/**
+ * Confirmed lineup provider stub — returns null (nothing published).
+ * Swap in a real provider (API-Football, Fotmob scrape, etc.) here.
+ */
+exports.confirmedProvider = {
+    getLineup() {
+        return null;
+    },
+};
+function getBestLineup(teamId, elements) {
+    return (exports.confirmedProvider.getLineup(teamId, elements) ??
+        exports.modelProvider.getLineup(teamId, elements));
+}
+/** Pure client-safe valid XI + Captain + Bench solver for a 15-man squad. */
+function solveLineupTS(squadIds, elementsMap, gwXPts, benchBoost = false, tripleCaptain = false) {
+    const optimal = (0, scoring_1.selectOptimalXI)(squadIds, (id) => elementsMap.get(id)?.element_type ?? 0, (id) => gwXPts[id] ?? 0);
+    if (optimal.starters.length !== 11 || optimal.bench.length !== 4 ||
+        optimal.captain === undefined || optimal.vice === undefined) {
+        throw new RangeError("A complete, valid 15-player FPL squad is required to solve a lineup.");
+    }
+    return {
+        starters: optimal.starters,
+        bench: optimal.bench,
+        captainId: optimal.captain,
+        viceId: optimal.vice,
+        xiXPts: Math.round(optimal.xi * 100) / 100,
+        captainXPts: Math.round(optimal.capXp * (tripleCaptain ? 2 : 1) * 100) / 100,
+        benchXPts: Math.round(optimal.benchXp * 100) / 100,
+        totalXPts: (0, scoring_1.projectedTotal)(optimal.xi, optimal.capXp, optimal.benchXp, tripleCaptain ? "tc" : benchBoost ? "bb" : undefined),
+        formation: optimal.formation,
+    };
+}
+
+},
+"/model/minutes.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SHORT_APPEARANCE_MINUTES = exports.LONG_APPEARANCE_MINUTES = void 0;
+exports.estimateMinutesDistribution = estimateMinutesDistribution;
+const probability_1 = require("./probability");
+exports.LONG_APPEARANCE_MINUTES = 85;
+exports.SHORT_APPEARANCE_MINUTES = 24;
+function estimateMinutesDistribution(player, teamMatchesPlayed, gwOffset = 0, evidence) {
+    if (!Number.isFinite(teamMatchesPlayed) || teamMatchesPlayed < 0 || !Number.isInteger(gwOffset) || gwOffset < 0 ||
+        !Number.isFinite(player.minutes) || player.minutes < 0 || !Number.isFinite(player.starts) || player.starts < 0) {
+        throw new RangeError("Invalid minutes evidence or forecast horizon.");
+    }
+    const matches = Math.max(teamMatchesPlayed, 1);
+    const startShare = Math.min(1, player.starts / matches);
+    const minuteShare = Math.min(1, player.minutes / (matches * 90));
+    let p60 = Math.min(0.96, 0.62 * startShare + 0.38 * minuteShare);
+    let pSub = Math.min(0.35, (1 - p60) * (player.minutes > 0 ? 0.35 : 0.05));
+    let pStart = startShare;
+    let minutes60 = exports.LONG_APPEARANCE_MINUTES;
+    let minutesShort = exports.SHORT_APPEARANCE_MINUTES;
+    let source = "fpl_appearance_heuristic";
+    if (evidence) {
+        const asOf = Date.parse(evidence.asOf);
+        const halfLifeDays = evidence.halfLifeDays ?? 60;
+        const priorWeight = evidence.priorWeight ?? 4;
+        if (!Number.isFinite(asOf) || !Number.isFinite(halfLifeDays) || halfLifeDays <= 0 ||
+            !Number.isFinite(priorWeight) || priorWeight <= 0)
+            throw new RangeError("Invalid historical minutes configuration.");
+        let weight = priorWeight;
+        let longWeight = p60 * priorWeight;
+        let shortWeight = pSub * priorWeight;
+        let starts = pStart * priorWeight;
+        let longMinutes = longWeight * minutes60;
+        let shortMinutes = shortWeight * minutesShort;
+        for (const observation of evidence.observations) {
+            const kickoff = Date.parse(observation.kickoffAt);
+            const recorded = Date.parse(observation.recordedAt);
+            if (!Number.isFinite(kickoff) || !Number.isFinite(recorded) || recorded < kickoff ||
+                !Number.isInteger(observation.minutes) || observation.minutes < 0 || observation.minutes > 90 ||
+                typeof observation.started !== "boolean" || typeof observation.available !== "boolean")
+                throw new RangeError("Invalid minutes observation.");
+            if (kickoff >= asOf || recorded >= asOf || !observation.available)
+                continue;
+            const observationWeight = 2 ** (-(asOf - kickoff) / (86_400_000 * halfLifeDays));
+            weight += observationWeight;
+            starts += Number(observation.started) * observationWeight;
+            if (observation.minutes >= 60) {
+                longWeight += observationWeight;
+                longMinutes += observation.minutes * observationWeight;
+            }
+            else if (observation.minutes > 0) {
+                shortWeight += observationWeight;
+                shortMinutes += observation.minutes * observationWeight;
+            }
+        }
+        p60 = longWeight / weight;
+        pSub = shortWeight / weight;
+        pStart = starts / weight;
+        if (longWeight > 0)
+            minutes60 = longMinutes / longWeight;
+        if (shortWeight > 0)
+            minutesShort = shortMinutes / shortWeight;
+        if (weight > priorWeight)
+            source = "recency_weighted_minutes";
+    }
+    let availability = 1;
+    if (["s", "u", "n"].includes(player.status))
+        availability = 0;
+    else if (player.status === "i" || player.status === "d") {
+        availability = (0, probability_1.probability)((player.chance_of_playing_next_round ?? (player.status === "d" ? 50 : 0)) / 100, "Availability");
+    }
+    else if (player.chance_of_playing_next_round != null) {
+        availability = (0, probability_1.probability)(player.chance_of_playing_next_round / 100, "Availability");
+    }
+    // Future recovery needs dated evidence; a GW offset alone is not a recovery model.
+    p60 *= availability;
+    pSub *= availability;
+    pStart *= availability;
+    return {
+        p60, pSub, pStart, minutes60, minutesShort,
+        expectedMinutes: p60 * minutes60 + pSub * minutesShort,
+        confidence: Math.round(Math.max(0, Math.min(94, 52 + minuteShare * 40 - (1 - availability) * 30 - gwOffset * 4))),
+        source,
+    };
+}
+
+},
+"/model/monteCarlo.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MC_CAL = exports.MC_DRAWS = void 0;
+exports.mixSeed = mixSeed;
+exports.makeTeamNoise = makeTeamNoise;
+exports.samplePlayerGw = samplePlayerGw;
+exports.scoreLineup = scoreLineup;
+exports.calibrateProbability = calibrateProbability;
+exports.runMonteCarlo = runMonteCarlo;
+/** Paired, fixture-component simulations. Distribution parameters remain unvalidated assumptions. */
+const probability_1 = require("./probability");
+const playerModel_1 = require("./playerModel");
+const scoring_1 = require("./scoring");
+exports.MC_DRAWS = 3000;
+/** Distribution assumptions, not fitted or independently validated calibration. */
+exports.MC_CAL = {
+    eventValue: { 1: 2.6, 2: 2.6, 3: 2.6, 4: 2.6 },
+    eventDispersion: 2,
+    subReturnShare: 24 / 85,
+    teamSigma: 0.3,
+    probSlope: 1,
+};
+/* ---------------------------- random numbers ---------------------------- */
+/** Mix integers into one well-spread 32-bit seed. */
+function mixSeed(...parts) {
+    let h = 0x811c9dc5;
+    for (const x of parts) {
+        h ^= x | 0;
+        h = Math.imul(h, 0x01000193);
+        h ^= h >>> 13;
+        h = Math.imul(h, 0x85ebca6b);
+        h ^= h >>> 16;
+    }
+    return h >>> 0;
+}
+function makeTeamNoise(seed, team, gw, draws, fixtures) {
+    const rng = (0, probability_1.seededRandom)(mixSeed(seed, team, gw, 7));
+    const sg = exports.MC_CAL.teamSigma;
+    const shock = new Float32Array(draws);
+    for (let i = 0; i < draws; i++)
+        shock[i] = Math.exp(sg * (0, probability_1.standardNormal)(rng) - (sg * sg) / 2);
+    const conc = [];
+    for (let f = 0; f < Math.max(1, fixtures); f++) {
+        const u = new Float64Array(draws);
+        for (let i = 0; i < draws; i++)
+            u[i] = rng();
+        conc.push(u);
+    }
+    return { shock, conc };
+}
+const CS_POINTS = scoring_1.CLEAN_SHEET_POINTS;
+/**
+ * Sample points for ONE player-gameweek: `played` flags and `pts` (0 when absent).
+ *
+ * Per fixture: pick a minutes state (60+, short appearance, absent). An appearance earns 2 or 1
+ * points. A 60+ appearance also earns the clean-sheet points (or loses a point per two goals
+ * conceded) decided by the team's shared goals-conceded draw. Cards cost a point at the model's
+ * own rate. The rest of the expected points arrive as random attacking/bonus events, with their
+ * rate chosen to match the supplied mean; legacy inputs remain an aggregate approximation.
+ * Exposed so calibration tests can use exactly the production sampler.
+ */
+function samplePlayerGw(p, noise, draws, seed) {
+    const pts = new Float32Array(draws);
+    const played = new Uint8Array(draws);
+    if (!p)
+        return { pts, played };
+    if (!Number.isInteger(draws) || draws < 1 || !Number.isInteger(p.fixtures) || p.fixtures < 0 || p.fixtures > 8 ||
+        !Number.isFinite(p.mean) || ![1, 2, 3, 4].includes(p.position) || !Number.isFinite(p.p60) ||
+        !Number.isFinite(p.pSub) || p.p60 < 0 || p.pSub < 0 || p.p60 + p.pSub > 1 + 1e-12 ||
+        !Number.isFinite(p.csProb) || p.csProb < 0 || p.csProb > 1 || !Number.isFinite(p.cardLoss) || p.cardLoss < 0)
+        throw new RangeError("Invalid player distribution.");
+    if (p.fixtures === 0)
+        return { pts, played };
+    if (p.fixtureModels) {
+        if (p.fixtureModels.length !== p.fixtures || new Set(p.fixtureModels.map(model => model.fixtureId)).size !== p.fixtures)
+            throw new RangeError("Fixture model count mismatch.");
+        for (const model of p.fixtureModels)
+            (0, playerModel_1.validateFixtureModel)(model);
+        const modelMean = p.fixtureModels.reduce((sum, model) => sum + Object.values((0, playerModel_1.expectedFixturePoints)(model)).reduce((total, points) => total + points, 0), 0);
+        if (Math.abs(modelMean - p.mean) > 0.011)
+            throw new RangeError("Simulation and xPts use inconsistent fixture models.");
+        const random = (0, probability_1.seededRandom)(seed);
+        for (let draw = 0; draw < draws; draw++) {
+            for (let fixture = 0; fixture < p.fixtureModels.length; fixture++) {
+                const result = (0, playerModel_1.sampleFixturePoints)(p.fixtureModels[fixture], random, noise?.conc[fixture]?.[draw] ?? random(), noise?.shock[draw] ?? 1);
+                pts[draw] += result.points;
+                if (result.appeared)
+                    played[draw] = 1;
+            }
+        }
+        return { pts, played };
+    }
+    const modelP60 = Math.min(1, Math.max(0, p.p60));
+    const modelPSub = Math.min(1 - modelP60, Math.max(0, p.pSub));
+    const pApp = modelP60 + modelPSub;
+    if (pApp === 0)
+        return { pts, played };
+    const { eventDispersion, subReturnShare } = exports.MC_CAL;
+    const eventValue = exports.MC_CAL.eventValue[p.position] ?? 2.6;
+    const p60 = modelP60;
+    const pSub = modelPSub;
+    const fx = p.fixtures;
+    const perFixture = p.mean / fx;
+    const csValue = CS_POINTS[p.position] ?? 0;
+    const csProb = csValue > 0 ? Math.min(1, Math.max(1e-8, p.csProb)) : 0;
+    const lambdaC = csProb > 0 ? -Math.log(csProb) : 0;
+    const gcPenalised = p.position <= 2;
+    // Expected defensive points of a 60+ appearance (clean sheet minus goals-conceded penalty).
+    const defMean = csProb > 0 ? csValue * csProb - (gcPenalised ? (0, probability_1.expectedPoissonFloor)(lambdaC, 2) : 0) : 0;
+    // Card rate per appearance that reproduces the model's expected card loss.
+    const cardLossPerFixture = Math.max(0, p.cardLoss) / fx;
+    const pCard = Math.min(1, cardLossPerFixture / pApp);
+    // What is left for random events once appearance, defence and cards are accounted for.
+    const residual = perFixture - (2 * p60 + pSub) - p60 * defMean + pCard * pApp;
+    const rFull = residual / (p60 + subReturnShare * pSub);
+    const rSub = subReturnShare * rFull;
+    const rng = (0, probability_1.seededRandom)(seed);
+    for (let i = 0; i < draws; i++) {
+        let total = 0;
+        let appeared = false;
+        for (let f = 0; f < fx; f++) {
+            const u = rng();
+            const state = u < p60 ? 2 : u < p60 + pSub ? 1 : 0;
+            if (state === 0)
+                continue;
+            appeared = true;
+            total += state === 2 ? 2 : 1;
+            if (state === 2 && csProb > 0) {
+                const uc = noise ? noise.conc[Math.min(f, noise.conc.length - 1)][i] : rng();
+                const g = (0, probability_1.poissonFromUniform)(uc, lambdaC);
+                if (g === 0)
+                    total += csValue;
+                else if (gcPenalised)
+                    total -= Math.floor(g / 2);
+            }
+            if (rng() < pCard)
+                total -= 1;
+            const rate = state === 2 ? rFull : rSub;
+            let lambda = (Math.abs(rate) / eventValue) * (noise ? noise.shock[i] : 1);
+            lambda *= (0, probability_1.gammaSample)(eventDispersion, rng) / eventDispersion; // overdispersed event counts
+            const n = (0, probability_1.poissonSample)(lambda, rng);
+            for (let event = 0; event < n; event++)
+                total += Math.sign(rate) * (Math.floor(eventValue) + Number(rng() < eventValue % 1));
+        }
+        if (appeared) {
+            played[i] = 1;
+            pts[i] = total;
+        }
+    }
+    return { pts, played };
+}
+/**
+ * Points a lineup scores on one realised outcome: starters who played, a backup goalkeeper if the
+ * starter did not, formation-valid automatic substitutions in bench order, and the captain's
+ * doubling (falling back to the vice-captain if the captain did not play).
+ */
+function scoreLineup(l, o, chip) {
+    if (chip === "bb") {
+        const all = new Set([...l.starters, ...l.bench]);
+        let total = [...all].reduce((sum, id) => sum + (o.played(id) ? o.pts(id) : 0), 0);
+        if (o.played(l.captainId))
+            total += o.pts(l.captainId);
+        else if (o.played(l.viceId))
+            total += o.pts(l.viceId);
+        return total;
+    }
+    let total = 0;
+    const gkStarter = l.starters.find((id) => o.position(id) === 1);
+    const benchGk = l.bench.find((id) => o.position(id) === 1);
+    const outfield = l.starters.filter((id) => o.position(id) !== 1);
+    if (gkStarter !== undefined) {
+        if (o.played(gkStarter))
+            total += o.pts(gkStarter);
+        else if (benchGk !== undefined && o.played(benchGk))
+            total += o.pts(benchGk);
+    }
+    const counts = { 2: 0, 3: 0, 4: 0 };
+    const missing = [];
+    for (const id of outfield) {
+        counts[o.position(id)] = (counts[o.position(id)] ?? 0) + 1;
+        if (o.played(id))
+            total += o.pts(id);
+        else
+            missing.push(id);
+    }
+    if (missing.length > 0) {
+        for (const sub of l.bench) {
+            if (missing.length === 0)
+                break;
+            const subPos = o.position(sub);
+            if (subPos === 1 || !o.played(sub))
+                continue;
+            for (let m = 0; m < missing.length; m++) {
+                const outPos = o.position(missing[m]);
+                const after = { ...counts };
+                after[outPos] -= 1;
+                after[subPos] += 1;
+                if (after[2] >= 3 && after[3] >= 2 && after[4] >= 1) {
+                    counts[outPos] -= 1;
+                    counts[subPos] += 1;
+                    missing.splice(m, 1);
+                    total += o.pts(sub);
+                    break;
+                }
+            }
+        }
+    }
+    const captain = o.played(l.captainId) ? l.captainId : o.played(l.viceId) ? l.viceId : null;
+    if (captain !== null)
+        total += o.pts(captain) * (chip === "tc" ? 2 : 1);
+    return total;
+}
+/* -------------------------------- summaries -------------------------------- */
+function sortedCopy(a) {
+    const out = Float64Array.from(a);
+    out.sort();
+    return out;
+}
+function quantile(sorted, q) {
+    const n = sorted.length;
+    if (n === 0)
+        return 0;
+    return sorted[Math.min(n - 1, Math.max(0, Math.floor(q * n)))];
+}
+const r2 = (x) => Math.round(x * 100) / 100;
+/** Optional externally validated calibration; identity is the default and preserves endpoints. */
+function calibrateProbability(value, slope = 1) {
+    if (!Number.isFinite(value) || value < 0 || value > 1 || !Number.isFinite(slope) || slope <= 0)
+        throw new RangeError("Invalid probability calibration.");
+    if (value === 0 || value === 1)
+        return value;
+    return 1 / (1 + Math.exp(-Math.log(value / (1 - value)) * slope));
+}
+function band(gw, a) {
+    const s = sortedCopy(a);
+    let sum = 0;
+    for (let i = 0; i < a.length; i++)
+        sum += a[i];
+    return { gw, mean: r2(sum / a.length), p10: r2(quantile(s, 0.1)), p90: r2(quantile(s, 0.9)) };
+}
+/* --------------------------------- main run --------------------------------- */
+function runMonteCarlo(opts) {
+    const draws = opts.draws ?? exports.MC_DRAWS;
+    if (!Number.isInteger(draws) || draws < 100 || draws > 30000)
+        throw new RangeError("Draws must be between 100 and 30000.");
+    if (!Number.isInteger(opts.seed))
+        throw new RangeError("Seed must be an integer.");
+    if (opts.gws.length < 1 || opts.gws.length > 38 || new Set(opts.gws).size !== opts.gws.length || opts.gws.some((gw) => !Number.isInteger(gw) || gw < 1 || gw > 38))
+        throw new RangeError("Invalid gameweek horizon.");
+    if (!opts.paths.length || new Set(opts.paths.map((path) => path.id)).size !== opts.paths.length)
+        throw new RangeError("Invalid or duplicate scenario identifiers.");
+    if (!opts.paths.some((path) => path.id === opts.holdId))
+        throw new RangeError("Missing hold scenario.");
+    if (opts.gws.some((gw, index) => index > 0 && gw <= opts.gws[index - 1]))
+        throw new RangeError("Gameweeks must be chronological.");
+    if (!opts.paths.some(path => path.id === opts.recommendedId) || opts.paths.some(path => !Number.isFinite(path.hitCost) || path.hitCost < 0))
+        throw new RangeError("Invalid recommended path or hit cost.");
+    calibrateProbability(0.5, opts.calibrationSlope ?? 1);
+    const { gws, paths, playerAt, seed } = opts;
+    const playerCache = new Map < string, { pts: Float32Array };
+    played: Uint8Array;
+}
+ > ();
+const noiseCache = new Map < string, McTeamNoise;
+ > ();
+const infoCache = new Map < string, McPlayerGw;
+ | null > ();
+const info = (pid, gw) => {
+    const key = `${pid}:${gw}`;
+    if (!infoCache.has(key))
+        infoCache.set(key, playerAt(pid, gw));
+    return infoCache.get(key) ?? null;
+};
+const teamNoise = (team, gw, fixtures) => {
+    const key = `${team}:${gw}:${fixtures}`;
+    let n = noiseCache.get(key);
+    if (!n) {
+        n = makeTeamNoise(seed, team, gw, draws, fixtures);
+        noiseCache.set(key, n);
+    }
+    return n;
+};
+const player = (pid, gw) => {
+    const key = `${pid}:${gw}`;
+    let d = playerCache.get(key);
+    if (!d) {
+        const p = info(pid, gw);
+        d = samplePlayerGw(p, p ? teamNoise(p.team, gw, p.fixtures) : null, draws, mixSeed(seed, pid, gw, 3));
+        playerCache.set(key, d);
+    }
+    return d;
+};
+// Per path and gameweek: simulated points of the lineup, draw by draw.
+const perGw = new Map < string, Float64Array, [];
+ > (); // path id -> [gw index] -> draws
+const totals = new Map < string, Float64Array;
+ > ();
+for (const path of paths) {
+    const series = [];
+    const total = new Float64Array(draws).fill(-path.hitCost);
+    for (const gw of gws) {
+        const arr = new Float64Array(draws);
+        const lineup = path.lineupAt(gw);
+        if (lineup) {
+            const ids = [...lineup.starters, ...lineup.bench];
+            const sims = new Map(ids.map((id) => [id, player(id, gw)]));
+            const pos = new Map(ids.map((id) => [id, info(id, gw)?.position ?? 0]));
+            for (let i = 0; i < draws; i++) {
+                arr[i] = scoreLineup(lineup, {
+                    pts: (id) => sims.get(id)?.pts[i] ?? 0,
+                    played: (id) => (sims.get(id)?.played[i] ?? 0) === 1,
+                    position: (id) => pos.get(id) ?? 0,
+                }, path.chipAt?.(gw));
+                total[i] += arr[i];
+            }
+        }
+        series.push(arr);
+    }
+    perGw.set(path.id, series);
+    totals.set(path.id, total);
+}
+const hold = totals.get(opts.holdId);
+const holdSeries = perGw.get(opts.holdId);
+const summaries = paths.map((path) => {
+    const total = totals.get(path.id);
+    const sorted = sortedCopy(total);
+    let sum = 0;
+    for (let i = 0; i < draws; i++)
+        sum += total[i];
+    const mean = sum / draws;
+    let sq = 0;
+    for (let i = 0; i < draws; i++)
+        sq += (total[i] - mean) ** 2;
+    let deltaMean = null;
+    let deltaP10 = null;
+    let deltaP90 = null;
+    let probBeatsHold = null;
+    let probBeatsHoldRaw = null;
+    let probDrawsHold = null;
+    let cumDelta = null;
+    if (path.id !== opts.holdId && hold && holdSeries) {
+        const delta = new Float64Array(draws);
+        let wins = 0;
+        let ties = 0;
+        for (let i = 0; i < draws; i++) {
+            delta[i] = total[i] - hold[i];
+            if (delta[i] > 1e-9)
+                wins += 1;
+            else if (Math.abs(delta[i]) <= 1e-9)
+                ties++;
+        }
+        const ds = sortedCopy(delta);
+        deltaMean = r2(delta.reduce((a, b) => a + b, 0) / draws);
+        deltaP10 = r2(quantile(ds, 0.1));
+        deltaP90 = r2(quantile(ds, 0.9));
+        probBeatsHoldRaw = Math.round((wins / draws) * 1000) / 1000;
+        probBeatsHold = Math.round(calibrateProbability(wins / draws, opts.calibrationSlope ?? 1) * 1000) / 1000;
+        probDrawsHold = ties / draws;
+        const mine = perGw.get(path.id);
+        const running = new Float64Array(draws).fill((paths.find(candidate => candidate.id === opts.holdId)?.hitCost ?? 0) - path.hitCost);
+        cumDelta = gws.map((gw, j) => {
+            for (let i = 0; i < draws; i++)
+                running[i] += mine[j][i] - holdSeries[j][i];
+            return band(gw, running);
+        });
+    }
+    return {
+        id: path.id,
+        label: path.label,
+        hitCost: path.hitCost,
+        mean: r2(mean),
+        median: r2(quantile(sorted, 0.5)),
+        sd: r2(Math.sqrt(sq / draws)),
+        p10: r2(quantile(sorted, 0.1)),
+        p25: r2(quantile(sorted, 0.25)),
+        p75: r2(quantile(sorted, 0.75)),
+        p90: r2(quantile(sorted, 0.9)),
+        deltaMean,
+        deltaP10,
+        deltaP90,
+        probBeatsHold,
+        probBeatsHoldRaw,
+        probDrawsHold,
+        perGw: gws.map((gw, j) => band(gw, perGw.get(path.id)[j])),
+        cumDelta,
+    };
+});
+// Captain risk for the first gameweek, on the recommended path's lineup.
+const captains = [];
+const recPath = paths.find((p) => p.id === opts.recommendedId) ?? paths[0];
+const firstGw = gws[0];
+const lu = recPath?.lineupAt(firstGw);
+if (lu) {
+    const ranked = [...lu.starters]
+        .sort((a, b) => (info(b, firstGw)?.mean ?? 0) - (info(a, firstGw)?.mean ?? 0))
+        .slice(0, 4);
+    const pick = player(lu.captainId, firstGw).pts;
+    for (const id of ranked) {
+        const pts = player(id, firstGw).pts;
+        const s = sortedCopy(pts);
+        let sum = 0, blank = 0, haul = 0, beats = 0;
+        for (let i = 0; i < draws; i++) {
+            sum += pts[i];
+            if (pts[i] <= 2)
+                blank += 1;
+            if (pts[i] >= 9)
+                haul += 1;
+            if (pts[i] > pick[i])
+                beats += 1;
+        }
+        captains.push({
+            id,
+            mean: r2(sum / draws),
+            p10: r2(quantile(s, 0.1)),
+            p90: r2(quantile(s, 0.9)),
+            pBlank: Math.round((blank / draws) * 1000) / 1000,
+            pHaul: Math.round((haul / draws) * 1000) / 1000,
+            pBeatsPick: id === lu.captainId ? null : Math.round((beats / draws) * 1000) / 1000,
+            isPick: id === lu.captainId,
+        });
+    }
+}
+return {
+    draws,
+    horizon: gws.length,
+    gws,
+    seed,
+    recommendedPathId: opts.recommendedId,
+    paths: summaries,
+    captains,
+    assumptions: [
+        "Each player's minutes use the model's own probabilities, clean sheets come from a goals-conceded draw shared by a team's defenders, cards use the model's rate, and other points arrive as random events. Distribution assumptions have not been independently calibrated.",
+        "Teammates share a team-and-gameweek factor, so a strong attacking day lifts several of your players together.",
+        "Lineups are picked in advance from expected points, then scored with automatic substitutions and the vice-captain fallback.",
+        "Strategies reuse the same player draws. Shared team shocks approximate dependence; this is not a full match-scoreline simulator. Mean forecasts and tail calibration require held-out validation.",
+    ],
+};
+
+},
+"/model/playerModel.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateFixtureModel = validateFixtureModel;
+exports.expectedFixturePoints = expectedFixturePoints;
+exports.sampleFixturePoints = sampleFixturePoints;
+const scoring_1 = require("./scoring");
+const probability_1 = require("./probability");
+function validateFixtureModel(model) {
+    if (![1, 2, 3, 4].includes(model.position) || !Number.isInteger(model.fixtureId) || model.fixtureId < 1)
+        throw new RangeError("Invalid fixture identity or position.");
+    for (const [key, value] of Object.entries(model)) {
+        if (key !== "minutes" && (!Number.isFinite(value) || Number(value) < 0))
+            throw new RangeError(`Invalid fixture parameter ${key}.`);
+    }
+    if (model.defensiveDispersion <= 0 || model.conceded90 > 20)
+        throw new RangeError("Invalid count distribution.");
+    (0, probability_1.probability)(model.minutes.p60);
+    (0, probability_1.probability)(model.minutes.pSub);
+    if (model.minutes.p60 + model.minutes.pSub > 1 + 1e-12 ||
+        !Number.isFinite(model.minutes.minutes60) || model.minutes.minutes60 < 60 || model.minutes.minutes60 > 90 ||
+        !Number.isFinite(model.minutes.minutesShort) || model.minutes.minutesShort < 1 || model.minutes.minutesShort >= 60)
+        throw new RangeError("Invalid conditional minutes.");
+}
+function defensiveThreshold(position) { return position === 2 ? 10 : position >= 3 ? 12 : 0; }
+function expectedFixturePoints(model) {
+    validateFixtureModel(model);
+    const result = { appearancePts: 0, goalPts: 0, assistPts: 0, cleanSheetPts: 0, bonusPts: 0, defensivePts: 0, savePts: 0, cardPts: 0, otherPts: 0 };
+    for (const [weight, minutes] of [[model.minutes.p60, model.minutes.minutes60], [model.minutes.pSub, model.minutes.minutesShort]]) {
+        const exposure = minutes / 90;
+        const conceded = model.conceded90 * exposure;
+        const threshold = defensiveThreshold(model.position);
+        result.appearancePts += weight * (minutes >= 60 ? 2 : 1);
+        result.goalPts += weight * model.goals90 * exposure * scoring_1.GOAL_POINTS[model.position];
+        result.assistPts += weight * model.assists90 * exposure * 3;
+        result.cleanSheetPts += weight * ((minutes >= 60 ? scoring_1.CLEAN_SHEET_POINTS[model.position] * Math.exp(-conceded) : 0) -
+            (model.position <= 2 ? (0, probability_1.expectedPoissonFloor)(conceded, 2) : 0));
+        result.bonusPts += weight * Math.min(3, model.bonus90 * exposure);
+        result.defensivePts += threshold ? weight * 2 * (0, probability_1.negativeBinomialTail)(model.defensiveActions90 * exposure, model.defensiveDispersion, threshold) : 0;
+        result.savePts += model.position === 1 ? weight * ((0, probability_1.expectedPoissonFloor)(model.saves90 * exposure, 3) + 5 * model.penaltySaves90 * exposure) : 0;
+        result.cardPts -= weight * (-Math.expm1(-model.yellow90 * exposure) - 3 * Math.expm1(-model.red90 * exposure));
+        result.otherPts -= weight * 2 * (model.ownGoals90 + model.penaltyMisses90) * exposure;
+    }
+    return result;
+}
+/** Conditional simulation shares the exact scoring components and minutes law with analytic xPts. */
+function sampleFixturePoints(model, random, concededUniform, attackShock = 1) {
+    const uniform = random();
+    const minutes = uniform < model.minutes.p60 ? model.minutes.minutes60 :
+        uniform < model.minutes.p60 + model.minutes.pSub ? model.minutes.minutesShort : 0;
+    if (!minutes)
+        return { points: 0, appeared: false };
+    const exposure = minutes / 90;
+    const conceded = (0, probability_1.poissonFromUniform)(concededUniform, model.conceded90 * exposure);
+    const bonusMean = Math.min(3, model.bonus90 * exposure);
+    const threshold = defensiveThreshold(model.position);
+    let points = minutes >= 60 ? 2 : 1;
+    points += scoring_1.GOAL_POINTS[model.position] * (0, probability_1.poissonSample)(model.goals90 * exposure * attackShock, random);
+    points += 3 * (0, probability_1.poissonSample)(model.assists90 * exposure * attackShock, random);
+    if (minutes >= 60 && conceded === 0)
+        points += scoring_1.CLEAN_SHEET_POINTS[model.position];
+    if (model.position <= 2)
+        points -= Math.floor(conceded / 2);
+    if (model.position === 1)
+        points += Math.floor((0, probability_1.poissonSample)(model.saves90 * exposure, random) / 3) + 5 * (0, probability_1.poissonSample)(model.penaltySaves90 * exposure, random);
+    points += Math.floor(bonusMean) + Number(random() < bonusMean % 1);
+    if (threshold) {
+        const actions = (0, probability_1.poissonSample)(model.defensiveActions90 * exposure * (0, probability_1.gammaSample)(model.defensiveDispersion, random) / model.defensiveDispersion, random);
+        if (actions >= threshold)
+            points += 2;
+    }
+    points -= Number(random() < -Math.expm1(-model.yellow90 * exposure));
+    points -= 3 * Number(random() < -Math.expm1(-model.red90 * exposure));
+    points -= 2 * (0, probability_1.poissonSample)((model.ownGoals90 + model.penaltyMisses90) * exposure, random);
+    return { points, appeared: true };
+}
+
+},
+"/model/probability.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.nonNegative = nonNegative;
+exports.probability = probability;
+exports.expectedPoissonFloor = expectedPoissonFloor;
+exports.negativeBinomialTail = negativeBinomialTail;
+exports.seededRandom = seededRandom;
+exports.standardNormal = standardNormal;
+exports.gammaSample = gammaSample;
+exports.poissonFromUniform = poissonFromUniform;
+exports.poissonSample = poissonSample;
+function nonNegative(value, name) {
+    if (!Number.isFinite(value) || value < 0)
+        throw new RangeError(`${name} must be finite and non-negative.`);
+    return value;
+}
+function probability(value, name = "Probability") {
+    nonNegative(value, name);
+    if (value > 1)
+        throw new RangeError(`${name} cannot exceed one.`);
+    return value;
+}
+/** The roots-of-unity filter gives Poisson residue probabilities without truncating its tail. */
+function expectedPoissonFloor(mean, divisor) {
+    nonNegative(mean, "Poisson mean");
+    if (!Number.isInteger(divisor) || divisor < 1 || divisor > 100)
+        throw new RangeError("Invalid scoring divisor.");
+    if (divisor === 1 || mean === 0)
+        return mean;
+    if (divisor === 2)
+        return Math.max(0, mean / 2 + Math.expm1(-2 * mean) / 4);
+    let expectedRemainder = 0;
+    for (let remainder = 1; remainder < divisor; remainder++) {
+        let residueProbability = 1;
+        for (let frequency = 1; frequency < divisor; frequency++) {
+            const angle = 2 * Math.PI * frequency / divisor;
+            residueProbability += Math.exp(mean * (Math.cos(angle) - 1)) *
+                Math.cos(mean * Math.sin(angle) - remainder * angle);
+        }
+        expectedRemainder += remainder * residueProbability / divisor;
+    }
+    return Math.max(0, (mean - expectedRemainder) / divisor);
+}
+function negativeBinomialTail(mean, dispersion, threshold) {
+    nonNegative(mean, "Negative-binomial mean");
+    if (!Number.isFinite(dispersion) || dispersion <= 0 || !Number.isInteger(threshold) || threshold < 1) {
+        throw new RangeError("Invalid negative-binomial parameters.");
+    }
+    const success = dispersion / (dispersion + mean);
+    let mass = Math.pow(success, dispersion);
+    let cumulative = 0;
+    for (let count = 0; count < threshold; count++) {
+        cumulative += mass;
+        mass *= (count + dispersion) / (count + 1) * (1 - success);
+    }
+    return Math.max(0, Math.min(1, 1 - cumulative));
+}
+function seededRandom(seed) {
+    if (!Number.isInteger(seed))
+        throw new RangeError("Seed must be an integer.");
+    let state = seed >>> 0;
+    return () => {
+        state = (state + 0x6d2b79f5) >>> 0;
+        let mixed = Math.imul(state ^ (state >>> 15), state | 1);
+        mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+        return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+    };
+}
+function standardNormal(random) {
+    return Math.sqrt(-2 * Math.log(Math.max(Number.MIN_VALUE, random()))) * Math.cos(2 * Math.PI * random());
+}
+function gammaSample(shape, random) {
+    if (!Number.isFinite(shape) || shape <= 0)
+        throw new RangeError("Gamma shape must be positive.");
+    if (shape < 1)
+        return gammaSample(shape + 1, random) * Math.pow(Math.max(random(), Number.MIN_VALUE), 1 / shape);
+    const shifted = shape - 1 / 3;
+    const scale = 1 / Math.sqrt(9 * shifted);
+    for (;;) {
+        const normal = standardNormal(random);
+        const base = 1 + scale * normal;
+        if (base <= 0)
+            continue;
+        const volume = base ** 3;
+        const uniform = random();
+        if (uniform < 1 - 0.0331 * normal ** 4 ||
+            Math.log(uniform) < normal ** 2 / 2 + shifted * (1 - volume + Math.log(volume)))
+            return shifted * volume;
+    }
+}
+function poissonFromUniform(uniform, mean) {
+    nonNegative(mean, "Poisson mean");
+    if (!Number.isFinite(uniform) || uniform < 0 || uniform >= 1 || mean > 100)
+        throw new RangeError("Invalid Poisson draw.");
+    let count = 0;
+    let mass = Math.exp(-mean);
+    let cumulative = mass;
+    while (uniform >= cumulative) {
+        count++;
+        mass *= mean / count;
+        if (mass === 0 || cumulative + mass === cumulative)
+            break;
+        cumulative += mass;
+    }
+    return count;
+}
+/** Independent Poisson additivity avoids a normal approximation at large means. */
+function poissonSample(mean, random) {
+    nonNegative(mean, "Poisson mean");
+    let total = 0;
+    let remaining = mean;
+    while (remaining > 0) {
+        const part = Math.min(remaining, 20);
+        total += poissonFromUniform(random(), part);
+        remaining -= part;
+    }
+    return total;
+}
+
+},
+"/model/scoring.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MAX_PLAYERS_PER_CLUB = exports.TRANSFER_HIT_COST = exports.MAX_FREE_TRANSFERS = exports.CLEAN_SHEET_POINTS = exports.GOAL_POINTS = exports.FORMATION_LIMITS = void 0;
+exports.pointsHit = pointsHit;
+exports.nextFreeTransfers = nextFreeTransfers;
+exports.sellingPrice = sellingPrice;
+exports.selectOptimalXI = selectOptimalXI;
+exports.projectedTotal = projectedTotal;
+/**
+ * Canonical, framework-independent FPL calculations shared by planner, optimiser,
+ * xPts, simulations and saved-plan replay. The active season's exceptional rules
+ * will be versioned in Step 17; these are the verified 2026/27 defaults.
+ */
+exports.FORMATION_LIMITS = {
+    1: [1, 1],
+    2: [3, 5],
+    3: [2, 5],
+    4: [1, 3],
+};
+exports.GOAL_POINTS = { 1: 10, 2: 6, 3: 5, 4: 4 };
+exports.CLEAN_SHEET_POINTS = { 1: 4, 2: 4, 3: 1, 4: 0 };
+exports.MAX_FREE_TRANSFERS = 5;
+exports.TRANSFER_HIT_COST = 4;
+exports.MAX_PLAYERS_PER_CLUB = 3;
+const finitePoints = (value) => Number.isFinite(value) ? value : 0;
+const round2 = (value) => Math.round(value * 100) / 100;
+function pointsHit(transfersMade, freeTransfers, unlimited = false) {
+    if (!Number.isInteger(transfersMade) || transfersMade < 0 || !Number.isInteger(freeTransfers) || freeTransfers < 0) {
+        throw new RangeError("Transfer counts must be non-negative integers.");
+    }
+    return unlimited ? 0 : Math.max(0, transfersMade - freeTransfers) * exports.TRANSFER_HIT_COST;
+}
+/** WC/FH consume this week's allowance but preserve FTs already banked. */
+function nextFreeTransfers(freeTransfers, transfersMade, chip) {
+    if (!Number.isInteger(freeTransfers) || freeTransfers < 0 || freeTransfers > exports.MAX_FREE_TRANSFERS ||
+        !Number.isInteger(transfersMade) || transfersMade < 0) {
+        throw new RangeError("Invalid free-transfer count or number of transfers.");
+    }
+    return chip === "wc" || chip === "fh"
+        ? Math.max(1, freeTransfers)
+        : Math.min(exports.MAX_FREE_TRANSFERS, Math.max(0, freeTransfers - transfersMade) + 1);
+}
+function sellingPrice(purchaseTenths, currentTenths) {
+    if (!Number.isInteger(purchaseTenths) || !Number.isInteger(currentTenths) ||
+        purchaseTenths < 0 || currentTenths < 0) {
+        throw new RangeError("FPL prices must be non-negative integer tenths.");
+    }
+    return currentTenths <= purchaseTenths
+        ? currentTenths
+        : purchaseTenths + Math.floor((currentTenths - purchaseTenths) / 2);
+}
+/** One canonical formation enumeration; upstream callers retain their public return formats. */
+function selectOptimalXI(ids, positionOf, expectedPointsOf) {
+    if (new Set(ids).size !== ids.length)
+        throw new RangeError("Duplicate player in squad.");
+    const xp = (id) => finitePoints(expectedPointsOf(id));
+    const ranked = (position) => ids
+        .filter((id) => positionOf(id) === position)
+        .sort((first, second) => xp(second) - xp(first) || first - second);
+    const goalkeepers = ranked(1);
+    const defenders = ranked(2);
+    const midfielders = ranked(3);
+    const forwards = ranked(4);
+    let bestOutfield = [];
+    let bestFormation = "4-4-2";
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (let defendersCount = 3; defendersCount <= Math.min(5, defenders.length); defendersCount++) {
+        for (let midfieldersCount = 2; midfieldersCount <= Math.min(5, midfielders.length); midfieldersCount++) {
+            const forwardsCount = 10 - defendersCount - midfieldersCount;
+            if (forwardsCount < 1 || forwardsCount > Math.min(3, forwards.length))
+                continue;
+            const chosen = [
+                ...defenders.slice(0, defendersCount),
+                ...midfielders.slice(0, midfieldersCount),
+                ...forwards.slice(0, forwardsCount),
+            ];
+            const candidates = [...goalkeepers.slice(0, 1), ...chosen];
+            const score = candidates.reduce((total, id) => total + xp(id), 0) + Math.max(...candidates.map(xp));
+            if (score > bestScore) {
+                bestScore = score;
+                bestOutfield = chosen;
+                bestFormation = `${defendersCount}-${midfieldersCount}-${forwardsCount}`;
+            }
+        }
+    }
+    const starters = goalkeepers.length ? [goalkeepers[0], ...bestOutfield] : [...bestOutfield];
+    const chosen = new Set(bestOutfield);
+    const bench = [
+        ...(goalkeepers.length > 1 ? [goalkeepers[1]] : []),
+        ...[...defenders, ...midfielders, ...forwards]
+            .filter((id) => !chosen.has(id))
+            .sort((first, second) => xp(second) - xp(first) || first - second),
+    ];
+    const ordered = [...starters].sort((first, second) => xp(second) - xp(first) || first - second);
+    const captain = ordered[0];
+    const vice = ordered[1];
+    const xi = starters.reduce((total, id) => total + xp(id), 0);
+    const capXp = captain === undefined ? 0 : xp(captain);
+    const benchXp = bench.reduce((total, id) => total + xp(id), 0);
+    return { starters, bench, captain, vice, formation: bestFormation, xi, capXp, benchXp, total: xi + capXp };
+}
+/** A fully selected lineup earns XI + one extra captain score; TC adds one more. */
+function projectedTotal(xi, captain, bench, chip) {
+    const base = finitePoints(xi) + finitePoints(captain);
+    return round2(base + (chip === "tc" ? finitePoints(captain) : 0) +
+        (chip === "bb" ? finitePoints(bench) : 0));
+}
+
+},
+"/model/seasonRules.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RULES_2026_27 = void 0;
+exports.validateSeasonChipPlan = validateSeasonChipPlan;
+exports.validateSquad = validateSquad;
+exports.advanceTransferState = advanceTransferState;
+exports.transferBankAfterSale = transferBankAfterSale;
+const scoring_1 = require("./scoring");
+/** Official 2026/27 season policy. One chip of each type per half, GW1 FH unavailable. */
+exports.RULES_2026_27 = Object.freeze({
+    season: "2026/27",
+    gameweeks: 38,
+    chipHalfBoundary: 19,
+    maxFreeTransfers: scoring_1.MAX_FREE_TRANSFERS,
+    hitCost: scoring_1.TRANSFER_HIT_COST,
+    maxPerClub: scoring_1.MAX_PLAYERS_PER_CLUB,
+    squadSize: 15,
+    positionCounts: { 1: 2, 2: 5, 3: 5, 4: 3 },
+    startingXI: 11,
+    maxBudgetTenths: 1000,
+    firstFreeHitGameweek: 2,
+    transferDeadlineLeadMinutes: 90,
+    chips: ["wc", "fh", "bb", "tc"],
+});
+function validateSeasonChipPlan(chips) {
+    const errors = [];
+    const used = new Set < string > ();
+    const chipByGw = new Map < number, SeasonChip;
+     > ();
+    for (const { gw, chip } of chips) {
+        if (!Number.isInteger(gw) || gw < 1 || gw > 38) {
+            errors.push(`Gameweek ${gw} is out of season.`);
+            continue;
+        }
+        if (!exports.RULES_2026_27.chips.includes(chip)) {
+            errors.push(`Unknown chip ${chip}.`);
+            continue;
+        }
+        const half = gw <= exports.RULES_2026_27.chipHalfBoundary ? 1 : 2;
+        if (used.has(`${half}:${chip}`))
+            errors.push(`${chip} is already used in half ${half}.`);
+        used.add(`${half}:${chip}`);
+        if (chipByGw.has(gw))
+            errors.push(`More than one chip selected in GW${gw}.`);
+        chipByGw.set(gw, chip);
+        if (chip === "fh" && gw === 1)
+            errors.push("Free Hit cannot be played in GW1.");
+    }
+    for (const { gw, chip } of chips) {
+        if (chip === "fh" && chipByGw.get(gw - 1) === "fh")
+            errors.push(`Free Hit cannot be played in consecutive gameweeks (GW${gw - 1}/GW${gw}).`);
+    }
+    return [...new Set(errors)];
+}
+function validateSquad(squad, availableTenths = exports.RULES_2026_27.maxBudgetTenths) {
+    const errors = [];
+    if (!Number.isInteger(availableTenths) || availableTenths < 0)
+        errors.push("Invalid budget.");
+    if (squad.length !== exports.RULES_2026_27.squadSize)
+        errors.push("Squad must contain 15 players.");
+    if (new Set(squad.map((p) => p.id)).size !== squad.length)
+        errors.push("Duplicate player in squad.");
+    let totalTenths = 0;
+    const clubs = new Map < number, number;
+     > ();
+    const positions = new Map < number, number;
+     > ();
+    for (const player of squad) {
+        if (!Number.isInteger(player.priceTenths) || player.priceTenths < 0)
+            errors.push(`Invalid price for player ${player.id}.`);
+        if (!Number.isInteger(player.team) || player.team < 1)
+            errors.push(`Invalid club for player ${player.id}.`);
+        totalTenths += player.priceTenths;
+        clubs.set(player.team, (clubs.get(player.team) ?? 0) + 1);
+        positions.set(player.position, (positions.get(player.position) ?? 0) + 1);
+    }
+    for (const [club, count] of clubs)
+        if (count > exports.RULES_2026_27.maxPerClub)
+            errors.push(`Club ${club} has ${count} players; maximum three.`);
+    for (const [position, required] of Object.entries(exports.RULES_2026_27.positionCounts)) {
+        if ((positions.get(Number(position)) ?? 0) !== required)
+            errors.push(`Position ${position} must have ${required} players.`);
+    }
+    if (totalTenths > availableTenths)
+        errors.push(`Squad exceeds available budget by ${totalTenths - availableTenths} tenths.`);
+    return { legal: errors.length === 0, errors, totalTenths };
+}
+function advanceTransferState(freeTransfers, transfersMade, chip) {
+    const hitPoints = (0, scoring_1.pointsHit)(transfersMade, freeTransfers, chip === "wc" || chip === "fh");
+    return { freeTransfersNext: (0, scoring_1.nextFreeTransfers)(freeTransfers, transfersMade, chip), hitPoints };
+}
+function transferBankAfterSale(purchasePriceTenths, currentPriceTenths, bankTenths) {
+    if (!Number.isInteger(bankTenths) || bankTenths < 0)
+        throw new RangeError("Invalid bank balance.");
+    return bankTenths + (0, scoring_1.sellingPrice)(purchasePriceTenths, currentPriceTenths);
+}
+
+},
+"/model/strategyEngine.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.applyTransfers = applyTransfers;
+exports.searchPlanningHorizon = searchPlanningHorizon;
+exports.planChipOpportunities = planChipOpportunities;
+const seasonRules_1 = require("./seasonRules");
+const scoring_1 = require("./scoring");
+/** Atomic changes: invalid transfers do not mutate the original squad or bank. */
+function applyTransfers(initial, moves, chip) {
+    const errors = [];
+    if (initial.gw < 1 || initial.gw > 38 || !Number.isInteger(initial.bankTenths) || initial.bankTenths < 0)
+        errors.push("Invalid starting ledger.");
+    const usedChips = chip ? [...initial.chipsUsed, { gw: initial.gw, chip }] : [...initial.chipsUsed];
+    errors.push(...(0, seasonRules_1.validateSeasonChipPlan)(usedChips));
+    if (new Set(moves.map((move) => move.out)).size !== moves.length)
+        errors.push("Cannot sell one player twice.");
+    if (new Set(moves.map((move) => move.in.id)).size !== moves.length)
+        errors.push("Cannot buy one player twice.");
+    const outgoing = new Set(moves.map((move) => move.out));
+    for (const move of moves)
+        if (!initial.squad.some((player) => player.id === move.out))
+            errors.push(`Player ${move.out} is not owned.`);
+    if (errors.length)
+        return { valid: false, errors, next: null, hitPoints: 0 };
+    const remaining = initial.squad.filter((player) => !outgoing.has(player.id));
+    const spendableTenths = initial.bankTenths + initial.squad.filter((player) => outgoing.has(player.id)).reduce((sum, p) => sum + (0, scoring_1.sellingPrice)(p.boughtAtTenths, p.priceTenths), 0);
+    const buys = moves.map(({ in: player }) => ({ ...player, boughtAtTenths: player.priceTenths }));
+    const bankTenths = spendableTenths - buys.reduce((sum, player) => sum + player.priceTenths, 0);
+    if (bankTenths < 0)
+        errors.push(`Not enough funds: short ${-bankTenths} tenths.`);
+    const squad = [...remaining, ...buys];
+    const squadErrors = (0, seasonRules_1.validateSquad)(squad, Math.max(0, bankTenths) + squad.reduce((sum, player) => sum + player.priceTenths, 0));
+    errors.push(...squadErrors.errors);
+    if (errors.length)
+        return { valid: false, errors, next: null, hitPoints: 0 };
+    const transfer = (0, seasonRules_1.advanceTransferState)(initial.freeTransfers, moves.length, chip);
+    return { valid: true, errors: [], hitPoints: transfer.hitPoints,
+        next: { squad: chip === "fh" ? [...initial.squad] : squad, bankTenths: chip === "fh" ? initial.bankTenths : bankTenths, freeTransfers: transfer.freeTransfersNext, gw: initial.gw + 1,
+            chipsUsed: usedChips, totalHits: initial.totalHits + transfer.hitPoints } };
+}
+/** A bounded beam search: retained states are ranked, not claimed globally optimal. */
+function searchPlanningHorizon(initial, optionsAt, horizon, beamWidth = 8) {
+    if (!Number.isInteger(horizon) || horizon < 1 || horizon > 38 || initial.gw + horizon - 1 > 38)
+        throw new RangeError("Invalid planning horizon.");
+    if (!Number.isInteger(beamWidth) || beamWidth < 1 || beamWidth > 64)
+        throw new RangeError("Invalid beam width.");
+    let frontier = [{ ledger: initial, score: 0, actions: [] }];
+    for (let offset = 0; offset < horizon; offset++) {
+        const next = [];
+        for (const current of frontier) {
+            for (const action of optionsAt(current.ledger).slice(0, 80)) {
+                if (!Number.isFinite(action.expectedGwPoints) || !action.modelRunId)
+                    continue;
+                const outcome = applyTransfers(current.ledger, action.moves, action.chip);
+                if (outcome.valid && outcome.next)
+                    next.push({ ledger: outcome.next, score: current.score + action.expectedGwPoints - outcome.hitPoints,
+                        actions: [...current.actions, action] });
+            }
+        }
+        next.sort((left, right) => right.score - left.score || left.ledger.totalHits - right.ledger.totalHits);
+        if (!next.length)
+            return [];
+        frontier = next.slice(0, beamWidth);
+    }
+    return frontier;
+}
+/** Exact scheduling of supplied additive chip gains; interactions still require joint squad simulations. */
+function planChipOpportunities(opportunities, previouslyUsed = []) {
+    const errors = (0, seasonRules_1.validateSeasonChipPlan)(previouslyUsed);
+    if (errors.length)
+        throw new RangeError(errors.join(" "));
+    const types = ["wc", "fh", "bb", "tc"];
+    const bit = (gw, chip) => 1 << ((gw <= 19 ? 0 : 4) + types.indexOf(chip));
+    const booked = new Map(previouslyUsed.map(use => [use.gw, use.chip]));
+    const initialMask = previouslyUsed.reduce((mask, use) => mask | bit(use.gw, use.chip), 0);
+    let states = [{ mask: initialMask, previousFreeHit: false, score: 0, selected: [] }];
+    for (let gw = 1; gw <= 38; gw++) {
+        const candidates = opportunities.filter(option => option.gw === gw && types.includes(option.chip) &&
+            Number.isFinite(option.estimatedIncrementalPoints) && Number.isFinite(option.costOfFutureOption ?? 0));
+        const next = new Map < string, Schedule;
+         > ();
+        const retain = (candidate) => {
+            const key = `${candidate.mask}:${Number(candidate.previousFreeHit)}`;
+            if (!next.has(key) || candidate.score > (next.get(key)?.score ?? Number.NEGATIVE_INFINITY))
+                next.set(key, candidate);
+        };
+        for (const state of states) {
+            retain({ ...state, previousFreeHit: booked.get(gw) === "fh" });
+            if (booked.has(gw))
+                continue;
+            for (const candidate of candidates) {
+                const gain = candidate.estimatedIncrementalPoints - (candidate.costOfFutureOption ?? 0);
+                if (gain <= 0 || (state.mask & bit(gw, candidate.chip)) ||
+                    (candidate.chip === "fh" && (gw === 1 || state.previousFreeHit || booked.get(gw + 1) === "fh")))
+                    continue;
+                retain({ mask: state.mask | bit(gw, candidate.chip), previousFreeHit: candidate.chip === "fh", score: state.score + gain,
+                    selected: [...state.selected, { chip: candidate.chip, gw, netExpectedGain: gain }] });
+            }
+        }
+        states = [...next.values()];
+    }
+    const best = states.reduce((current, candidate) => candidate.score > current.score ? candidate : current);
+    return best.selected.map(candidate => ({ ...candidate, netExpectedGain: Math.round(candidate.netExpectedGain * 100) / 100 }));
+}
+
+},
+"/model/types.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},
+"/model/xpts.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SHRINK_90S = exports.DEFAULT_PRIORS = void 0;
+exports.computePositionPriors = computePositionPriors;
+exports.estimateMinutesProb = estimateMinutesProb;
+exports.computePlayerXPts = computePlayerXPts;
+exports.computeSellingPrices = computeSellingPrices;
+exports.computeFreeTransfers = computeFreeTransfers;
+exports.runBacktest = runBacktest;
+const scoring_1 = require("./scoring");
+const minutes_1 = require("./minutes");
+const playerModel_1 = require("./playerModel");
+/** Provisional fallback position rates, not a historically fitted production model.
+ * Callers pass computePositionPriors(elements) to use their current snapshot. */
+exports.DEFAULT_PRIORS = {
+    1: { xg: 0.0, goals: 0.0, xa: 0.003, assists: 0.008, xgc: 1.515, cs: 0.271, bonus: 0.254, bps: 15.737, defc: 0.0, saves: 2.949, yc: 0.034, rc: 0.0 },
+    2: { xg: 0.067, goals: 0.058, xa: 0.058, assists: 0.072, xgc: 1.522, cs: 0.27, bonus: 0.214, bps: 13.194, defc: 7.639, saves: 0.0, yc: 0.182, rc: 0.006 },
+    3: { xg: 0.167, goals: 0.169, xa: 0.128, assists: 0.177, xgc: 1.511, cs: 0.313, bonus: 0.319, bps: 20.727, defc: 8.276, saves: 0.0, yc: 0.189, rc: 0.009 },
+    4: { xg: 0.455, goals: 0.353, xa: 0.065, assists: 0.189, xgc: 1.541, cs: 0.304, bonus: 0.501, bps: 19.803, defc: 4.392, saves: 0.0, yc: 0.222, rc: 0.008 },
+};
+/** Pseudo-evidence, in full 90s, given to the position average before a player's own data. */
+exports.SHRINK_90S = 4;
+/**
+ * Minutes-weighted per-90 averages by position across all players with minutes.
+ * Computed from the data in hand, so it adapts to a new season or rule change.
+ */
+function computePositionPriors(elements) {
+    const acc = {};
+    for (const el of elements) {
+        if (el.element_type > 4 || el.minutes <= 0)
+            continue;
+        const a = (acc[el.element_type] ??= {
+            xg: 0, goals: 0, xa: 0, assists: 0, xgc: 0, cs: 0, bonus: 0, bps: 0, defc: 0,
+            saves: 0, yc: 0, rc: 0, n90: 0,
+        });
+        a.n90 += el.minutes / 90;
+        a.xg += parseFloat(el.expected_goals) || 0;
+        a.goals += el.goals_scored;
+        a.xa += parseFloat(el.expected_assists) || 0;
+        a.assists += el.assists;
+        a.xgc += parseFloat(el.expected_goals_conceded) || 0;
+        a.cs += el.clean_sheets;
+        a.bonus += el.bonus;
+        a.bps += el.bps;
+        a.defc += el.defensive_contribution;
+        a.saves += el.saves;
+        a.yc += el.yellow_cards;
+        a.rc += el.red_cards;
+    }
+    const out = {};
+    for (const pos of [1, 2, 3, 4]) {
+        const a = acc[pos];
+        const d = a && a.n90 > 0 ? a.n90 : 0;
+        const rate = (v, fallback) => (d > 0 && v !== undefined ? v / d : fallback);
+        const f = exports.DEFAULT_PRIORS[pos];
+        out[pos] = {
+            xg: rate(a?.xg, f.xg), goals: rate(a?.goals, f.goals), xa: rate(a?.xa, f.xa),
+            assists: rate(a?.assists, f.assists), xgc: rate(a?.xgc, f.xgc), cs: rate(a?.cs, f.cs),
+            bonus: rate(a?.bonus, f.bonus), bps: rate(a?.bps, f.bps), defc: rate(a?.defc, f.defc),
+            saves: rate(a?.saves, f.saves), yc: rate(a?.yc, f.yc), rc: rate(a?.rc, f.rc),
+        };
+    }
+    return out;
+}
+/** Posterior rate: the player's own total blended with the position average. */
+function shrink(total, nineties, priorRate) {
+    return (total + priorRate * exports.SHRINK_90S) / (nineties + exports.SHRINK_90S);
+}
+function estimateMinutesProb(el, teamGamesPlayed, gwOffset = 0) {
+    const { p60, pSub, confidence } = (0, minutes_1.estimateMinutesDistribution)(el, teamGamesPlayed, gwOffset);
+    return { p60, pSub, confidence };
+}
+/**
+ * Compute expected points (xPts) breakdown for a single player in a given GW.
+ * Uses per-90 xG, xA, xGC, clean sheets, saves, bonus, defensive contribution, cards,
+ * fixture difficulty, home/away, injury status, and fixture count (blanks & doubles).
+ */
+function computePlayerXPts(el, gw, fixtures, teamsMap, teamGamesPlayed = 5, gwOffset = 0, priors = exports.DEFAULT_PRIORS, minutesEvidence) {
+    const epNext = parseFloat(el.ep_next) || 0;
+    const teamFixtures = fixtures.filter((f) => f.event === gw && (f.team_h === el.team || f.team_a === el.team));
+    if (teamFixtures.length === 0 || el.element_type > 4) {
+        return {
+            elementId: el.id,
+            gw,
+            p60: 0,
+            pSub: 0,
+            appearancePts: 0,
+            goalPts: 0,
+            assistPts: 0,
+            cleanSheetPts: 0,
+            bonusPts: 0,
+            defensivePts: 0,
+            savePts: 0,
+            cardPts: 0,
+            csProb: 0,
+            xPts: 0,
+            epNext,
+            confidence: 88,
+            fixtureCount: 0,
+            fixturesLabel: "BLANK",
+            fixtureModels: [],
+            otherPts: 0,
+        };
+    }
+    const minutes = (0, minutes_1.estimateMinutesDistribution)(el, teamGamesPlayed, gwOffset, minutesEvidence);
+    const { p60, pSub, confidence } = minutes;
+    const n90 = el.minutes / 90;
+    const pr = priors[el.element_type] ?? exports.DEFAULT_PRIORS[el.element_type] ?? exports.DEFAULT_PRIORS[3];
+    // Every per-90 rate is shrunk toward the position average so a handful of minutes can't
+    // produce an extreme rate. Players with a full season of data are barely affected.
+    const xg90 = shrink(parseFloat(el.expected_goals) || 0, n90, pr.xg);
+    const xa90 = shrink(parseFloat(el.expected_assists) || 0, n90, pr.xa);
+    const xgc90 = shrink(parseFloat(el.expected_goals_conceded) || 0, n90, pr.xgc);
+    const actualG90 = shrink(el.goals_scored, n90, pr.goals);
+    const actualA90 = shrink(el.assists, n90, pr.assists);
+    // Blend xG/90 (75%) with actual finishing/90 (25%)
+    const blendedG90 = 0.75 * xg90 + 0.25 * actualG90;
+    const blendedA90 = 0.75 * xa90 + 0.25 * actualA90;
+    const bonus90 = shrink(el.bonus, n90, pr.bonus);
+    const bps90 = shrink(el.bps, n90, pr.bps);
+    const expectedBonusPer90 = 0.65 * bonus90 + 0.35 * Math.min(2.0, Math.max(0, (bps90 - 14) / 12));
+    const saves90 = shrink(el.saves, n90, pr.saves);
+    const yc90 = Math.min(0.45, shrink(el.yellow_cards, n90, pr.yc));
+    const rc90 = Math.min(0.06, shrink(el.red_cards, n90, pr.rc));
+    const csObs90 = shrink(el.clean_sheets, n90, pr.cs);
+    const fixtureModels = [];
+    const labels = [];
+    const totals = { appearancePts: 0, goalPts: 0, assistPts: 0, cleanSheetPts: 0, bonusPts: 0, defensivePts: 0, savePts: 0, cardPts: 0, otherPts: 0 };
+    let csProbSum = 0;
+    for (const fx of [...teamFixtures].sort((first, second) => first.id - second.id)) {
+        const isHome = fx.team_h === el.team;
+        const difficulty = isHome ? fx.team_h_difficulty : fx.team_a_difficulty;
+        if (!Number.isFinite(difficulty) || difficulty < 1 || difficulty > 5)
+            throw new RangeError("Invalid fixture difficulty.");
+        const opponent = teamsMap.get(isHome ? fx.team_a : fx.team_h);
+        labels.push(`${opponent?.short_name ?? "?"} (${isHome ? "H" : "A"})`);
+        const attackMultiplier = (isHome ? 1.06 : 0.94) * (1 + (3 - difficulty) * 0.11);
+        const defenseMultiplier = (isHome ? 0.91 : 1.09) * (1 + (difficulty - 3) * 0.14);
+        const conceded = Math.max(0.45, xgc90 * defenseMultiplier);
+        const fullMatchCleanSheet = 0.7 * Math.exp(-conceded) + 0.3 * Math.min(0.6, csObs90);
+        const model = {
+            fixtureId: fx.id, position: el.element_type, minutes,
+            goals90: blendedG90 * attackMultiplier,
+            assists90: blendedA90 * attackMultiplier,
+            conceded90: -Math.log(fullMatchCleanSheet),
+            saves90: saves90 * (1 + (difficulty - 3) * 0.14),
+            bonus90: expectedBonusPer90 * (0.5 + 0.5 * (1 + (3 - difficulty) * 0.11)),
+            defensiveActions90: shrink(el.defensive_contribution, n90, pr.defc),
+            defensiveDispersion: 20,
+            yellow90: yc90, red90: rc90,
+            ownGoals90: shrink(el.own_goals ?? 0, n90, 0),
+            penaltyMisses90: shrink(el.penalties_missed ?? 0, n90, 0),
+            penaltySaves90: shrink(el.penalties_saved ?? 0, n90, 0),
+        };
+        const expectation = (0, playerModel_1.expectedFixturePoints)(model);
+        for (const component of Object.keys(totals))
+            totals[component] += expectation[component];
+        fixtureModels.push(model);
+        csProbSum += el.element_type <= 3 ? Math.exp(-model.conceded90 * minutes.minutes60 / 90) : 0;
+    }
+    const { appearancePts, goalPts, assistPts, cleanSheetPts, bonusPts, defensivePts, savePts, cardPts, otherPts } = totals;
+    const xPts = Math.round(Object.values(totals).reduce((sum, points) => sum + points, 0) * 100) / 100;
+    return {
+        elementId: el.id,
+        gw,
+        p60,
+        pSub,
+        appearancePts: Math.round(appearancePts * 100) / 100,
+        goalPts: Math.round(goalPts * 100) / 100,
+        assistPts: Math.round(assistPts * 100) / 100,
+        cleanSheetPts: Math.round(cleanSheetPts * 100) / 100,
+        bonusPts: Math.round(bonusPts * 100) / 100,
+        defensivePts: Math.round(defensivePts * 100) / 100,
+        savePts: Math.round(savePts * 100) / 100,
+        cardPts: Math.round(cardPts * 100) / 100,
+        csProb: Math.round((csProbSum / teamFixtures.length) * 1000) / 1000,
+        xPts,
+        epNext,
+        confidence,
+        fixtureCount: teamFixtures.length,
+        fixturesLabel: labels.join(", "),
+        fixtureModels,
+        otherPts: Math.round(otherPts * 100) / 100,
+    };
+}
+/**
+ * Compute official FPL selling price & purchase price for each player in the squad.
+ * Uses transfer history (most recent element_in_cost) or GW1 starting price (now_cost - cost_change_start),
+ * then applies the 50% profit retention rule (floored to 0.1m).
+ */
+function computeSellingPrices(picks, transfers, elementsMap) {
+    const latestBuy = new Map < number, number;
+     > ();
+    // Sort transfers chronologically so later purchases overwrite earlier ones
+    const sorted = [...transfers].sort((a, b) => a.event - b.event);
+    for (const t of sorted) {
+        latestBuy.set(t.element_in, t.element_in_cost);
+    }
+    const sellingPrices = {};
+    const purchasePrices = {};
+    for (const p of picks) {
+        const el = elementsMap.get(p.element);
+        if (!el)
+            continue;
+        const startCost = el.now_cost - (el.cost_change_start ?? 0);
+        const purchase = latestBuy.get(el.id) ?? startCost;
+        purchasePrices[el.id] = purchase;
+        sellingPrices[el.id] = (0, scoring_1.sellingPrice)(purchase, el.now_cost);
+    }
+    return { sellingPrices, purchasePrices };
+}
+/**
+ * Compute how many free transfers the manager currently has banked for the upcoming GW (1..5).
+ */
+function computeFreeTransfers(history, startedEvent = 1) {
+    const gws = [...history.current].sort((a, b) => a.event - b.event);
+    const chipEvents = new Map < number, string;
+     > ();
+    for (const c of history.chips)
+        chipEvents.set(c.event, c.name);
+    let ft = 1;
+    for (const g of gws) {
+        if (g.event <= startedEvent) {
+            ft = 1;
+            continue;
+        }
+        const chip = chipEvents.get(g.event);
+        if (chip === "wildcard" || chip === "freehit") {
+            // Modern FPL rule (2024/25+): WC and FH preserve banked FTs
+            ft = (0, scoring_1.nextFreeTransfers)(ft, 0, chip === "wildcard" ? "wc" : "fh");
+        }
+        else {
+            const used = g.event_transfers ?? 0;
+            ft = (0, scoring_1.nextFreeTransfers)(ft, used);
+        }
+    }
+    return Math.max(1, Math.min(5, ft));
+}
+const emptyCum = () => ({
+    minutes: 0, starts: 0, goals: 0, assists: 0, cs: 0, bonus: 0, bps: 0, saves: 0,
+    yellow: 0, red: 0, xg: 0, xa: 0, xgc: 0, defc: 0, points: 0, apps: 0, ownGoals: 0, penaltySaves: 0, penaltyMisses: 0,
+});
+/** A player as they stood BEFORE a gameweek: stats rebuilt from earlier gameweeks only. */
+function asOfElement(el, c) {
+    const nineties = c.minutes / 90;
+    const per90 = (v) => (nineties > 0 ? v / nineties : 0);
+    return {
+        ...el,
+        minutes: c.minutes,
+        starts: c.starts,
+        goals_scored: c.goals,
+        assists: c.assists,
+        clean_sheets: c.cs,
+        saves: c.saves,
+        bonus: c.bonus,
+        bps: c.bps,
+        yellow_cards: c.yellow,
+        red_cards: c.red,
+        total_points: c.points,
+        defensive_contribution: c.defc,
+        own_goals: c.ownGoals,
+        penalties_saved: c.penaltySaves,
+        penalties_missed: c.penaltyMisses,
+        defensive_contribution_per_90: per90(c.defc),
+        clean_sheets_per_90: per90(c.cs),
+        saves_per_90: per90(c.saves),
+        expected_goals: c.xg.toFixed(2),
+        expected_assists: c.xa.toFixed(2),
+        expected_goals_conceded: c.xgc.toFixed(2),
+        expected_goals_per_90: per90(c.xg),
+        expected_assists_per_90: per90(c.xa),
+        expected_goals_conceded_per_90: per90(c.xgc),
+        // Injury / availability flags are not known historically: treat everyone as available.
+        status: "a",
+        chance_of_playing_next_round: null,
+        chance_of_playing_this_round: null,
+        ep_next: "0",
+        points_per_game: c.apps > 0 ? (c.points / c.apps).toFixed(2) : "0",
+    };
+}
+function spearman(a, b) {
+    const rank = (xs) => {
+        const idx = xs.map((v, i) => ({ v, i })).sort((p, q) => p.v - q.v);
+        const r = new Array < number > (xs.length);
+        for (let k = 0; k < idx.length;) {
+            let m = k;
+            while (m + 1 < idx.length && idx[m + 1].v === idx[k].v)
+                m++;
+            const avg = (k + m) / 2 + 1;
+            for (let t = k; t <= m; t++)
+                r[idx[t].i] = avg;
+            k = m + 1;
+        }
+        return r;
+    };
+    const ra = rank(a);
+    const rb = rank(b);
+    const n = a.length;
+    const ma = ra.reduce((x, y) => x + y, 0) / n;
+    const mb = rb.reduce((x, y) => x + y, 0) / n;
+    let cov = 0, va = 0, vb = 0;
+    for (let i = 0; i < n; i++) {
+        cov += (ra[i] - ma) * (rb[i] - mb);
+        va += (ra[i] - ma) ** 2;
+        vb += (rb[i] - mb) ** 2;
+    }
+    return va > 0 && vb > 0 ? cov / Math.sqrt(va * vb) : 0;
+}
+/** Gameweeks of history required before a gameweek is scored (1 GW of stats is mostly noise). */
+const BACKTEST_MIN_HISTORY = 2;
+/**
+ * Reconstructed-stats diagnostic, not a point-in-time benchmark: player/fixture metadata
+ * may be current and historical availability is unavailable. Earlier cumulative stats are scored
+ * against the real points. Players are chosen without looking at the outcome (>= 90 minutes
+ * played before the gameweek, and their team has a fixture), so players who then didn't
+ * play are scored too. The bar to beat is the stronger of two naive baselines.
+ * `predict` is overridable so model versions can be compared on identical data.
+ */
+function runBacktest(elements, fixtures, teamsMap, liveByGw, predict = computePlayerXPts, onSample) {
+    const gwsAll = [...liveByGw.keys()].sort((a, b) => a - b);
+    const empty = (verdict) => ({
+        gwsTested: [],
+        sampleSize: 0,
+        mae: 0,
+        rmse: 0,
+        epNextMae: 0,
+        within2PtsPct: 0,
+        rankCorrelation: 0,
+        quality: "moderate",
+        method: "reconstructed-history",
+        historicalContextComplete: false,
+        verdict,
+    });
+    if (gwsAll.length <= BACKTEST_MIN_HISTORY) {
+        return empty(`Walk-forward backtest needs more than ${BACKTEST_MIN_HISTORY} completed gameweeks of history; only ${gwsAll.length} available.`);
+    }
+    const cum = new Map < number, CumStats;
+     > ();
+    const gwsTested = [];
+    const preds = [];
+    const actuals = [];
+    let absErr = 0, sqErr = 0, baseAErr = 0, baseBErr = 0, within2 = 0;
+    let priorGws = 0;
+    for (const gw of gwsAll) {
+        const live = liveByGw.get(gw);
+        if (!live)
+            continue;
+        if (priorGws >= BACKTEST_MIN_HISTORY) {
+            let testedAny = false;
+            const actualPts = new Map < number, number;
+             > ();
+            for (const item of live.elements)
+                actualPts.set(item.id, item.stats.total_points);
+            // Everything below uses only information from before this gameweek, including the
+            // position averages used for shrinkage.
+            const asOf = new Map < number, SlimElement;
+             > ();
+            for (const el of elements)
+                asOf.set(el.id, asOfElement(el, cum.get(el.id) ?? emptyCum()));
+            const priors = computePositionPriors([...asOf.values()]);
+            for (const el of elements) {
+                if (el.element_type > 4)
+                    continue;
+                const c = cum.get(el.id);
+                if (!c || c.minutes < 90)
+                    continue; // chosen from the past only
+                const p = predict(asOf.get(el.id), gw, fixtures, teamsMap, priorGws, 0, priors);
+                if (p.fixtureCount === 0)
+                    continue;
+                const actual = actualPts.get(el.id) ?? 0;
+                const err = Math.abs(p.xPts - actual);
+                absErr += err;
+                sqErr += err * err;
+                if (err <= 2)
+                    within2++;
+                baseAErr += Math.abs((c.apps > 0 ? c.points / c.apps : 0) - actual); // points per appearance
+                baseBErr += Math.abs(c.points / priorGws - actual); // points per gameweek elapsed
+                preds.push(p.xPts);
+                actuals.push(actual);
+                onSample?.({ id: el.id, pos: el.element_type, gw, actual, breakdown: p });
+                testedAny = true;
+            }
+            if (testedAny)
+                gwsTested.push(gw);
+        }
+        // Only now fold this gameweek into the history.
+        for (const item of live.elements) {
+            const st = item.stats;
+            const c = cum.get(item.id) ?? emptyCum();
+            c.minutes += st.minutes;
+            c.starts += st.starts ?? 0;
+            c.goals += st.goals_scored;
+            c.assists += st.assists;
+            c.cs += st.clean_sheets;
+            c.bonus += st.bonus;
+            c.bps += st.bps;
+            c.saves += st.saves;
+            c.yellow += st.yellow_cards;
+            c.red += st.red_cards;
+            c.xg += parseFloat(st.expected_goals ?? "0") || 0;
+            c.xa += parseFloat(st.expected_assists ?? "0") || 0;
+            c.xgc += parseFloat(st.expected_goals_conceded ?? "0") || 0;
+            c.defc += st.defensive_contribution ?? 0;
+            c.points += st.total_points;
+            c.ownGoals += st.own_goals ?? 0;
+            c.penaltySaves += st.penalties_saved ?? 0;
+            c.penaltyMisses += st.penalties_missed ?? 0;
+            if (st.minutes > 0)
+                c.apps += 1;
+            cum.set(item.id, c);
+        }
+        priorGws++;
+    }
+    const n = preds.length;
+    if (n === 0)
+        return empty("Insufficient player appearances to score the walk-forward backtest.");
+    const r2 = (x) => Math.round(x * 100) / 100;
+    const mae = r2(absErr / n);
+    const rmse = r2(Math.sqrt(sqErr / n));
+    const baseA = r2(baseAErr / n);
+    const baseB = r2(baseBErr / n);
+    const baselineMae = Math.min(baseA, baseB);
+    const baselineName = baseA <= baseB ? "points per appearance" : "points per gameweek";
+    const within2PtsPct = Math.round((within2 / n) * 100);
+    const rho = r2(spearman(preds, actuals));
+    const ratio = baselineMae === 0 ? (mae === 0 ? 1 : Number.POSITIVE_INFINITY) : mae / baselineMae;
+    const quality = ratio <= 0.97 ? "good" : ratio <= 1.03 ? "moderate" : "poor";
+    const beats = mae < baselineMae;
+    const scope = `Reconstructed-stats diagnostic, GW${gwsTested[0]}–GW${gwsTested[gwsTested.length - 1]} (${n} player-GWs). Player metadata and fixture context are current; historical availability is unavailable. This is not a frozen pre-deadline accuracy benchmark`;
+    const stats = `model MAE ${mae} pts vs ${baselineMae} for the naive "${baselineName}" baseline (RMSE ${rmse}, ${within2PtsPct}% within ±2, rank corr ${rho})`;
+    const verdict = quality === "good"
+        ? `${scope}: ${stats}. The model beats the baseline, but the sample is small — treat xPts as an Estimate.`
+        : quality === "moderate"
+            ? `${scope}: ${stats}. No clear edge over the baseline yet — treat xPts as an Estimate.`
+            : `${scope}: ${stats}. The model is currently WORSE than the baseline — don't over-trust single-gameweek xPts.`;
+    return {
+        gwsTested,
+        sampleSize: n,
+        mae,
+        rmse,
+        epNextMae: baselineMae,
+        baselineName,
+        modelBeatsBaseline: beats,
+        method: "reconstructed-history",
+        historicalContextComplete: false,
+        within2PtsPct,
+        rankCorrelation: rho,
+        quality,
+        verdict,
+    };
+}
+
+},
+"/app.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const dashboard_js_1 = require("/dashboard.js");
+const xpts_js_1 = require("/model/xpts.js");
+const forecastScience_js_1 = require("/model/forecastScience.js");
+const lineup_js_1 = require("/model/lineup.js");
+const seasonRules_js_1 = require("/model/seasonRules.js");
+const monteCarlo_js_1 = require("/model/monteCarlo.js");
+const forecastBenchmark_js_1 = require("/model/forecastBenchmark.js");
+const $ = selector => document.querySelector(selector);
+const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+const fixed = (value, digits = 2) => Number.isFinite(value) ? value.toFixed(digits) : '—';
+const positionName = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+const state = { bootstrap: null, fixtures: [], rows: [], selected: null, horizon: 1, sort: 'points', direction: -1, squad: [], source: 'sample', capturedAt: '', weeks: [] };
+try {
+    const saved = JSON.parse(localStorage.getItem('vortex-test-squad') ?? '[]');
+    if (Array.isArray(saved))
+        state.squad = saved.filter(id => Number.isInteger(id) && id > 0).slice(0, 15);
+}
+catch { }
+let toastTimer;
+function toast(message) { $('#toast').textContent = message; $('#toast').style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').style.display = 'none', 6000); }
+function persistSquad() { try {
+    localStorage.setItem('vortex-test-squad', JSON.stringify(state.squad));
+}
+catch {
+    toast('Browser storage is unavailable. Your current squad still works in this session.');
+} }
+function download(name, content, type = 'application/json') { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+function sampleData() {
+    const clubs = ['Northbridge', 'Westhaven', 'Riverside', 'Eastfield', 'Southbank', 'Kingswood'];
+    const teams = clubs.map((name, index) => ({ id: index + 1, short_name: name.slice(0, 3).toUpperCase(), name }));
+    const names = ['Rivers', 'Vale', 'Stone', 'Reed', 'Lane', 'Brooks', 'Shaw', 'Wells', 'Gray', 'Park'];
+    const positions = [1, 1, 2, 2, 2, 3, 3, 3, 4, 4];
+    const elements = Array.from({ length: 60 }, (_, index) => { const seed = (index * 17 + 13) % 29; return { id: index + 1, web_name: `${String.fromCharCode(65 + index % 20)}. ${names[index % 10]}`, team: Math.floor(index / 10) + 1, element_type: positions[index % 10], now_cost: 42 + seed, status: 'a', starts: seed % 6 + 1, minutes: (seed % 6 + 1) * 77, total_points: seed + 9, expected_goals: String(seed / 14), expected_assists: String(seed / 23), expected_goals_conceded: '8.5', goals_scored: Math.floor(seed / 8), assists: Math.floor(seed / 10), clean_sheets: 2, bonus: seed % 5, bps: 90 + seed, defensive_contribution: 30 + seed * 2, saves: positions[index % 10] === 1 ? 17 : 0, yellow_cards: seed % 3, red_cards: 0, own_goals: 0, penalties_saved: 0, penalties_missed: 0, selected_by_percent: String(seed / 2), ep_next: '0', chance_of_playing_next_round: null }; });
+    const events = Array.from({ length: 17 }, (_, index) => ({ id: index + 1, finished: index < 7, is_next: index === 7, deadline_time: new Date(Date.now() + (index - 6) * 7 * 86400000).toISOString() }));
+    const fixtures = events.flatMap(event => [1, 3, 5].map(team => ({ id: event.id * 10 + team, event: event.id, team_h: team, team_a: team + 1, team_h_difficulty: 2 + event.id % 3, team_a_difficulty: 3, finished: event.finished, kickoff_time: event.deadline_time })));
+    return { bootstrap: { events, teams, elements }, fixtures };
+}
+function normalizedPlayer(raw) {
+    const numeric = ['minutes', 'starts', 'goals_scored', 'assists', 'clean_sheets', 'saves', 'bonus', 'bps', 'defensive_contribution', 'yellow_cards', 'red_cards', 'own_goals', 'penalties_saved', 'penalties_missed', 'cost_change_start'];
+    const player = { ...raw };
+    for (const field of numeric)
+        player[field] = Math.max(0, Number(raw[field]) || 0);
+    for (const field of ['expected_goals', 'expected_assists', 'expected_goals_conceded'])
+        player[field] = String(Math.max(0, Number(raw[field]) || 0));
+    player.status = typeof raw.status === 'string' ? raw.status : 'a';
+    player.chance_of_playing_next_round = raw.chance_of_playing_next_round == null ? null : Math.max(0, Math.min(100, Number(raw.chance_of_playing_next_round) || 0));
+    return player;
+}
+function loadData(data, source) {
+    if (!data?.bootstrap || !Array.isArray(data.bootstrap.elements) || !Array.isArray(data.bootstrap.teams) || !Array.isArray(data.bootstrap.events) || !Array.isArray(data.fixtures) || data.bootstrap.elements.length > 2000 || data.fixtures.length > 1500)
+        throw new Error('Expected JSON with bootstrap {elements, teams, events} and fixtures arrays.');
+    const players = data.bootstrap.elements.filter(player => Number.isInteger(player.id) && Number.isInteger(player.team) && [1, 2, 3, 4].includes(player.element_type) && Number.isFinite(player.now_cost)).map(normalizedPlayer);
+    if (!players.length || new Set(players.map(player => player.id)).size !== players.length)
+        throw new Error('Player data is empty or has duplicate identifiers.');
+    state.bootstrap = { ...data.bootstrap, elements: players };
+    state.fixtures = data.fixtures;
+    state.source = source;
+    state.capturedAt = new Date().toISOString();
+    recalculate();
+    dashboard.onDataLoaded();
+    const sample = source === 'sample';
+    $('#data-banner').classList.toggle('sample', sample);
+    $('#data-message').textContent = sample ? 'Illustrative test data · fictional players, not live FPL forecasts' : source === 'imported' ? 'Imported snapshot · calculations run in your browser' : 'Official FPL data · independent, unvalidated VORTEX forecasts';
+    $('#data-time').textContent = 'Retrieved ' + new Date(state.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function recalculate() {
+    const bootstrap = state.bootstrap;
+    if (!bootstrap)
+        return;
+    const next = bootstrap.events.find(event => event.is_next) ?? bootstrap.events.find(event => !event.finished) ?? bootstrap.events.at(-1);
+    if (!next)
+        throw new Error('No gameweek schedule was provided.');
+    state.weeks = bootstrap.events.filter(event => event.id >= next.id).slice(0, state.horizon);
+    const teams = new Map(bootstrap.teams.map(team => [team.id, team]));
+    const priors = (0, xpts_js_1.computePositionPriors)(bootstrap.elements);
+    const matches = new Map();
+    for (const fixture of state.fixtures) {
+        if (!fixture.finished)
+            continue;
+        for (const team of [fixture.team_h, fixture.team_a])
+            matches.set(team, (matches.get(team) ?? 0) + 1);
+    }
+    state.rows = bootstrap.elements.map(player => {
+        const weekly = state.weeks.map((event, index) => (0, xpts_js_1.computePlayerXPts)(player, event.id, state.fixtures, teams, matches.get(player.team) ?? 0, index, priors));
+        return { id: player.id, player, name: player.web_name ?? 'Unnamed player', club: teams.get(player.team)?.short_name ?? '—', clubName: teams.get(player.team)?.name ?? 'Unknown club', position: player.element_type, price: player.now_cost / 10, points: weekly.reduce((sum, week) => sum + week.xPts, 0), minutes: (0, forecastScience_js_1.forecastMinutes)(player, matches.get(player.team) ?? 0).expectedMinutes, ownership: parseFloat(player.selected_by_percent) || 0, weekly };
+    });
+    if (!state.rows.some(row => row.id === state.selected))
+        state.selected = [...state.rows].sort((first, second) => second.points - first.points)[0]?.id;
+    $('#metric-gw').textContent = 'GW ' + next.id;
+    $('#metric-deadline').textContent = 'Deadline ' + new Date(next.deadline_time).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const best = [...state.rows].sort((first, second) => second.weekly[0].xPts - first.weekly[0].xPts)[0];
+    $('#metric-xpts').textContent = fixed(best?.weekly[0].xPts);
+    $('#metric-player').textContent = best?.name ?? 'No players';
+    $('#metric-pool').textContent = state.rows.length;
+    const firstYear = new Date(bootstrap.events[0].deadline_time).getUTCFullYear();
+    $('#season-label').textContent = state.source === 'sample' ? 'ILLUSTRATIVE SANDBOX' : `${firstYear}/${String(firstYear + 1).slice(2)} SEASON`;
+    renderTable();
+    renderDetail();
+    renderSquad();
+    dashboard.render();
+}
+function renderTable() {
+    const query = $('#search').value.trim().toLowerCase();
+    const position = Number($('#position').value);
+    const rows = state.rows.filter(row => (!position || row.position === position) && (!query || `${row.name} ${row.clubName}`.toLowerCase().includes(query))).sort((first, second) => {
+        const left = first[state.sort], right = second[state.sort];
+        return (typeof left === 'string' ? left.localeCompare(right) : left - right) * state.direction || first.id - second.id;
+    });
+    $('#players-body').innerHTML = rows.slice(0, 150).map(row => `<tr data-player="${row.id}" class="${state.selected === row.id ? 'selected' : ''}"><td><div class="player-cell"><span class="avatar">${positionName[row.position]}</span><span><strong>${escape(row.name)}</strong><small>${escape(row.club)} · ${escape(row.weekly[0]?.fixturesLabel)}</small></span></div></td><td>£${fixed(row.price, 1)}</td><td>${fixed(row.minutes, 0)}</td><td class="points">${fixed(row.points)}</td><td>${fixed(row.ownership, 1)}%</td><td><button class="add-player ${state.squad.includes(row.id) ? 'added' : ''}" data-add="${row.id}" aria-label="${state.squad.includes(row.id) ? 'Remove' : 'Add'} ${escape(row.name)}">${state.squad.includes(row.id) ? '✓' : '+'}</button></td></tr>`).join('') || '<tr><td colspan="6">No players match your filters.</td></tr>';
+    $('#table-footer').textContent = `Showing ${Math.min(rows.length, 150)} of ${rows.length} players · ${state.weeks.length} gameweek horizon · estimates, not guaranteed returns`;
+}
+function renderDetail() {
+    const row = state.rows.find(player => player.id === state.selected);
+    if (!row)
+        return;
+    const forecast = row.weekly[0];
+    const components = [['Appearance', forecast.appearancePts], ['Goals', forecast.goalPts], ['Assists', forecast.assistPts], ['Clean sheets / conceded', forecast.cleanSheetPts], ['Bonus', forecast.bonusPts], ['Defensive contribution', forecast.defensivePts], ['Saves / penalty saves', forecast.savePts], ['Cards & other losses', forecast.cardPts + (forecast.otherPts ?? 0)]];
+    $('#player-detail').innerHTML = `<div class="detail-name"><h3>${escape(row.name)}</h3><p>${escape(row.clubName)} · ${positionName[row.position]} · £${fixed(row.price, 1)}m</p></div><div class="big-forecast"><strong>${fixed(forecast.xPts)}</strong><span>expected points</span></div><div class="breakdown">${components.map(([name, value]) => `<div class="breakdown-row"><span>${name}</span><strong>${fixed(value)}</strong></div>`).join('')}</div><p class="player-note">P(60+ min): ${fixed(forecast.p60 * 100, 1)}%<br>P(short appearance): ${fixed(forecast.pSub * 100, 1)}%<br>Availability: ${escape(row.player.status)}<br>${escape(row.player.news || 'No additional news supplied.')}</p><div class="mini-bars">${row.weekly.map(week => `<div style="height:${Math.max(3, week.xPts / Math.max(1, ...row.weekly.map(item => item.xPts)) * 55)}px" title="GW${week.gw}: ${fixed(week.xPts)} xPts"></div>`).join('')}</div><div class="mini-label">Forecast by gameweek · uncertainty increases with horizon</div>`;
+    $('#simulation-player').textContent = `${row.name} · ${forecast.fixturesLabel} · ${fixed(forecast.xPts)} xPts`;
+}
+function toggleSquad(id) {
+    if (state.squad.includes(id))
+        state.squad = state.squad.filter(existing => existing !== id);
+    else {
+        if (state.squad.length >= 15) {
+            toast('Your test squad already has 15 players.');
+            return;
+        }
+        state.squad.push(id);
+    }
+    persistSquad();
+    renderSquad();
+    renderTable();
+}
+function squadRows() { return state.squad.map(id => state.rows.find(row => row.id === id)).filter(Boolean); }
+function renderSquad() {
+    const rows = squadRows();
+    $('#squad-count').textContent = rows.length;
+    const cost = rows.reduce((sum, row) => sum + row.price, 0);
+    $('#squad-budget').textContent = `£${fixed(cost, 1)}m / £100.0m`;
+    $('#squad-list').innerHTML = rows.map(row => `<div><span>${positionName[row.position]} · ${escape(row.name)} <small>£${fixed(row.price, 1)}m</small></span><button data-add="${row.id}" class="quiet" aria-label="Remove ${escape(row.name)}">Remove</button></div>`).join('');
+    $('#pitch').innerHTML = rows.length ? [1, 2, 3, 4].map(position => `<div class="pitch-row">${rows.filter(row => row.position === position).map(row => `<div class="pitch-player">${escape(row.name)}<small>${fixed(row.weekly[0].xPts)} xPts</small></div>`).join('')}</div>`).join('') : '<p>Select players using + in the forecasts table.</p>';
+    $('#squad-status').textContent = `${rows.length}/15 players selected`;
+    $('#squad-total').innerHTML = '—<small>Projected XI + captain</small>';
+    $('#solve-message').textContent = '';
+}
+function solveSquad() {
+    const rows = squadRows();
+    const validation = (0, seasonRules_js_1.validateSquad)(rows.map(row => ({ id: row.id, team: row.player.team, position: row.position, priceTenths: row.player.now_cost })), 1000);
+    if (!validation.legal) {
+        $('#solve-message').textContent = validation.errors.join(' ');
+        return;
+    }
+    const result = (0, lineup_js_1.solveLineupTS)(rows.map(row => row.id), new Map(rows.map(row => [row.id, row.player])), Object.fromEntries(rows.map(row => [row.id, row.weekly[0].xPts])));
+    $('#squad-total').innerHTML = `${fixed(result.totalXPts)}<small>Projected XI + captain · ${result.formation}</small>`;
+    const names = ids => ids.map(id => rows.find(row => row.id === id)?.name ?? id).join(', ');
+    $('#solve-message').textContent = `Captain: ${names([result.captainId])}. Vice: ${names([result.viceId])}. Bench order: ${names(result.bench)}.`;
+    $('#pitch').innerHTML = [1, 2, 3, 4].map(position => `<div class="pitch-row">${result.starters.map(id => rows.find(row => row.id === id)).filter(row => row.position === position).map(row => `<div class="pitch-player">${escape(row.name)}${row.id === result.captainId ? ' (C)' : ''}<small>${fixed(row.weekly[0].xPts)} xPts</small></div>`).join('')}</div>`).join('');
+}
+async function refresh() {
+    $('#refresh').disabled = true;
+    $('#refresh').textContent = 'Refreshing…';
+    try {
+        const responses = await Promise.all(['/api/bootstrap', '/api/fixtures'].map(url => fetch(url, { signal: AbortSignal.timeout(16000) })));
+        if (responses.some(response => !response.ok))
+            throw new Error('The official feed is currently unavailable. Import a snapshot or test with the clearly labelled illustrative data.');
+        const [bootstrap, fixtures] = await Promise.all(responses.map(response => response.json()));
+        loadData({ bootstrap, fixtures }, 'official');
+    }
+    catch (error) {
+        toast(error.message || 'Could not refresh data.');
+    }
+    finally {
+        $('#refresh').disabled = false;
+        $('#refresh').textContent = '↻ Refresh data';
+    }
+}
+function simulate() {
+    const row = state.rows.find(player => player.id === state.selected);
+    if (!row)
+        return;
+    const forecast = row.weekly[0];
+    try {
+        const sampled = (0, monteCarlo_js_1.samplePlayerGw)({ mean: forecast.xPts, p60: forecast.p60, pSub: forecast.pSub, fixtures: forecast.fixtureCount, csProb: forecast.csProb, cardLoss: -forecast.cardPts, team: row.player.team, position: row.position, fixtureModels: forecast.fixtureModels }, null, 10000, 20261024);
+        const points = Array.from(sampled.pts).sort((first, second) => first - second);
+        const counts = new Map();
+        for (const value of points)
+            counts.set(value, (counts.get(value) ?? 0) + 1);
+        const minimum = Math.min(-2, points[0]), maximum = Math.max(12, Math.min(35, points.at(-1)));
+        const maximumCount = Math.max(...counts.values(), 1);
+        $('#histogram').innerHTML = Array.from({ length: maximum - minimum + 1 }, (_, index) => index + minimum).map(value => `<div style="height:${Math.max(1, (counts.get(value) ?? 0) / maximumCount * 100)}%" title="${value} points: ${fixed((counts.get(value) ?? 0) / 100, 1)}%"><span>${value % 2 === 0 ? value : ''}</span></div>`).join('');
+        const mean = points.reduce((sum, value) => sum + value, 0) / points.length;
+        $('#simulation-result').innerHTML = [['Analytic xPts', forecast.xPts], ['Simulated mean', mean], ['10th percentile', points[1000]], ['90th percentile', points[9000]]].map(([label, value]) => `<div><strong>${fixed(value)}</strong><small>${label}</small></div>`).join('');
+        toast('10,000 deterministic draws complete. Distribution parameters remain unvalidated.');
+    }
+    catch (error) {
+        toast(error.message);
+    }
+}
+async function readJson(input) { const file = input.files?.[0]; if (!file)
+    return null; if (file.size > 12 * 1024 * 1024)
+    throw new Error('Please use a JSON file smaller than 12 MB.'); try {
+    return JSON.parse(await file.text());
+}
+catch {
+    throw new Error('The selected file is not valid JSON.');
+} }
+$('#data-import').addEventListener('change', async (event) => { try {
+    const data = await readJson(event.target);
+    if (data)
+        loadData(data, 'imported');
+}
+catch (error) {
+    toast(error.message);
+} event.target.value = ''; });
+$('#benchmark-import').addEventListener('change', async (event) => { try {
+    const data = await readJson(event.target);
+    if (!data)
+        return;
+    if (!Array.isArray(data.candidates) || !Array.isArray(data.references) || !Array.isArray(data.outcomes) || Math.max(data.candidates.length, data.references.length, data.outcomes.length) > 100000)
+        throw new Error('Provide candidates, references and outcomes arrays with at most 100,000 rows each.');
+    const result = (0, forecastBenchmark_js_1.compareFrozenForecasts)(data.candidates, data.references, data.outcomes);
+    $('#benchmark-result').textContent = `Result: ${result.verdict.replaceAll('_', ' ')}\nMatched: ${result.sampleSize} player-gameweeks across ${result.gameweeks} gameweeks\nVORTEX RMSE: ${fixed(result.candidate.rmse)} · Reference RMSE: ${fixed(result.reference.rmse)}\nVORTEX MAE: ${fixed(result.candidate.mae)} · Reference MAE: ${fixed(result.reference.mae)}\n95% interval for RMSE difference: ${result.rmseDifference95 ? result.rmseDifference95.map(value => fixed(value, 3)).join(' to ') : 'insufficient data'}\nRejected forecasts: ${result.rejectedCandidate + result.rejectedReference}\nThis evaluates your supplied sample; it does not establish future superiority.`;
+}
+catch (error) {
+    toast(error.message);
+} event.target.value = ''; });
+$('#benchmark-template').addEventListener('click', () => download('benchmark-input-format.json', JSON.stringify({ instructions: 'Use genuine frozen pre-deadline forecasts and observed outcomes. Both models must use the same target GW and information cutoff. Example schema only; empty arrays contain no benchmark evidence.', forecastSchema: { season: 'YYYY/YY', gw: 'integer 1–38', playerId: 'integer', issuedAt: 'ISO timestamp', deadlineAt: 'ISO timestamp', modelVersion: 'source/version', xPts: 'number', p60: 'optional probability' }, outcomeSchema: { season: 'YYYY/YY', gw: 'integer', playerId: 'integer', points: 'observed number', played60: 'optional boolean' }, candidates: [], references: [], outcomes: [] }, null, 2)));
+$('#export').addEventListener('click', () => { const firstYear = new Date(state.bootstrap.events[0].deadline_time).getUTCFullYear(); download('vortex-frozen-forecasts.json', JSON.stringify({ source: state.source, generatedAt: new Date().toISOString(), modelStatus: 'unvalidated', candidates: state.rows.flatMap(row => row.weekly.map(week => ({ season: `${firstYear}/${String(firstYear + 1).slice(2)}`, gw: week.gw, playerId: row.id, issuedAt: new Date().toISOString(), deadlineAt: state.bootstrap.events.find(event => event.id === week.gw).deadline_time, modelVersion: 'vortex-xpts-2026.27.2-math', xPts: week.xPts, p60: week.p60 }))), references: [], outcomes: [] }, null, 2)); });
+document.addEventListener('click', event => { const add = event.target.closest('[data-add]'); if (add) {
+    toggleSquad(Number(add.dataset.add));
+    return;
+} const row = event.target.closest('[data-player]'); if (row) {
+    state.selected = Number(row.dataset.player);
+    renderTable();
+    renderDetail();
+} const sort = event.target.closest('[data-sort]'); if (sort) {
+    state.direction = state.sort === sort.dataset.sort ? -state.direction : -1;
+    state.sort = sort.dataset.sort;
+    renderTable();
+} });
+const pageCopy = { dashboard: ['Dashboard', 'Dashboard', 'Current-gameweek review, fixtures and player intelligence.'], forecasts: ['Player forecasts', 'Find your next edge.', 'Explore the forecast. Inspect the assumptions. Make the decision.'], squad: ['Squad lab', 'Build the right balance.', 'A legal squad, a clear captain, and every point accounted for.'], math: ['Math & simulation', 'See the range of outcomes.', 'Expected points are an average. The distribution tells the rest.'], validation: ['Validation', 'Let the evidence decide.', 'Measure prediction quality before making an accuracy claim.'] };
+document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; document.body.classList.toggle('dashboard-mode', tab === 'dashboard'); document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === `view-${tab}`)); document.querySelectorAll('[data-tab]').forEach(item => { item.classList.toggle('active', item === button); item.setAttribute('aria-current', item === button ? 'page' : 'false'); }); const copy = pageCopy[tab]; $('#page-name').textContent = copy[0]; $('#page-title').textContent = copy[1]; $('#page-description').textContent = copy[2]; }));
+$('#search').addEventListener('input', renderTable);
+$('#position').addEventListener('change', renderTable);
+$('#horizon').addEventListener('change', event => { state.horizon = Number(event.target.value); try {
+    recalculate();
+}
+catch (error) {
+    toast(error.message);
+} });
+$('#refresh').addEventListener('click', refresh);
+$('#simulate').addEventListener('click', simulate);
+$('#solve').addEventListener('click', () => { try {
+    solveSquad();
+}
+catch (error) {
+    toast(error.message);
+} });
+$('#clear-squad').addEventListener('click', () => { state.squad = []; persistSquad(); renderSquad(); renderTable(); });
+const dashboard = (0, dashboard_js_1.createDashboard)(() => state, escape, toast);
+document.body.classList.add('dashboard-mode');
+$('#page-name').textContent = 'Dashboard';
+$('#page-title').textContent = 'Dashboard';
+$('#page-description').textContent = 'Current-gameweek review, fixtures and player intelligence.';
+loadData(sampleData(), 'sample');
+refresh();
+setInterval(() => { if (state.source !== 'imported')
+    refresh(); }, 15 * 60 * 1000);
+
+},
+"/dashboard.js":function(module,exports,require){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createDashboard = createDashboard;
+const dashboardMath_js_1 = require("/model/dashboardMath.js");
+const monteCarlo_js_1 = require("/model/monteCarlo.js");
+function createDashboard(getState, escape, toast) {
+    const root = document.querySelector('#dashboard-mount');
+    let gameweek = null, review = null, loading = false, requestVersion = 0, reviewError = '';
+    let analysis = false, projectionMetric = 'goals', projectionDirection = -1;
+    let topDirection = -1, transferSort = 'net', transferDirection = -1, injuryPage = 0, videos = [];
+    let manager = '145784';
+    try {
+        manager = localStorage.getItem('vortex-linked-manager') || manager;
+    }
+    catch { }
+    const money = value => '£' + (value / 10).toFixed(1) + 'm';
+    const number = (value, digits = 0) => Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: digits }) : '—';
+    const currentGw = state => state.bootstrap?.events.find(event => event.is_current)?.id ?? state.bootstrap?.currentEvent ?? state.bootstrap?.events.find(event => event.is_next)?.id ?? 1;
+    const teamMap = state => new Map(state.bootstrap.teams.map(team => [team.id, team]));
+    const date = value => value ? new Date(value).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'TBC';
+    const portrait = (player, large = false) => `<span class="portrait ${large ? 'large' : ''}"><span>${escape((player.web_name ?? '?').slice(0, 1))}</span>${player.code ? `<img loading="lazy" src="https://resources.premierleague.com/premierleague/photos/players/250x250/p${Number(player.code)}.png" alt="${escape(player.web_name)}">` : ''}</span>`;
+    const badge = team => team?.code ? `<img class="club-badge" loading="lazy" src="https://resources.premierleague.com/premierleague/badges/t${Number(team.code)}.png" alt="${escape(team.short_name)}">` : `<span class="club-placeholder">${escape(team?.short_name ?? '?')}</span>`;
+    const panel = (heading, content, extra = '', className = '') => `<section class="dash-card ${className}"><header><h2>${heading}</h2>${extra}</header>${content}</section>`;
+    const playerLine = (player, teams) => `<div class="dash-player-line">${portrait(player)}<span><strong>${escape(player.web_name)}</strong><small>${escape(teams.get(player.team)?.short_name ?? '?')} · ${{ 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' }[player.element_type]} · ${money(player.now_cost)}</small></span></div>`;
+    const metricButton = (name, label, active) => `<button class="${active ? 'selected' : ''}" data-projection="${name}">${label}</button>`;
+    async function fetchJson(url) { const response = await fetch(url, { signal: AbortSignal.timeout(16000) }); if (!response.ok)
+        throw new Error('The official gameweek feed is unavailable.'); return response.json(); }
+    async function loadReview() {
+        const state = getState();
+        if (state.source === 'sample') {
+            review = null;
+            render();
+            return;
+        }
+        const version = ++requestVersion;
+        loading = true;
+        review = null;
+        reviewError = '';
+        render();
+        try {
+            const [entry, picks, live, history] = await Promise.all([fetchJson(`/api/entry/${manager}`), fetchJson(`/api/picks/${manager}/${gameweek}`), fetchJson(`/api/live/${gameweek}`), fetchJson(`/api/history/${manager}`)]);
+            if (version !== requestVersion)
+                return;
+            if (!Array.isArray(picks.picks) || !Array.isArray(live.elements))
+                throw new Error('The gameweek response is incomplete.');
+            review = { entry, picks, live, history };
+        }
+        catch (error) {
+            if (version === requestVersion)
+                reviewError = error.message;
+        }
+        finally {
+            if (version === requestVersion) {
+                loading = false;
+                render();
+            }
+        }
+    }
+    function projections(state) {
+        const teams = teamMap(state);
+        const strengths = (0, dashboardMath_js_1.buildStrengths)(state.bootstrap.teams, state.bootstrap.elements, state.fixtures);
+        return state.fixtures.filter(fixture => fixture.event === gameweek).flatMap(fixture => {
+            const home = teams.get(fixture.team_h), away = teams.get(fixture.team_a);
+            if (!home || !away)
+                return [];
+            const projection = (0, dashboardMath_js_1.projectMatch)(strengths.get(home.id), strengths.get(away.id));
+            return [{ fixture, team: home, opponent: away, venue: 'H', goals: projection.homeXg, cs: projection.homeCs, win: projection.homeWin }, { fixture, team: away, opponent: home, venue: 'A', goals: projection.awayXg, cs: projection.awayCs, win: projection.awayWin }];
+        });
+    }
+    function renderReview(state, teams) {
+        const players = new Map(state.bootstrap.elements.map(player => [player.id, player]));
+        const live = new Map((review?.live.elements ?? []).map(element => [element.id, element.stats]));
+        let picks = review?.picks.picks ?? [];
+        if (state.source === 'sample') {
+            const positions = { 1: 0, 2: 0, 3: 0, 4: 0 };
+            const required = { 1: 2, 2: 5, 3: 5, 4: 3 };
+            const sample = [];
+            for (const player of state.bootstrap.elements)
+                if (positions[player.element_type] < required[player.element_type]) {
+                    positions[player.element_type]++;
+                    sample.push(player);
+                }
+            const starters = [...sample.filter(player => player.element_type === 1).slice(0, 1), ...sample.filter(player => player.element_type === 2).slice(0, 3), ...sample.filter(player => player.element_type === 3).slice(0, 4), ...sample.filter(player => player.element_type === 4).slice(0, 3)];
+            const ordered = [...starters, ...sample.filter(player => !starters.includes(player))];
+            picks = ordered.map((player, index) => ({ element: player.id, position: index + 1, is_captain: index === 8, is_vice_captain: index === 10, multiplier: index < 11 ? index === 8 ? 2 : 1 : 0 }));
+        }
+        const current = review?.history.current?.find(event => event.event === gameweek);
+        const previous = review?.history.current?.find(event => event.event === gameweek - 1);
+        const rank = current?.overall_rank ?? review?.picks.entry_history?.overall_rank;
+        const change = rank && previous?.overall_rank ? previous.overall_rank - rank : null;
+        const starters = picks.filter(pick => pick.position <= 11), bench = picks.filter(pick => pick.position > 11);
+        const captain = picks.find(pick => pick.is_captain), vice = picks.find(pick => pick.is_vice_captain);
+        let points = null;
+        if (review && captain && vice) {
+            points = (0, monteCarlo_js_1.scoreLineup)({ starters: starters.map(pick => pick.element), bench: bench.map(pick => pick.element), captainId: captain.element, viceId: vice.element }, { pts: id => live.get(id)?.total_points ?? 0, played: id => (live.get(id)?.minutes ?? 0) > 0, position: id => players.get(id)?.element_type ?? 0 }, review.picks.active_chip === 'bboost' ? 'bb' : review.picks.active_chip === '3xc' ? 'tc' : undefined) - (review.picks.entry_history?.event_transfers_cost ?? 0);
+        }
+        const event = state.bootstrap.events.find(item => item.id === gameweek);
+        const stats = [['GW Points', points], ['Avg Points', event?.average_entry_score], ['Overall Rank', rank], ['OR Change', change], ['GW Rank', current?.rank ?? review?.picks.entry_history?.rank]];
+        const card = pick => { const player = players.get(pick.element); if (!player)
+            return ''; const matches = state.fixtures.filter(fixture => fixture.event === gameweek && [fixture.team_h, fixture.team_a].includes(player.team)); const label = matches.map(fixture => `${teams.get(fixture.team_h === player.team ? fixture.team_a : fixture.team_h)?.short_name ?? '?'} (${fixture.team_h === player.team ? 'H' : 'A'})`).join(', ') || 'BLANK'; const playing = live.get(player.id); const displayed = playing && (playing.minutes > 0 || matches.every(fixture => fixture.finished)) ? number(playing.total_points * (pick.position <= 11 ? Math.max(pick.multiplier, 1) : 1)) : label; return `<div class="review-player">${pick.is_captain ? '<b class="captain-badge">C</b>' : pick.is_vice_captain ? '<b class="captain-badge">V</b>' : ''}${portrait(player, true)}<strong>${escape(player.web_name)}</strong><span>${escape(displayed)}</span></div>`; };
+        const pitch = picks.length ? `<div class="review-pitch"><div class="pitch-sponsor"><span>FPL VORTEX</span><span>GAMEWEEK ${gameweek}</span></div><div class="pitch-lines"><i></i></div>${[1, 2, 3, 4].map(position => `<div class="review-row">${starters.filter(pick => players.get(pick.element)?.element_type === position).map(card).join('')}</div>`).join('')}<div class="review-bench">${bench.map(card).join('')}</div></div>` : `<div class="review-loading">${loading ? 'Loading your current-gameweek review…' : escape(reviewError || 'Load your team to review the current gameweek.')}</div>`;
+        const status = state.source === 'sample' ? 'Illustrative lineup · not your actual squad' : review ? 'Official selections · in-play scores are provisional' : reviewError ? 'Review data unavailable' : 'Loading official selections';
+        return panel(escape(review?.entry.name ?? 'FPL VORTEX'), `<div class="review-stats">${stats.map(([label, value]) => `<div><strong>${number(value)}</strong><small>${label}</small></div>`).join('')}</div><p class="review-status">${status}</p>${pitch}`, `<button class="dash-link" data-action="change-team">Change team</button>`, 'review-card');
+    }
+    function renderFixtures(state, rows, teams) {
+        const fixtures = state.fixtures.filter(fixture => fixture.event === gameweek).sort((first, second) => (first.kickoff_time ?? '9').localeCompare(second.kickoff_time ?? '9'));
+        let previousDay = '';
+        const content = fixtures.map(fixture => { const home = teams.get(fixture.team_h), away = teams.get(fixture.team_a); const day = fixture.kickoff_time ? new Date(fixture.kickoff_time).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : 'Date to be confirmed'; const group = day !== previousDay ? `<div class="fixture-date">${escape(day)}</div>` : ''; previousDay = day; const homeForecast = rows.find(row => row.fixture.id === fixture.id && row.venue === 'H'); const awayForecast = rows.find(row => row.fixture.id === fixture.id && row.venue === 'A'); const score = fixture.started ? `${fixture.team_h_score ?? 0} – ${fixture.team_a_score ?? 0}` : fixture.kickoff_time ? new Date(fixture.kickoff_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBC'; return `${group}<details class="fixture-match"><summary><span>${escape(home?.short_name ?? '?')} ${badge(home)}</span><b>${score}</b><span>${badge(away)} ${escape(away?.short_name ?? '?')}</span></summary><div class="fixture-bar"><span style="flex:${homeForecast?.goals ?? 1}"></span><span style="flex:${awayForecast?.goals ?? 1}"></span></div><div class="fixture-xg"><b>${number(homeForecast?.goals, 2)}</b><span>Projected xG</span><b>${number(awayForecast?.goals, 2)}</b></div><p>Model projections: home win ${number((homeForecast?.win ?? 0) * 100, 1)}%, away win ${number((awayForecast?.win ?? 0) * 100, 1)}%. These are estimates, not observed xG.</p></details>`; }).join('');
+        return panel(`GW ${gameweek} Fixtures`, `<div class="fixture-played">${fixtures.filter(fixture => fixture.finished).length} of ${fixtures.length} played</div><div class="dash-scroll">${content || '<p class="dash-empty">No fixtures assigned.</p>'}</div>`, '', 'fixtures-card');
+    }
+    function renderProjections(rows) {
+        const sorted = [...rows].sort((first, second) => projectionDirection * (first[projectionMetric] - second[projectionMetric]));
+        const maximum = Math.max(...rows.map(row => row[projectionMetric]), 0.001);
+        const content = sorted.map((row, index) => `<div class="projection-row"><span class="row-rank">${index + 1}.</span>${badge(row.team)}<b>${escape(row.team.short_name)}</b><small>${escape(row.opponent.short_name)} (${row.venue})</small><div class="dash-bar-track"><i style="width:${row[projectionMetric] / maximum * 100}%"></i></div><strong>${projectionMetric === 'goals' ? number(row.goals, 2) : number(row[projectionMetric] * 100, 1) + '%'}</strong></div>`).join('');
+        return panel(`<button data-action="sort-projections">GW ${gameweek} Projected Goals ${projectionDirection === -1 ? '↓' : '↑'}</button>`, `<div class="dash-scroll">${content || '<p class="dash-empty">No projections available.</p>'}</div>`, `<div class="dash-segment">${metricButton('goals', 'Goals', projectionMetric === 'goals')}${metricButton('cs', 'CS%', projectionMetric === 'cs')}${metricButton('win', 'Win%', projectionMetric === 'win')}</div>`, 'projections-card');
+    }
+    function renderLower(state, teams) {
+        const live = new Map((review?.live.elements ?? []).map(element => [element.id, element.stats]));
+        const points = player => live.get(player.id)?.total_points ?? (gameweek === currentGw(state) ? player.event_points : 0) ?? 0;
+        const top = [...state.bootstrap.elements].sort((first, second) => topDirection * (points(first) - points(second))).slice(0, 10);
+        const maximum = Math.max(...top.map(points), 1);
+        const topPanel = panel('<button data-action="sort-top">🏆 Top Players ↕</button>', `<div class="dash-scroll">${top.map((player, index) => `<div class="top-row"><span class="row-rank">${index + 1}.</span>${playerLine(player, teams)}<div class="dash-bar-track"><i style="width:${Math.max(0, points(player)) / maximum * 100}%"></i></div><b>${state.source === 'sample' ? '—' : points(player)}</b></div>`).join('')}</div>`, `<span class="dash-muted">GW ${gameweek} points</span>`, 'lower-card');
+        const transferValue = player => transferSort === 'name' ? player.web_name : transferSort === 'percent' ? (Number.isFinite(player.price_change_percent) ? player.price_change_percent : -Infinity) : transferSort === 'in' ? player.transfers_in_event ?? 0 : transferSort === 'out' ? player.transfers_out_event ?? 0 : (player.transfers_in_event ?? 0) - (player.transfers_out_event ?? 0);
+        const transfers = [...state.bootstrap.elements].sort((first, second) => { const left = transferValue(first), right = transferValue(second); return transferDirection * (typeof left === 'string' ? left.localeCompare(right) : left - right) || first.id - second.id; }).slice(0, 10);
+        const headers = [['name', 'Player'], ['percent', 'Price Δ%'], ['in', 'In'], ['out', 'Out'], ['net', 'Net']];
+        const transferPanel = panel('⇄ Price & Transfers', `<div class="dash-scroll"><table class="dash-transfer-table"><thead><tr>${headers.map(([key, label]) => `<th><button data-transfer-sort="${key}">${label} ↕</button></th>`).join('')}</tr></thead><tbody>${transfers.map(player => `<tr><td>${playerLine(player, teams)}</td><td>${Number.isFinite(player.price_change_percent) ? number(player.price_change_percent, 1) + '%' : '—'}</td><td>${number(player.transfers_in_event)}</td><td>${number(player.transfers_out_event)}</td><td>${number((player.transfers_in_event ?? 0) - (player.transfers_out_event ?? 0))}</td></tr>`).join('')}</tbody></table></div><p class="dash-footnote">Price-change percentages require a separate data source; missing values stay blank.</p>`, '', 'lower-card');
+        const injuries = state.bootstrap.elements.filter(player => player.status !== 'a').sort((first, second) => (first.chance_of_playing_next_round ?? -1) - (second.chance_of_playing_next_round ?? -1));
+        const pages = Math.max(1, Math.ceil(injuries.length / 10));
+        injuryPage = Math.min(injuryPage, pages - 1);
+        const injuryPanel = panel('✚ Injuries & Suspensions', `<div class="dash-scroll">${injuries.slice(injuryPage * 10, injuryPage * 10 + 10).map(player => `<div class="injury-row">${portrait(player)}<div><strong>${escape(player.web_name)}</strong><small>${escape(player.news || 'Availability flagged')} · ${player.chance_of_playing_next_round == null ? 'Return unknown' : player.chance_of_playing_next_round + '% chance of playing'}</small></div><span>⚠</span></div>`).join('') || '<p class="dash-empty">No flagged players in this snapshot.</p>'}</div><div class="dash-pager"><button data-injury-page="-1" ${injuryPage === 0 ? 'disabled' : ''}>‹ Prev</button><span>${injuryPage + 1} / ${pages}</span><button data-injury-page="1" ${injuryPage === pages - 1 ? 'disabled' : ''}>Next ›</button></div>`, `<span class="dash-muted">${injuries.length} players</span>`, 'lower-card');
+        return topPanel + transferPanel + injuryPanel;
+    }
+    function render() {
+        const state = getState();
+        if (!state.bootstrap)
+            return;
+        const teams = teamMap(state);
+        if (gameweek === null)
+            gameweek = currentGw(state);
+        const selector = `<div class="dashboard-toolbar"><div class="dashboard-subtabs"><button class="${!analysis ? 'active' : ''}" data-subtab="overview">Overview</button><button class="${analysis ? 'active' : ''}" data-subtab="analysis">Gameweek Analysis</button></div><label>Gameweek <select id="review-gameweek" aria-label="Dashboard gameweek">${state.bootstrap.events.map(event => `<option value="${event.id}" ${event.id === gameweek ? 'selected' : ''}>${event.id}</option>`).join('')}</select></label></div>`;
+        if (analysis) {
+            root.innerHTML = selector + panel('Gameweek Analysis', '<div class="analysis-pending"><h3>Your analysis workspace.</h3><p>The subtab is ready. Its detailed contents will be designed in the next step.</p></div>');
+            return;
+        }
+        const projected = projections(state);
+        const videoPanel = panel('▶ Latest FPL Videos', `<div class="dashboard-videos">${videos.map(video => `<a href="${escape(video.url)}" target="_blank" rel="noopener noreferrer"><img src="${escape(video.thumbnail)}" alt="" loading="lazy"><span><strong>${escape(video.title)}</strong><small>FPL VORTEX · ${date(video.published)}</small></span></a>`).join('') || '<p>Loading your channel videos…</p>'}</div>`, `<a class="dash-link" href="https://www.youtube.com/@Fplvortex/videos" target="_blank" rel="noopener noreferrer">All videos →</a>`, 'videos-card');
+        root.innerHTML = selector + `<div class="dashboard-upper">${renderReview(state, teams)}${renderFixtures(state, projected, teams)}${renderProjections(projected)}</div><div class="dashboard-lower">${renderLower(state, teams)}</div>${videoPanel}<div class="video-channel-links"><a href="https://www.youtube.com/@Fplvortex/videos" target="_blank" rel="noopener noreferrer">All uploads</a><a href="https://www.youtube.com/@Fplvortex/shorts" target="_blank" rel="noopener noreferrer">All Shorts</a><a href="https://www.youtube.com/@Fplvortex/streams" target="_blank" rel="noopener noreferrer">All live streams</a></div>`;
+    }
+    root.addEventListener('click', event => {
+        const action = event.target.closest('[data-action]')?.dataset.action;
+        if (action === 'sort-projections') {
+            projectionDirection *= -1;
+            render();
+        }
+        if (action === 'sort-top') {
+            topDirection *= -1;
+            render();
+        }
+        if (action === 'change-team') {
+            const existing = root.querySelector('.manager-form');
+            if (existing) {
+                existing.remove();
+                return;
+            }
+            const form = document.createElement('form');
+            form.className = 'manager-form';
+            form.innerHTML = '<label>FPL manager number <input inputmode="numeric" name="manager" pattern="[0-9]{1,10}" required placeholder="Enter your manager number"></label><button class="primary">Load review</button>';
+            form.addEventListener('submit', submit => { submit.preventDefault(); const value = new FormData(form).get('manager'); if (!/^\d{1,10}$/.test(value) || Number(value) < 1) {
+                toast('Enter a valid numeric manager number.');
+                return;
+            } manager = value; try {
+                localStorage.setItem('vortex-linked-manager', manager);
+            }
+            catch { } loadReview(); });
+            root.prepend(form);
+            form.querySelector('input').focus();
+        }
+        const projection = event.target.closest('[data-projection]');
+        if (projection) {
+            projectionMetric = projection.dataset.projection;
+            projectionDirection = -1;
+            render();
+        }
+        const transfer = event.target.closest('[data-transfer-sort]');
+        if (transfer) {
+            transferDirection = transferSort === transfer.dataset.transferSort ? -transferDirection : -1;
+            transferSort = transfer.dataset.transferSort;
+            render();
+        }
+        const page = event.target.closest('[data-injury-page]');
+        if (page) {
+            injuryPage += Number(page.dataset.injuryPage);
+            render();
+        }
+        const tab = event.target.closest('[data-subtab]');
+        if (tab) {
+            analysis = tab.dataset.subtab === 'analysis';
+            render();
+        }
+    });
+    root.addEventListener('change', event => { if (event.target.id === 'review-gameweek') {
+        gameweek = Number(event.target.value);
+        loadReview();
+    } });
+    document.addEventListener('error', event => { if (event.target instanceof HTMLImageElement)
+        event.target.hidden = true; }, true);
+    fetch('/videos.json').then(response => response.json()).then(data => { videos = data.videos ?? []; render(); }).catch(() => { });
+    fetch('/api/videos').then(response => response.ok ? response.json() : null).then(data => { if (Array.isArray(data)) {
+        const merged = new Map([...data, ...videos].map(video => [video.id, video]));
+        videos = [...merged.values()].sort((first, second) => second.published.localeCompare(first.published));
+        render();
+    } }).catch(() => { });
+    return { render, onDataLoaded() { if (gameweek === null)
+            gameweek = currentGw(getState()); render(); loadReview(); } };
+}
+
+}};const cache={};function load(name,parent='/app.js'){if(name.startsWith('.'))name=new URL(name,'https://preview.local'+parent).pathname;if(!name.endsWith('.js'))name+='.js';if(cache[name])return cache[name].exports;if(!factories[name])throw new Error('Missing preview module '+name);const module={exports:{}};cache[name]=module;factories[name](module,module.exports,specifier=>load(specifier,name));return module.exports;}load('/app.js');})();</script>
+</body></html>

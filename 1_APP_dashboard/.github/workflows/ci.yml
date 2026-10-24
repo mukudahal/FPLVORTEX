@@ -1,0 +1,34 @@
+name: FPL VORTEX — Continuous Integration
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Clean install
+        run: npm ci
+      - name: Validate upgrade ledger
+        run: python3 scripts/check-upgrade-progress.py
+      - name: Validate SQL migration ordering
+        run: npm run db:migrate:dry-run
+      - name: Run planning and security tests
+        run: npm run test:planning
+      - name: Check TypeScript types
+        run: npm run typecheck
+      - name: Check ESLint
+        run: npm run lint
+      - name: Build production application
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://app:example@127.0.0.1:5432/fplvortex
+          NEXT_PUBLIC_SITE_URL: https://staging.example.invalid
+          FPL_AI_ENABLED: 'false'

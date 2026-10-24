@@ -1,0 +1,134 @@
+
+> test:planning
+> node --test scripts/manual-lineups.test.cjs scripts/live-analysis.test.cjs scripts/intelligence.test.cjs
+
+TAP version 13
+# Subtest: multi-GW intelligence counts doubles and zeroes blank gameweeks
+ok 1 - multi-GW intelligence counts doubles and zeroes blank gameweeks
+  ---
+  duration_ms: 2.924541
+  type: 'test'
+  ...
+# Subtest: injury flags are high-risk and disabled captaincy when unavailable
+ok 2 - injury flags are high-risk and disabled captaincy when unavailable
+  ---
+  duration_ms: 0.374343
+  type: 'test'
+  ...
+# Subtest: horizon is bounded, invalid player types ignored and projections stay finite
+ok 3 - horizon is bounded, invalid player types ignored and projections stay finite
+  ---
+  duration_ms: 0.336867
+  type: 'test'
+  ...
+# Subtest: confirmed DNP brings first eligible bench player on without losing transfer costs
+ok 4 - confirmed DNP brings first eligible bench player on without losing transfer costs
+  ---
+  duration_ms: 7.338112
+  type: 'test'
+  ...
+# Subtest: pending fixture in a double prevents premature automatic substitutions
+ok 5 - pending fixture in a double prevents premature automatic substitutions
+  ---
+  duration_ms: 0.375034
+  type: 'test'
+  ...
+# Subtest: goalkeeper replacement and legal formation are respected
+ok 6 - goalkeeper replacement and legal formation are respected
+  ---
+  duration_ms: 1.622107
+  type: 'test'
+  ...
+# Subtest: captain passes to vice only after no-show is confirmed; TC and BB remain correct
+ok 7 - captain passes to vice only after no-show is confirmed; TC and BB remain correct
+  ---
+  duration_ms: 0.396456
+  type: 'test'
+  ...
+# Subtest: zero-minute disciplinary appearance is not treated as a no-show
+ok 8 - zero-minute disciplinary appearance is not treated as a no-show
+  ---
+  duration_ms: 0.28382
+  type: 'test'
+  ...
+# Subtest: processed official auto-subs are authoritative and are reversed only for deadline comparison
+ok 9 - processed official auto-subs are authoritative and are reversed only for deadline comparison
+  ---
+  duration_ms: 0.378099
+  type: 'test'
+  ...
+# Subtest: sample EO includes captain and chip multipliers and reports its real denominator
+ok 10 - sample EO includes captain and chip multipliers and reports its real denominator
+  ---
+  duration_ms: 0.735266
+  type: 'test'
+  ...
+# Subtest: scoring feed uses official fixture contributions, including corrections, without fabricated times
+ok 11 - scoring feed uses official fixture contributions, including corrections, without fabricated times
+  ---
+  duration_ms: 0.391499
+  type: 'test'
+  ...
+# Subtest: deadline-XI comparisons and after-substitution comparisons use matching multipliers
+ok 12 - deadline-XI comparisons and after-substitution comparisons use matching multipliers
+  ---
+  duration_ms: 0.599296
+  type: 'test'
+  ...
+# Subtest: automatic XI remains the default
+ok 13 - automatic XI remains the default
+  ---
+  duration_ms: 6.278636
+  type: 'test'
+  ...
+# Subtest: bench defender can start and swap back without changing the squad
+ok 14 - bench defender can start and swap back without changing the squad
+  ---
+  duration_ms: 0.646365
+  type: 'test'
+  ...
+# Subtest: cross-position swaps can change formation legally
+ok 15 - cross-position swaps can change formation legally
+  ---
+  duration_ms: 0.296298
+  type: 'test'
+  ...
+# Subtest: goalkeeper swaps work; goalkeeper-outfield swaps and same-side pairs are rejected
+ok 16 - goalkeeper swaps work; goalkeeper-outfield swaps and same-side pairs are rejected
+  ---
+  duration_ms: 0.3791
+  type: 'test'
+  ...
+# Subtest: a swap cannot leave fewer than three defenders or no forwards
+ok 17 - a swap cannot leave fewer than three defenders or no forwards
+  ---
+  duration_ms: 0.231572
+  type: 'test'
+  ...
+# Subtest: benching the automatic captain selects an eligible captain and recalculates chip totals
+ok 18 - benching the automatic captain selects an eligible captain and recalculates chip totals
+  ---
+  duration_ms: 1.057983
+  type: 'test'
+  ...
+# Subtest: a replacement inherits the manual bench slot; invalid saved data falls back safely
+ok 19 - a replacement inherits the manual bench slot; invalid saved data falls back safely
+  ---
+  duration_ms: 1.094597
+  type: 'test'
+  ...
+# Subtest: shared links preserve manual lineups, support old links, and reject malformed lineups
+ok 20 - shared links preserve manual lineups, support old links, and reject malformed lineups
+  ---
+  duration_ms: 0.814733
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 483.291733
