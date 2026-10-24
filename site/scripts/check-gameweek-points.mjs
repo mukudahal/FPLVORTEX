@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { gameweekPoints } from '../ui/gameweek-points.js';
+const picks=[{element:1,multiplier:2,is_captain:true},{element:2,multiplier:1,is_vice_captain:true},{element:3,multiplier:0}];
+const base={picks,live:[{id:1,stats:{total_points:5,minutes:90}},{id:2,stats:{total_points:3,minutes:90}},{id:3,stats:{total_points:8,minutes:90}}],players:[{id:1,team:1}],fixtures:[{event:8,team_h:1,team_a:2,finished:false}],gameweek:8,event:{finished:false},officialPoints:0,transferCost:4};
+assert.equal(gameweekPoints(base),9,'Live captain points replace the stale zero; bench excluded and hit deducted');
+assert.equal(gameweekPoints({...base,picks:picks.map(pick=>({...pick,multiplier:pick.element===3?1:pick.multiplier}))}),17,'Bench Boost counts the bench');
+assert.equal(gameweekPoints({...base,picks:picks.map(pick=>({...pick,multiplier:pick.is_captain?3:pick.multiplier}))}),14,'Triple Captain');
+const absent={...base,live:base.live.map(player=>player.id===1?{id:1,stats:{total_points:0,minutes:0}}:player)};
+assert.equal(gameweekPoints(absent),-1,'Captain with a fixture remaining is not replaced');
+assert.equal(gameweekPoints({...absent,fixtures:[{...base.fixtures[0],finished:true}]}),2,'Vice takes over only once captain fixtures are complete');
+assert.equal(gameweekPoints({...base,event:{finished:true,data_checked:true},officialPoints:20}),16,'Final checked FPL total is authoritative');
+assert.equal(gameweekPoints({...base,live:base.live.slice(1)}),null,'Partial live feed never becomes a fake zero');
+assert.equal(gameweekPoints({...base,picks:[]}),null);
+console.log('Eight GW points regressions passed.');

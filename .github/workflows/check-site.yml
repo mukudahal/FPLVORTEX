@@ -20,6 +20,7 @@ jobs:
       - run: npm run build
       - run: npm run validate
       - run: node scripts/check-dashboard.mjs
+      - run: node scripts/check-gameweek-points.mjs
       - run: python scripts/check-contrast.py
       - run: node scripts/smoke-test.mjs
       - run: node scripts/build-vercel.mjs
