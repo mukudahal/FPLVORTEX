@@ -1,0 +1,27 @@
+feature,area,priority,original,clone,notes
+Gameweek timeline with free transfers per GW,timeline,must,yes,yes,compact cards
+Scroll timeline with arrows,timeline,should,yes,yes,
+Search players,pool,must,yes,yes,
+Reset filters,pool,must,yes,yes,
+Max ownership slider,pool,should,yes,yes,
+Max price slider,pool,should,yes,yes,
+Position filter (All GK DEF MID FWD),pool,must,yes,yes,
+Teams filter,pool,should,yes,yes,
+Columns picker,pool,should,yes,yes,
+Clickable sortable column headings,pool,must,yes,yes,every column incl. Fixtures
+Fixture chips coloured by difficulty,pool,must,yes,yes,
+Price rise / fall arrow,pool,could,yes,yes,added this round
+Player info icon per row,pool,could,yes,partial,hover tooltip only; no full modal
+Pagination with player count,pool,must,yes,yes,
+Own prediction column (Opta xP),pool,could,no,yes,extra - not in original
+Pitch view with C and V badges,pitch,must,yes,yes,
+Pitch / Table toggle,pitch,should,yes,yes,
+Remove player via x on card,pitch,must,yes,yes,
+Bench row,pitch,must,yes,yes,
+Transfers / transfer cost / bank strip,summary,must,yes,yes,
+Dismissible how-to banner,summary,could,yes,yes,
+Import squad from team ID,onboarding,must,yes,yes,
+Auto plan,planning,could,no,yes,extra
+Change captain on pitch,planning,should,yes,yes,dashed C on each starter; saved per gameweek in the browser
+Chip planning (WC FH BB TC),planning,should,yes,yes,one chip per GW; each chip once per plan; saved in browser
+Save and share strategy,planning,could,yes,yes,Share button copies a link; opens as a shared plan that can be kept

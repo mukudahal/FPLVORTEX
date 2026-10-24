@@ -1,0 +1,44 @@
+domain,feature,audit_status,current_evidence,upgrade_target,master_step
+Platform,App Router & navigation,implemented,src/app/layout.tsx;src/components/TopBar.tsx,Retain shell; add dedicated premium routes,Step 36
+Platform,User authentication,missing,src/app/,Server-side authenticated identity and session handling,Step 10
+Platform,Authorization for saved plans,missing,src/app/api/plans/route.ts,Owner-scoped CRUD required,Step 11
+Data,FPL HTTP client with retries/cache,partial,src/lib/fpl.ts,Distributed coordination and source visibility,Step 14
+Data,Historical immutable snapshots,missing,src/db/schema.ts,Versioned source snapshots and model runs,Step 13
+Data,Fixture and bootstrap caching,implemented,src/app/api/cron/refresh/route.ts,Move to central worker ingestion pipeline,Step 12
+Data,Refresh scheduler,partial,vercel.json,Event-aware scheduled jobs and failure handling,Step 16
+Data,Postgres schema,partial,src/db/schema.ts,Normalize domain tables; retain legacy data,Step 9
+Data,Database migrations,missing,drizzle.config.json,Environment-based config and tracked migrations,Step 8
+Predictions,Expected points model,implemented,src/lib/xpts.ts,"Calibration, versioning, reproducible backtests",Step 19
+Predictions,"Expected minutes, P60, subs",partial,src/lib/xpts.ts,"Train/check minutes, start and bench probabilities",Step 20
+Predictions,Fixture/blank/double adjustments,implemented,src/lib/xpts.ts,Probability-weighted fixture and schedule uncertainty,Step 21
+Predictions,Prediction evaluation,partial,src/lib/xpts.ts,Leakage-safe walk-forward evaluation pipeline,Step 22
+Simulations,Seeded paired Monte Carlo,implemented,src/lib/monteCarlo.ts,Worker execution + calibrated outcome distributions,Step 23
+Optimizer,Python/PuLP transfer optimizer,partial,src/lib/solver.py;src/lib/optimizer.ts,Async jobs and strict independent legality validation,Step 24
+Optimizer,Multi-period optimization,partial,src/lib/planEngine.ts;src/lib/optimizer.ts,Explicit FT/bank/chip state transitions per GW,Step 25
+Planner,Three planner UI implementations,resolved in Step 5 (build pending),src/components/planner/PlannerView.tsx;src/components/team/PlannerView.tsx;src/components/plan/PlanDashboard.tsx,Single TeamPlanner + saved-plan adapters + legacy URL redirect; see 05-planner-consolidation.md,Step 5
+Planner,Shared validation/transfer calculations,partial,src/lib/planEngine.ts;src/lib/lineup.ts,Shared FPL rules and decision contracts,Step 6
+Planner,Scenario A/B comparison,partial,src/components/team/MonteCarloPanel.tsx,"Saved plans, paired seeds and probability intervals",Step 26
+Planner,Chip planning,partial,src/components/team/ChipsView.tsx,Season-specific scenario chip EV and opportunity cost,Step 27
+Market,Price predictions and history,partial,src/app/api/price/route.ts;src/components/team/PriceView.tsx,GET pure reads; scheduled collection and calibration,Step 28
+Market,Injury and availability intelligence,partial,src/components/team/NewsView.tsx;src/lib/xpts.ts,Single typed availability object and validated news sources,Step 29
+Leagues,Rival comparison,partial,src/components/team/RivalsView.tsx;src/app/api/rivals/route.ts,League snapshots and EO matrix,Step 30
+Leagues,Effective ownership cohort,partial,src/app/api/analysis/[id]/route.ts,Sample-size disclosure and EO confidence bounds,Step 31
+Leagues,Threat / must-own analytics,partial,src/lib/intelligence.ts,Ownership-adjusted opportunity cost engine,Step 32
+Leagues,Differentials,partial,src/lib/intelligence.ts,Feasible replacements + risk calibrated scoring,Step 33
+Captaincy,Captain selection/risk,partial,src/components/home/IntelligencePanel.tsx,P(blank)/haul/vice and risk profiles,Step 34
+Design,Premium responsive design,partial,src/app/globals.css,Canonical tokens and consistent component set,Step 35
+Dashboard,"Overview cards, pitch, forecast",implemented,src/components/home/HomeDashboard.tsx,Personalized manager command centre,Step 37
+Gameweek,Live scoring and GW analysis,partial,src/components/team/AnalysisLiveView.tsx,Dedicated review using frozen pre-deadline projections,Step 38
+Planner tabs,Interactive pitch and suggested players,implemented,src/components/planner/PlannerView.tsx,"Canonical planner, validated lineups",Step 39
+Planner tabs,Scenario simulator UI,partial,src/components/team/MonteCarloPanel.tsx,Async simulation and scenario versioning,Step 40
+Planner tabs,Chip strategy UI,partial,src/components/team/ChipsView.tsx,Chip calendar with opportunity cost,Step 41
+Planner tabs,Price increase UI,partial,src/components/team/PriceView.tsx,Accuracy and time window of signals,Step 42
+Planner tabs,Injury list UI,partial,src/components/team/NewsView.tsx,"Availability, sources and latest update",Step 43
+Player tools,Players browser,implemented,src/components/players/PlayersBrowser.tsx,"Prediction horizons, sorting, uncertainty plots",Step 47
+Fixtures,Fixtures page,implemented,src/components/fixtures/FixturesView.tsx,Team-strength swings and schedule variance,Step 47
+AI,Solver-grounded OpenAI analyst,partial,src/lib/aiAnalyst.ts;src/app/api/copilot/route.ts,Auth/quotas and run-linked explanations,Step 48
+Reports,Reference graphics and notebooks,partial,5_screenshots_reference/;2_notebooks/,Shared report payload and exporter workers,Step 49-51
+Observability,Status page/API,partial,src/app/status/page.tsx;src/app/api/status/route.ts,"Model registry, workers and freshness indicators",Step 52
+Testing,Planning tests,partial,scripts/manual-lineups.test.cjs;scripts/live-analysis.test.cjs;scripts/intelligence.test.cjs,End-to-end API/security/browser and Python tests,Step 55
+CI/CD,Automated checks / deploy guard,missing,package.json,"Install, typecheck, lint, tests, build, staging",Step 56
+Payments,Premium subscriptions,missing,src/app/,Billing entitlements after app security/launch,Step 60

@@ -1,0 +1,182 @@
+
+> test:planning
+> node --test scripts/manual-lineups.test.cjs scripts/live-analysis.test.cjs scripts/intelligence.test.cjs scripts/planner-consolidation.test.cjs
+
+TAP version 13
+# Subtest: multi-GW intelligence counts doubles and zeroes blank gameweeks
+ok 1 - multi-GW intelligence counts doubles and zeroes blank gameweeks
+  ---
+  duration_ms: 3.830571
+  type: 'test'
+  ...
+# Subtest: injury flags are high-risk and disabled captaincy when unavailable
+ok 2 - injury flags are high-risk and disabled captaincy when unavailable
+  ---
+  duration_ms: 0.329777
+  type: 'test'
+  ...
+# Subtest: horizon is bounded, invalid player types ignored and projections stay finite
+ok 3 - horizon is bounded, invalid player types ignored and projections stay finite
+  ---
+  duration_ms: 0.296368
+  type: 'test'
+  ...
+# Subtest: confirmed DNP brings first eligible bench player on without losing transfer costs
+ok 4 - confirmed DNP brings first eligible bench player on without losing transfer costs
+  ---
+  duration_ms: 4.017647
+  type: 'test'
+  ...
+# Subtest: pending fixture in a double prevents premature automatic substitutions
+ok 5 - pending fixture in a double prevents premature automatic substitutions
+  ---
+  duration_ms: 0.275788
+  type: 'test'
+  ...
+# Subtest: goalkeeper replacement and legal formation are respected
+ok 6 - goalkeeper replacement and legal formation are respected
+  ---
+  duration_ms: 0.335465
+  type: 'test'
+  ...
+# Subtest: captain passes to vice only after no-show is confirmed; TC and BB remain correct
+ok 7 - captain passes to vice only after no-show is confirmed; TC and BB remain correct
+  ---
+  duration_ms: 0.3248
+  type: 'test'
+  ...
+# Subtest: zero-minute disciplinary appearance is not treated as a no-show
+ok 8 - zero-minute disciplinary appearance is not treated as a no-show
+  ---
+  duration_ms: 0.18237
+  type: 'test'
+  ...
+# Subtest: processed official auto-subs are authoritative and are reversed only for deadline comparison
+ok 9 - processed official auto-subs are authoritative and are reversed only for deadline comparison
+  ---
+  duration_ms: 0.206194
+  type: 'test'
+  ...
+# Subtest: sample EO includes captain and chip multipliers and reports its real denominator
+ok 10 - sample EO includes captain and chip multipliers and reports its real denominator
+  ---
+  duration_ms: 0.524345
+  type: 'test'
+  ...
+# Subtest: scoring feed uses official fixture contributions, including corrections, without fabricated times
+ok 11 - scoring feed uses official fixture contributions, including corrections, without fabricated times
+  ---
+  duration_ms: 0.48675
+  type: 'test'
+  ...
+# Subtest: deadline-XI comparisons and after-substitution comparisons use matching multipliers
+ok 12 - deadline-XI comparisons and after-substitution comparisons use matching multipliers
+  ---
+  duration_ms: 0.505247
+  type: 'test'
+  ...
+# Subtest: automatic XI remains the default
+ok 13 - automatic XI remains the default
+  ---
+  duration_ms: 1.870144
+  type: 'test'
+  ...
+# Subtest: bench defender can start and swap back without changing the squad
+ok 14 - bench defender can start and swap back without changing the squad
+  ---
+  duration_ms: 0.961651
+  type: 'test'
+  ...
+# Subtest: cross-position swaps can change formation legally
+ok 15 - cross-position swaps can change formation legally
+  ---
+  duration_ms: 0.261596
+  type: 'test'
+  ...
+# Subtest: goalkeeper swaps work; goalkeeper-outfield swaps and same-side pairs are rejected
+ok 16 - goalkeeper swaps work; goalkeeper-outfield swaps and same-side pairs are rejected
+  ---
+  duration_ms: 0.490465
+  type: 'test'
+  ...
+# Subtest: a swap cannot leave fewer than three defenders or no forwards
+ok 17 - a swap cannot leave fewer than three defenders or no forwards
+  ---
+  duration_ms: 0.384989
+  type: 'test'
+  ...
+# Subtest: benching the automatic captain selects an eligible captain and recalculates chip totals
+ok 18 - benching the automatic captain selects an eligible captain and recalculates chip totals
+  ---
+  duration_ms: 0.501201
+  type: 'test'
+  ...
+# Subtest: a replacement inherits the manual bench slot; invalid saved data falls back safely
+ok 19 - a replacement inherits the manual bench slot; invalid saved data falls back safely
+  ---
+  duration_ms: 1.140065
+  type: 'test'
+  ...
+# Subtest: shared links preserve manual lineups, support old links, and reject malformed lineups
+ok 20 - shared links preserve manual lineups, support old links, and reject malformed lineups
+  ---
+  duration_ms: 1.140736
+  type: 'test'
+  ...
+# Subtest: version 3 saved plans round-trip with captain, chip, and validated manual lineup
+ok 21 - version 3 saved plans round-trip with captain, chip, and validated manual lineup
+  ---
+  duration_ms: 2.681633
+  type: 'test'
+  ...
+# Subtest: old standalone plan v2 restores its transfer map
+ok 22 - old standalone plan v2 restores its transfer map
+  ---
+  duration_ms: 0.505167
+  type: 'test'
+  ...
+# Subtest: old team planner saves restore 15-player manual lineup, captain and all chip names
+ok 23 - old team planner saves restore 15-player manual lineup, captain and all chip names
+  ---
+  duration_ms: 0.360413
+  type: 'test'
+  ...
+# Subtest: unsupported and malicious persisted plan types do not load
+ok 24 - unsupported and malicious persisted plan types do not load
+  ---
+  duration_ms: 0.156111
+  type: 'test'
+  ...
+# Subtest: out of horizon, duplicate lineup, unknown captain and invalid transfers are removed
+ok 25 - out of horizon, duplicate lineup, unknown captain and invalid transfers are removed
+  ---
+  duration_ms: 0.252493
+  type: 'test'
+  ...
+# Subtest: there is exactly one active planner component and the former routes converge
+ok 26 - there is exactly one active planner component and the former routes converge
+  ---
+  duration_ms: 0.469144
+  type: 'test'
+  ...
+# Subtest: shared plan links always navigate to the canonical planner, even when created from a team dashboard
+ok 27 - shared plan links always navigate to the canonical planner, even when created from a team dashboard
+  ---
+  duration_ms: 12.509076
+  type: 'test'
+  ...
+# Subtest: shared plan round-trips a manually chosen vice captain, while old links remain compatible
+ok 28 - shared plan round-trips a manually chosen vice captain, while old links remain compatible
+  ---
+  duration_ms: 0.629209
+  type: 'test'
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 781.845047

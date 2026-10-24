@@ -1,0 +1,470 @@
+
+> test:planning
+> node --test scripts/manual-lineups.test.cjs scripts/live-analysis.test.cjs scripts/intelligence.test.cjs scripts/planner-consolidation.test.cjs scripts/scoring.test.cjs scripts/runtime-config.test.cjs scripts/migrations.test.cjs scripts/schema-contract.test.cjs scripts/auth-crypto.test.cjs scripts/ownership.test.cjs scripts/request-body.test.cjs scripts/fpl-data.test.cjs scripts/snapshots.test.cjs scripts/fpl-reliability.test.cjs scripts/background-jobs.test.cjs scripts/refresh-schedule.test.cjs
+
+TAP version 13
+# Subtest: registration email normalization rejects malformed and oversize addresses
+ok 1 - registration email normalization rejects malformed and oversize addresses
+  ---
+  duration_ms: 1.552782
+  type: 'test'
+  ...
+# Subtest: password hashes are salted scrypt with a timing-safe verifier
+ok 2 - password hashes are salted scrypt with a timing-safe verifier
+  ---
+  duration_ms: 200.143926
+  type: 'test'
+  ...
+# Subtest: verification/session/reset tokens are random and only hashes need persistence
+ok 3 - verification/session/reset tokens are random and only hashes need persistence
+  ---
+  duration_ms: 1.116939
+  type: 'test'
+  ...
+# Subtest: auth migration creates sessions, one-time tokens and rate limiter; routes require account
+ok 4 - auth migration creates sessions, one-time tokens and rate limiter; routes require account
+  ---
+  duration_ms: 0.562771
+  type: 'test'
+  ...
+# Subtest: queue validates one real manager, bounded horizon and idempotent request UUID
+ok 5 - queue validates one real manager, bounded horizon and idempotent request UUID
+  ---
+  duration_ms: 2.982373
+  type: 'test'
+  ...
+# Subtest: background job retries have exponential bounded delays
+ok 6 - background job retries have exponential bounded delays
+  ---
+  duration_ms: 1.60509
+  type: 'test'
+  ...
+# Subtest: migration establishes idempotent owned queue with capped retries and claim index
+ok 7 - migration establishes idempotent owned queue with capped retries and claim index
+  ---
+  duration_ms: 4.573362
+  type: 'test'
+  ...
+# Subtest: claim is atomic and locked against competing workers
+ok 8 - claim is atomic and locked against competing workers
+  ---
+  duration_ms: 0.320133
+  type: 'test'
+  ...
+# Subtest: optimizer worker and interactive endpoint use exactly one implementation
+ok 9 - optimizer worker and interactive endpoint use exactly one implementation
+  ---
+  duration_ms: 0.4269
+  type: 'test'
+  ...
+# Subtest: single canonical bootstrap transformation preserves IDs and normalizes numeric model features
+ok 10 - single canonical bootstrap transformation preserves IDs and normalizes numeric model features
+  ---
+  duration_ms: 1.214293
+  type: 'test'
+  ...
+# Subtest: reject invalid bootstrap data instead of letting it reach model calculations
+ok 11 - reject invalid bootstrap data instead of letting it reach model calculations
+  ---
+  duration_ms: 0.511606
+  type: 'test'
+  ...
+# Subtest: normalization turns non-finite numbers into zero or null
+ok 12 - normalization turns non-finite numbers into zero or null
+  ---
+  duration_ms: 0.384578
+  type: 'test'
+  ...
+# Subtest: fixture ingestion handles blank-gameweek fixtures and rejects invalid team IDs
+ok 13 - fixture ingestion handles blank-gameweek fixtures and rejects invalid team IDs
+  ---
+  duration_ms: 0.313132
+  type: 'test'
+  ...
+# Subtest: FPL routes and planner share the canonical server adapter, not per-page raw mappings
+ok 14 - FPL routes and planner share the canonical server adapter, not per-page raw mappings
+  ---
+  duration_ms: 0.865127
+  type: 'test'
+  ...
+# Subtest: only relative official FPL paths are allowed
+ok 15 - only relative official FPL paths are allowed
+  ---
+  duration_ms: 1.031914
+  type: 'test'
+  ...
+# Subtest: retry policy does not repeat permanent upstream client errors
+ok 16 - retry policy does not repeat permanent upstream client errors
+  ---
+  duration_ms: 0.192274
+  type: 'test'
+  ...
+# Subtest: server Retry-After is honored but capped at ten seconds
+ok 17 - server Retry-After is honored but capped at ten seconds
+  ---
+  duration_ms: 0.255186
+  type: 'test'
+  ...
+# Subtest: stale response fallback expires instead of hiding long outages
+ok 18 - stale response fallback expires instead of hiding long outages
+  ---
+  duration_ms: 0.540488
+  type: 'test'
+  ...
+# Subtest: bootstrap and fixtures public APIs expose freshness provenance
+ok 19 - bootstrap and fixtures public APIs expose freshness provenance
+  ---
+  duration_ms: 0.449704
+  type: 'test'
+  ...
+# Subtest: multi-GW intelligence counts doubles and zeroes blank gameweeks
+ok 20 - multi-GW intelligence counts doubles and zeroes blank gameweeks
+  ---
+  duration_ms: 2.853172
+  type: 'test'
+  ...
+# Subtest: injury flags are high-risk and disabled captaincy when unavailable
+ok 21 - injury flags are high-risk and disabled captaincy when unavailable
+  ---
+  duration_ms: 0.27795
+  type: 'test'
+  ...
+# Subtest: horizon is bounded, invalid player types ignored and projections stay finite
+ok 22 - horizon is bounded, invalid player types ignored and projections stay finite
+  ---
+  duration_ms: 0.307594
+  type: 'test'
+  ...
+# Subtest: confirmed DNP brings first eligible bench player on without losing transfer costs
+ok 23 - confirmed DNP brings first eligible bench player on without losing transfer costs
+  ---
+  duration_ms: 2.059761
+  type: 'test'
+  ...
+# Subtest: pending fixture in a double prevents premature automatic substitutions
+ok 24 - pending fixture in a double prevents premature automatic substitutions
+  ---
+  duration_ms: 0.245493
+  type: 'test'
+  ...
+# Subtest: goalkeeper replacement and legal formation are respected
+ok 25 - goalkeeper replacement and legal formation are respected
+  ---
+  duration_ms: 0.377567
+  type: 'test'
+  ...
+# Subtest: captain passes to vice only after no-show is confirmed; TC and BB remain correct
+ok 26 - captain passes to vice only after no-show is confirmed; TC and BB remain correct
+  ---
+  duration_ms: 0.301475
+  type: 'test'
+  ...
+# Subtest: zero-minute disciplinary appearance is not treated as a no-show
+ok 27 - zero-minute disciplinary appearance is not treated as a no-show
+  ---
+  duration_ms: 0.188408
+  type: 'test'
+  ...
+# Subtest: processed official auto-subs are authoritative and are reversed only for deadline comparison
+ok 28 - processed official auto-subs are authoritative and are reversed only for deadline comparison
+  ---
+  duration_ms: 0.253745
+  type: 'test'
+  ...
+# Subtest: sample EO includes captain and chip multipliers and reports its real denominator
+ok 29 - sample EO includes captain and chip multipliers and reports its real denominator
+  ---
+  duration_ms: 0.529973
+  type: 'test'
+  ...
+# Subtest: scoring feed uses official fixture contributions, including corrections, without fabricated times
+ok 30 - scoring feed uses official fixture contributions, including corrections, without fabricated times
+  ---
+  duration_ms: 0.233254
+  type: 'test'
+  ...
+# Subtest: deadline-XI comparisons and after-substitution comparisons use matching multipliers
+ok 31 - deadline-XI comparisons and after-substitution comparisons use matching multipliers
+  ---
+  duration_ms: 0.652654
+  type: 'test'
+  ...
+# Subtest: automatic XI remains the default
+ok 32 - automatic XI remains the default
+  ---
+  duration_ms: 2.363129
+  type: 'test'
+  ...
+# Subtest: bench defender can start and swap back without changing the squad
+ok 33 - bench defender can start and swap back without changing the squad
+  ---
+  duration_ms: 1.022089
+  type: 'test'
+  ...
+# Subtest: cross-position swaps can change formation legally
+ok 34 - cross-position swaps can change formation legally
+  ---
+  duration_ms: 0.286182
+  type: 'test'
+  ...
+# Subtest: goalkeeper swaps work; goalkeeper-outfield swaps and same-side pairs are rejected
+ok 35 - goalkeeper swaps work; goalkeeper-outfield swaps and same-side pairs are rejected
+  ---
+  duration_ms: 0.524995
+  type: 'test'
+  ...
+# Subtest: a swap cannot leave fewer than three defenders or no forwards
+ok 36 - a swap cannot leave fewer than three defenders or no forwards
+  ---
+  duration_ms: 0.478056
+  type: 'test'
+  ...
+# Subtest: benching the automatic captain selects an eligible captain and recalculates chip totals
+ok 37 - benching the automatic captain selects an eligible captain and recalculates chip totals
+  ---
+  duration_ms: 0.470254
+  type: 'test'
+  ...
+# Subtest: a replacement inherits the manual bench slot; invalid saved data falls back safely
+ok 38 - a replacement inherits the manual bench slot; invalid saved data falls back safely
+  ---
+  duration_ms: 1.060095
+  type: 'test'
+  ...
+# Subtest: shared links preserve manual lineups, support old links, and reject malformed lineups
+ok 39 - shared links preserve manual lineups, support old links, and reject malformed lineups
+  ---
+  duration_ms: 0.835694
+  type: 'test'
+  ...
+# Subtest: versioned SQL migrations have consecutive IDs, deterministic checksums, and no empty scripts
+ok 40 - versioned SQL migrations have consecutive IDs, deterministic checksums, and no empty scripts
+  ---
+  duration_ms: 4.319718
+  type: 'test'
+  ...
+# Subtest: migration runner rejects missing sequence numbers and duplicate IDs
+ok 41 - migration runner rejects missing sequence numbers and duplicate IDs
+  ---
+  duration_ms: 1.552342
+  type: 'test'
+  ...
+# Subtest: legacy saved plans are quarantined by nullable owner migration, not deleted
+ok 42 - legacy saved plans are quarantined by nullable owner migration, not deleted
+  ---
+  duration_ms: 1.355341
+  type: 'test'
+  ...
+# Subtest: all saved plan operations authenticate and filter owner, entry and plan ID
+ok 43 - all saved plan operations authenticate and filter owner, entry and plan ID
+  ---
+  duration_ms: 0.502702
+  type: 'test'
+  ...
+# Subtest: guest planner keeps working and cloud plans offer sign-in
+ok 44 - guest planner keeps working and cloud plans offer sign-in
+  ---
+  duration_ms: 0.220866
+  type: 'test'
+  ...
+# Subtest: manager watchlist links use the authenticated user in every query
+ok 45 - manager watchlist links use the authenticated user in every query
+  ---
+  duration_ms: 0.208237
+  type: 'test'
+  ...
+# Subtest: version 3 saved plans round-trip with captain, chip, and validated manual lineup
+ok 46 - version 3 saved plans round-trip with captain, chip, and validated manual lineup
+  ---
+  duration_ms: 2.247658
+  type: 'test'
+  ...
+# Subtest: old standalone plan v2 restores its transfer map
+ok 47 - old standalone plan v2 restores its transfer map
+  ---
+  duration_ms: 0.553547
+  type: 'test'
+  ...
+# Subtest: old team planner saves restore 15-player manual lineup, captain and all chip names
+ok 48 - old team planner saves restore 15-player manual lineup, captain and all chip names
+  ---
+  duration_ms: 3.312871
+  type: 'test'
+  ...
+# Subtest: unsupported and malicious persisted plan types do not load
+ok 49 - unsupported and malicious persisted plan types do not load
+  ---
+  duration_ms: 0.170171
+  type: 'test'
+  ...
+# Subtest: out of horizon, duplicate lineup, unknown captain and invalid transfers are removed
+ok 50 - out of horizon, duplicate lineup, unknown captain and invalid transfers are removed
+  ---
+  duration_ms: 0.355555
+  type: 'test'
+  ...
+# Subtest: there is exactly one active planner component and the former routes converge
+ok 51 - there is exactly one active planner component and the former routes converge
+  ---
+  duration_ms: 0.726192
+  type: 'test'
+  ...
+# Subtest: shared plan links always navigate to the canonical planner, even when created from a team dashboard
+ok 52 - shared plan links always navigate to the canonical planner, even when created from a team dashboard
+  ---
+  duration_ms: 29.920884
+  type: 'test'
+  ...
+# Subtest: shared plan round-trips a manually chosen vice captain, while old links remain compatible
+ok 53 - shared plan round-trips a manually chosen vice captain, while old links remain compatible
+  ---
+  duration_ms: 0.460911
+  type: 'test'
+  ...
+# Subtest: refresh scheduling derives deterministic UTC hourly and 10-minute slot keys
+ok 54 - refresh scheduling derives deterministic UTC hourly and 10-minute slot keys
+  ---
+  duration_ms: 1.345036
+  type: 'test'
+  ...
+# Subtest: live updates run only in kickoff window; finished and blanks do not trigger them
+ok 55 - live updates run only in kickoff window; finished and blanks do not trigger them
+  ---
+  duration_ms: 0.160727
+  type: 'test'
+  ...
+# Subtest: new cron enqueues jobs but never performs expensive optimizer or source refresh inline
+ok 56 - new cron enqueues jobs but never performs expensive optimizer or source refresh inline
+  ---
+  duration_ms: 0.577021
+  type: 'test'
+  ...
+# Subtest: live automation migration extends the queue kind constraint additively
+ok 57 - live automation migration extends the queue kind constraint additively
+  ---
+  duration_ms: 0.153206
+  type: 'test'
+  ...
+# Subtest: bounded JSON body reader handles valid data without mangling unicode
+ok 58 - bounded JSON body reader handles valid data without mangling unicode
+  ---
+  duration_ms: 26.040115
+  type: 'test'
+  ...
+# Subtest: bounded JSON reader rejects declared and chunked oversized bodies
+ok 59 - bounded JSON reader rejects declared and chunked oversized bodies
+  ---
+  duration_ms: 1.467086
+  type: 'test'
+  ...
+# Subtest: bounded reader rejects missing body and invalid JSON
+ok 60 - bounded reader rejects missing body and invalid JSON
+  ---
+  duration_ms: 0.682378
+  type: 'test'
+  ...
+# Subtest: config rejects invalid database URL without exposing credentials
+ok 61 - config rejects invalid database URL without exposing credentials
+  ---
+  duration_ms: 1.133383
+  type: 'test'
+  ...
+# Subtest: public URLs reject credentials, HTTP production origins and malformed URL
+ok 62 - public URLs reject credentials, HTTP production origins and malformed URL
+  ---
+  duration_ms: 0.279983
+  type: 'test'
+  ...
+# Subtest: cron and AI are opt-in; no implicit paid model is selected
+ok 63 - cron and AI are opt-in; no implicit paid model is selected
+  ---
+  duration_ms: 0.691852
+  type: 'test'
+  ...
+# Subtest: all 18 analytics domains are in SQL and TypeScript schema exactly once
+ok 64 - all 18 analytics domains are in SQL and TypeScript schema exactly once
+  ---
+  duration_ms: 1.474517
+  type: 'test'
+  ...
+# Subtest: migrations are additive, ownership keys and snapshot provenance are present
+ok 65 - migrations are additive, ownership keys and snapshot provenance are present
+  ---
+  duration_ms: 0.514289
+  type: 'test'
+  ...
+# Subtest: all explicit foreign-key references point to known legacy or new tables
+ok 66 - all explicit foreign-key references point to known legacy or new tables
+  ---
+  duration_ms: 0.316687
+  type: 'test'
+  ...
+# Subtest: one lineup engine returns identical chosen XI across both consumers
+ok 67 - one lineup engine returns identical chosen XI across both consumers
+  ---
+  duration_ms: 3.166886
+  type: 'test'
+  ...
+# Subtest: captain, bench boost and triple captain have exactly one scoring formula
+ok 68 - captain, bench boost and triple captain have exactly one scoring formula
+  ---
+  duration_ms: 0.2099
+  type: 'test'
+  ...
+# Subtest: free-transfer rollover and WC/FH preserve banked transfers without adding one
+ok 69 - free-transfer rollover and WC/FH preserve banked transfers without adding one
+  ---
+  duration_ms: 0.39964
+  type: 'test'
+  ...
+# Subtest: selling prices use half profit rounded down to a tenth
+ok 70 - selling prices use half profit rounded down to a tenth
+  ---
+  duration_ms: 0.136331
+  type: 'test'
+  ...
+# Subtest: invalid squads are rejected rather than returning undefined captain and invalid formation
+ok 71 - invalid squads are rejected rather than returning undefined captain and invalid formation
+  ---
+  duration_ms: 0.209339
+  type: 'test'
+  ...
+# Subtest: canonical JSON digest does not depend on object key ordering
+ok 72 - canonical JSON digest does not depend on object key ordering
+  ---
+  duration_ms: 1.533995
+  type: 'test'
+  ...
+# Subtest: snapshot identity is source-, season- and GW-specific
+ok 73 - snapshot identity is source-, season- and GW-specific
+  ---
+  duration_ms: 0.511235
+  type: 'test'
+  ...
+# Subtest: season is based on official first deadline, not the system clock
+ok 74 - season is based on official first deadline, not the system clock
+  ---
+  duration_ms: 0.215037
+  type: 'test'
+  ...
+# Subtest: SQL migration prevents UPDATE and DELETE of historical snapshots
+ok 75 - SQL migration prevents UPDATE and DELETE of historical snapshots
+  ---
+  duration_ms: 0.231011
+  type: 'test'
+  ...
+# Subtest: scheduled refresh persists snapshots before reporting success
+ok 76 - scheduled refresh persists snapshots before reporting success
+  ---
+  duration_ms: 0.238161
+  type: 'test'
+  ...
+1..76
+# tests 76
+# suites 0
+# pass 76
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1775.003751

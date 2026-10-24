@@ -1,0 +1,113 @@
+path,kind,route,bytes,lines,sha256
+scripts/intelligence.test.cjs,Tool/test,,3106,73,8c52a943f061c9b12593bcc736ab8ba8f4dad179d5938573ab5492a1aa8d1179
+scripts/inventory.py,Tool/test,,2525,66,3c410c898861b4b4499f2a7d627b34960075fcb8a63b444b75e23b0eb90e0bc8
+scripts/live-analysis.test.cjs,Tool/test,,5501,64,eef2fdbc8c8dc44d25cf271be70ba17842ed388e908fb0380eb52b0524c04e20
+scripts/logo-assets.mjs,Tool/test,,5940,155,c7c802b947ccedb0012ff7da98fbad9bacf26301e391677bc1e975c193cc2ebf
+scripts/manual-lineups.test.cjs,Tool/test,,4625,79,20a80a6997a642642ef9bf7f9ec2c48c44161b4138daa104a5ffd6be27cdd979
+scripts/market-browser-check.cjs,Tool/test,,6066,60,1bc0c563fd6e6e96c020663244ba0a6b39130bb9931e14e1ff5fc45a12d3632e
+scripts/market-resilience-check.cjs,Tool/test,,2532,3,d9b05830901f14987f9577519333a468dab227f86975e59ee26d63431a5527d3
+src/app/api/analysis/[id]/route.ts,API route,/api/analysis/[id],3925,65,0de1b4a07074f4f1af06ac9320dd6fb6b57c37db9ae570955cea214fe6430771
+src/app/api/automation/status/route.ts,API route,/api/automation/status,521,14,f1dfa0a0128cb7f086b8f65d0224447be28734613ea9be0a2f8dc939252545a9
+src/app/api/copilot/route.ts,API route,/api/copilot,3298,93,6902c9edfcd9facc030934f953f317867fa2d5c4d7b3b71fcdba73f63b6bb220
+src/app/api/cron/refresh/route.ts,API route,/api/cron/refresh,1921,47,40cced72b6a07f564cecba45ac66820cd2c4fe262acc4851eb616d6e5b95462b
+src/app/api/fpl/bootstrap/route.ts,API route,/api/fpl/bootstrap,5040,144,14092ae20dc1579b4b93d1bdc70f5850373d22f371b6d91e34a11ff958d9b639
+src/app/api/fpl/element/[id]/route.ts,API route,/api/fpl/element/[id],850,29,980a26c210cca8b5802277a280d8c0d3030d05638a377973c9b6eb825060513a
+src/app/api/fpl/entry/[id]/picks/[gw]/route.ts,API route,/api/fpl/entry/[id]/picks/[gw],1141,38,fb3a5df258da77b79ac66c18d06bcd9d8ef3f533fb6f3c9b9f8490628e5ed408
+src/app/api/fpl/entry/[id]/route.ts,API route,/api/fpl/entry/[id],2232,69,4353c109ec81cbc00a16e8072fa30d1c71a5d116e64cb1f69f467a1b1676f212
+src/app/api/fpl/entry/[id]/transfers/route.ts,API route,/api/fpl/entry/[id]/transfers,836,29,b53dbfa8e64b9035f083ac571dc4aec94ecf97c78061b79f0b7b738cca95ad41
+src/app/api/fpl/fixtures/route.ts,API route,/api/fpl/fixtures,963,35,a8c0bb9825d8601a18d3d0e3bcdf3286ed2f61e12059618adce8e0bd69a2c62f
+src/app/api/fpl/league/[id]/route.ts,API route,/api/fpl/league/[id],1475,49,ffdf44b9e6af8dbe975b14cbd4db583a62e205d2bab00fbcbc80156653459b2d
+src/app/api/fpl/live/[gw]/route.ts,API route,/api/fpl/live/[gw],1006,30,7a6cc458bada10c77720fb1b60120152a6e42252db7eb8d9d84f5523d2a6f807
+src/app/api/health/route.ts,API route,/api/health,295,13,85ecde9db86952d444d593f4133df2b517ed768accc487350d35bb0db498357f
+src/app/api/img/player/[code]/route.ts,API route,/api/img/player/[code],1052,34,cf8a344f365cafad2bdcea342acc19283a4920e0f1e33fb2317a5e0dc91e7fef
+src/app/api/optimizer/[id]/route.ts,API route,/api/optimizer/[id],6067,179,2f91d72a236a877459cc424cd42daaf3eade5d37e124a2e4aa2e4774d773238b
+src/app/api/plan/[id]/route.ts,API route,/api/plan/[id],7859,235,898f3e32b066260967efb4b7842bd558afe245df86d504696e387de937915955
+src/app/api/plans/route.ts,API route,/api/plans,2701,84,ddbee4f3e0a8a4f6363250139cb9401470f303498af6db4f862b62d574ce9a66
+src/app/api/press/route.ts,API route,/api/press,5124,164,8511ffb1887ae230fb2744ee8d25b6441ba69666fa19532b4df31fcd37880c37
+src/app/api/price/route.ts,API route,/api/price,10324,315,d50184cb8395638d299e6793ce2e437bf3dce79f9ef7ce8943717a6fb7608541
+src/app/api/recent/route.ts,API route,/api/recent,747,27,d3ef3574b5ea1aac86c359a3c6a27b769ceefdd02c6534c94432d4a894ed59ff
+src/app/api/rivals/route.ts,API route,/api/rivals,2091,72,2b0b171bcfeb408f1203b0cf390fe0d54d09657f32303d54b42d894c0ef8f192
+src/app/api/status/route.ts,API route,/api/status,3648,125,a043271b3fd37bbc8da84d285677240bc95de5b5b5e6a54dba5eaf074f000bdf
+src/app/api/videos/route.ts,API route,/api/videos,1652,54,37979d2e3eaeb5ce471dd5ac913a8b1edd540369a189e9a3ea9919ba46f88810
+src/app/fixtures/page.tsx,Page route,/fixtures,200,7,2474dde45a3e5e98d2576fed15d5a3e66e8c6ffc3bb2683e2d9ebf41349d98b6
+src/app/layout.tsx,Other source,,2868,85,b8673195d7fd01b74b2ca0ffc89454a6192b070fec2252b07778f536fb865a5d
+src/app/page.tsx,Page route,/,133,5,48c41a9b671f00d90752dab07cbb282a8f0ba6280d230f900eb27bf9613edc37
+src/app/plan/[id]/page.tsx,Page route,/plan/[id],288,12,b7a7f99f62683aaab4f5e02dc7b7ea9a04b99fdbea204eb3d970c9c09fe4b668
+src/app/planner/page.tsx,Page route,/planner,133,5,8a5c472db795965109496721e26bbc21f84649702fa483644e88bbfcb4f833b8
+src/app/players/page.tsx,Page route,/players,203,7,2391f6cc9981ebe00f179bd335812a0d2e1dc40af70a0b57a034d8cf8a73e4f7
+src/app/status/page.tsx,Page route,/status,908,30,8ed4b5ae94593618a578c3ff07ddfa7939cb82db3ec42539dda10877fc248d88
+src/app/team/[id]/page.tsx,Page route,/team/[id],468,13,d4e0fa35d12da8f18c1092d6bd13d96641c8f59094da823b1cb0a22f5f3d69d4
+src/components/BottomNav.tsx,React component,,3190,106,3f96bfb0b33db9dd854838252329d5f033fa124fffbe44a932a7065dbf2b4226
+src/components/DataModelStatus.tsx,React component,,8442,216,a49662501e4fc30b08125f066fe45c46f3087a7daf0731c449b888dae51254e9
+src/components/ErrorBoundary.tsx,React component,,2778,86,24940233c0aa87155e72b29386ac5f39f12c4544a1e5e996e3d69e7aae51a5fc
+src/components/Logo.tsx,React component,,4092,89,d4d8a08dbc693aecf502bad06aac74c541867e703bdf9a9e95cab1e78cffdc26
+src/components/Pitch.tsx,React component,,8417,242,8b7aaec44407aebd37dd5b2efbf62506eb77dc4db835ae5a55f910995916364d
+src/components/PlayerPhoto.tsx,React component,,951,43,41818730fc9a4a6a8e3f486d1a8bdfa3443776bcf3750bd50ec7ad22bda69c29
+src/components/TeamBadge.tsx,React component,,850,38,8bb69081212b32be764cd2b1a1b78b3176bf07c957ce5ca3b88335a6d406b753
+src/components/ThemeToggle.tsx,React component,,2524,85,91b0a3f7fe9529106ca97d3fa96902165e9709c52bd476eae098f236793cf170
+src/components/TopBar.tsx,React component,,3443,92,340d5ba8ce8b859b330dc741eefeefc831148b5c2fc1c2f7f346e503f65ccf09
+src/components/fixtures/FixturesView.tsx,React component,,10154,268,17b0fc15ef6f2a4713a44855cec3682c0a51acaccedda1b991b9b2cc164605b7
+src/components/home/AutomationHealth.tsx,React component,,1153,31,50e46d50a6f8a1e139d1f227ce2e653efeaa881cab97cda10f3907bf98724b84
+src/components/home/HomeDashboard.tsx,React component,,33457,932,eeaad0c4aac3499f6a340bb0d3db86425f7e1895faec071fd877873b7f606e0d
+src/components/home/HomePitch.tsx,React component,,4691,112,9464c2d6cbd45c380f48c4e77f5d5836a83d4d6f87d77547ba3805b0d2db0214
+src/components/home/IntelligencePanel.tsx,React component,,7583,133,f0b85b1e84df4d56f51c4f4b3c60ff6e06fb4e6bb6b3ffe286beff7292049e17
+src/components/home/TeamReviewPanel.tsx,React component,,9587,268,fafdfef1395d81e03516ea7e5bab234a4959072b19e0a387f348218985223696
+src/components/home/ui.tsx,React component,,3392,129,365c7a507aa5288e8f7bbc5ce9f9f309921a58a0a59ef30379d665e083489941
+src/components/plan/LabPanel.tsx,React component,,6751,159,7fb044121528c20a0030e65f6227df5699a6c7ea742bb82e01fd2a453662c4bf
+src/components/plan/PlanDashboard.tsx,React component,,25969,709,d2adc1be713779480726ba6cdcf6faa3a5c838d8c180975aa49f708e850a5e66
+src/components/plan/PlanPitch.tsx,React component,,8154,217,76ed6c65e7fb3289c3bfc4f9bb9f0589f4b19b0dc9e9f1937adadff9a66bd8d1
+src/components/plan/PlayerModal.tsx,React component,,10390,258,b914cb8cc150e9ee5adf7f759f525800199439eb72284936fe73fad3882ce897
+src/components/plan/PlayerPanel.tsx,React component,,18270,483,37957639cb83af16a6d502086e1ff22b89a4b2daba73a86f860a79523de497f4
+src/components/plan/SummaryTab.tsx,React component,,4807,129,a6c1d6998083f8fb77a9154f4b7fa8c40b486c60d187e61a6a74dbbf1ac273f8
+src/components/plan/TickerTab.tsx,React component,,6391,162,74c6e7f364385dfa5419022ef8bca137098f7d02d38b7f7ddd32673cf40e1ca2
+src/components/plan/planUi.tsx,React component,,4289,118,a34d9129eec05db2fa5daf4b9168bf1f9d182f01370c2e427b5fab393ae8309b
+src/components/planner/MarketPanel.tsx,React component,,9542,259,e0e276df111b40a39787a26e95dbb596cfae43e0e01a1e4482e79821d7806582
+src/components/planner/PlannerView.tsx,React component,,54953,1287,c574001c1b7dc1a4c73aae293f585943653d9a340afb338181c38370a11f3260
+src/components/planner/ProjectionsView.tsx,React component,,8705,230,979373ab424ee1e2e64ec599210fa22589a7dab0a51d22c23cad3f00bc014e23
+src/components/planner/SolverView.tsx,React component,,17803,362,d8e82f2b764a61298609421d612dd0f50a68592c1eaff367cbb794bcc5d677cd
+src/components/planner/TeamPlanner.tsx,React component,,11707,330,a4ce3e07dd24cc5c2a53c0d9b5d5839fd9dbb2a5c7b5e46c745fee2f3c9a1e58
+src/components/planner/shared.ts,React component,,1424,31,e55383a5aed4289bb5639d9af618529f9233e9d84ebe6382f8ccb9fe4c3f18b6
+src/components/players/PlayerModal.tsx,React component,,7164,187,71abd13b9fd0487a713a978199cdb41997e2e5a4d0225c65af5c1dd84178c9ed
+src/components/players/PlayersBrowser.tsx,React component,,7056,196,f81a182ee750b22d3a4705e12460e75d1b8dc63efc957f22adf9222a3a31052d
+src/components/team/AnalysisLiveView.tsx,React component,,21442,169,0f71ce1f690c62b61cb1889d299e58870b949c63c93826919d3619425c24c088
+src/components/team/AutoOptimizedView.tsx,React component,,10022,261,85f48fd3d8b4b62c92b571c5f4b22f051b594612e2eaa237a81bc8f393e08432
+src/components/team/ChipsView.tsx,React component,,11829,283,7364abd62d65098406349b3944006fa5dd980099991bb8b14c9114547d460eb3
+src/components/team/CopilotChat.tsx,React component,,7914,221,11ee091ce7e8be9067b4d0caf65270928e63bfc657570e993059c84b4ac28de9
+src/components/team/ExplainView.tsx,React component,,29355,744,6d11dcc21b308a0eb0480fc4245ab49f4483a3db7b7154727d4a9eac21850f24
+src/components/team/HistoryView.tsx,React component,,6235,158,85952743e5e8f496597cd12a6d4c38459a19ec4e5da2cceb09bc52cd46bc33ce
+src/components/team/MatchesView.tsx,React component,,8379,242,d9564a579873b1df607e558971b3298a0da6609ff7a6bdb42fa514d72285ad54
+src/components/team/MonteCarloPanel.tsx,React component,,13276,313,3aa432d3256987c4c627a41beaaa6086d8ea3ad67c26b8df2f724fd7c9dfe5ad
+src/components/team/NewsView.tsx,React component,,6064,53,744b64632ea7962e232d84c2ffc7dfce344a4481be2675dc3551cc4436c8e7ed
+src/components/team/PitchView.tsx,React component,,3488,126,230cab74f0c07adcddd4069021b6a49e5e2d54a01a329cd989011af1aa08e5dd
+src/components/team/PlannerView.tsx,React component,,39389,1099,2d082eb4ba3cc2ac05efceaf9e03ed67aa9d173e05333ced8ee02ac94740b1df
+src/components/team/PriceView.tsx,React component,,9986,95,3b2e170f09eee7c4725f2330b66d2d13e3513f0647640f6eb6d30944d1299d1c
+src/components/team/RivalsView.tsx,React component,,10608,276,6f2ccec3a2b1c35a12e9b498bf941096d8aa8f565ff7d037fbf254dc51eebc74
+src/components/team/TeamDashboard.tsx,React component,,18965,520,8e23998b089ddb53eb2445891acde5a4d1fb41aa47350d97146bc1741c4efe53
+src/components/team/TransfersView.tsx,React component,,3001,86,e32f6f101cd99c6cb524c9ef32d97b6cb27de2c7237cf37a1a4f21460551753e
+src/components/team/VerdictView.tsx,React component,,31277,756,e73013b2ce66ec1493f5cc9ba03117fc3d3086f1a70d07d8d7efd350692b0728
+src/components/ui.tsx,React component,,2086,90,3cfc231a318cd22de5b9f2215d2aef33e2d02088c85b743de0abef67c15463fe
+src/db/index.ts,Database module,,547,24,44d8e984cf4d238facb3e984c6a2ffa7abfca11768da1304ff439d2b7246990b
+src/db/schema.ts,Database module,,3784,97,8457de828b0791b17be5a29700eef0513251e632cf23fe761090312d64d18775
+src/lib/aiAnalyst.ts,Shared analytical/service module,,3135,69,8deedbab96cf2585fc57001447fc1ff2156514b4d81c45fa595e6c33537f4e4f
+src/lib/clubMatch.ts,Shared analytical/service module,,2474,67,8199cf9cfb2e7a8e7ebae627850729f39eee4864d530e2e7f87335abed0841c0
+src/lib/copilot.ts,Shared analytical/service module,,7732,198,e587182167a3b65c79ebc8b75cef2286f85c8f7d338b886267bb0a5e7e47530a
+src/lib/dashboardMath.ts,Shared analytical/service module,,4618,140,b0e27bf6c41a21bd7b09c0e67116de3643ad580993ca894fea63121732090e36
+src/lib/explain.ts,Shared analytical/service module,,5781,180,3ec8186e46d321f1dea1b1ad5f022c52364b1d471b4937d3088b08919baf2722
+src/lib/fpl.ts,Shared analytical/service module,,4207,147,4e312e2fb97d0320f854e78bba5efb3a459bdfdd4ce01bf5fd210072719bec2a
+src/lib/helpers.ts,Shared analytical/service module,,2814,104,3bb71778643bb68c1ba5f9f1ae345af8aa4bcaf754b306d255f242718a763c44
+src/lib/intelligence.ts,Shared analytical/service module,,3478,101,404b6b186dfc9e6773453979f26073a4555944fa0058c37aedae12892b45fbf9
+src/lib/lineup.ts,Shared analytical/service module,,6486,204,aa686d70d093ccda92c3dc6286e5c078446aa38775fa52f23d6318bf5b4a2467
+src/lib/liveAnalysis.ts,Shared analytical/service module,,6867,140,539a3299363cb2a2784d631dfd29ba5e63bcc6e411205aab4a8f0dd3a693d7b6
+src/lib/logoMeta.ts,Shared analytical/service module,,455,17,0355959ecf1e0275806c8e63699ac3a7d74777880f594dcf79d5dfab463ee597
+src/lib/monteCarlo.ts,Shared analytical/service module,,20451,579,0ebe329b8ab35ea02cf857424f054484dbcc42319fe88fbb9cc95e36d6b49198
+src/lib/optimizer.ts,Shared analytical/service module,,40140,1129,a186196dd4506a84c8aad79ab6a609a8386e3cbf48b1742a236c2d7598fff90d
+src/lib/planEngine.ts,Shared analytical/service module,,19132,559,d03ede6d22732a02963fa7d4ef633661829cf541bb4da2dc6ed1fd7312eed471
+src/lib/planShare.ts,Shared analytical/service module,,3224,78,bb5ef852e1bf280fcec13b4c4c0e1f4f70312e24a09852ddedf80dfff3fe7eb6
+src/lib/planStorage.ts,Shared analytical/service module,,3513,111,6e59e73b58b3983c272f6244ab2256b49148090d2fa48d17a182f31be4462e93
+src/lib/planTypes.ts,Shared analytical/service module,,1787,71,69196ccb2e4dd7152ee22606e0ffbd0545d829ffe9e24db31df17ee09692017e
+src/lib/playerImageResolver.ts,Shared analytical/service module,,14527,440,5e705656c07cd272290e28d1ad6dea6f50b4df2459ed087dbf558c05ec79ccff
+src/lib/playerPhotoPaths.ts,Shared analytical/service module,,3536,103,09f1094d67e801ba3682899298977c857a20a1bffddc28b683caa06f29c30929
+src/lib/solver.py,Shared analytical/service module,,22917,522,9a61fdcd4a96f66983521dbbfd3226c06af2b6f507106267595d6645fee82f16
+src/lib/types.ts,Shared analytical/service module,,13469,536,76d918a6b5eb4eea937d7e74148a59ca4399713d3ae87ee3363f7d7112bb68d5
+src/lib/useJson.ts,Shared analytical/service module,,3137,103,79f8aafd978c55d2fa9ce1361238b28b61a78c9da6d37cb1c17f4b5f894a70bf
+src/lib/xpts.ts,Shared analytical/service module,,23335,624,4bacb604c063f139485ff1831cf947ba835966fa3af62390b17abe6f39348ed9

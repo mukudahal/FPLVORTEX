@@ -1,0 +1,5 @@
+# Optional but recommended: enables the exact MILP solver in src/lib/solver.py.
+# Without it the optimizer falls back to an approximate heuristic.
+# PuLP 4.x is NOT supported yet (its variable API changed).
+# Point the app at the interpreter that has it with FPL_PYTHON=/path/to/python
+pulp>=2.9,<4

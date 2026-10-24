@@ -1,0 +1,62 @@
+step,priority,task,status,deliverables_or_release_gate
+1,P0,Preserve original project,DONE,baseline Git commit a90f5b6; SOURCE_ZIP_SHA256.txt
+2,P0,Establish baseline,DONE_WITH_BLOCKER,02-baseline-verification.md; 02-baseline-test-results.txt
+3,P0,Create feature inventory,DONE,03-source-files.csv; 03-feature-inventory.csv; scripts/inventory.py
+4,P0,Define one architecture,DONE,04-architecture.md
+5,P0,Eliminate duplicated planners,DONE_WITH_BLOCKER,05-planner-consolidation.md; 8 migration/route tests; one canonical planner; full build still blocked by registry
+6,P0,Centralize FPL calculations,DONE_WITH_BLOCKER,src/lib/scoring.ts is canonical XI/transfer-hit/FT rollover/selling/chip scoring; src/lib/lineup.ts and optimizer.ts share solver; 33 passing tests; build gate outstanding
+7,P0,Correct project configuration,DONE_WITH_BLOCKER,drizzle.config.ts uses environment URL; runtimeConfig validates DB/HTTPS/cron/AI; check:env CLI; .env.example expanded; 36 tests pass; deployment credentials not provided
+8,P0,Establish database migrations,DONE_WITH_BLOCKER,transactional migration runner with checksum and advisory lock; original-table baseline; legacy adoption; dry run and migration tests pass; live Postgres migration verification pending
+9,P0,Expand database schema,DONE_WITH_BLOCKER,18 analytics tables plus Drizzle mirrors and indexes in migration 0002; static contract tests pass; live PostgreSQL execution unverified
+10,P0,Implement authentication,DONE_WITH_BLOCKER,account/session/email reset/verification and manager watchlist implemented; tests pass; production requires email credentials and Postgres integration/security review
+11,P0,Enforce data ownership,DONE_WITH_BLOCKER,saved plan GET/POST/DELETE require session and owner matching with cross-user 404 semantics; guest local drafts preserved; cross-user DB tests outstanding
+12,P0,Build the central data pipeline,DONE_WITH_BLOCKER,fplNormalize.ts and fplData.ts canonical source adapters; central validation for 9 official FPL resource types; all API planner/optimizer/league/rivals/price/analysis/image consumers use same normalization; 5 new tests; live FPL/API contract/build verification blocked
+13,P0,Implement immutable data snapshots,DONE_WITH_BLOCKER,"SHA-256-canonical append-only official FPL bootstrap/fixtures snapshots persisted by guarded cron, dedupe idempotency, migration 0005 update/delete trigger, verified snapshot lookup; 5 tests; live PostgreSQL write/replay unverified"
+14,P0,Strengthen API reliability,DONE_WITH_BLOCKER,"bounded timed upstream GET retries and 429 Retry-After, permanent 4xx no retry/stale, relative path validation, 15MB JSON guard, bounded stale cache windows, provenance headers on bootstrap/fixtures; 5 tests; cross-instance quotas and clean production build remain release gates"
+15,P0,Introduce background workers,DONE_WITH_BLOCKER,"Postgres idempotent owned background_jobs queue, atomic SKIP LOCKED claiming/lease/retry/exhaustion, optimizer + refresh workers, authenticated job submit/poll, shared optimizer service, Node22 TS loader, 5 tests; live DB worker and frontend async conversion pending"
+16,P0,Upgrade scheduled automation,DONE_WITH_BLOCKER,"Guarded 10m Vercel schedule endpoint enqueues idempotent UTC-hourly source refresh and 10min in-match live jobs; live append-only snapshots, last refresh/live status, migration 0007, 4 schedule tests; requires suitable Vercel plan + deployed worker + live DB"
+17,P0,Build season-specific FPL rules,DONE_WITH_BLOCKER,src/lib/seasonRules.ts; legal squad/chip/free-transfer rules and 3 tests; season-end full solver replay pending
+18,P0,Rebuild prediction reproducibility,DONE_WITH_BLOCKER,src/server/forecastIdentity.ts; canonical fingerprints; persisted end-to-end model run replay unverified
+19,P0,Calibrate the xPts engine,IN_PROGRESS,src/lib/forecastScience.ts; ridge calibration helpers only; missing historical training and calibration evidence
+20,P0,Strengthen expected-minutes predictions,IN_PROGRESS,src/lib/forecastScience.ts; uncertainty-aware heuristic minutes; learned start/substitution model pending
+21,P0,Model fixture uncertainty,DONE_WITH_BLOCKER,src/lib/forecastScience.ts; fixture blank/double/TBD diagnostics; live edge cases unverified
+22,P0,Validate prediction accuracy,IN_PROGRESS,src/lib/forecastScience.ts; no-hindsight sample filter plus accuracy/calibration diagnostics; longitudinal dataset absent
+23,P0,Upgrade Monte Carlo simulation,DONE_WITH_BLOCKER,src/lib/monteCarlo.ts; BB/TC-aware paired draws; distribution recalibration and match replay outstanding
+24,P0,Strengthen the transfer optimizer,IN_PROGRESS,src/lib/strategyEngine.ts; atomic budget/club/position legality; Python solver integration unverified
+25,P0,Implement multi-period optimization,IN_PROGRESS,src/lib/strategyEngine.ts; bounded multiweek beam search; not yet integrated end-to-end with live GW1-38 forecasts
+26,P0,Build scenario comparison,IN_PROGRESS,src/components/planner/PlannerExtras.tsx; manual what-if simulations; full paired scenario MC pending
+27,P0,Implement comprehensive chip strategy,IN_PROGRESS,src/lib/strategyEngine.ts and PlannerExtras.tsx; legal chips and greedy timetable; optimized WC/FH+opportunity-cost model pending
+28,P1,Upgrade price-change intelligence,IN_PROGRESS,src/lib/marketLeague.ts; official transfer demand index; no calibrated price rise/drop probabilities
+29,P1,Build unified injury intelligence,DONE_WITH_BLOCKER,src/lib/marketLeague.ts and /injuries; official availability list; independent reports/licensed data missing
+30,P1,Build mini-league analytics,DONE_WITH_BLOCKER,/leagues and src/lib/marketLeague.ts; public league leaderboard; full league pagination/replay pending
+31,P1,Implement effective-ownership analysis,DONE_WITH_BLOCKER,src/app/api/leagues/[id]/ownership/route.ts; capped authenticated 12-squad post-deadline EO sample; sample not global EO
+32,P1,Develop the Threats Engine,DONE_WITH_BLOCKER,src/lib/marketLeague.ts and /threats; ownership-weighted danger index; requires real cohort validation
+33,P1,Develop Must-Own and Differential analysis,IN_PROGRESS,src/lib/marketLeague.ts; sale-value-aware budget/club/position upgrade filter; transfer-horizon value modelling pending
+34,P1,Upgrade Captaincy Intelligence,DONE_WITH_BLOCKER,src/lib/marketLeague.ts and /captaincy; risk-adjusted ranking; empirical calibration outstanding
+35,P1,Establish the premium design system,DONE_WITH_BLOCKER,src/app/globals.css and original branded premium components; browser/contrast verification pending
+36,P1,Rebuild navigation and routing,DONE_WITH_BLOCKER,src/components/TopBar.tsx and BottomNav.tsx; premium nav and 24 page routes; browser routing verification pending
+37,P1,Build Tab 1: Dashboard,IN_PROGRESS,existing src/components/home/HomeDashboard.tsx preserved with new navigation; full command-centre redesign pending
+38,P1,Build Tab 2: Gameweek Review & Analysis,DONE_WITH_BLOCKER,/review and /review/[id]/[gw]; live historical gameweek review; frozen historical xPts comparison unavailable
+39,P1,Build Tab 3: Team Planner — Planner subtab,DONE_WITH_BLOCKER,TeamPlanner.tsx canonical planner route with original pitch/solver; browser E2E missing
+40,P1,Build Team Planner — Simulation subtab,IN_PROGRESS,PlannerExtras.tsx simulation tab with scenario interaction; fully paired Monte Carlo UI integration pending
+41,P1,Build Team Planner — Chips Strategy subtab,IN_PROGRESS,PlannerExtras.tsx chips strategy tab and chip rule engine; full optimized chip scenario runner pending
+42,P1,Build Team Planner — Price Increases subtab,DONE_WITH_BLOCKER,PlannerExtras.tsx Price Increases tab; demand index is uncalibrated
+43,P1,Build Team Planner — Injury List subtab,DONE_WITH_BLOCKER,PlannerExtras.tsx Injury List tab with official FPL flags; live validation pending
+44,P1,Build Mini-League page,DONE_WITH_BLOCKER,/leagues and owned league EO API; limited public sample and no league-wide historical coverage
+45,P1,Build Threats & Must-Own page,DONE_WITH_BLOCKER,/threats; injury-adjusted xPts risk and feasible alternatives; accuracy unverified
+46,P1,Build Captaincy page,DONE_WITH_BLOCKER,/captaincy; xPts/risk and VC guidance; real-world calibration pending
+47,P1,Upgrade Players & Fixtures pages,IN_PROGRESS,"/predictions fixture-aware view and existing /players,/fixtures; full advanced sorting/comparison pending"
+48,P1,Upgrade AI Copilot,DONE_WITH_BLOCKER,/api/copilot origin/size/auth AI quota and pre-existing solver-grounded explanation; production test pending
+49,P1,Build the shared reporting API,DONE_WITH_BLOCKER,src/lib/reportPayload.ts and /api/reports/[id]/[gw]; official observed report JSON; snapshot attribution pending
+50,P1,Build the Slides & Reports system,DONE_WITH_BLOCKER,"scripts/reporting/render_report.py; tested 3 × 4K PNG, 3-slide PPTX, 3-page PDF from synthetic fixture; batch-only deck"
+51,P1,Automate report publishing,IN_PROGRESS,"report_schedules + background worker opt-in archival only; outbound publishing, storage and delivered alerts NOT implemented"
+52,P1,Build Data & Model Status,DONE_WITH_BLOCKER,/status and /api/model/health; drift and data-status contract; real backtest baseline unavailable
+53,P1,Add production security and usage controls,IN_PROGRESS,"auth/origin/quota safeguards and idempotent report archival; penetration, privacy and billing security testing outstanding"
+54,P1,Optimize desktop and mobile performance,IN_PROGRESS,responsive premium CSS with 900px/520px rules; browser 390px/1440px and accessibility audits pending
+55,P1,Establish comprehensive testing,IN_PROGRESS,100 passing Node planning/integration/static tests; real browser/DB/solver/visual E2E pending
+56,P1,Add automated CI/CD,DONE_WITH_BLOCKER,.github/workflows/ci.yml clean install/tests/typecheck/lint/build; CI not yet run on GitHub
+57,P1,Configure staging infrastructure,IN_PROGRESS,docs/upgrade/57-staging-setup.md and scripts/release-gates.cjs; no provisioned staging infra
+58,P1,Run full production-readiness testing,BLOCKED,release-gates.cjs intentionally fails without independent production-quality staging evidence
+59,P1,Deploy the premium website,BLOCKED,deployment not performed; production gates and real Vercel/DB credentials absent
+60,P2,Introduce premium subscriptions,PENDING,Stripe subscriptions/payments/entitlements not implemented; requires test-mode billing project and security review
+61,P2,Establish continuous improvement,IN_PROGRESS,src/lib/modelDrift.ts and /api/model/health; drift checks only; no historical recalibration cycle or long-running job
