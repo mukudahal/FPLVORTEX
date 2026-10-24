@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
+import vercelHandler from '../api/index.mjs';
+import { readFile } from 'node:fs/promises';
 const context={waitUntil:()=>{}};
 for(const [path,type] of [['/','text/html'],['/app.js','javascript'],['/style.css','text/css'],['/model/xpts.js','javascript'],['/model/forecastBenchmark.js','javascript']]){
   const response=await worker.fetch(new Request('https://example.test'+path),{},context);
@@ -11,6 +13,9 @@ for(const [path,type] of [['/','text/html'],['/app.js','javascript'],['/style.cs
 assert.equal((await worker.fetch(new Request('https://example.test/missing'),{},context)).status,404);
 assert.equal((await worker.fetch(new Request('https://example.test/',{method:'POST'}),{},context)).status,405);
 assert.equal(await (await worker.fetch(new Request('https://example.test/',{method:'HEAD'}),{},context)).text(),'');
+const logo=await worker.fetch(new Request('https://example.test/brand/fpl-vortex-lion.jpg'),{},context);
+assert.equal(logo.headers.get('content-type'),'image/jpeg');
+assert.deepEqual(Buffer.from(await logo.arrayBuffer()),await readFile(new URL('../ui/brand/fpl-vortex-lion.jpg',import.meta.url)));
 const originalFetch=globalThis.fetch;
 const originalCaches=Object.getOwnPropertyDescriptor(globalThis,'caches');
 try{
@@ -25,6 +30,10 @@ try{
   assert.equal(official.headers.get('x-data-source'),'Official FPL API');
   assert.equal(official.headers.get('cache-control'),'public, max-age=900');
   assert.equal((await official.json()).elements.length,1);
+  const routed=await vercelHandler.fetch(new Request('https://example.test/api/index?fplRoute=bootstrap'));
+  assert.equal(routed.status,200);
+  assert.equal((await routed.json()).elements.length,1);
+  assert.equal((await vercelHandler.fetch(new Request('https://example.test/api/index?fplRoute=https://example.org/'))).status,404);
   const manager=await worker.fetch(new Request('https://example.test/api/entry/1'),{},context);
   assert.equal(manager.status,200);
   assert.equal(manager.headers.get('cache-control'),'private, max-age=60');

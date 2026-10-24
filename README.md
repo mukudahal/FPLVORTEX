@@ -45,3 +45,9 @@ GitHub tracks reviewable source changes and runs the site build/smoke checks. Ch
 The private hosted Site currently uses its own managed source repository. A GitHub commit alone does **not** deploy it. To release a GitHub change, ask in this project to sync the desired commit, run the checks and deploy it to the existing private Site. Automatic GitHub-to-host deployment is not configured.
 
 See `site/scripts/smoke-test.mjs` for the hosting-cache regression test and `1_APP_dashboard/docs/MATH_CORRECTIONS.md` for the mathematics audit.
+
+## Branding and alternate hosting
+
+The supplied crowned-lion logo is stored unchanged at `site/ui/brand/fpl-vortex-lion.jpg` and appears in the shared navigation. FPL VORTEX is shown in the header and document title of every page.
+
+`site/vercel.json`, `site/api/index.mjs` and `site/scripts/build-vercel.mjs` prepare the same application for Git-linked Vercel hosting. This configuration has been checked locally; linking and deployment require authorizing the existing Vercel account. No Vercel address has been claimed yet. Preserve private access during setup.

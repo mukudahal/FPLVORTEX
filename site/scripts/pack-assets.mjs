@@ -16,5 +16,6 @@ for(const [name,type] of [['index.html','text/html'],['app.js','application/java
   assets['/'+name]={content:await readFile(resolve(root,'ui',name),'utf8'),type:type+'; charset=utf-8'};
 }
 const handler=await readFile(resolve(root,'worker/handler.js'),'utf8');
+assets['/brand/fpl-vortex-lion.jpg']={content:(await readFile(resolve(root,'ui/brand/fpl-vortex-lion.jpg'))).toString('base64'),type:'image/jpeg',encoding:'base64'};
 await writeFile(resolve(root,'worker/index.js'),handler+'\nconst assets = '+JSON.stringify(assets)+';\nexport default createWorker(assets);\n');
 console.log('Packed current interface with verified, unchanged compiled math.');

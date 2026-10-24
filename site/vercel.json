@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "node scripts/build-vercel.mjs",
+  "outputDirectory": "dist-vercel",
+  "rewrites": [
+    {"source":"/api/:path*","destination":"/api/index?fplRoute=:path*"}
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {"key":"X-Content-Type-Options","value":"nosniff"},
+        {"key":"Referrer-Policy","value":"no-referrer"},
+        {"key":"Content-Security-Policy","value":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://resources.premierleague.com https://i.ytimg.com; object-src 'none'; base-uri 'self'; form-action 'self'"}
+      ]
+    }
+  ]
+}

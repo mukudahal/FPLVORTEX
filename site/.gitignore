@@ -1,4 +1,5 @@
 dist/
+dist-vercel/
 site.tar.gz
 
 .openai/qa-data/

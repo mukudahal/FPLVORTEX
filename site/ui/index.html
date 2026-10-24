@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="A private workspace to inspect FPL forecasts, build a legal squad and test model assumptions.">
-  <title>FPL VORTEX — Model Lab</title><link rel="stylesheet" href="/style.css">
+  <meta name="application-name" content="FPL VORTEX">
+  <title>FPL VORTEX — Dashboard</title><link rel="icon" type="image/jpeg" href="/brand/fpl-vortex-lion.jpg"><link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <a class="brand" href="/" aria-label="FPL Vortex home"><img class="brand-symbol" src="/logo.svg" alt="FPL VORTEX"><span>FPL VORTEX<small>MODEL LAB / v0.2</small></span></a>
+    <a class="brand lion-brand" href="/" aria-label="FPL VORTEX home"><img class="brand-logo" src="/brand/fpl-vortex-lion.jpg" alt="FPL VORTEX crowned lion logo" width="1536" height="1373" fetchpriority="high"><span class="brand-wordmark">FPL <strong>VORTEX</strong><small>FANTASY PREMIER LEAGUE</small></span></a>
     <div class="workspace-label">YOUR WORKSPACE</div>
     <nav aria-label="Main navigation">
       <button class="nav-item active" data-tab="dashboard"><span>▦</span> Dashboard</button>
@@ -17,10 +18,10 @@
       <button class="nav-item" data-tab="math"><span>∑</span> Math & simulation</button>
       <button class="nav-item" data-tab="validation"><span>◎</span> Validation</button>
     </nav>
-    <div class="sidebar-foot"><span class="private-dot"></span> Private workspace<p>Visible to your account.<br>Changes can be requested in chat.</p></div>
+    <div class="sidebar-foot"><span class="private-dot"></span> Private workspace<p>FPL VORTEX<br>Plan smarter. Play your game.</p></div>
   </aside>
   <main>
-    <header class="topbar"><span>Research workspace <span class="slash">/</span> <strong id="page-name">Player forecasts</strong></span><span class="version-badge">Independent model · Unvalidated</span></header>
+    <header class="topbar"><span><span class="topbar-channel">FPL VORTEX</span><span class="slash">/</span><strong id="page-name">Dashboard</strong></span><span class="version-badge">Independent model · Unvalidated</span></header>
     <section class="page-head"><div><div class="eyebrow" id="season-label">FPL VORTEX</div><h1 id="page-title">Find your next edge.</h1><p id="page-description">Explore the forecast. Inspect the assumptions. Make the decision.</p></div><div class="head-actions"><label class="file-button">Import data<input id="data-import" type="file" accept="application/json,.json" hidden></label><button id="refresh" class="primary">↻ Refresh data</button></div></section>
     <div class="data-banner" id="data-banner" role="status"><span class="status-dot"></span><span id="data-message">Loading official data…</span><span id="data-time"></span></div>
     <section class="metrics" aria-label="Forecast overview"><div><span>Upcoming gameweek</span><strong id="metric-gw">—</strong><small id="metric-deadline">Waiting for data</small></div><div><span>Top player forecast</span><strong id="metric-xpts">—</strong><small id="metric-player">Expected points</small></div><div><span>Players in the pool</span><strong id="metric-pool">—</strong><small>Fixture-level estimates</small></div><div><span>Model validation</span><strong class="metric-text">Not proven</strong><small>Benchmark data required</small></div></section>
