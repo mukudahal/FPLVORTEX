@@ -51,7 +51,7 @@ export function createWorker(assets) {
       const asset = assets[url.pathname === '/' ? '/index.html' : url.pathname];
       if (!asset) return new Response('Not found',{status:404});
       const body = request.method === 'HEAD' ? null : asset.encoding === 'base64' ? Uint8Array.from(atob(asset.content),character=>character.charCodeAt(0)) : asset.content;
-      return new Response(body,{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://resources.premierleague.com https://premierleague-static-files.s3.amazonaws.com https://i.ytimg.com; object-src 'none'; base-uri 'self'; form-action 'self'"}});
+      return new Response(body,{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://resources.premierleague.com https://premierleague-static-files.s3.amazonaws.com https://cdn.englandfootball.com https://i.ytimg.com; object-src 'none'; base-uri 'self'; form-action 'self'"}});
     }
   };
 }

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname,'..');
 const assets = {};
 const hashes = {};
-for (const [name,type] of [['index.html','text/html'],['app.js','application/javascript'],['style.css','text/css'],['dashboard.js','application/javascript'],['gameweek-points.js','application/javascript'],['player-images.js','application/javascript'],['icons.js','application/javascript'],['appearance.js','application/javascript'],['logo.svg','image/svg+xml'],['videos.json','application/json']]) assets['/'+name]={content:await readFile(resolve(root,'ui',name),'utf8'),type:type+'; charset=utf-8'};
+for (const [name,type] of [['index.html','text/html'],['app.js','application/javascript'],['style.css','text/css'],['dashboard.js','application/javascript'],['gameweek-points.js','application/javascript'],['player-images.js','application/javascript'],['player-photo-overrides.js','application/javascript'],['icons.js','application/javascript'],['appearance.js','application/javascript'],['logo.svg','image/svg+xml'],['videos.json','application/json']]) assets['/'+name]={content:await readFile(resolve(root,'ui',name),'utf8'),type:type+'; charset=utf-8'};
 for (const name of await readdir(resolve(root,'model'))) {
   if (!name.endsWith('.ts')) continue;
   const source = await readFile(resolve(root,'model',name),'utf8');
