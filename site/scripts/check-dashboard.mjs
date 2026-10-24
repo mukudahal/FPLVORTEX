@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { stripTypeScriptTypes } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { playerPhotoSources, installPlayerImageFallbacks } from '../ui/player-images.js';
+
+const code=stripTypeScriptTypes(await readFile(new URL('../model/dashboardMath.ts',import.meta.url),'utf8'),{mode:'strip'});
+const {buildStrengths,projectMatch}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const neutral={atkH:1,atkA:1,defWeakH:1,defWeakA:1};
+const fixture={finished:true,team_h:1,team_a:2};
+const valid={id:1,strength_attack_home:1320,strength_attack_away:1100,strength_defence_home:1100,strength_defence_away:1100};
+const mixed=buildStrengths([valid,{id:2}],[],[fixture]);
+assert.equal(mixed.get(1).atkH,1.2,'Keep valid API ratings when another club lacks them');
+assert.deepEqual(mixed.get(2),neutral,'No data means neutral, not a strong defence');
+const invalid=buildStrengths([{id:1},{id:2}],[{team:1,minutes:100,expected_goals:'NaN',expected_goals_conceded_per_90:NaN}], [fixture]);
+assert.deepEqual(invalid.get(1),neutral);
+assert.deepEqual(buildStrengths([{id:1}],[],[]).get(1),neutral);
+const baseline=projectMatch(neutral,neutral);
+assert.equal(baseline.homeXg,1.55);assert.equal(baseline.awayXg,1.25);
+assert.ok(Math.abs(baseline.homeWin+baseline.awayWin+baseline.draw-1)<1e-10);
+assert.equal(baseline.homeCs,Math.exp(-1.25));
+assert.throws(()=>projectMatch({...neutral,atkH:NaN},neutral),RangeError);
+const sources=playerPhotoSources({code:199798,photo:'999999.png'});
+assert.ok(sources.length>0&&sources.every(url=>url.endsWith('/199798.png')),'Official code takes precedence over a conflicting photo field');
+assert.ok(sources.every(url=>!url.includes('/premierleague/photos/players/')),'Never restore the legacy unversioned source');
+assert.deepEqual(playerPhotoSources({photo:'https://untrusted.test/photo.png'}),[]);
+const listeners={};installPlayerImageFallbacks({addEventListener(name,fn){listeners[name]=fn;}});
+const img={tagName:'IMG',classList:{contains:()=>true},dataset:{photoFallbacks:JSON.stringify(sources.slice(1))},src:sources[0],alt:'Player',parentElement:{}};
+for(let i=1;i<sources.length;i++){listeners.error({target:img});assert.equal(img.src,sources[i]);}
+listeners.error({target:img});assert.equal(img.hidden,true);
+assert.equal(img.parentElement.title,'Player · Photo unavailable');
+console.log('Dashboard missing-data, mixed-rating, probability and non-legacy image regressions passed.');

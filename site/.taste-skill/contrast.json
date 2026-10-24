@@ -1,0 +1,128 @@
+[
+  {
+    "theme": "light",
+    "text": "text",
+    "background": "panel",
+    "ratio": 15.44,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "muted",
+    "background": "panel",
+    "ratio": 5.49,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "muted",
+    "background": "bg",
+    "ratio": 5.0,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "accent",
+    "background": "panel",
+    "ratio": 7.11,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "on-accent",
+    "background": "accent",
+    "ratio": 7.11,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "negative",
+    "background": "negative-soft",
+    "ratio": 4.92,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "positive",
+    "background": "positive-soft",
+    "ratio": 5.52,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "gold",
+    "background": "gold-soft",
+    "ratio": 5.03,
+    "minimum": 4.5
+  },
+  {
+    "theme": "light",
+    "text": "control",
+    "background": "panel",
+    "ratio": 3.15,
+    "minimum": 3
+  },
+  {
+    "theme": "dark",
+    "text": "text",
+    "background": "panel",
+    "ratio": 15.1,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "muted",
+    "background": "panel",
+    "ratio": 8.46,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "muted",
+    "background": "bg",
+    "ratio": 9.3,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "accent",
+    "background": "panel",
+    "ratio": 10.82,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "on-accent",
+    "background": "accent",
+    "ratio": 10.03,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "negative",
+    "background": "negative-soft",
+    "ratio": 7.18,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "positive",
+    "background": "positive-soft",
+    "ratio": 7.54,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "gold",
+    "background": "gold-soft",
+    "ratio": 8.1,
+    "minimum": 4.5
+  },
+  {
+    "theme": "dark",
+    "text": "control",
+    "background": "panel",
+    "ratio": 4.24,
+    "minimum": 3
+  }
+]

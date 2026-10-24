@@ -4,15 +4,17 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="A private workspace to inspect FPL forecasts, build a legal squad and test model assumptions.">
   <meta name="application-name" content="FPL VORTEX">
-  <title>FPL VORTEX — Dashboard</title><link rel="icon" type="image/jpeg" href="/brand/fpl-vortex-lion.jpg"><link rel="stylesheet" href="/style.css">
+  <script src="/appearance.js"></script>
+  <link rel="preload" href="/fonts/manrope.ttf" as="font" type="font/ttf" crossorigin>
+  <title>FPL VORTEX — Gameweek Hub</title><link rel="icon" type="image/jpeg" href="/brand/fpl-vortex-lion.jpg"><link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="dashboard-mode">
 <div class="shell">
   <aside class="sidebar">
     <a class="brand lion-brand" href="/" aria-label="FPL VORTEX home"><img class="brand-logo" src="/brand/fpl-vortex-lion.jpg" alt="FPL VORTEX crowned lion logo" width="1536" height="1373" fetchpriority="high"><span class="brand-wordmark">FPL <strong>VORTEX</strong><small>FANTASY PREMIER LEAGUE</small></span></a>
     <div class="workspace-label">YOUR WORKSPACE</div>
     <nav aria-label="Main navigation">
-      <button class="nav-item active" data-tab="dashboard"><span>▦</span> Dashboard</button>
+      <button class="nav-item active" data-tab="dashboard"><span>▦</span> Gameweek Hub</button>
       <button class="nav-item" data-tab="forecasts"><span>◈</span> Player forecasts</button>
       <button class="nav-item" data-tab="squad"><span>▦</span> Squad lab <b id="squad-count">0</b></button>
       <button class="nav-item" data-tab="math"><span>∑</span> Math & simulation</button>
@@ -21,11 +23,11 @@
     <div class="sidebar-foot"><span class="private-dot"></span> Private workspace<p>FPL VORTEX<br>Plan smarter. Play your game.</p></div>
   </aside>
   <main>
-    <header class="topbar"><span><span class="topbar-channel">FPL VORTEX</span><span class="slash">/</span><strong id="page-name">Dashboard</strong></span><span class="version-badge">Independent model · Unvalidated</span></header>
-    <section class="page-head"><div><div class="eyebrow" id="season-label">FPL VORTEX</div><h1 id="page-title">Find your next edge.</h1><p id="page-description">Explore the forecast. Inspect the assumptions. Make the decision.</p></div><div class="head-actions"><label class="file-button">Import data<input id="data-import" type="file" accept="application/json,.json" hidden></label><button id="refresh" class="primary">↻ Refresh data</button></div></section>
+    <header class="topbar"><span><span class="topbar-channel">FPL VORTEX</span><span class="slash">/</span><strong id="page-name">Gameweek Hub</strong></span><div class="topbar-tools"><span class="version-badge">Independent model · Unvalidated</span><button class="color-control" id="color-data" aria-pressed="true" title="Toggle colour shading in tables and fixture difficulty"><span class="color-swatch" aria-hidden="true"></span>Color data</button><div class="theme-control" role="group" aria-label="Website theme"><button data-theme-choice="light" aria-label="Light theme" title="Light theme" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><button data-theme-choice="dark" aria-label="Dark theme" title="Dark theme" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 13A9 9 0 0 1 11 3 9 9 0 1 0 21 13Z"/></svg></button></div></div></header>
+    <section class="page-head"><div><div class="eyebrow" id="season-label">FPL VORTEX</div><h1 id="page-title">Gameweek Hub</h1><p id="page-description">Current-gameweek review, fixtures and player intelligence.</p></div><div class="head-actions"><label class="file-button">Import data<input id="data-import" type="file" accept="application/json,.json" hidden></label><button id="refresh" class="primary">↻ Refresh data</button></div></section>
     <div class="data-banner" id="data-banner" role="status"><span class="status-dot"></span><span id="data-message">Loading official data…</span><span id="data-time"></span></div>
     <section class="metrics" aria-label="Forecast overview"><div><span>Upcoming gameweek</span><strong id="metric-gw">—</strong><small id="metric-deadline">Waiting for data</small></div><div><span>Top player forecast</span><strong id="metric-xpts">—</strong><small id="metric-player">Expected points</small></div><div><span>Players in the pool</span><strong id="metric-pool">—</strong><small>Fixture-level estimates</small></div><div><span>Model validation</span><strong class="metric-text">Not proven</strong><small>Benchmark data required</small></div></section>
-    <section id="view-dashboard" class="view active"><div id="dashboard-mount"></div></section>
+    <section id="view-dashboard" class="view active"><div id="dashboard-mount"><p class="dash-empty" role="status">Loading your Gameweek Hub…</p></div></section>
     <section id="view-forecasts" class="view">
       <div class="content-grid"><div class="panel table-panel"><div class="panel-heading"><div><h2>Player projections</h2><p>Click a heading to sort. Select a player to inspect.</p></div><button class="quiet" id="export">↓ Export</button></div>
       <div class="table-controls"><label class="search"><span>⌕</span><input id="search" placeholder="Search player or club" aria-label="Search players"></label><select id="position" aria-label="Filter position"><option value="0">All positions</option><option value="1">Goalkeepers</option><option value="2">Defenders</option><option value="3">Midfielders</option><option value="4">Forwards</option></select><select id="horizon" aria-label="Forecast horizon"><option value="1">Next GW</option><option value="3">Next 3 GWs</option><option value="5">Next 5 GWs</option><option value="10">Next 10 GWs</option></select></div>

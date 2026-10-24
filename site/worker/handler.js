@@ -34,6 +34,7 @@ export function createWorker(assets) {
           const signal = AbortSignal.timeout(12000);
           stage = 'upstream_fetch';
           const response = await fetch('https://fantasy.premierleague.com/api/' + upstream, {headers:{accept:'application/json'},signal});
+          if(response.status===404&&(entry||picks||history))return Response.json({error:'FPL Team ID or gameweek selection was not found.'},{status:404});
           if (!response.ok) return Response.json({error:'Official data is temporarily unavailable. Import a snapshot to continue testing.'},{status:503});
           stage = 'response_body';
           const text = await response.text();
@@ -50,7 +51,7 @@ export function createWorker(assets) {
       const asset = assets[url.pathname === '/' ? '/index.html' : url.pathname];
       if (!asset) return new Response('Not found',{status:404});
       const body = request.method === 'HEAD' ? null : asset.encoding === 'base64' ? Uint8Array.from(atob(asset.content),character=>character.charCodeAt(0)) : asset.content;
-      return new Response(body,{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://resources.premierleague.com https://i.ytimg.com; object-src 'none'; base-uri 'self'; form-action 'self'"}});
+      return new Response(body,{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://resources.premierleague.com https://premierleague-static-files.s3.amazonaws.com https://i.ytimg.com; object-src 'none'; base-uri 'self'; form-action 'self'"}});
     }
   };
 }
