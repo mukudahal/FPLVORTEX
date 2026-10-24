@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { stripTypeScriptTypes } from 'node:module';
 import { readFile } from 'node:fs/promises';
-import { playerPhotoSources, installPlayerImageFallbacks } from '../ui/player-images.js';
+import { playerPhotoSources, playerPortrait, resetPlayerImageFailures, installPlayerImageFallbacks } from '../ui/player-images.js';
 
 const code=stripTypeScriptTypes(await readFile(new URL('../model/dashboardMath.ts',import.meta.url),'utf8'),{mode:'strip'});
 const {buildStrengths,projectMatch}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -29,3 +29,28 @@ for(let i=1;i<sources.length;i++){listeners.error({target:img});assert.equal(img
 listeners.error({target:img});assert.equal(img.hidden,true);
 assert.equal(img.parentElement.title,'Player · Photo unavailable');
 console.log('Dashboard missing-data, mixed-rating, probability and non-legacy image regressions passed.');
+
+const player={code:465730,team:5,web_name:'De Cuyper'};
+assert.ok(playerPhotoSources(player)[0].includes('/premierleague25/photos/players/110x140/'));
+assert.ok(playerPhotoSources(player,true)[0].includes('/premierleague25/photos/players/500x500/'));
+assert.ok(playerPhotoSources(player).every(url=>!url.includes('/premierleague26/')),'Asset namespace must not be guessed from the calendar');
+const cacheListeners={};let installs=0;
+const fakeDocument={addEventListener(name,fn){cacheListeners[name]=fn;installs++;}};
+installPlayerImageFallbacks(fakeDocument);installPlayerImageFallbacks(fakeDocument);
+assert.equal(installs,2,'Listeners install only once per document');
+const markup=playerPortrait(player,value=>value);
+const cachedImage={tagName:'IMG',classList:{contains:()=>true},dataset:{photoKey:markup.match(/data-photo-key="([^"]+)"/)[1],photoFallbacks:'[]'},src:playerPhotoSources(player)[0],alt:player.web_name,parentElement:{}};
+cacheListeners.error({target:cachedImage});
+assert.deepEqual(playerPhotoSources(player),[],'Exhausted photos are not fetched again on every redraw');
+assert.ok(playerPortrait(player,value=>value).includes('Photo unavailable'));
+assert.ok(playerPhotoSources({...player,team:9}).length>0,'A club change invalidates the cached result');
+const originalNow=Date.now;
+try {Date.now=()=>originalNow()+5*60*1000+1;assert.ok(playerPhotoSources(player).length>0,'Missing photos become eligible for retry');} finally {Date.now=originalNow;}
+resetPlayerImageFailures();assert.ok(playerPhotoSources(player).length>0,'Refresh data retries failed photos');
+cachedImage.hidden=false;cachedImage.dataset.photoFallbacks='{}';cacheListeners.error({target:cachedImage});assert.equal(cachedImage.hidden,true,'Malformed fallback metadata produces a clean missing state');
+resetPlayerImageFailures();
+console.log('Official image namespace, size selection, failure cache, expiry and refresh checks passed.');
+
+assert.ok(playerPhotoSources({code:199798,birth_date:'1997-10-23'}).at(-1).startsWith('https://cdn.englandfootball.com/'),'Verified FA portrait backs up the missing PL headshot');
+assert.ok(playerPhotoSources({code:199798,birth_date:'1997-06-06'}).every(url=>!url.includes('englandfootball.com')),'DOB conflicts reject cross-provider mapping');
+assert.ok(playerPhotoSources({code:199799,birth_date:'1997-10-23'}).every(url=>!url.includes('englandfootball.com')),'Matching birth date alone never selects another player’s photo');
