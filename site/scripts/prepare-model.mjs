@@ -16,6 +16,7 @@ for (const name of await readdir(resolve(root,'model'))) {
   assets['/model/'+name.replace(/\.ts$/,'.js')]={content:compiled,type:'application/javascript; charset=utf-8'};
 }
 const handler=await readFile(resolve(root,'worker/handler.js'),'utf8');
+assets['/brand/fpl-vortex-lion.jpg']={content:(await readFile(resolve(root,'ui/brand/fpl-vortex-lion.jpg'))).toString('base64'),type:'image/jpeg',encoding:'base64'};
 await writeFile(resolve(root,'worker/index.js'),handler+'\nconst assets = '+JSON.stringify(assets)+';\nexport default createWorker(assets);\n');
 await writeFile(resolve(root,'model-build.json'),JSON.stringify(hashes,null,2)+'\n');
 console.log('Prepared '+Object.keys(assets).length+' embedded assets from the shared math source.');
