@@ -7,6 +7,10 @@ const qaDirectory=process.env.FPL_QA_DIRECTORY;
 const server=createServer(async(incoming,outgoing)=>{
   try{
     const pathname=new URL(incoming.url,'http://127.0.0.1').pathname;
+    if(qaDirectory&&pathname==='/__responsive'){
+      const html=await readFile(resolve(qaDirectory,'responsive.html'));
+      outgoing.writeHead(200,{'content-type':'text/html','cache-control':'no-store'});outgoing.end(html);return;
+    }
     if(qaDirectory&&/^\/api\/(?:bootstrap|fixtures|entry\/[1-9]\d{0,9}|history\/[1-9]\d{0,9}|picks\/[1-9]\d{0,9}\/\d{1,2}|live\/\d{1,2})$/.test(pathname)){
       const data=await readFile(resolve(qaDirectory,pathname.slice(5).replaceAll('/','-')+'.json'));
       outgoing.writeHead(200,{'content-type':'application/json','cache-control':'no-store','x-qa-source':'Captured official API response'});outgoing.end(data);return;

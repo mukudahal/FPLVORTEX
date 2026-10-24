@@ -44,25 +44,18 @@ export function buildStrengths(
 ): Map<number, TeamStrength> {
   const out = new Map<number, TeamStrength>();
 
-  const apiHasStrengths = teams.every(
-    (t) =>
-      (t.strength_attack_home ?? 0) > 0 &&
-      (t.strength_attack_away ?? 0) > 0 &&
-      (t.strength_defence_home ?? 0) > 0 &&
-      (t.strength_defence_away ?? 0) > 0,
-  );
-  if (apiHasStrengths) {
-    for (const t of teams) {
-      out.set(t.id, {
-        atkH: (t.strength_attack_home as number) / API_BASE,
-        atkA: (t.strength_attack_away as number) / API_BASE,
-        // the API "defence" number is higher = better, so weakness is its inverse
-        defWeakH: API_BASE / (t.strength_defence_home as number),
-        defWeakA: API_BASE / (t.strength_defence_away as number),
-      });
-    }
-    return out;
+  // Missing one club's API ratings must not discard valid ratings for every club.
+  for (const t of teams) {
+    const ratings = [t.strength_attack_home, t.strength_attack_away, t.strength_defence_home, t.strength_defence_away];
+    if (!ratings.every(value => Number.isFinite(value) && (value as number) > 0)) continue;
+    out.set(t.id, {
+      atkH: (t.strength_attack_home as number) / API_BASE,
+      atkA: (t.strength_attack_away as number) / API_BASE,
+      defWeakH: API_BASE / (t.strength_defence_home as number),
+      defWeakA: API_BASE / (t.strength_defence_away as number),
+    });
   }
+  if (out.size === teams.length) return out;
 
   const games = new Map<number, number>();
   for (const f of fixtures) {
@@ -74,31 +67,31 @@ export function buildStrengths(
   const raw = teams.map((t) => {
     const squad = elements.filter((p) => p.team === t.id);
     const n = games.get(t.id) ?? 0;
-    const xgFor = squad.reduce((s, p) => s + (parseFloat(p.expected_goals) || 0), 0);
+    const xgValues = squad.map(p => parseFloat(p.expected_goals));
+    const hasAttackEvidence = xgValues.length > 0 && xgValues.every(value => Number.isFinite(value) && value >= 0);
+    const xgFor = xgValues.reduce((sum, value) => sum + value, 0);
     const anchor = squad.reduce<SlimElement | null>(
-      (best, p) => (best === null || p.minutes > best.minutes ? p : best),
+      (best, p) => (Number.isFinite(p.minutes) && p.minutes > 0 && Number.isFinite(p.expected_goals_conceded_per_90) && p.expected_goals_conceded_per_90 >= 0 && (best === null || p.minutes > best.minutes) ? p : best),
       null,
     );
     return {
       id: t.id,
       n,
-      forPerGame: n > 0 ? xgFor / n : 0,
-      againstPer90: anchor && anchor.minutes > 0 ? anchor.expected_goals_conceded_per_90 : 0,
+      forPerGame: n > 0 && hasAttackEvidence ? xgFor / n : null,
+      againstPer90: anchor ? anchor.expected_goals_conceded_per_90 : null,
     };
   });
 
-  const played = raw.filter((r) => r.n > 0);
-  const avgFor = played.length
-    ? played.reduce((s, r) => s + r.forPerGame, 0) / played.length
-    : 0;
-  const avgAgainst = played.length
-    ? played.reduce((s, r) => s + r.againstPer90, 0) / played.length
-    : 0;
+  const attacks = raw.filter(r => r.n > 0 && r.forPerGame !== null);
+  const defences = raw.filter(r => r.n > 0 && r.againstPer90 !== null);
+  const avgFor = attacks.length ? attacks.reduce((sum, r) => sum + (r.forPerGame as number), 0) / attacks.length : 0;
+  const avgAgainst = defences.length ? defences.reduce((sum, r) => sum + (r.againstPer90 as number), 0) / defences.length : 0;
 
   for (const r of raw) {
+    if (out.has(r.id)) continue;
     const w = r.n / (r.n + PRIOR_GAMES);
-    const atkRatio = avgFor > 0 && r.n > 0 ? r.forPerGame / avgFor : 1;
-    const defRatio = avgAgainst > 0 && r.n > 0 ? r.againstPer90 / avgAgainst : 1;
+    const atkRatio = avgFor > 0 && r.n > 0 && r.forPerGame !== null ? r.forPerGame / avgFor : 1;
+    const defRatio = avgAgainst > 0 && r.n > 0 && r.againstPer90 !== null ? r.againstPer90 / avgAgainst : 1;
     const atk = clamp(w * atkRatio + (1 - w), 0.55, 1.8);
     const defWeak = clamp(w * defRatio + (1 - w), 0.55, 1.8);
     out.set(r.id, { atkH: atk, atkA: atk, defWeakH: defWeak, defWeakA: defWeak });

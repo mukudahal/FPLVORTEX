@@ -12,9 +12,11 @@ for(const [name,expected] of Object.entries(hashes)){
   const source=await readFile(resolve(root,'model',name));
   if(createHash('sha256').update(source).digest('hex')!==expected)throw new Error('Math source changed: run prepare-model.mjs with TypeScript before packaging.');
 }
-for(const [name,type] of [['index.html','text/html'],['app.js','application/javascript'],['style.css','text/css'],['dashboard.js','application/javascript'],['player-images.js','application/javascript'],['logo.svg','image/svg+xml'],['videos.json','application/json']]){
+for(const [name,type] of [['index.html','text/html'],['app.js','application/javascript'],['style.css','text/css'],['dashboard.js','application/javascript'],['player-images.js','application/javascript'],['icons.js','application/javascript'],['appearance.js','application/javascript'],['logo.svg','image/svg+xml'],['videos.json','application/json']]){
   assets['/'+name]={content:await readFile(resolve(root,'ui',name),'utf8'),type:type+'; charset=utf-8'};
 }
+assets['/fonts/manrope.ttf']={content:(await readFile(resolve(root,'ui/fonts/manrope.ttf'))).toString('base64'),type:'font/ttf',encoding:'base64'};
+assets['/fonts/OFL.txt']={content:await readFile(resolve(root,'ui/fonts/OFL.txt'),'utf8'),type:'text/plain; charset=utf-8'};
 const handler=await readFile(resolve(root,'worker/handler.js'),'utf8');
 assets['/brand/fpl-vortex-lion.jpg']={content:(await readFile(resolve(root,'ui/brand/fpl-vortex-lion.jpg'))).toString('base64'),type:'image/jpeg',encoding:'base64'};
 await writeFile(resolve(root,'worker/index.js'),handler+'\nconst assets = '+JSON.stringify(assets)+';\nexport default createWorker(assets);\n');

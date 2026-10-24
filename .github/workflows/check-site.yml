@@ -19,5 +19,7 @@ jobs:
           node-version: "22"
       - run: npm run build
       - run: npm run validate
+      - run: node scripts/check-dashboard.mjs
+      - run: python scripts/check-contrast.py
       - run: node scripts/smoke-test.mjs
       - run: node scripts/build-vercel.mjs
