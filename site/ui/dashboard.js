@@ -1,3 +1,4 @@
+import { gameweekPoints } from '/gameweek-points.js';
 import { buildStrengths, projectMatch } from '/model/dashboardMath.js';
 import { playerPortrait } from '/player-images.js';
 import { icon } from '/icons.js';
@@ -88,11 +89,8 @@ export function createDashboard(getState, escape, toast) {
     const rank=current?.overall_rank??review?.picks.entry_history?.overall_rank;
     const change=rank&&previous?.overall_rank?previous.overall_rank-rank:null;
     const starters=picks.filter(pick=>pick.position<=11),bench=picks.filter(pick=>pick.position>11);
-    // Use the official review total. Applying final-match autosubs to an unfinished
-    // gameweek would prematurely replace players whose fixtures have not started.
-    const officialPoints=review?.picks.entry_history?.points;
-    const points=Number.isFinite(officialPoints)?officialPoints:null;
     const event=state.bootstrap.events.find(item=>item.id===gameweek);
+    const points=review?gameweekPoints({picks,live:liveSnapshot?.elements,players:state.bootstrap.elements,fixtures:state.fixtures,gameweek,event,officialPoints:review.picks.entry_history?.points,transferCost:review.picks.entry_history?.event_transfers_cost}):null;
     const stats=[['GW Points',points,false],['Avg Points',event?.average_entry_score,false],['Overall Rank',rank,true],['OR Change',change,true],['GW Rank',current?.rank??review?.picks.entry_history?.rank,true]];
     const fixtureInfo=player=>{
       const matches=state.fixtures.filter(fixture=>fixture.event===gameweek&&[fixture.team_h,fixture.team_a].includes(player.team));
