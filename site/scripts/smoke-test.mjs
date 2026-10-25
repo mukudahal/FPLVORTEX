@@ -3,7 +3,7 @@ import worker from '../worker/index.js';
 import vercelHandler from '../api/index.mjs';
 import { readFile } from 'node:fs/promises';
 const context={waitUntil:()=>{}};
-for(const [path,type] of [['/','text/html'],['/app.js','javascript'],['/availability.js','javascript'],['/player-images.js','javascript'],['/appearance.js','javascript'],['/icons.js','javascript'],['/style.css','text/css'],['/fonts/manrope.ttf','font/ttf'],['/model/xpts.js','javascript'],['/model/forecastBenchmark.js','javascript']]){
+for(const [path,type] of [['/','text/html'],['/app.js','javascript'],['/availability.js','javascript'],['/forecasts.js','javascript'],['/forecast-data.js','javascript'],['/player-images.js','javascript'],['/appearance.js','javascript'],['/icons.js','javascript'],['/style.css','text/css'],['/fonts/manrope.ttf','font/ttf'],['/model/xpts.js','javascript'],['/model/forecastBenchmark.js','javascript']]){
   const response=await worker.fetch(new Request('https://example.test'+path),{},context);
   assert.equal(response.status,200,path);
   assert.ok(response.headers.get('content-type').includes(type));

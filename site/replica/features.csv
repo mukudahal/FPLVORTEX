@@ -1,0 +1,9 @@
+feature,area,priority,original,clone,notes
+Eight-gameweek segmented selector,S02,must,yes,yes,Uses the upcoming official event IDs
+Shared position price ownership search filters,S02,must,yes,yes,Applies to both tables
+Compact sortable season statistics,S02,must,yes,yes,Official statistics with explicit metric definitions
+Next-gameweek attack probabilities,S02,must,yes,yes,Own VORTEX model with joint appearance mixture
+Headshots in both tables,S02,must,yes,yes,Shared player-code resolver
+Previous and Next arrow paging,S02,must,yes,yes,All players accessible after sorting and filtering
+Keyboard player inspection,S02,must,yes,yes,Native dialog and focus return
+Verified superior prediction accuracy,S02,skip,no,no,Requires held-out comparison; no invented claim

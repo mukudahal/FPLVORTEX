@@ -1,4 +1,6 @@
 import { createDashboard } from '/dashboard.js';
+import { createForecastView } from '/forecasts.js';
+import { upcomingGameweeks, completedClubGames } from '/forecast-data.js';
 import { playerPortrait, installPlayerImageFallbacks, resetPlayerImageFailures } from '/player-images.js';
 import { computePlayerXPts, computePositionPriors } from '/model/xpts.js';
 import { forecastMinutes } from '/model/forecastScience.js';
@@ -12,7 +14,7 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'
 const fixed = (value, digits=2) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const positionName = {1:'GK',2:'DEF',3:'MID',4:'FWD'};
 installPlayerImageFallbacks(document);
-const state = {bootstrap:null,fixtures:[],rows:[],selected:null,horizon:1,sort:'points',direction:-1,squad:[],source:'sample',capturedAt:'',weeks:[]};
+const state = {bootstrap:null,fixtures:[],rows:[],selected:null,horizon:8,sort:'points',direction:-1,squad:[],source:'sample',capturedAt:'',weeks:[]};
 try {const saved=JSON.parse(localStorage.getItem('vortex-test-squad') ?? '[]');if(Array.isArray(saved))state.squad=saved.filter(id=>Number.isInteger(id)&&id>0).slice(0,15);} catch {}
 let toastTimer;
 function toast(message){$('#toast').textContent=message;$('#toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').style.display='none',6000);}
@@ -54,11 +56,14 @@ function loadData(data,source){
 
 function recalculate(){
   const bootstrap=state.bootstrap;if(!bootstrap)return;
-  const next=bootstrap.events.find(event=>event.is_next)??bootstrap.events.find(event=>!event.finished)??bootstrap.events.at(-1);
-  if(!next)throw new Error('No gameweek schedule was provided.');
-  state.weeks=bootstrap.events.filter(event=>event.id>=next.id).slice(0,state.horizon);
+  const remaining=upcomingGameweeks(bootstrap.events);
+  const next=remaining[0];
+  if(!next){state.weeks=[];state.rows=[];state.selected=null;renderTable();$('#player-detail').textContent='No future gameweeks are scheduled.';dashboard.render();return;}
+  state.horizon=Math.min(state.horizon,remaining.length);
+  $('#horizon').value=String(state.horizon);
+  state.weeks=remaining.slice(0,state.horizon);
   const teams=new Map(bootstrap.teams.map(team=>[team.id,team]));const priors=computePositionPriors(bootstrap.elements);
-  const matches=new Map();for(const fixture of state.fixtures){if(!fixture.finished)continue;for(const team of [fixture.team_h,fixture.team_a])matches.set(team,(matches.get(team)??0)+1);}
+  const matches=completedClubGames(state.fixtures);
   state.rows=bootstrap.elements.map(player=>{
     const weekly=state.weeks.map((event,index)=>computePlayerXPts(player,event.id,state.fixtures,teams,matches.get(player.team)??0,index,priors));
     return{id:player.id,player,name:player.web_name??'Unnamed player',club:teams.get(player.team)?.short_name??'—',clubName:teams.get(player.team)?.name??'Unknown club',position:player.element_type,price:player.now_cost/10,points:weekly.reduce((sum,week)=>sum+week.xPts,0),minutes:forecastMinutes(player,matches.get(player.team)??0).expectedMinutes,ownership:parseFloat(player.selected_by_percent)||0,weekly};
@@ -72,12 +77,7 @@ function recalculate(){
 }
 
 function renderTable(){
-  const query=$('#search').value.trim().toLowerCase();const position=Number($('#position').value);
-  const rows=state.rows.filter(row=>(!position||row.position===position)&&(!query||`${row.name} ${row.clubName}`.toLowerCase().includes(query))).sort((first,second)=>{
-    const left=first[state.sort],right=second[state.sort];return(typeof left==='string'?left.localeCompare(right):left-right)*state.direction||first.id-second.id;
-  });
-  $('#players-body').innerHTML=rows.slice(0,150).map(row=>`<tr data-player="${row.id}" class="${state.selected===row.id?'selected':''}"><td><div class="player-cell">${playerPortrait(row.player,escape)}<span><strong>${escape(row.name)}</strong><small>${escape(row.club)} · ${escape(row.weekly[0]?.fixturesLabel)}</small></span></div></td><td>£${fixed(row.price,1)}</td><td>${fixed(row.minutes,0)}</td><td class="points ${row.points>=5?'heat-high':row.points>=3?'heat-mid':''}">${fixed(row.points)}</td><td>${fixed(row.ownership,1)}%</td><td><button class="add-player ${state.squad.includes(row.id)?'added':''}" data-add="${row.id}" aria-label="${state.squad.includes(row.id)?'Remove':'Add'} ${escape(row.name)}">${state.squad.includes(row.id)?'✓':'+'}</button></td></tr>`).join('')||'<tr><td colspan="6">No players match your filters.</td></tr>';
-  $('#table-footer').textContent=`Showing ${Math.min(rows.length,150)} of ${rows.length} players · ${state.weeks.length} gameweek horizon · estimates, not guaranteed returns`;
+  forecastView.render();
 }
 
 function renderDetail(){
@@ -138,11 +138,12 @@ $('#benchmark-import').addEventListener('change',async event=>{try{const data=aw
 $('#benchmark-template').addEventListener('click',()=>download('benchmark-input-format.json',JSON.stringify({instructions:'Use genuine frozen pre-deadline forecasts and observed outcomes. Both models must use the same target GW and information cutoff. Example schema only; empty arrays contain no benchmark evidence.',forecastSchema:{season:'YYYY/YY',gw:'integer 1–38',playerId:'integer',issuedAt:'ISO timestamp',deadlineAt:'ISO timestamp',modelVersion:'source/version',xPts:'number',p60:'optional probability'},outcomeSchema:{season:'YYYY/YY',gw:'integer',playerId:'integer',points:'observed number',played60:'optional boolean'},candidates:[],references:[],outcomes:[]},null,2)));
 $('#export').addEventListener('click',()=>{const firstYear=new Date(state.bootstrap.events[0].deadline_time).getUTCFullYear();download('vortex-frozen-forecasts.json',JSON.stringify({source:state.source,generatedAt:new Date().toISOString(),modelStatus:'unvalidated',candidates:state.rows.flatMap(row=>row.weekly.map(week=>({season:`${firstYear}/${String(firstYear+1).slice(2)}`,gw:week.gw,playerId:row.id,issuedAt:new Date().toISOString(),deadlineAt:state.bootstrap.events.find(event=>event.id===week.gw).deadline_time,modelVersion:'vortex-xpts-2026.27.2-math',xPts:week.xPts,p60:week.p60}))),references:[],outcomes:[]},null,2));});
 document.addEventListener('click',event=>{const add=event.target.closest('[data-add]');if(add){toggleSquad(Number(add.dataset.add));return;}const row=event.target.closest('[data-player]');if(row){state.selected=Number(row.dataset.player);renderTable();renderDetail();}const sort=event.target.closest('[data-sort]');if(sort){state.direction=state.sort===sort.dataset.sort?-state.direction:-1;state.sort=sort.dataset.sort;renderTable();}});
-const pageCopy={dashboard:['Gameweek Hub','Gameweek Hub','Current-gameweek review, fixtures and player intelligence.'],forecasts:['Player forecasts','Find your next edge.','Explore the forecast. Inspect the assumptions. Make the decision.'],squad:['Squad lab','Build the right balance.','A legal squad, a clear captain, and every point accounted for.'],math:['Math & simulation','See the range of outcomes.','Expected points are an average. The distribution tells the rest.'],validation:['Validation','Let the evidence decide.','Measure prediction quality before making an accuracy claim.']};
-document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{const tab=button.dataset.tab;document.title=pageCopy[tab][0]+' | FPL VORTEX';document.body.classList.toggle('dashboard-mode',tab==='dashboard');document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===`view-${tab}`));document.querySelectorAll('[data-tab]').forEach(item=>{item.classList.toggle('active',item===button);item.setAttribute('aria-current',item===button?'page':'false');});const copy=pageCopy[tab];$('#page-name').textContent=copy[0];$('#page-title').textContent=copy[1];$('#page-description').textContent=copy[2];}));
-document.addEventListener('vortex:select-player',event=>{if(!state.rows.some(row=>row.id===event.detail?.id))return;state.selected=event.detail.id;renderTable();renderDetail();document.querySelector('[data-tab="forecasts"]').click();});
+const pageCopy={dashboard:['Gameweek Hub','Gameweek Hub','Current-gameweek review, fixtures and player intelligence.'],forecasts:['Player forecasts','Player forecasts','Season statistics, eight-gameweek fixtures and your next-gameweek outlook.'],squad:['Squad lab','Build the right balance.','A legal squad, a clear captain, and every point accounted for.'],math:['Math & simulation','See the range of outcomes.','Expected points are an average. The distribution tells the rest.'],validation:['Validation','Let the evidence decide.','Measure prediction quality before making an accuracy claim.']};
+document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{const tab=button.dataset.tab;document.title=pageCopy[tab][0]+' | FPL VORTEX';document.body.classList.toggle('dashboard-mode',tab==='dashboard');document.body.classList.toggle('forecasts-mode',tab==='forecasts');document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===`view-${tab}`));document.querySelectorAll('[data-tab]').forEach(item=>{item.classList.toggle('active',item===button);item.setAttribute('aria-current',item===button?'page':'false');});const copy=pageCopy[tab];$('#page-name').textContent=copy[0];$('#page-title').textContent=copy[1];$('#page-description').textContent=copy[2];if(tab==='forecasts')forecastView.onShow();}));
+document.addEventListener('vortex:select-player',event=>{if(!state.rows.some(row=>row.id===event.detail?.id))return;state.selected=event.detail.id;renderTable();renderDetail();document.querySelector('[data-tab="forecasts"]').click();const dialog=$('#forecast-player-dialog');if(!dialog.open)dialog.showModal();});
 $('#search').addEventListener('input',renderTable);$('#position').addEventListener('change',renderTable);$('#horizon').addEventListener('change',event=>{state.horizon=Number(event.target.value);try{recalculate();}catch(error){toast(error.message);}});$('#refresh').addEventListener('click',()=>{resetPlayerImageFailures();refresh();});$('#simulate').addEventListener('click',simulate);$('#solve').addEventListener('click',()=>{try{solveSquad();}catch(error){toast(error.message);}});$('#clear-squad').addEventListener('click',()=>{state.squad=[];persistSquad();renderSquad();renderTable();});
 const dashboard=createDashboard(()=>state,escape,toast);
+const forecastView=createForecastView(()=>state,escape,id=>{state.selected=id;renderDetail();});
 document.body.classList.add('dashboard-mode');
 $('#page-name').textContent='Gameweek Hub';$('#page-title').textContent='Gameweek Hub';$('#page-description').textContent='Current-gameweek review, fixtures and player intelligence.';
 loadData(sampleData(),'sample');refresh();setInterval(()=>{if(state.source!=='imported')refresh();},15*60*1000);
