@@ -2,7 +2,7 @@ import { gameweekPoints } from '/gameweek-points.js';
 import { buildStrengths, projectMatch } from '/model/dashboardMath.js';
 import { playerPortrait } from '/player-images.js';
 import { icon } from '/icons.js';
-import { playerAvailability } from '/availability.js';
+import { playerAvailability, availabilityFlag as renderAvailabilityFlag } from '/availability.js';
 
 export function createDashboard(getState, escape, toast) {
   const root = document.querySelector('#dashboard-mount');
@@ -32,10 +32,7 @@ export function createDashboard(getState, escape, toast) {
   const playerLine = (player,teams) => `<button class="dash-player-line player-open" data-open-player="${player.id}" title="Inspect ${escape(player.web_name)}">${portrait(player)}<span><strong>${escape(player.web_name)}</strong><small>${badge(teams.get(player.team))}${positions[player.element_type]} · ${money(player.now_cost)}</small></span></button>`;
   const metricButton = (name,label) => `<button class="${projectionMetric===name?'selected':''}" data-projection="${name}" aria-pressed="${projectionMetric===name}">${label}</button>`;
   const sortArrow = direction => `<span class="sort-indicator" aria-hidden="true">${direction===-1?'↓':'↑'}</span>`;
-  const availabilityFlag = player => {
-    const availability=playerAvailability(player);
-    return availability.flagged ? `<button type="button" class="availability-flag ${availability.severity}" data-availability-player="${player.id}" aria-haspopup="dialog" aria-controls="availability-dialog" aria-label="${escape(player.web_name)}: ${availability.label}. View availability details" title="${escape(availability.label)} · Click for details">${icon('warning')}</button>` : '';
-  };
+  const availabilityFlag = player => renderAvailabilityFlag(player,escape);
   const availabilityDialog=document.createElement('dialog');
   availabilityDialog.id='availability-dialog';
   availabilityDialog.className='availability-dialog';
@@ -60,6 +57,9 @@ export function createDashboard(getState, escape, toast) {
     renderAvailabilityDetails();
     if(!availabilityDialog.open)availabilityDialog.showModal();
   }
+  document.addEventListener('vortex:availability',event=>{
+    if(Number.isInteger(event.detail?.playerId))openAvailability(event.detail.playerId,event.detail.trigger);
+  });
   availabilityDialog.addEventListener('click',event=>{
     if(event.target.closest('.availability-close')||event.target===availabilityDialog)availabilityDialog.close();
   });

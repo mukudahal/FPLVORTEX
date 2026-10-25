@@ -1,4 +1,11 @@
+import {icon} from './icons.js';
+
 const statusLabels = {a:'Available', d:'Doubtful', i:'Injured', s:'Suspended', u:'Unavailable', n:'Unavailable'};
+
+export function availabilityFlag(player,escape) {
+  const availability=playerAvailability(player);
+  return availability.flagged ? `<button type="button" class="availability-flag ${availability.severity}" data-availability-player="${player.id}" aria-haspopup="dialog" aria-controls="availability-dialog" aria-label="${escape(player.web_name)}: ${availability.label}. View availability details" title="${escape(availability.label)} · Click for details">${icon('warning')}</button>` : '';
+}
 
 function playingChance(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;

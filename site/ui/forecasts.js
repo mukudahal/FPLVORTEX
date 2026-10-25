@@ -1,5 +1,5 @@
 import {playerPortrait} from './player-images.js';
-import {playerAvailability} from './availability.js';
+import {availabilityFlag} from './availability.js';
 import {expectedFixturePoints} from '/model/playerModel.js';
 import {FORECAST_HORIZON,completedClubGames,seasonStatistics,projectedOutcomes,sortForecastRows,pageRows,upcomingGameweeks} from './forecast-data.js';
 
@@ -20,7 +20,8 @@ export function createForecastView(getState,escape,onSelect) {
   const search=root.querySelector('#search'),position=root.querySelector('#position'),horizon=root.querySelector('#horizon');
   const price=root.querySelector('#forecast-price'),ownership=root.querySelector('#forecast-ownership');
   const starting=root.querySelector('#forecast-starting');
-  let mainPage=0,attackPage=0,pageSize=8,mainSort='horizonPoints',mainDirection=-1,attackSort='returnChance',attackDirection=-1;
+  const pageSize=10;
+  let mainPage=0,attackPage=0,mainSort='horizonPoints',mainDirection=-1,attackSort='returnChance',attackDirection=-1;
   let lastFilter='',renderedSignature='',cachedRows=[];
   const fixed=(value,digits=2)=>Number.isFinite(value)?value.toFixed(digits):'—';
   const percentage=value=>Number.isFinite(value)?(value*100).toFixed(1)+'%':'—';
@@ -62,18 +63,17 @@ export function createForecastView(getState,escape,onSelect) {
       const outcome=row.weekly.find(item=>item.gw===week.id)?.outcomes;
       const title=`GW${week.id}: `+(fixtures.length?fixtures.map(fixture=>`${teams.get(fixture.team_h===row.player.team?fixture.team_a:fixture.team_h)?.name??'TBC'} (${fixture.team_h===row.player.team?'home':'away'})`).join(' + '):'No scheduled fixture');
       const difficulty=fixtures.length?Math.max(...fixtures.map(fixture=>fixture.team_h===row.player.team?fixture.team_h_difficulty:fixture.team_a_difficulty)):0;
-      const label=fixtures.map(fixture=>{
+      const labels=fixtures.map(fixture=>{
         const home=fixture.team_h===row.player.team;
         const opponent=teams.get(home?fixture.team_a:fixture.team_h)?.short_name??'TBC';
-        return home?opponent:opponent.toLowerCase();
-      }).join('+')||'—';
-      return `<span class="forecast-fixture" title="${escape(title)} · ${fixed(outcome?.points)} xP"><small>GW${week.id}</small><b data-difficulty="${difficulty}">${escape(label)}</b>${onlyNext?`<small>${fixtures.length===1?(fixtures[0].team_h===row.player.team?'H':'A'):'×'+fixtures.length}</small>`:`<span>${fixed(outcome?.points,1)}</span>`}</span>`;
+        return `${opponent.toUpperCase()}[${home?'H':'A'}]`;
+      });
+      return `<span class="forecast-fixture" data-difficulty="${difficulty}" title="${escape(title)} · ${fixed(outcome?.points)} xP"><small>GW${week.id}</small><b>${labels.length?labels.map(label=>`<span>${escape(label)}</span>`).join(''):'—'}</b><span>${fixed(outcome?.points,1)}</span></span>`;
     }).join('')}</div>`;
   }
 
   function playerCell(row,compact=false) {
-    const availability=playerAvailability(row.player);
-    return `<button class="forecast-player ${compact?'compact':''}" data-forecast-player="${row.id}" aria-haspopup="dialog" aria-controls="forecast-player-dialog" title="Inspect ${escape(row.name)}">${playerPortrait(row.player,escape)}<span><strong>${escape(row.name)}</strong><small>${escape(row.club)} · ${positions[row.position]}</small>${compact?`<small>Start ${percentage(row.values.start)}</small>`:''}</span>${availability.flagged?`<span class="forecast-health ${availability.severity}" title="${escape(availability.news)}" aria-label="${escape(availability.label)}">!</span>`:''}</button>`;
+    return `<div class="forecast-player-cell"><button class="forecast-player ${compact?'compact':''}" data-forecast-player="${row.id}" aria-haspopup="dialog" aria-controls="forecast-player-dialog" title="Inspect ${escape(row.name)}">${playerPortrait(row.player,escape)}<span><strong>${escape(row.name)}</strong><small>${escape(row.club)} · ${positions[row.position]}</small>${compact?`<small>Start ${percentage(row.values.start)}</small>`:''}</span></button>${availabilityFlag(row.player,escape)}</div>`;
   }
 
   function header(key,label,title,table='main') {
@@ -105,6 +105,12 @@ export function createForecastView(getState,escape,onSelect) {
     });
     root.querySelectorAll('[data-forecast-position]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.forecastPosition===position.value)));
     const rows=filteredRows();
+    const fixtureCounts=new Map();
+    for(const fixture of state.fixtures)if(state.weeks.some(week=>week.id===fixture.event))for(const team of [fixture.team_h,fixture.team_a]){
+      const key=fixture.event+':'+team;fixtureCounts.set(key,(fixtureCounts.get(key)??0)+1);
+    }
+    const maxFixtures=Math.max(1,...fixtureCounts.values()),fixtureRows=Math.max(1,Math.ceil(state.weeks.length/4));
+    root.style.setProperty('--forecast-row-height',Math.max(108,fixtureRows*(48+(maxFixtures-1)*14)+(fixtureRows-1)*4+8)+'px');
     const main=pageRows(sortForecastRows(rows,mainSort,mainDirection),mainPage,pageSize);mainPage=main.page;
     const attack=pageRows(sortForecastRows(rows,attackSort,attackDirection),attackPage,pageSize);attackPage=attack.page;
     root.querySelector('#forecast-head').innerHTML=`<tr>${header('name','Player','Player name')}<th scope="col" class="fixtures-heading">Next fixtures<small>${state.weeks.length} GW · xP per GW</small></th>${columns.map(([key,label,title])=>header(key,key==='horizonPoints'?`xP ${state.weeks.length}`:label,title)).join('')}<th scope="col" class="forecast-add-heading">+</th></tr>`;
@@ -119,19 +125,11 @@ export function createForecastView(getState,escape,onSelect) {
     root.querySelector('#forecast-scenario-note').textContent=starting.checked?'Scenario: a 60+ minute start when available. Injury and suspension constraints still apply.':'Expected minutes and current availability. Goal/assist outcomes share the same appearance model.';
   }
 
-  function resize() {
-    if(!root.classList.contains('active'))return;
-    const container=root.querySelector('.forecast-table-scroll');
-    const height=Math.max(Number.parseFloat(getComputedStyle(root).getPropertyValue('--forecast-row-height')),root.querySelector('#players-body tr')?.getBoundingClientRect().height??0);
-    const headerHeight=root.querySelector('#forecast-head').getBoundingClientRect().height;
-    const available=innerHeight-container.getBoundingClientRect().top-headerHeight-92;
-    const nextSize=Math.max(4,Math.min(12,Math.floor(available/height)));
-    if(nextSize!==pageSize){pageSize=nextSize;render();}
-  }
-
   root.addEventListener('click',event=>{
+    const availability=event.target.closest('[data-availability-player]');
+    if(availability){document.dispatchEvent(new CustomEvent('vortex:availability',{detail:{playerId:Number(availability.dataset.availabilityPlayer),trigger:availability}}));return;}
     const horizonButton=event.target.closest('[data-forecast-horizon]');
-    if(horizonButton){horizon.value=horizonButton.dataset.forecastHorizon;horizon.dispatchEvent(new Event('change'));resize();return;}
+    if(horizonButton){horizon.value=horizonButton.dataset.forecastHorizon;horizon.dispatchEvent(new Event('change'));return;}
     const positionButton=event.target.closest('[data-forecast-position]');
     if(positionButton){position.value=positionButton.dataset.forecastPosition;position.dispatchEvent(new Event('change'));return;}
     const sort=event.target.closest('[data-forecast-sort]');
@@ -150,6 +148,5 @@ export function createForecastView(getState,escape,onSelect) {
   const dialog=root.querySelector('#forecast-player-dialog');
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
   dialog.addEventListener('close',()=>root.querySelector(`[data-forecast-player="${getState().selected}"]`)?.focus());
-  window.addEventListener('resize',resize);
-  return {render,onShow(){render();requestAnimationFrame(resize);}};
+  return {render,onShow(){render();}};
 }
