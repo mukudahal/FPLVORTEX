@@ -1,5 +1,13 @@
 # Prediction and image audit — 24 October 2026
 
+## Correction: complete player-pool image audit
+
+The image-source conclusions below are superseded by this follow-up. The unversioned official FPL photo family is **still serving real player portraits**; treating it as obsolete excluded available images. The shared resolver now tries both published PL website images (`premierleague25/.../{code}.png`) and official FPL images (`premierleague/.../p{code}.png`) for every player. The live `code`, `opta_code` or validated `photo` filename supplies identity; seasonal element IDs are never substituted.
+
+Checked all 669 current bootstrap players against both 110x140 families, then checked all remaining players against the other configured sizes and mirror. 563 had a published-site portrait; the FPL family restored 30 more, including N. Jackson, Grealish and Konsa. 76 returned no headshot from the checked official endpoints. All 20 official club badge endpoints responded successfully. Those players now show their live club-code badge with an explicit photo-unavailable label, followed by the existing silhouette if the badge also fails. Missing headshots are retried after five minutes or on Refresh data. The per-player England override was removed.
+
+`scripts/audit-player-images.mjs` repeats the coverage check from the live bootstrap, validates PNG response signatures, and reports player IDs, codes, attempted sources and unresolved images. It is diagnostic only; no generated player mappings are used by the application. Browser QA checks recovered portraits in the table and detail card as well as the club-badge fallback. This does not establish that every provider portrait uses a player's latest club kit.
+
 ## Reference actually followed
 
 Inspected `mukundacity-glitch/FPL-VORTEX-YOUTUBE-POST` at commit `07775fced6a20277c6a40ae439881cda803b406d`, including `.github/workflows/day-3.yml`, `day3/run_notebook.py`, `day3/evidence_pipeline.py`, `day3/live_evidence.py` and `day2/player_images.py`. The workflow downloads its production notebook from Drive, patches and executes its code cells, restores persistent model inputs/history, then renders and uploads a private video. No publishing workflow was executed during this audit.

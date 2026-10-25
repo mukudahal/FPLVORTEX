@@ -12,7 +12,8 @@ for(const [name,expected] of Object.entries(hashes)){
   const source=await readFile(resolve(root,'model',name));
   if(createHash('sha256').update(source).digest('hex')!==expected)throw new Error('Math source changed: run prepare-model.mjs with TypeScript before packaging.');
 }
-for(const [name,type] of [['index.html','text/html'],['app.js','application/javascript'],['style.css','text/css'],['dashboard.js','application/javascript'],['gameweek-points.js','application/javascript'],['player-images.js','application/javascript'],['player-photo-overrides.js','application/javascript'],['icons.js','application/javascript'],['appearance.js','application/javascript'],['logo.svg','image/svg+xml'],['videos.json','application/json']]){
+delete assets['/player-photo-overrides.js'];
+for(const [name,type] of [['index.html','text/html'],['app.js','application/javascript'],['style.css','text/css'],['dashboard.js','application/javascript'],['gameweek-points.js','application/javascript'],['player-images.js','application/javascript'],['icons.js','application/javascript'],['appearance.js','application/javascript'],['logo.svg','image/svg+xml'],['videos.json','application/json']]){
   assets['/'+name]={content:await readFile(resolve(root,'ui',name),'utf8'),type:type+'; charset=utf-8'};
 }
 assets['/fonts/manrope.ttf']={content:(await readFile(resolve(root,'ui/fonts/manrope.ttf'))).toString('base64'),type:'font/ttf',encoding:'base64'};

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { stripTypeScriptTypes } from 'node:module';
 import { readFile } from 'node:fs/promises';
-import { playerPhotoSources, playerPortrait, resetPlayerImageFailures, installPlayerImageFallbacks } from '../ui/player-images.js';
+import { playerPhotoSources, playerClubBadgeSource, playerPortrait, resetPlayerImageFailures, installPlayerImageFallbacks } from '../ui/player-images.js';
 
 const code=stripTypeScriptTypes(await readFile(new URL('../model/dashboardMath.ts',import.meta.url),'utf8'),{mode:'strip'});
 const {buildStrengths,projectMatch}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
@@ -20,15 +20,15 @@ assert.ok(Math.abs(baseline.homeWin+baseline.awayWin+baseline.draw-1)<1e-10);
 assert.equal(baseline.homeCs,Math.exp(-1.25));
 assert.throws(()=>projectMatch({...neutral,atkH:NaN},neutral),RangeError);
 const sources=playerPhotoSources({code:199798,photo:'999999.png'});
-assert.ok(sources.length>0&&sources.every(url=>url.endsWith('/199798.png')),'Official code takes precedence over a conflicting photo field');
-assert.ok(sources.every(url=>!url.includes('/premierleague/photos/players/')),'Never restore the legacy unversioned source');
+assert.ok(sources.length>0&&sources.every(url=>/\/p?199798\.png$/.test(url)),'Official code takes precedence over a conflicting photo field');
+assert.ok(sources.some(url=>url.includes('/premierleague/photos/players/110x140/p199798.png')),'Try the official FPL photo set when the PL website photo is missing');
 assert.deepEqual(playerPhotoSources({photo:'https://untrusted.test/photo.png'}),[]);
 const listeners={};installPlayerImageFallbacks({addEventListener(name,fn){listeners[name]=fn;}});
 const img={tagName:'IMG',classList:{contains:()=>true},dataset:{photoFallbacks:JSON.stringify(sources.slice(1))},src:sources[0],alt:'Player',parentElement:{}};
 for(let i=1;i<sources.length;i++){listeners.error({target:img});assert.equal(img.src,sources[i]);}
 listeners.error({target:img});assert.equal(img.hidden,true);
 assert.equal(img.parentElement.title,'Player · Photo unavailable');
-console.log('Dashboard missing-data, mixed-rating, probability and non-legacy image regressions passed.');
+console.log('Dashboard missing-data, mixed-rating, probability and official image regressions passed.');
 
 const player={code:465730,team:5,web_name:'De Cuyper'};
 assert.ok(playerPhotoSources(player)[0].includes('/premierleague25/photos/players/110x140/'));
@@ -51,6 +51,25 @@ cachedImage.hidden=false;cachedImage.dataset.photoFallbacks='{}';cacheListeners.
 resetPlayerImageFailures();
 console.log('Official image namespace, size selection, failure cache, expiry and refresh checks passed.');
 
-assert.ok(playerPhotoSources({code:199798,birth_date:'1997-10-23'}).at(-1).startsWith('https://cdn.englandfootball.com/'),'Verified FA portrait backs up the missing PL headshot');
-assert.ok(playerPhotoSources({code:199798,birth_date:'1997-06-06'}).every(url=>!url.includes('englandfootball.com')),'DOB conflicts reject cross-provider mapping');
-assert.ok(playerPhotoSources({code:199799,birth_date:'1997-10-23'}).every(url=>!url.includes('englandfootball.com')),'Matching birth date alone never selects another player’s photo');
+assert.deepEqual(playerPhotoSources({opta_code:'p199798'}),sources,'Official Opta codes can supply missing photo metadata');
+assert.deepEqual(playerPhotoSources({photo:'p199798.jpg'}),sources,'Official photo filenames can supply missing code metadata');
+assert.deepEqual(playerPhotoSources({id:199798}),[],'A seasonal FPL element ID must never be used as a photo code');
+assert.deepEqual(playerPhotoSources(null),[]);
+assert.ok(playerPhotoSources({code:517052}).every(url=>/\/p?517052\.png$/.test(url)),'The same resolver covers N. Jackson without player overrides');
+assert.ok(playerPhotoSources({code:114283},true).some(url=>url.endsWith('/250x250/p114283.png')),'Pitch portraits can recover Grealish from the FPL photo set');
+const recoveredPhoto=playerPhotoSources(player)[1];
+cachedImage.hidden=false;cachedImage.src=recoveredPhoto;
+cacheListeners.load({target:cachedImage});
+assert.equal(playerPhotoSources(player)[0],recoveredPhoto,'Redraws reuse a successful alternative photo');
+assert.equal(new Set(playerPhotoSources(player)).size,playerPhotoSources(player).length,'Successful source is not requested twice');
+assert.equal(playerClubBadgeSource({team:1,team_code:3}),'https://resources.premierleague.com/premierleague/badges/t3.png','Badge uses stable club code, never seasonal team ID');
+assert.equal(playerClubBadgeSource({team:3}),null);
+assert.equal(playerClubBadgeSource({team_code:'../untrusted'}),null);
+const missingPlayer={code:999999999,team_code:3,web_name:'Unavailable'};
+const missingMarkup=playerPortrait(missingPlayer,value=>value);
+assert.ok(missingMarkup.includes('badges/t3.png'),'Every valid club has an image after all portrait sources fail');
+const badgeImage={tagName:'IMG',classList:{contains:()=>true},dataset:{photoKey:missingMarkup.match(/data-photo-key="([^"]+)"/)[1]},src:playerClubBadgeSource(missingPlayer),alt:'Unavailable',parentElement:{}};
+cacheListeners.load({target:badgeImage});
+assert.deepEqual(playerPhotoSources(missingPlayer),[],'A club badge must never be cached as a player headshot');
+assert.ok(badgeImage.parentElement.title.includes('Photo unavailable · Club badge'));
+assert.ok(playerPortrait(missingPlayer,value=>value).includes('badges/t3.png'),'Redraw retains the club image while waiting to retry the headshot');
