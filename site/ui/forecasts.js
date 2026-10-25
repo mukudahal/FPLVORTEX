@@ -6,11 +6,11 @@ import {FORECAST_HORIZON,completedClubGames,seasonStatistics,projectedOutcomes,s
 const positions={1:'GK',2:'DEF',3:'MID',4:'FWD'};
 const columns=[
   ['price','£','Current FPL price in millions'],['form','Form','Official FPL form'],['ppg','PPG','Official points per appearance'],
-  ['ownership','Own %','Current official ownership'],['minutes','Mins<small>per club gm</small>','Season minutes divided by completed club fixtures, including nonappearances'],
-  ['points','Pts','Season FPL points'],['points90','Pts/90','Season points per 90 minutes'],
-  ['xg','xG','Observed season expected goals'],['xg90','xG/90','Observed season expected goals per 90'],
-  ['assists90','A/90','Actual season assists per 90'],['xgi','xGI','Observed season expected goal involvement'],
-  ['defensive','DC','Season defensive contributions'],['defensive90','DC/90','Season defensive contributions per 90'],
+  ['ownership','Own<small>%</small>','Current official ownership'],['minutes','Mins<small>per<br>game</small>','Season minutes divided by completed club fixtures, including nonappearances'],
+  ['points','Pts','Season FPL points'],['points90','Pts<small>per 90</small>','Season points per 90 minutes'],
+  ['xg','xG','Observed season expected goals'],['xg90','xG<small>per 90</small>','Observed season expected goals per 90'],
+  ['assists90','A<small>per 90</small>','Actual season assists per 90'],['xgi','xGI','Observed season expected goal involvement'],
+  ['defensive','DC','Season defensive contributions'],['defensive90','DC<small>per 90</small>','Season defensive contributions per 90'],
   ['cleanSheets','CS','Season clean sheets'],['xgc','xGC','Observed season expected goals conceded'],
   ['nextPoints','xP','VORTEX expected points next gameweek'],['horizonPoints','Σ xP','VORTEX expected points across the selected horizon'],
 ];
