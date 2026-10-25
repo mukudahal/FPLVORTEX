@@ -2,6 +2,7 @@ import { gameweekPoints } from '/gameweek-points.js';
 import { buildStrengths, projectMatch } from '/model/dashboardMath.js';
 import { playerPortrait } from '/player-images.js';
 import { icon } from '/icons.js';
+import { playerAvailability } from '/availability.js';
 
 export function createDashboard(getState, escape, toast) {
   const root = document.querySelector('#dashboard-mount');
@@ -31,6 +32,41 @@ export function createDashboard(getState, escape, toast) {
   const playerLine = (player,teams) => `<button class="dash-player-line player-open" data-open-player="${player.id}" title="Inspect ${escape(player.web_name)}">${portrait(player)}<span><strong>${escape(player.web_name)}</strong><small>${badge(teams.get(player.team))}${positions[player.element_type]} · ${money(player.now_cost)}</small></span></button>`;
   const metricButton = (name,label) => `<button class="${projectionMetric===name?'selected':''}" data-projection="${name}" aria-pressed="${projectionMetric===name}">${label}</button>`;
   const sortArrow = direction => `<span class="sort-indicator" aria-hidden="true">${direction===-1?'↓':'↑'}</span>`;
+  const availabilityFlag = player => {
+    const availability=playerAvailability(player);
+    return availability.flagged ? `<button type="button" class="availability-flag ${availability.severity}" data-availability-player="${player.id}" aria-haspopup="dialog" aria-controls="availability-dialog" aria-label="${escape(player.web_name)}: ${availability.label}. View availability details" title="${escape(availability.label)} · Click for details">${icon('warning')}</button>` : '';
+  };
+  const availabilityDialog=document.createElement('dialog');
+  availabilityDialog.id='availability-dialog';
+  availabilityDialog.className='availability-dialog';
+  availabilityDialog.setAttribute('aria-labelledby','availability-title');
+  availabilityDialog.setAttribute('aria-describedby','availability-news');
+  document.body.append(availabilityDialog);
+  let availabilityPlayerId=null, availabilityTrigger=null;
+  const formatNewsDate = date => date ? date.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short',timeZone:'America/New_York'})+' ET' : 'Not provided by FPL';
+  function renderAvailabilityDetails() {
+    const state=getState();
+    const player=state.bootstrap?.elements.find(player=>player.id===availabilityPlayerId);
+    if(!player)return;
+    const availability=playerAvailability(player);
+    const team=state.bootstrap.teams.find(team=>team.id===player.team);
+    const chance = value => value===null?'Not provided by FPL':`${value}% chance of playing`;
+    const capturedAt=state.capturedAt?new Date(state.capturedAt):null;
+    availabilityDialog.innerHTML=`<header class="availability-dialog-header"><div class="availability-player">${portrait(player,true)}<div><span class="availability-eyebrow">Player availability</span><h2 id="availability-title">${escape(player.web_name)}</h2><p>${escape(team?.name??'')} · ${positions[player.element_type]??'Player'}</p></div></div><button type="button" class="availability-close" aria-label="Close availability details" autofocus>×</button></header><div class="availability-dialog-body"><span class="availability-status ${availability.severity}">${availability.flagged?icon('warning'):'<span aria-hidden="true">✓</span>'}${escape(availability.label)}</span><dl class="availability-facts"><div><dt>Issue / reason</dt><dd>${escape(availability.reason)}</dd></div><div><dt>Return / suspension end</dt><dd>${escape(availability.returnText)}</dd></div><div><dt>This gameweek</dt><dd>${chance(availability.thisChance)}</dd></div><div><dt>Next gameweek</dt><dd>${chance(availability.nextChance)}</dd></div></dl><section class="availability-news"><h3>Latest FPL update</h3><p id="availability-news">${escape(availability.news)}</p><small>News updated ${escape(formatNewsDate(availability.updatedAt))}</small></section><p class="availability-source">${state.source==='sample'?'Illustrative test data':state.source==='official'?'Official FPL feed':'Imported FPL snapshot'}${capturedAt&&Number.isFinite(capturedAt.getTime())?' · Retrieved '+escape(formatNewsDate(capturedAt)):''}. Return dates are estimates when supplied; playing chances do not confirm a return date.</p></div>`;
+  }
+  function openAvailability(playerId,trigger) {
+    if(!getState().bootstrap?.elements.some(player=>player.id===playerId))return;
+    availabilityPlayerId=playerId;availabilityTrigger=trigger;
+    renderAvailabilityDetails();
+    if(!availabilityDialog.open)availabilityDialog.showModal();
+  }
+  availabilityDialog.addEventListener('click',event=>{
+    if(event.target.closest('.availability-close')||event.target===availabilityDialog)availabilityDialog.close();
+  });
+  availabilityDialog.addEventListener('close',()=>{
+    const trigger=availabilityTrigger?.isConnected?availabilityTrigger:root.querySelector(`[data-availability-player="${availabilityPlayerId}"]`);
+    trigger?.focus();availabilityPlayerId=null;availabilityTrigger=null;
+  });
 
   async function fetchJson(url) {
     const cached=requestCache.get(url);
@@ -102,10 +138,10 @@ export function createDashboard(getState, escape, toast) {
       const player=players.get(pick.element);if(!player)return'';
       const {matches,label,difficulty}=fixtureInfo(player),playing=live.get(player.id);
       const displayed=playing&&(playing.minutes>0||matches.length&&matches.every(fixture=>fixture.finished))?number(playing.total_points*(pick.position<=11?Math.max(pick.multiplier,1):1)):label;
-      return `<div class="review-player" title="${escape(player.web_name+' · '+label)}">${pick.is_captain?'<b class="captain-badge">C</b>':pick.is_vice_captain?'<b class="captain-badge">V</b>':''}${pick.position>11?`<small class="bench-order">${pick.position===12?'GK':'B'+(pick.position-12)}</small>`:''}${player.status!=='a'?`<span class="availability-flag" title="${escape(player.news||'Availability flagged')}" aria-label="${escape(player.news||'Availability flagged')}">${icon('warning')}</span>`:''}${portrait(player,true)}<strong>${escape(player.web_name)}</strong><span class="player-result" data-difficulty="${difficulty}" title="${escape(label)}${difficulty?' · FPL difficulty '+difficulty+'/5':''}">${escape(displayed)}</span></div>`;
+      return `<div class="review-player" title="${escape(player.web_name+' · '+label)}">${pick.is_captain?'<b class="captain-badge">C</b>':pick.is_vice_captain?'<b class="captain-badge">V</b>':''}${pick.position>11?`<small class="bench-order">${pick.position===12?'GK':'B'+(pick.position-12)}</small>`:''}${availabilityFlag(player)}${portrait(player,true)}<strong>${escape(player.web_name)}</strong><span class="player-result" data-difficulty="${difficulty}" title="${escape(label)}${difficulty?' · FPL difficulty '+difficulty+'/5':''}">${escape(displayed)}</span></div>`;
     };
     const pitch=`<div class="review-pitch"><div class="pitch-sponsor"><span>FPL VORTEX</span><small>GAMEWEEK ${gameweek}</small></div><div class="pitch-lines"><i></i></div>${[1,2,3,4].map(position=>`<div class="review-row">${starters.filter(pick=>players.get(pick.element)?.element_type===position).map(card).join('')}</div>`).join('')}<div class="review-bench">${bench.map(card).join('')}</div></div>`;
-    const table=`<div class="review-table-wrap"><table class="review-table"><thead><tr><th>Player</th><th>Fixture</th><th>Points</th></tr></thead><tbody>${picks.map(pick=>{const player=players.get(pick.element);if(!player)return'';const {label,difficulty}=fixtureInfo(player);return `<tr class="${pick.position>11?'bench-row':''}"><td>${playerLine(player,teams)}${pick.is_captain?'<span class="dash-muted">Captain</span>':pick.is_vice_captain?'<span class="dash-muted">Vice-captain</span>':''}</td><td class="player-result" data-difficulty="${difficulty}">${escape(label)}</td><td>${state.source==='sample'?'—':number(live.get(player.id)?.total_points)}</td></tr>`;}).join('')}</tbody></table></div>`;
+    const table=`<div class="review-table-wrap"><table class="review-table"><thead><tr><th>Player</th><th>Fixture</th><th>Points</th></tr></thead><tbody>${picks.map(pick=>{const player=players.get(pick.element);if(!player)return'';const {label,difficulty}=fixtureInfo(player);return `<tr class="${pick.position>11?'bench-row':''}"><td><div class="review-table-player">${playerLine(player,teams)}${availabilityFlag(player)}</div>${pick.is_captain?'<span class="dash-muted">Captain</span>':pick.is_vice_captain?'<span class="dash-muted">Vice-captain</span>':''}</td><td class="player-result" data-difficulty="${difficulty}">${escape(label)}</td><td>${state.source==='sample'?'—':number(live.get(player.id)?.total_points)}</td></tr>`;}).join('')}</tbody></table></div>`;
     const status=state.source==='sample'?'Illustrative lineup · not your actual squad':loading?'Updating official selections…':review?'Official selections · in-play scores are provisional':reviewError?'Review data unavailable':manager?'Loading official selections':'Enter your FPL Team ID above to load your squad';
     const content=picks.length?(reviewView==='pitch'?pitch:table):`<div class="review-loading">${escape(loading?'Loading your current-gameweek review…':reviewError||'Your gameweek starts here. Enter your FPL Team ID above to see your squad, captain and live points.')}</div>`;
     const tools=`<div class="review-actions"><button class="dash-link" data-action="change-team">${manager?'Change team':'Link team'}</button><div class="view-switch" role="group" aria-label="Squad review display"><button data-review-view="pitch" class="${reviewView==='pitch'?'selected':''}" aria-label="Pitch view" aria-pressed="${reviewView==='pitch'}">${icon('pitch')}</button><button data-review-view="table" class="${reviewView==='table'?'selected':''}" aria-label="Table view" aria-pressed="${reviewView==='table'}">${icon('table')}</button></div></div>`;
@@ -156,9 +192,8 @@ export function createDashboard(getState, escape, toast) {
     const injuries=state.bootstrap.elements.filter(player=>player.status!=='a').sort((first,second)=>priority(first)-priority(second)||(second.chance_of_playing_next_round??-1)-(first.chance_of_playing_next_round??-1)||first.id-second.id);
     const injuryPages=Math.max(1,Math.ceil(injuries.length/10));injuryPage=Math.max(0,Math.min(injuryPage,injuryPages-1));
     const injuryRows=injuries.slice(injuryPage*10,injuryPage*10+10).map(player=>{
-      const chance=player.chance_of_playing_next_round;
-      const condition=(player.news||'Availability flagged').split(' - ')[0];
-      return `<div class="injury-row" title="${escape(player.news||'Availability flagged')}">${portrait(player)}<div><button class="player-open" data-open-player="${player.id}"><strong>${escape(player.web_name)}</strong></button><small>${escape(condition)} · ${chance==null?'Return unknown':chance+'% chance'}</small></div>${icon('warning')}</div>`;
+      const availability=playerAvailability(player);
+      return `<div class="injury-row" title="${escape(availability.news)}">${portrait(player)}<div><button class="player-open" data-open-player="${player.id}"><strong>${escape(player.web_name)}</strong></button><small>${escape(availability.reason)} · ${availability.nextChance===null?'Playing chance unknown':availability.nextChance+'% chance'}</small></div>${availabilityFlag(player)}</div>`;
     }).join('');
     const injuryPanel=panel(`${icon('medical')}Injuries & Suspensions`,`<div class="dash-scroll">${injuryRows||'<p class="dash-empty">No flagged players in this snapshot.</p>'}</div><div class="dash-pager"><button data-injury-page="-1" ${injuryPage===0?'disabled':''}>‹ Prev</button><span>${injuryPage+1} / ${injuryPages}</span><button data-injury-page="1" ${injuryPage===injuryPages-1?'disabled':''}>Next ›</button></div>`,`<span class="dash-muted">${injuries.length} players</span>`,'lower-card');
     return topPanel+transferPanel+injuryPanel;
@@ -174,6 +209,8 @@ export function createDashboard(getState, escape, toast) {
     root.innerHTML=selector+`<div class="dashboard-upper">${renderReview(state,teams)}${renderFixtures(state,projected,teams)}${renderProjections(projected)}</div><div class="dashboard-lower">${renderLower(state,teams)}</div>${videoPanel}<div class="video-channel-links"><a href="https://www.youtube.com/@Fplvortex/videos" target="_blank" rel="noopener noreferrer">All uploads</a><a href="https://www.youtube.com/@Fplvortex/shorts" target="_blank" rel="noopener noreferrer">All Shorts</a><a href="https://www.youtube.com/@Fplvortex/streams" target="_blank" rel="noopener noreferrer">Live streams</a></div>`;
   }
   root.addEventListener('click',event=>{
+    const availability=event.target.closest('[data-availability-player]');
+    if(availability){openAvailability(Number(availability.dataset.availabilityPlayer),availability);return;}
     const action=event.target.closest('[data-action]')?.dataset.action;
     if(action==='sort-projections'){projectionDirection*=-1;render();}
     if(action==='sort-top'){topDirection*=-1;render();}
@@ -212,5 +249,5 @@ export function createDashboard(getState, escape, toast) {
   fetch('/api/videos').then(response=>response.ok?response.json():null).then(data=>{
     if(Array.isArray(data)){videos=[...new Map([...data,...videos].map(video=>[video.id,video])).values()].sort((first,second)=>second.published.localeCompare(first.published));render();}
   }).catch(()=>{});
-  return {render,onDataLoaded(){if(gameweek===null)gameweek=currentGw(getState());render();loadReview();}};
+  return {render,onDataLoaded(){if(gameweek===null)gameweek=currentGw(getState());render();if(availabilityDialog.open)renderAvailabilityDetails();loadReview();}};
 }
