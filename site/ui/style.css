@@ -17,7 +17,7 @@
 .fixture-state{text-align:center;color:var(--muted);font-size:10px;margin:-3px 0 6px}.fixture-state:has(+.fixture-bar){line-height:1.2}
 
 /* Keep the pitch readable instead of shrinking portraits to fit a short viewport. */
-:root{--overview-height:clamp(850px,calc(100svh - 40px),960px)}
+:root{--overview-height:clamp(920px,calc(100svh + 20px),1030px)}
 .dashboard-upper{grid-template-columns:minmax(0,2fr) minmax(250px,1fr) minmax(260px,1fr)}
 .review-stats{padding:16px 10px 12px}
 .review-stats strong{font-size:24px}
