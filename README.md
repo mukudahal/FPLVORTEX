@@ -36,7 +36,7 @@ The deployed server reads official FPL player, fixture, manager, picks, history 
 
 Browser-local test squads and the linked manager number are not synced across devices. Forecasts are computed in the browser. There is no persistent historical-statistics database or unattended ingestion worker yet. Do not commit personal API captures, credentials, `.env` files or browser QA captures.
 
-Forecasts remain unvalidated. The repository does not contain licensed FPLReview forecasts or establish a predictive advantage over FPLReview. Gameweek Analysis is a placeholder awaiting design.
+Forecasts remain unvalidated. The repository does not contain licensed FPLReview forecasts or establish a predictive advantage over FPLReview. The Gameweek Analysis subtab is implemented: it reports the linked manager's score breakdown, captain and bench impact, position contributions, published form and rank movement, a sortable 15-player contribution table, a next-gameweek captain/availability focus, and a head-to-head comparison against another public FPL Team ID. Rival comparison reads public picks and scores only; the linked team and rival IDs stay in the browser.
 
 ## Updates and deployment
 
