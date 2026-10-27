@@ -1,0 +1,46 @@
+name: Refresh FPL snapshot
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-fpl-snapshot
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Regenerate offline data snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch and normalize public FPL data
+        run: npm run data:refresh
+
+      - name: Commit changed snapshot
+        run: |
+          if git diff --quiet -- public/data/fpl-snapshot.json; then
+            echo "Snapshot is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/fpl-snapshot.json
+          git commit -m "chore(data): refresh FPL snapshot [skip ci]"
+          git push

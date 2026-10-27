@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#070914" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="description" content="FPL VORTEX turns live Fantasy Premier League data into projections, captain picks, fixture intelligence, and optimized squads." />
+    <meta name="keywords" content="Fantasy Premier League, FPL, FPL tools, FPL optimizer, captain picker, fixture difficulty, football analytics" />
+    <meta name="robots" content="index, follow" />
+    <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FPL VORTEX — Automated FPL Intelligence" />
+    <meta property="og:description" content="Live player projections, fixture swings, captain picks, league intelligence, and one-click squad optimization." />
+    <meta property="og:image" content="/og-image.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('vortex:theme');
+          var parsed = raw ? JSON.parse(raw) : 'dark';
+          var theme = parsed === 'light' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch (_err) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "FPL VORTEX",
+        "applicationCategory": "SportsApplication",
+        "operatingSystem": "Web",
+        "description": "Automated Fantasy Premier League analytics, projections, and squad optimization.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+    <title>FPL VORTEX — Automated FPL Intelligence</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630"><stop stop-color="#070914"/><stop offset=".6" stop-color="#151638"/><stop offset="1" stop-color="#2D1650"/></linearGradient>
+    <linearGradient id="accent" x1="80" y1="120" x2="1050" y2="540"><stop stop-color="#5BF5D6"/><stop offset=".5" stop-color="#7772FF"/><stop offset="1" stop-color="#FF5BC8"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#7772FF" stop-opacity=".55"/><stop offset="1" stop-color="#7772FF" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="980" cy="130" r="330" fill="url(#glow)"/>
+  <g fill="none" stroke="url(#accent)" stroke-width="13" opacity=".9">
+    <path d="M1000 180c-79-82-214-75-298 10-86 86-90 217-14 292 75 75 203 69 282-11 64-63 78-151 36-215"/>
+    <path d="M891 283c-35-37-96-33-134 5-39 39-40 97-6 131 34 34 91 31 127-9 30-30 36-68 18-97"/>
+  </g>
+  <circle cx="790" cy="383" r="31" fill="url(#accent)"/>
+  <text x="80" y="252" fill="#F4F7FF" font-family="Arial, Helvetica, sans-serif" font-size="90" font-weight="800" letter-spacing="-3">FPL VORTEX</text>
+  <text x="84" y="332" fill="#AAB2D8" font-family="Arial, Helvetica, sans-serif" font-size="34">Automated Fantasy Premier League intelligence</text>
+  <g fill="#141730" stroke="#30365F" stroke-width="2">
+    <rect x="80" y="405" width="230" height="112" rx="22"/><rect x="328" y="405" width="230" height="112" rx="22"/><rect x="576" y="405" width="230" height="112" rx="22"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="106" y="450" fill="#5BF5D6" font-size="20" font-weight="700">LIVE DATA</text><text x="106" y="488" fill="#F4F7FF" font-size="30" font-weight="700">669 players</text>
+    <text x="354" y="450" fill="#7772FF" font-size="20" font-weight="700">AUTO MODEL</text><text x="354" y="488" fill="#F4F7FF" font-size="30" font-weight="700">Projections</text>
+    <text x="602" y="450" fill="#FF5BC8" font-size="20" font-weight="700">ONE CLICK</text><text x="602" y="488" fill="#F4F7FF" font-size="30" font-weight="700">Best squad</text>
+  </g>
+  <text x="80" y="575" fill="#7E88B8" font-family="Arial, Helvetica, sans-serif" font-size="22">Live fixtures · captain picks · fixture swings · league intelligence</text>
+</svg>

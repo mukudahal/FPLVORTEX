@@ -1,0 +1,376 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import type {
+  DataSource,
+  EntryData,
+  EntryHistory,
+  EntryPick,
+  LeagueData,
+  Snapshot,
+} from '../src/lib/types.ts';
+import { clamp, numberValue } from '../src/lib/format.ts';
+import { enrichPlayers } from '../src/lib/analytics.ts';
+import { optimizeSquad } from '../src/lib/optimize.ts';
+import { fetchFplJson, UpstreamHttpError } from './http.ts';
+import { normalizeSnapshot, type RawFplData } from './normalize.ts';
+import {
+  CONFIGURED_REPO_ENTRY_ID,
+  CONFIGURED_REPO_ENTRY_NAME,
+  enrichSnapshotWithRepoData,
+  REPO_SEASON_RULES_2026_27,
+} from './repoData.ts';
+
+type RawRecord = Record<string, any>;
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+  updatedAt: string;
+}
+
+interface OfflineLeagueFallback {
+  entries?: Record<string, { root: RawRecord; picks: RawRecord }>;
+  leagues?: Record<string, RawRecord>;
+}
+
+const cache = new Map<string, CacheEntry<unknown>>();
+let lastGoodSnapshot: Snapshot | null = null;
+let snapshotInFlight: Promise<Snapshot> | null = null;
+let offlineLeagueFallbackCache: OfflineLeagueFallback | null = null;
+
+const SNAPSHOT_PATH = process.env.VORTEX_SNAPSHOT_PATH ?? 'public/data/fpl-snapshot.json';
+const LEAGUE_FALLBACK_PATH = process.env.VORTEX_LEAGUE_FALLBACK_PATH ?? 'public/data/fpl-league-fallback.json';
+const STATIC_TTL = (Number.parseInt(process.env.FPL_CACHE_STATIC_SECONDS ?? '600', 10) || 600) * 1000;
+const LIVE_TTL = (Number.parseInt(process.env.FPL_CACHE_LIVE_SECONDS ?? '45', 10) || 45) * 1000;
+const PROFILE_TTL = (Number.parseInt(process.env.FPL_CACHE_PROFILE_SECONDS ?? '180', 10) || 180) * 1000;
+
+function readCache<T>(key: string): T | null {
+  const entry = cache.get(key) as CacheEntry<T> | undefined;
+  if (!entry || entry.expiresAt <= Date.now()) return null;
+  return entry.value;
+}
+
+function writeCache<T>(key: string, value: T, ttlMs: number): T {
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs, updatedAt: new Date().toISOString() });
+  return value;
+}
+
+function stringValue(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+async function loadOfflineSnapshot(): Promise<Snapshot> {
+  const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
+  const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
+  const markedOffline: Snapshot = {
+    ...raw,
+    meta: {
+      ...raw.meta,
+      source: 'snapshot',
+      servedAt: new Date().toISOString(),
+      upstreamOk: false,
+      stale: true,
+      refreshSeconds: 120,
+    },
+  };
+  return enrichSnapshotWithRepoData(markedOffline);
+}
+
+async function loadOfflineLeagueFallback(): Promise<OfflineLeagueFallback> {
+  if (offlineLeagueFallbackCache) return offlineLeagueFallbackCache;
+  try {
+    const file = path.resolve(process.cwd(), LEAGUE_FALLBACK_PATH);
+    offlineLeagueFallbackCache = JSON.parse(await readFile(file, 'utf8')) as OfflineLeagueFallback;
+    return offlineLeagueFallbackCache;
+  } catch {
+    return { entries: {}, leagues: {} };
+  }
+}
+
+function currentEventFromBootstrap(bootstrap: RawRecord): number {
+  const events = Array.isArray(bootstrap.events) ? bootstrap.events : [];
+  const current = events.find((event: RawRecord) => event.is_current) ?? events.find((event: RawRecord) => !event.finished);
+  return numberValue(current?.id, numberValue(events.at(-1)?.id, 1));
+}
+
+async function fetchRawSnapshot(): Promise<RawFplData> {
+  const [bootstrap, fixtures] = await Promise.all([
+    fetchFplJson<RawRecord>('/bootstrap-static/', { retries: 1 }),
+    fetchFplJson<RawRecord[]>('/fixtures/', { retries: 1 }),
+  ]);
+  const eventId = currentEventFromBootstrap(bootstrap);
+  let live: RawRecord | null = null;
+  try {
+    live = await fetchFplJson<RawRecord>(`/event/${eventId}/live/`, { retries: 1, timeoutMs: 5000 });
+  } catch {
+    // Live points are an enhancement; bootstrap and fixtures are enough to run the model.
+  }
+  return { bootstrap, fixtures, live };
+}
+
+function markSnapshot(snapshot: Snapshot, source: DataSource, stale: boolean, upstreamOk: boolean): Snapshot {
+  return {
+    ...snapshot,
+    meta: {
+      ...snapshot.meta,
+      source,
+      servedAt: new Date().toISOString(),
+      stale,
+      upstreamOk,
+      refreshSeconds: stale ? 120 : snapshot.meta.refreshSeconds,
+    },
+  };
+}
+
+export async function getSnapshot(force = false): Promise<Snapshot> {
+  const cacheKey = 'snapshot';
+  if (!force) {
+    const cached = readCache<Snapshot>(cacheKey);
+    if (cached) return markSnapshot(cached, cached.meta.source === 'snapshot' ? 'snapshot' : 'cache', cached.meta.stale, cached.meta.upstreamOk);
+  }
+  if (snapshotInFlight) return snapshotInFlight;
+  snapshotInFlight = (async () => {
+    try {
+      const raw = await fetchRawSnapshot();
+      const normalized = normalizeSnapshot(raw, { source: 'live', upstreamOk: true, stale: false });
+      const fresh = await enrichSnapshotWithRepoData(normalized);
+      lastGoodSnapshot = fresh;
+      const ttl = fresh.meta.isLive ? LIVE_TTL : STATIC_TTL;
+      writeCache(cacheKey, fresh, ttl);
+      return fresh;
+    } catch (error) {
+      console.warn('[fpl] live refresh failed:', error instanceof Error ? error.message : error);
+      const fallback = lastGoodSnapshot ? markSnapshot(lastGoodSnapshot, 'cache', true, false) : await loadOfflineSnapshot();
+      writeCache(cacheKey, fallback, 120_000);
+      return fallback;
+    } finally {
+      snapshotInFlight = null;
+    }
+  })();
+  return snapshotInFlight;
+}
+
+function normalizeEntry(
+  root: RawRecord,
+  picks: RawRecord,
+  snapshot: Snapshot,
+  enriched: ReturnType<typeof enrichPlayers>,
+  source: DataSource,
+): EntryData {
+  const history: EntryHistory = {
+    event: numberValue(picks.entry_history?.event, snapshot.meta.currentEventId),
+    points: numberValue(picks.entry_history?.points),
+    totalPoints: numberValue(picks.entry_history?.total_points),
+    rank: numberValue(picks.entry_history?.rank),
+    overallRank: numberValue(picks.entry_history?.overall_rank),
+    bank: numberValue(picks.entry_history?.bank),
+    value: numberValue(picks.entry_history?.value),
+    eventTransfers: numberValue(picks.entry_history?.event_transfers),
+    eventTransfersCost: numberValue(picks.entry_history?.event_transfers_cost),
+    pointsOnBench: numberValue(picks.entry_history?.points_on_bench),
+  };
+  const normalizedPicks: EntryPick[] = (Array.isArray(picks.picks) ? picks.picks : []).map((pick: RawRecord) => ({
+    element: numberValue(pick.element),
+    position: numberValue(pick.position),
+    multiplier: numberValue(pick.multiplier),
+    isCaptain: Boolean(pick.is_captain),
+    isViceCaptain: Boolean(pick.is_vice_captain),
+  }));
+  const playerIndex = new Map(enriched.map((player) => [player.id, player]));
+  const players = normalizedPicks
+    .map((pick) => playerIndex.get(pick.element))
+    .filter((player): player is (typeof enriched)[number] => Boolean(player));
+  const projectedPoints = normalizedPicks.reduce((sum, pick) => {
+    const player = playerIndex.get(pick.element);
+    if (!player) return sum;
+    const multiplier = pick.isCaptain ? 2 : pick.multiplier > 0 ? 1 : 0;
+    return sum + player.projection * multiplier;
+  }, 0);
+  const rawFreeTransfers = numberValue(
+    root.free_transfers,
+    numberValue(root.id) === CONFIGURED_REPO_ENTRY_ID ? 4 : history.eventTransfers === 0 ? 2 : 1,
+  );
+  return {
+    id: numberValue(root.id),
+    name: `${stringValue(root.player_first_name)} ${stringValue(root.player_last_name)}`.trim(),
+    teamName: stringValue(root.name, CONFIGURED_REPO_ENTRY_NAME),
+    region: stringValue(root.player_region_name, 'Worldwide'),
+    startedEvent: numberValue(root.started_event, 1),
+    favouriteTeamId: root.favourite_team === null || root.favourite_team === undefined ? null : numberValue(root.favourite_team),
+    overallRank: root.summary_overall_rank === null ? null : numberValue(root.summary_overall_rank),
+    overallPoints: root.summary_overall_points === null ? null : numberValue(root.summary_overall_points),
+    freeTransfers: clamp(rawFreeTransfers, 1, 5),
+    currentEvent: history.event,
+    activeChip: picks.active_chip ? stringValue(picks.active_chip) : null,
+    history,
+    picks: normalizedPicks,
+    players,
+    projectedPoints: Math.round(projectedPoints * 10) / 10,
+    squadValue: history.value / 10,
+    source,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function buildOfflineSyntheticEntry(
+  numericId: number,
+  snapshot: Snapshot,
+  enriched: ReturnType<typeof enrichPlayers>,
+): EntryData {
+  const isRepoManager = numericId === CONFIGURED_REPO_ENTRY_ID;
+  const profiles = ['balanced', 'safe', 'differential', 'upside'] as const;
+  const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
+  const optimized = optimizeSquad(enriched, { budget: 1000, profile });
+  const ordered = [...optimized.starters, ...optimized.bench];
+  const picks: EntryPick[] = ordered.map((player, index) => ({
+    element: player.id,
+    position: index + 1,
+    multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
+    isCaptain: player.isCaptain,
+    isViceCaptain: player.isViceCaptain,
+  }));
+  const eventPoints = ordered.reduce((sum, player, index) => {
+    const mult = player.isCaptain ? 2 : index < 11 ? 1 : 0;
+    return sum + player.eventPoints * mult;
+  }, 0);
+  const benchPoints = optimized.bench.reduce((sum, player) => sum + player.eventPoints, 0);
+  const valueTenths = Math.round(optimized.cost * 10);
+  const bankTenths = Math.max(0, 1000 - valueTenths);
+  const totalPoints = Math.max(eventPoints, Math.round(eventPoints * Math.max(1, snapshot.meta.currentEventId * 0.72)));
+  const overallRank = isRepoManager ? 237000 : 45000 + ((numericId * 7919) % 420000);
+  return {
+    id: numericId,
+    name: isRepoManager ? 'Muku Dahal' : `Manager #${numericId}`,
+    teamName: isRepoManager ? CONFIGURED_REPO_ENTRY_NAME : `Offline Squad #${numericId}`,
+    region: 'Offline snapshot',
+    startedEvent: 1,
+    favouriteTeamId: 1,
+    overallRank,
+    overallPoints: totalPoints,
+    freeTransfers: isRepoManager ? 4 : 1,
+    currentEvent: snapshot.meta.currentEventId,
+    activeChip: null,
+    history: {
+      event: snapshot.meta.currentEventId,
+      points: eventPoints,
+      totalPoints,
+      rank: Math.max(1000, Math.round(overallRank * 0.85)),
+      overallRank,
+      bank: bankTenths,
+      value: valueTenths,
+      eventTransfers: 0,
+      eventTransfersCost: 0,
+      pointsOnBench: benchPoints,
+    },
+    picks,
+    players: ordered,
+    projectedPoints: optimized.projectedPoints,
+    squadValue: optimized.cost,
+    source: 'snapshot',
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function normalizeLeaguePayload(raw: RawRecord, id: string, source: DataSource): LeagueData {
+  return {
+    id: numberValue(raw.league?.id, numberValue(id)),
+    name: stringValue(raw.league?.name, `League ${id}`),
+    created: raw.league?.created ? stringValue(raw.league.created) : null,
+    closed: Boolean(raw.league?.closed),
+    standings: (Array.isArray(raw.standings?.results) ? raw.standings.results : []).map((row: RawRecord) => ({
+      rank: numberValue(row.rank),
+      lastRank: numberValue(row.last_rank),
+      entry: numberValue(row.entry),
+      playerName: stringValue(row.player_name),
+      entryName: stringValue(row.entry_name),
+      eventTotal: numberValue(row.event_total),
+      total: numberValue(row.total),
+    })),
+    source,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export async function getEntry(id: string): Promise<EntryData> {
+  const cached = readCache<EntryData>(`entry:${id}`);
+  if (cached) {
+    return {
+      ...cached,
+      source: cached.source === 'snapshot' ? 'snapshot' : 'cache',
+      generatedAt: new Date().toISOString(),
+    };
+  }
+  const snapshot = await getSnapshot();
+  const enriched = enrichPlayers(snapshot, 'balanced');
+  try {
+    const [root, picks] = await Promise.all([
+      fetchFplJson<RawRecord>(`/entry/${id}/`, { retries: 1 }),
+      fetchFplJson<RawRecord>(`/entry/${id}/event/${snapshot.meta.currentEventId}/picks/`, { retries: 1 }),
+    ]);
+    const result = normalizeEntry(root, picks, snapshot, enriched, 'live');
+    return writeCache(`entry:${id}`, result, PROFILE_TTL);
+  } catch (error) {
+    if (error instanceof UpstreamHttpError && error.status === 404) {
+      throw new UpstreamHttpError(`FPL team ID ${id} was not found.`, 404);
+    }
+    const fallbackFile = await loadOfflineLeagueFallback();
+    const archived = fallbackFile.entries?.[id];
+    const fallbackResult = archived
+      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot')
+      : buildOfflineSyntheticEntry(numberValue(id, CONFIGURED_REPO_ENTRY_ID), snapshot, enriched);
+    return writeCache(`entry:${id}`, fallbackResult, 120_000);
+  }
+}
+
+export async function getLeague(id: string): Promise<LeagueData> {
+  const cached = readCache<LeagueData>(`league:${id}`);
+  if (cached) {
+    return {
+      ...cached,
+      source: cached.source === 'snapshot' ? 'snapshot' : 'cache',
+      generatedAt: new Date().toISOString(),
+    };
+  }
+  try {
+    const raw = await fetchFplJson<RawRecord>(`/leagues-classic/${id}/standings/`, { retries: 1 });
+    const result = normalizeLeaguePayload(raw, id, 'live');
+    return writeCache(`league:${id}`, result, PROFILE_TTL);
+  } catch (error) {
+    if (error instanceof UpstreamHttpError && error.status === 404) {
+      throw new UpstreamHttpError(`Classic league ID ${id} was not found.`, 404);
+    }
+    const fallbackFile = await loadOfflineLeagueFallback();
+    const archived = fallbackFile.leagues?.[id] ?? fallbackFile.leagues?.['314'];
+    if (archived) {
+      const fallbackResult = normalizeLeaguePayload(
+        id === '314' ? archived : { ...archived, league: { ...archived.league, id: numberValue(id), name: `Classic League #${id} (offline snapshot)` } },
+        id,
+        'snapshot',
+      );
+      return writeCache(`league:${id}`, fallbackResult, 120_000);
+    }
+    throw error;
+  }
+}
+
+export async function getHealth(): Promise<Record<string, unknown>> {
+  const snapshot = await getSnapshot();
+  return {
+    ok: true,
+    service: 'fpl-vortex',
+    time: new Date().toISOString(),
+    upstreamOk: snapshot.meta.upstreamOk,
+    source: snapshot.meta.source,
+    stale: snapshot.meta.stale,
+    season: snapshot.meta.season,
+    seasonRules: REPO_SEASON_RULES_2026_27,
+    currentEventId: snapshot.meta.currentEventId,
+    nextEventId: snapshot.meta.nextEventId,
+    defaultEntryId: CONFIGURED_REPO_ENTRY_ID,
+    players: snapshot.players.length,
+    fixtures: snapshot.fixtures.length,
+    repoData: snapshot.meta.repoData ?? null,
+    cacheEntries: cache.size,
+    node: process.version,
+  };
+}
