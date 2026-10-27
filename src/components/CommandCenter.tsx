@@ -52,8 +52,10 @@ import type {
   Snapshot,
   VideoItem,
 } from '../lib/types';
+import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
+import { TeamIdInput } from './TeamIdInput';
 
 interface CommandCenterProps {
   snapshot: Snapshot;
@@ -69,6 +71,8 @@ interface CommandCenterProps {
   initialVideos?: VideoItem[];
   profile: RiskProfile;
   teamId?: string;
+  recentTeams?: RecentTeamEntry[];
+  onRemoveRecentTeam?: (idToRemove: string) => void;
   onTeamIdChange?: (id: string) => void;
   onSelectPlayer?: (query: string) => void;
   onNavigate: (route: RouteId) => void;
@@ -179,6 +183,8 @@ export function CommandCenter({
   fixtureRows,
   initialVideos,
   teamId = '',
+  recentTeams = [],
+  onRemoveRecentTeam,
   onTeamIdChange,
   onSelectPlayer,
   onNavigate,
@@ -630,32 +636,23 @@ export function CommandCenter({
                 <UserCheck size={16} />
                 <span>FPL Team ID</span>
               </label>
-              <input
+              <TeamIdInput
                 ref={topInputRef}
                 id="fpl-team-id-top"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="Enter your FPL ID (e.g. 145784)"
                 value={teamInput}
-                onChange={(e) => setTeamInput(e.target.value)}
+                onChange={setTeamInput}
+                recentTeams={recentTeams}
+                onRemoveRecent={onRemoveRecentTeam}
+                onSelectRecent={(selectedId) => {
+                  setTeamInput(selectedId);
+                  onTeamIdChange?.(selectedId);
+                }}
               />
             </div>
             <button type="submit" className="button button--primary" disabled={entryLoading}>
               {entryLoading ? 'Loading…' : hasLinkedTeam ? 'Reload Squad' : 'Load Squad & Review'}
             </button>
-            {!hasLinkedTeam ? (
-              <button
-                type="button"
-                className="button button--ghost"
-                onClick={() => {
-                  setTeamInput('145784');
-                  onTeamIdChange?.('145784');
-                }}
-              >
-                Demo #145784
-              </button>
-            ) : (
+            {hasLinkedTeam && (
               <button
                 type="button"
                 className="button button--ghost"
@@ -875,36 +872,25 @@ export function CommandCenter({
               </p>
 
               <form className="vx-pitch-gate__form" onSubmit={handleTeamSubmit}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Enter FPL Team ID (e.g. 145784)"
+                <TeamIdInput
                   value={teamInput}
-                  onChange={(e) => setTeamInput(e.target.value)}
-                  aria-label="Enter FPL Team ID to unlock pitch"
+                  onChange={setTeamInput}
+                  recentTeams={recentTeams}
+                  onRemoveRecent={onRemoveRecentTeam}
+                  onSelectRecent={(selectedId) => {
+                    setTeamInput(selectedId);
+                    onTeamIdChange?.(selectedId);
+                  }}
+                  ariaLabel="FPL Team ID"
                 />
                 <button type="submit" className="button button--primary" disabled={entryLoading}>
                   {entryLoading ? 'Loading…' : 'Load My Squad'}
                 </button>
               </form>
 
-              <div className="vx-pitch-gate__quick">
-                <span>Want to preview with the channel squad?</span>
-                <button
-                  type="button"
-                  className="vx-inline-link"
-                  onClick={() => {
-                    setTeamInput('145784');
-                    onTeamIdChange?.('145784');
-                  }}
-                >
-                  Load FPLVORTEX (#145784) <ArrowRight size={14} />
-                </button>
-              </div>
-
               <div className="vx-pitch-gate__note">
                 <strong>Where is my FPL ID?</strong> Open <em>fantasy.premierleague.com</em> → <em>Points</em>. Your
-                ID is the number in <code>/entry/123456/event/…</code>.
+                ID is the number in <code>/entry/…/event/…</code>.
               </div>
             </div>
           ) : (
@@ -1224,7 +1210,7 @@ export function CommandCenter({
               <Shield size={16} className="vx-icon-mint" />
               <h3>
                 GW {selectedGw}{' '}
-                {projMetric === 'goals' ? 'Projected Goals' : projMetric === 'cs' ? 'Clean Sheet %' : 'Win Odds'}
+                {projMetric === 'goals' ? 'Projected Goals' : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
               </h3>
             </div>
             <div className="vx-seg-pills" role="group" aria-label="Club projection metric">

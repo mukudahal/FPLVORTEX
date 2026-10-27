@@ -3602,3 +3602,114 @@ kbd {
 .pitch-player__projection {
   font-size: 11px;
 }
+
+/* ==========================================================================
+   FPL Team ID Blank Input & Previously-Entered IDs Autocomplete Dropdown
+   ========================================================================== */
+.hero.hero--compact {
+  overflow: visible;
+}
+.hero--compact .hero__noise {
+  border-radius: inherit;
+  pointer-events: none;
+}
+.vx-team-id-autocomplete {
+  position: relative;
+  flex: 1 1 180px;
+  min-width: 140px;
+  display: flex;
+}
+.vx-team-id-autocomplete > input {
+  width: 100%;
+  flex: 1;
+}
+.vx-team-id-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 220px;
+  z-index: 80;
+  padding: 6px;
+  border-radius: 13px;
+  background: var(--bg-panel, #121528);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 18px 40px rgba(4, 6, 16, 0.56);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+:root[data-theme="light"] .vx-team-id-dropdown {
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+}
+.vx-team-id-dropdown__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 5px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.vx-team-id-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.vx-team-id-option:hover,
+.vx-team-id-option.is-active {
+  background: rgba(91, 245, 214, 0.11);
+}
+:root[data-theme="light"] .vx-team-id-option:hover,
+:root[data-theme="light"] .vx-team-id-option.is-active {
+  background: rgba(88, 82, 238, 0.09);
+}
+.vx-team-id-option__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.vx-team-id-option__id {
+  font-size: 13.5px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-mint);
+}
+:root[data-theme="light"] .vx-team-id-option__id {
+  color: var(--accent);
+}
+.vx-team-id-option__meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-team-id-option__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.vx-team-id-option__remove:hover {
+  background: rgba(255, 111, 145, 0.16);
+  color: var(--danger);
+}

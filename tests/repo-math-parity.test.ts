@@ -10,6 +10,7 @@ import { getRepoVideos } from '../server/repoData.ts';
 import { buildInsights, enrichPlayers, toRepoElement } from '../src/lib/analytics.ts';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
 import { getClubBadgeCandidates, getPlayerPhotoCandidates } from '../src/lib/playerImages.ts';
+import { filterRecentTeams, removeRecentTeam, upsertRecentTeam } from '../src/lib/recentTeamIds.ts';
 import { runFplReviewSimulation } from '../src/lib/repoModel/fplReviewSimulator.ts';
 
 // Import ORIGINAL repository modules directly from `site/model/*` to prove 100% mathematical parity
@@ -253,6 +254,21 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
   assert.match(htmlUnlinked, /vx-pitch-gate/);
   assert.doesNotMatch(htmlUnlinked, /class="vx-soccer-pitch"/);
+  // Blank FPL Team ID inputs must not display placeholder text like "Enter FPL Team ID (e.g. ...)"
+  assert.doesNotMatch(htmlUnlinked, /placeholder="Enter[^>]*FPL[^>]*ID/i);
+  assert.doesNotMatch(htmlUnlinked, /placeholder="145784"/);
+
+  // Saved recent Team IDs start empty, store installed IDs, and match as the user types
+  assert.deepEqual(filterRecentTeams([], '14'), []);
+  let saved = upsertRecentTeam([], { id: '145784' });
+  saved = upsertRecentTeam(saved, { id: '145784', teamName: 'FPLVORTEX', managerName: 'Muku Dahal' });
+  saved = upsertRecentTeam(saved, { id: '987654', teamName: 'Second Squad' });
+  assert.equal(saved.length, 2);
+  assert.equal(saved[0].id, '987654');
+  assert.equal(saved[1].teamName, 'FPLVORTEX');
+  assert.deepEqual(filterRecentTeams(saved, '14').map((r) => r.id), ['145784']);
+  assert.deepEqual(filterRecentTeams(saved, '').map((r) => r.id), ['987654', '145784']);
+  assert.deepEqual(removeRecentTeam(saved, '987654').map((r) => r.id), ['145784']);
 
   // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + scrollable videos
   const htmlCommand = renderToStaticMarkup(

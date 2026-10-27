@@ -13,18 +13,22 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import type { EntryData, EnrichedPlayer, LeagueData, RiskProfile, Snapshot } from '../lib/types';
+import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { fetchEntry, fetchLeague } from '../lib/api';
 import { recommendTransfers } from '../lib/optimize';
 import { classNames, formatNumber, formatPercent, formatPrice, formatSigned } from '../lib/format';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 import { StatCard } from './StatCard';
+import { TeamIdInput } from './TeamIdInput';
 
 interface LeagueIntelProps {
   snapshot: Snapshot;
   players: EnrichedPlayer[];
   teamId: string;
   leagueId: string;
+  recentTeams?: RecentTeamEntry[];
+  onRemoveRecentTeam?: (idToRemove: string) => void;
   onTeamIdChange: (value: string) => void;
   onLeagueIdChange: (value: string) => void;
   profile: RiskProfile;
@@ -49,15 +53,17 @@ export function LeagueIntel({
   players,
   teamId,
   leagueId,
+  recentTeams = [],
+  onRemoveRecentTeam,
   onTeamIdChange,
   onLeagueIdChange,
   profile,
   onToast,
 }: LeagueIntelProps) {
-  const resolvedInitialTeamId = !teamId || teamId === '5112705' ? DEFAULT_REPO_ENTRY_ID : teamId;
+  const resolvedInitialTeamId = teamId === '5112705' ? '' : teamId;
   const [draftTeamId, setDraftTeamId] = useState(resolvedInitialTeamId);
   const [draftLeagueId, setDraftLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
-  const [activeTeamId, setActiveTeamId] = useState(resolvedInitialTeamId);
+  const [activeTeamId, setActiveTeamId] = useState(resolvedInitialTeamId || DEFAULT_REPO_ENTRY_ID);
   const [activeLeagueId, setActiveLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
   const [entry, setEntry] = useState<EntryData | null>(null);
   const [league, setLeague] = useState<LeagueData | null>(null);
@@ -176,12 +182,17 @@ export function LeagueIntel({
         <form className="connect-panel__form" onSubmit={handleSubmit}>
           <label className="filter-select">
             <span>FPL Team ID</span>
-            <input
-              type="text"
-              inputMode="numeric"
+            <TeamIdInput
               value={draftTeamId}
-              onChange={(e) => setDraftTeamId(e.target.value)}
-              placeholder="145784"
+              onChange={setDraftTeamId}
+              recentTeams={recentTeams}
+              onRemoveRecent={onRemoveRecentTeam}
+              onSelectRecent={(selectedId) => {
+                setDraftTeamId(selectedId);
+                setActiveTeamId(selectedId);
+                onTeamIdChange(selectedId);
+              }}
+              ariaLabel="FPL Team ID"
             />
           </label>
           <label className="filter-select">
@@ -191,7 +202,7 @@ export function LeagueIntel({
               inputMode="numeric"
               value={draftLeagueId}
               onChange={(e) => setDraftLeagueId(e.target.value)}
-              placeholder="314"
+              placeholder=""
             />
           </label>
           <div className="button-row">

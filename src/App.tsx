@@ -8,6 +8,12 @@ import { useVortexData } from './hooks/useVortexData';
 import { fetchEntry } from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
 import { buildFixtureMatrix } from './lib/fixtures';
+import {
+  RECENT_TEAM_IDS_KEY,
+  removeRecentTeam,
+  upsertRecentTeam,
+  type RecentTeamEntry,
+} from './lib/recentTeamIds';
 import { CommandCenter } from './components/CommandCenter';
 import { CommandPalette } from './components/CommandPalette';
 import { FixtureMatrix } from './components/FixtureMatrix';
@@ -47,6 +53,7 @@ export default function App() {
   const [profile, setProfile] = useLocalStorage<RiskProfile>('vortex:profile', 'balanced');
   // Starts empty ('') until the user explicitly inputs their FPL Team ID at the top!
   const [teamId, setTeamId] = useLocalStorage<string>('vortex:linkedManagerId', '');
+  const [recentTeams, setRecentTeams] = useLocalStorage<RecentTeamEntry[]>(RECENT_TEAM_IDS_KEY, []);
   const [leagueId, setLeagueId] = useLocalStorage('vortex:leagueId', '314');
   const [pendingSwapsByTeam, setPendingSwapsByTeam] = useLocalStorage<Record<string, PendingSwap[]>>(
     'vortex:pendingSwapsByTeam',
@@ -96,6 +103,13 @@ export default function App() {
         if (!controller.signal.aborted) {
           setActiveEntry(data);
           setEntryError(null);
+          setRecentTeams((prev) =>
+            upsertRecentTeam(prev, {
+              id: String(data.id || cleanId),
+              teamName: data.teamName,
+              managerName: data.name,
+            }),
+          );
         }
       })
       .catch((err: unknown) => {
@@ -125,10 +139,18 @@ export default function App() {
         return;
       }
       setTeamId(cleaned);
+      setRecentTeams((prev) => upsertRecentTeam(prev, { id: cleaned }));
       setEntrySyncNonce((n) => n + 1);
       showToast(`Syncing FPL Team #${cleaned} & Review Gameweek…`, 'info');
     },
-    [setTeamId, showToast],
+    [setRecentTeams, setTeamId, showToast],
+  );
+
+  const handleRemoveRecentTeam = useCallback(
+    (idToRemove: string) => {
+      setRecentTeams((prev) => removeRecentTeam(prev, idToRemove));
+    },
+    [setRecentTeams],
   );
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
@@ -299,8 +321,10 @@ export default function App() {
         <LeagueIntel
           snapshot={snapshot}
           players={players}
-          teamId={teamId || '145784'}
+          teamId={teamId}
           leagueId={leagueId}
+          recentTeams={recentTeams}
+          onRemoveRecentTeam={handleRemoveRecentTeam}
           onTeamIdChange={handleLoadTeam}
           onLeagueIdChange={setLeagueId}
           profile={profile}
@@ -334,6 +358,8 @@ export default function App() {
           fixtureRows={fixtureRows}
           profile={profile}
           teamId={teamId}
+          recentTeams={recentTeams}
+          onRemoveRecentTeam={handleRemoveRecentTeam}
           onTeamIdChange={handleLoadTeam}
           onSelectPlayer={(q) => {
             selectPlayer(q);
