@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="900" y2="500"><stop stop-color="#070914"/><stop offset=".55" stop-color="#141736"/><stop offset="1" stop-color="#2D1650"/></linearGradient>
+    <linearGradient id="ring" x1="100" y1="80" x2="800" y2="430"><stop stop-color="#5BF5D6"/><stop offset=".5" stop-color="#7772FF"/><stop offset="1" stop-color="#FF5BC8"/></linearGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#FFFFFF" opacity=".12"/></pattern>
+    <radialGradient id="glow"><stop stop-color="#7772FF" stop-opacity=".34"/><stop offset="1" stop-color="#7772FF" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="900" height="500" fill="url(#bg)"/>
+  <rect width="900" height="500" fill="url(#dots)" opacity=".55"/>
+  <circle cx="700" cy="120" r="260" fill="url(#glow)"/>
+  <g fill="none" stroke="url(#ring)" stroke-width="3" opacity=".7">
+    <circle cx="680" cy="250" r="150" stroke-dasharray="420 90"/>
+    <circle cx="680" cy="250" r="105" stroke-dasharray="240 70"/>
+    <circle cx="680" cy="250" r="62" stroke-dasharray="140 50"/>
+  </g>
+  <circle cx="680" cy="250" r="20" fill="#F3F6FF"/>
+</svg>

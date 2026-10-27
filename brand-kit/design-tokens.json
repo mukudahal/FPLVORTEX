@@ -1,0 +1,83 @@
+{
+  "name": "FPL VORTEX",
+  "version": "1.0.0",
+  "description": "Premium dark sports-analytics design system with mint, violet and pink vortex accents.",
+  "fonts": {
+    "primary": {
+      "family": "Inter Variable",
+      "file": "fonts/InterVariable.woff2",
+      "format": "woff2",
+      "weightRange": "100 900",
+      "style": "normal",
+      "display": "swap",
+      "license": "SIL Open Font License 1.1",
+      "licenseFile": "fonts/OFL.txt",
+      "fallback": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+    },
+    "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace"
+  },
+  "colors": {
+    "brand": {
+      "mint": "#5BF5D6",
+      "violet": "#7772FF",
+      "pink": "#FF5BC8",
+      "amber": "#FFC66D",
+      "blue": "#65B8FF"
+    },
+    "semantic": {
+      "success": "#45E6A4",
+      "danger": "#FF6F91",
+      "warning": "#FFC66D"
+    },
+    "dark": {
+      "bg": "#070914",
+      "bgElevated": "#0B0E1E",
+      "panel": "rgba(18, 21, 42, 0.82)",
+      "panelSolid": "#121528",
+      "panelSoft": "rgba(27, 31, 59, 0.72)",
+      "border": "rgba(151, 162, 221, 0.14)",
+      "borderStrong": "rgba(151, 162, 221, 0.25)",
+      "textPrimary": "#F3F6FF",
+      "textSecondary": "#A8B1D6",
+      "textMuted": "#727CA7",
+      "accent": "#8C80FF"
+    },
+    "light": {
+      "bg": "#F4F6FF",
+      "bgElevated": "#FFFFFF",
+      "panel": "rgba(255, 255, 255, 0.88)",
+      "panelSolid": "#FFFFFF",
+      "border": "rgba(64, 74, 121, 0.14)",
+      "textPrimary": "#151A33",
+      "textSecondary": "#545E82",
+      "textMuted": "#7A83A4",
+      "accent": "#6758E8"
+    }
+  },
+  "gradients": {
+    "brand": "linear-gradient(120deg, #7772FF, #9F66FF 55%, #FF5BC8)",
+    "mintViolet": "linear-gradient(90deg, #5BF5D6, #7772FF)",
+    "hero": "linear-gradient(125deg, rgba(20,23,52,.98), rgba(14,17,37,.9) 52%, rgba(45,22,76,.82))",
+    "panel": "linear-gradient(155deg, rgba(18,21,42,.82), rgba(13,16,34,.58))"
+  },
+  "radii": { "xs": "8px", "sm": "12px", "md": "18px", "lg": "24px", "pill": "999px" },
+  "spacing": { "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px", "12": "48px" },
+  "shadows": {
+    "md": "0 14px 38px rgba(0,0,0,.22)",
+    "lg": "0 24px 70px rgba(0,0,0,.34)"
+  },
+  "motion": {
+    "fast": "160ms",
+    "normal": "240ms",
+    "slow": "420ms",
+    "ease": "cubic-bezier(.2,.8,.2,1)",
+    "animations": ["spin", "pulse", "glow", "float", "page-in", "toast-in"]
+  },
+  "iconography": {
+    "library": "lucide-react",
+    "defaultSize": 18,
+    "smallSize": 14,
+    "strokeWidth": 2,
+    "color": "currentColor"
+  }
+}
