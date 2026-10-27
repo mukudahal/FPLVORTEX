@@ -1,0 +1,67 @@
+name: Manual GitHub Pages Deploy (Opt-In Only)
+
+# NOTE: This workflow is intentionally MANUAL-ONLY (workflow_dispatch) and does NOT run on push.
+# The repository remains private and nothing is published publicly until you explicitly run this
+# workflow with `confirm_public_publish: true` after enabling GitHub Pages in repo settings.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_public_publish:
+        description: "Confirm publishing static build to GitHub Pages (keep false while private)"
+        required: true
+        default: false
+        type: boolean
+      base_path:
+        description: "Base URL path for static assets (e.g. /FPLVORTEX/ or /)"
+        required: true
+        default: "/FPLVORTEX/"
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-manual
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    if: ${{ inputs.confirm_public_publish == true }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck & test
+        run: npm run typecheck && npm test
+
+      - name: Build static bundle with repository snapshot & videos
+        env:
+          VITE_BASE_PATH: ${{ inputs.base_path }}
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

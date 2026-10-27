@@ -1,5 +1,6 @@
 import { Menu, Moon, RefreshCw, Search, Sun, Target } from 'lucide-react';
 import type { Snapshot } from '../lib/types';
+import { BRAND_LION_SRC } from '../lib/baseUrl';
 import type { RouteId } from '../hooks/useHashRoute';
 import { SourcePill } from './SourcePill';
 
@@ -46,7 +47,7 @@ export function Topbar({
           <Menu size={20} />
         </button>
         <img
-          src="/player-images/brand/fpl-vortex-lion.jpg"
+          src={BRAND_LION_SRC}
           alt="FPL VORTEX"
           className="topbar__mobile-lion"
           width={34}
