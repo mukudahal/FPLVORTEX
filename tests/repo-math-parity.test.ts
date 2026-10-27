@@ -231,6 +231,30 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   const htmlBrand = renderToStaticMarkup(React.createElement(Brand));
   assert.match(htmlBrand, /\/player-images\/brand\/fpl-vortex-lion\.jpg/);
 
+  // 1) Before entering FPL ID: top FPL Team ID input + Pitch Gate appear; soccer pitch is gated
+  const htmlUnlinked = renderToStaticMarkup(
+    React.createElement(CommandCenter, {
+      snapshot,
+      entry: null,
+      players,
+      insights,
+      fixtureRows,
+      initialVideos: videosPayload.videos,
+      profile: 'balanced',
+      teamId: '',
+      onTeamIdChange: noop,
+      onSelectPlayer: noop,
+      onNavigate: noop,
+      onOpenPalette: noop,
+      onRefresh: noop,
+      refreshing: false,
+    }),
+  );
+  assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
+  assert.match(htmlUnlinked, /vx-pitch-gate/);
+  assert.doesNotMatch(htmlUnlinked, /class="vx-soccer-pitch"/);
+
+  // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + scrollable videos
   const htmlCommand = renderToStaticMarkup(
     React.createElement(CommandCenter, {
       snapshot,
@@ -249,22 +273,31 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       refreshing: false,
     }),
   );
-  // Tier 1: Hero + Vortex Orb + Captain & Fixture float cards
+  // Tier 1: Compact Hero + Top FPL Team ID Bar + Vortex Orb + Captain & Fixture float cards
   assert.match(htmlCommand, /Every transfer, captain and fixture/);
+  assert.match(htmlCommand, /id="fpl-team-id-top"/);
   assert.match(htmlCommand, /vortex-orb/);
-  assert.match(htmlCommand, /#1 Captain/);
-  assert.match(htmlCommand, /Best 5-GW run/);
-  // Tier 2: Soccer Pitch + GW Fixtures + GW Projected Goals (20 clubs)
+  assert.match(htmlCommand, /#1 CAPTAIN/);
+  assert.match(htmlCommand, /BEST 5-GW RUN/);
+  // Tier 2: Review Gameweek strip + Soccer Pitch (15 players) + GW Fixtures + GW Projected Goals (20 clubs)
   assert.match(htmlCommand, /FPLVORTEX/);
   assert.match(htmlCommand, /145784/);
+  assert.match(htmlCommand, /Review GW 8/);
+  assert.match(htmlCommand, /vx-review-strip/);
   assert.match(htmlCommand, /vx-soccer-pitch/);
-  assert.equal((htmlCommand.match(/vx-pitch-player"/g) ?? []).length + (htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length, 15);
+  assert.equal(
+    (htmlCommand.match(/vx-pitch-player"/g) ?? []).length +
+      (htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length,
+    15,
+  );
   assert.match(htmlCommand, /Projected xG/);
   assert.equal((htmlCommand.match(/class="vx-club-bar-row"/g) ?? []).length, 20);
-  // Tier 3: Top Players + Price & Transfers + Injuries & Suspensions + @FPLVORTEX YouTube strip
+  // Tier 3: Top Players + Price & Transfers + Injuries & Suspensions + Horizontal Scrollable @FPLVORTEX YouTube strip
   assert.match(htmlCommand, /Top Players/);
   assert.match(htmlCommand, /Price &amp; Transfers/);
   assert.match(htmlCommand, /Injuries &amp; Suspensions/);
+  assert.match(htmlCommand, /vx-videos-scroll-row/);
+  assert.match(htmlCommand, /vx-video-pill/);
   assert.match(htmlCommand, /Latest FPL Videos · @FPLVORTEX/);
   assert.match(htmlCommand, /https:\/\/www\.youtube\.com\/@Fplvortex/);
   assert.doesNotMatch(htmlCommand, /fplcore/i);

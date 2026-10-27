@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -6,7 +6,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
+  Clock,
   Crown,
   ExternalLink,
   Flame,
@@ -14,16 +14,19 @@ import {
   List,
   Pencil,
   Play,
+  RefreshCw,
+  Search,
   Shield,
   Sparkles,
   Stethoscope,
   Target,
   Trophy,
+  UserCheck,
   Users,
   WandSparkles,
-  Zap,
+  X,
 } from 'lucide-react';
-import type { EnrichedPlayer, EntryData, FixtureRow, Position, RiskProfile, Snapshot, VideoItem } from '../lib/types';
+import type { PendingSwap } from '../App';
 import type { RouteId } from '../hooks/useHashRoute';
 import { useNow } from '../hooks/useNow';
 import { fetchVideos } from '../lib/api';
@@ -31,7 +34,6 @@ import { buildInsights, toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import {
   classNames,
-  clamp,
   countdown,
   formatCompact,
   formatNumber,
@@ -40,12 +42,26 @@ import {
 } from '../lib/format';
 import { buildStrengths, projectMatch } from '../lib/repoModel/dashboardMath';
 import { selectOptimalXI } from '../lib/repoModel/scoring';
+import type {
+  EnrichedPlayer,
+  EntryData,
+  FixtureRow,
+  Position,
+  RiskProfile,
+  Snapshot,
+  VideoItem,
+} from '../lib/types';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 
 interface CommandCenterProps {
   snapshot: Snapshot;
   entry?: EntryData | null;
+  entryLoading?: boolean;
+  entryError?: string | null;
+  pendingSwaps?: PendingSwap[];
+  onAddPendingSwap?: (outId: number, inId: number) => void;
+  onClearPendingSwaps?: () => void;
   players: EnrichedPlayer[];
   insights: ReturnType<typeof buildInsights>;
   fixtureRows: FixtureRow[];
@@ -60,7 +76,7 @@ interface CommandCenterProps {
   refreshing: boolean;
 }
 
-const DEFAULT_145784_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
+const DEFAULT_SAMPLE_SQUAD = [1, 149, 256, 369, 444, 16, 48, 82, 136, 224, 240, 297, 381, 411, 560];
 
 const CLUB_BAR_COLORS: Record<string, string> = {
   ARS: '#EF0107',
@@ -68,10 +84,10 @@ const CLUB_BAR_COLORS: Record<string, string> = {
   BHA: '#0057B8',
   BOU: '#DA291C',
   BRE: '#E30613',
-  CHE: '#034694',
-  COV: '#59B5E6',
-  CRY: '#1B458F',
-  EVE: '#274488',
+  CHE: '#2563EB',
+  COV: '#38BDF8',
+  CRY: '#3B82F6',
+  EVE: '#1D4ED8',
   FUL: '#94A3B8',
   HUL: '#F59E0B',
   IPS: '#3A64A3',
@@ -84,6 +100,37 @@ const CLUB_BAR_COLORS: Record<string, string> = {
   SUN: '#EB172B',
   TOT: '#818CF8',
 };
+
+const SEED_VORTEX_VIDEOS: VideoItem[] = [
+  {
+    id: 'TCP2HYD9djk',
+    title: 'FPL GW8 Free Hit Team: Best Picks, Fixtures & Captain | FPL VORTEX',
+    published: '2026-10-22T19:50:44Z',
+    thumbnail: 'https://i.ytimg.com/vi/TCP2HYD9djk/mqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=TCP2HYD9djk',
+  },
+  {
+    id: 'BbpBksRewHc',
+    title: 'FPL GW8 Final Decisions: Transfers, Bench & Captain | FPL VORTEX',
+    published: '2026-10-22T03:17:00Z',
+    thumbnail: 'https://i.ytimg.com/vi/BbpBksRewHc/mqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=BbpBksRewHc',
+  },
+  {
+    id: '65WusHtnHZg',
+    title: 'FPL GW8 Final Decisions: Transfers, Bench & Captain | FPL VORTEX',
+    published: '2026-10-21T18:27:00Z',
+    thumbnail: 'https://i.ytimg.com/vi/65WusHtnHZg/mqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=65WusHtnHZg',
+  },
+  {
+    id: '34q4AyADyZc',
+    title: 'October 19 | Day 2 | Expected Minutes, Rank Pressure & Differentials',
+    published: '2026-10-19T22:48:22Z',
+    thumbnail: 'https://i.ytimg.com/vi/34q4AyADyZc/mqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=34q4AyADyZc',
+  },
+];
 
 function posToNum(pos: Position): 1 | 2 | 3 | 4 {
   if (pos === 'GKP') return 1;
@@ -103,7 +150,6 @@ function computePriceDeltaPct(player: EnrichedPlayer): number {
   const net = player.transfersInEvent - player.transfersOutEvent;
   const totalVol = player.transfersInEvent + player.transfersOutEvent;
   if (totalVol === 0) return 0;
-  // Scale transfer pressure relative to ownership threshold into (-99.4%, +99.4%)
   const threshold = Math.max(1800, player.ownership * 1450 + 900);
   const raw = Math.tanh(net / threshold) * 99.4;
   return Math.round(raw * 10) / 10;
@@ -119,45 +165,19 @@ function formatInjurySummary(player: EnrichedPlayer): string {
   return `Monitoring workload${chanceTxt}`;
 }
 
-const SEED_VORTEX_VIDEOS: VideoItem[] = [
-  {
-    id: 'TCP2HYD9djk',
-    title: 'FPL GW8 Free Hit Team: Best Picks, Fixtures & Captain | FPL VORTEX',
-    published: '2026-10-22T19:50:44Z',
-    thumbnail: 'https://i.ytimg.com/vi/TCP2HYD9djk/maxresdefault.jpg',
-    url: 'https://www.youtube.com/watch?v=TCP2HYD9djk',
-  },
-  {
-    id: 'BbpBksRewHc',
-    title: 'FPL GW8 Final Decisions: Transfers, Bench & Captain | FPL VORTEX',
-    published: '2026-10-22T03:17:00Z',
-    thumbnail: 'https://i.ytimg.com/vi/BbpBksRewHc/maxresdefault.jpg',
-    url: 'https://www.youtube.com/watch?v=BbpBksRewHc',
-  },
-  {
-    id: '65WusHtnHZg',
-    title: 'FPL GW8 Final Decisions: Transfers, Bench & Captain | FPL VORTEX',
-    published: '2026-10-21T18:27:00Z',
-    thumbnail: 'https://i.ytimg.com/vi/65WusHtnHZg/maxresdefault.jpg',
-    url: 'https://www.youtube.com/watch?v=65WusHtnHZg',
-  },
-  {
-    id: '34q4AyADyZc',
-    title: 'October 19 | Day 2 | Expected Minutes, Rank Pressure & Differentials #FPL #FantasyPremierLeague',
-    published: '2026-10-19T22:48:22Z',
-    thumbnail: 'https://i.ytimg.com/vi/34q4AyADyZc/maxresdefault.jpg',
-    url: 'https://www.youtube.com/watch?v=34q4AyADyZc',
-  },
-];
-
 export function CommandCenter({
   snapshot,
   entry,
+  entryLoading = false,
+  entryError = null,
+  pendingSwaps = [],
+  onAddPendingSwap,
+  onClearPendingSwaps,
   players,
   insights,
   fixtureRows,
   initialVideos,
-  teamId = '145784',
+  teamId = '',
   onTeamIdChange,
   onSelectPlayer,
   onNavigate,
@@ -166,10 +186,19 @@ export function CommandCenter({
   refreshing,
 }: CommandCenterProps) {
   const now = useNow(1000);
-  const [videos, setVideos] = useState<VideoItem[]>(initialVideos?.length ? initialVideos.slice(0, 8) : SEED_VORTEX_VIDEOS);
-  const [selectedGw, setSelectedGw] = useState<number>(snapshot.meta.nextEventId || 9);
+  const videoTrackRef = useRef<HTMLDivElement | null>(null);
+  const topInputRef = useRef<HTMLInputElement | null>(null);
+
+  const reviewEventId = entry?.currentEvent ?? snapshot.meta.currentEventId ?? 8;
+  const nextEventId = snapshot.meta.nextEventId || 9;
+  const hasLinkedTeam = Boolean(teamId.trim() && entry);
+
+  const [videos, setVideos] = useState<VideoItem[]>(
+    initialVideos?.length ? initialVideos.slice(0, 30) : SEED_VORTEX_VIDEOS,
+  );
+  // Default to the Review Gameweek (`entry.currentEvent`) when a team is loaded, or nextEventId before linking!
+  const [selectedGw, setSelectedGw] = useState<number>(hasLinkedTeam ? reviewEventId : nextEventId);
   const [squadView, setSquadView] = useState<'pitch' | 'table'>('pitch');
-  const [editingTeam, setEditingTeam] = useState(false);
   const [teamInput, setTeamInput] = useState(teamId);
   const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
   const [projMetric, setProjMetric] = useState<'goals' | 'cs' | 'win'>('goals');
@@ -179,10 +208,15 @@ export function CommandCenter({
   const [transferPage, setTransferPage] = useState(0);
   const [injuryPage, setInjuryPage] = useState(0);
   const [inspectedFlagPlayer, setInspectedFlagPlayer] = useState<EnrichedPlayer | null>(null);
+  const [swapOutPlayer, setSwapOutPlayer] = useState<EnrichedPlayer | null>(null);
+  const [swapSearch, setSwapSearch] = useState('');
 
+  // Whenever an FPL ID finishes loading, jump cleanly to its Review Gameweek so the user sees their Review GW immediately
   useEffect(() => {
-    setSelectedGw(snapshot.meta.nextEventId || 9);
-  }, [snapshot.meta.nextEventId]);
+    if (entry?.currentEvent) {
+      setSelectedGw(entry.currentEvent);
+    }
+  }, [entry?.id, entry?.currentEvent]);
 
   useEffect(() => {
     setTeamInput(teamId);
@@ -192,13 +226,14 @@ export function CommandCenter({
     const controller = new AbortController();
     fetchVideos(controller.signal)
       .then((res) => {
-        if (res.videos.length > 0) setVideos(res.videos.slice(0, 8));
+        if (res.videos.length > 0) setVideos(res.videos.slice(0, 30));
       })
       .catch(() => {});
     return () => controller.abort();
   }, []);
 
-  const nextEvent = snapshot.gameweeks.find((event) => event.id === snapshot.meta.nextEventId);
+  const nextEvent = snapshot.gameweeks.find((event) => event.id === nextEventId);
+  const reviewEventObj = snapshot.gameweeks.find((event) => event.id === reviewEventId);
   const deadline = useMemo(() => countdown(nextEvent?.deadlineTime), [nextEvent?.deadlineTime, now]);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const teamMap = useMemo(() => new Map(snapshot.teams.map((t) => [t.id, t])), [snapshot.teams]);
@@ -207,11 +242,10 @@ export function CommandCenter({
     if (entry && entry.picks.length === 15) {
       return entry.picks.map((p) => p.element);
     }
-    const valid = DEFAULT_145784_SQUAD.filter((id) => playerMap.has(id));
+    const valid = DEFAULT_SAMPLE_SQUAD.filter((id) => playerMap.has(id));
     return valid.length === 15 ? valid : players.slice(0, 15).map((p) => p.id);
   }, [entry, playerMap, players]);
 
-  // Projected points for any player in selectedGw (uses Tier-1 GW projection when available)
   const playerGwXp = useMemo(() => {
     const out = new Map<number, number>();
     for (const p of players) {
@@ -221,7 +255,8 @@ export function CommandCenter({
     return out;
   }, [players, selectedGw]);
 
-  // Solve optimal XI for selectedGw (or preserve manager's exact GW picks when viewing entry.currentEvent)
+  const isReviewMode = hasLinkedTeam && selectedGw <= reviewEventId;
+
   const pitchLineup = useMemo(() => {
     const validSquad = squadIds.filter((id) => playerMap.has(id));
     if (validSquad.length < 11) {
@@ -231,10 +266,17 @@ export function CommandCenter({
         captainId: 0,
         viceId: 0,
         totalXp: 0,
+        nextGwXp: 0,
       };
     }
 
-    if (entry && entry.currentEvent === selectedGw && entry.picks.length === 15) {
+    const nextGwOptimal = selectOptimalXI(
+      validSquad,
+      (id) => posToNum(playerMap.get(id)?.position ?? 'MID'),
+      (id) => playerMap.get(id)?.gwProjections?.[nextEventId] ?? playerMap.get(id)?.projection ?? 0,
+    );
+
+    if (entry && selectedGw <= entry.currentEvent && entry.picks.length === 15) {
       const sortedPicks = [...entry.picks].sort((a, b) => a.position - b.position);
       const starters = sortedPicks.filter((pk) => pk.position <= 11).map((pk) => pk.element);
       const bench = sortedPicks.filter((pk) => pk.position > 11).map((pk) => pk.element);
@@ -244,7 +286,7 @@ export function CommandCenter({
         (sum, id) => sum + (playerGwXp.get(id) ?? 0) * (id === cap ? 2 : 1),
         0,
       );
-      return { starters, bench, captainId: cap, viceId: vice, totalXp };
+      return { starters, bench, captainId: cap, viceId: vice, totalXp, nextGwXp: nextGwOptimal.total };
     }
 
     const optimal = selectOptimalXI(
@@ -258,20 +300,20 @@ export function CommandCenter({
       captainId: optimal.captain ?? optimal.starters[0] ?? 0,
       viceId: optimal.vice ?? optimal.starters[1] ?? 0,
       totalXp: optimal.total,
+      nextGwXp: nextGwOptimal.total,
     };
-  }, [entry, playerGwXp, playerMap, selectedGw, squadIds]);
+  }, [entry, nextEventId, playerGwXp, playerMap, selectedGw, squadIds]);
 
-  // Hero always shows nextEventId XI projection + top captain + best 5-GW fixture run
-  const heroLineupXp = useMemo(() => {
-    const validSquad = squadIds.filter((id) => playerMap.has(id));
-    if (validSquad.length < 11) return 0;
-    const nextGw = snapshot.meta.nextEventId;
+  const heroOrbXp = useMemo(() => {
+    if (hasLinkedTeam && pitchLineup.nextGwXp > 0) return pitchLineup.nextGwXp;
+    const valid = DEFAULT_SAMPLE_SQUAD.filter((id) => playerMap.has(id));
+    if (valid.length < 11) return 57.0;
     return selectOptimalXI(
-      validSquad,
+      valid,
       (id) => posToNum(playerMap.get(id)?.position ?? 'MID'),
-      (id) => playerMap.get(id)?.gwProjections?.[nextGw] ?? playerMap.get(id)?.projection ?? 0,
+      (id) => playerMap.get(id)?.gwProjections?.[nextEventId] ?? playerMap.get(id)?.projection ?? 0,
     ).total;
-  }, [playerMap, snapshot.meta.nextEventId, squadIds]);
+  }, [hasLinkedTeam, nextEventId, pitchLineup.nextGwXp, playerMap]);
 
   const captain = insights.captainCandidates[0];
   const bestFixture = fixtureRows[0];
@@ -303,13 +345,12 @@ export function CommandCenter({
           homeCs: proj.homeCs,
           awayCs: proj.awayCs,
           homeWin: proj.homeWin,
-          awayWin: proj.awayWin,
           draw: proj.draw,
+          awayWin: proj.awayWin,
         };
       });
 
-    // Club-level rows (20 clubs) for `GW Projected Goals / CS% / Win%`
-    const clubRows = new Map<
+    const clubMap = new Map<
       number,
       {
         teamId: number;
@@ -325,36 +366,35 @@ export function CommandCenter({
 
     for (const m of matches) {
       if (m.homeTeam && m.awayTeam) {
-        const prevH = clubRows.get(m.homeTeam.id);
-        clubRows.set(m.homeTeam.id, {
+        const prevH = clubMap.get(m.homeTeam.id);
+        clubMap.set(m.homeTeam.id, {
           teamId: m.homeTeam.id,
           shortName: m.homeTeam.shortName,
           name: m.homeTeam.name,
           code: m.homeTeam.code,
           oppLabel: prevH ? `${prevH.oppLabel}, ${m.awayTeam.shortName} (H)` : `${m.awayTeam.shortName} (H)`,
           goals: (prevH?.goals ?? 0) + m.homeXg,
-          cs: prevH ? (prevH.cs + m.homeCs) / 2 : m.homeCs,
-          win: prevH ? (prevH.win + m.homeWin) / 2 : m.homeWin,
+          cs: prevH ? Math.max(prevH.cs, m.homeCs) : m.homeCs,
+          win: prevH ? Math.max(prevH.win, m.homeWin) : m.homeWin,
         });
 
-        const prevA = clubRows.get(m.awayTeam.id);
-        clubRows.set(m.awayTeam.id, {
+        const prevA = clubMap.get(m.awayTeam.id);
+        clubMap.set(m.awayTeam.id, {
           teamId: m.awayTeam.id,
           shortName: m.awayTeam.shortName,
           name: m.awayTeam.name,
           code: m.awayTeam.code,
           oppLabel: prevA ? `${prevA.oppLabel}, ${m.homeTeam.shortName} (A)` : `${m.homeTeam.shortName} (A)`,
           goals: (prevA?.goals ?? 0) + m.awayXg,
-          cs: prevA ? (prevA.cs + m.awayCs) / 2 : m.awayCs,
-          win: prevA ? (prevA.win + m.awayWin) / 2 : m.awayWin,
+          cs: prevA ? Math.max(prevA.cs, m.awayCs) : m.awayCs,
+          win: prevA ? Math.max(prevA.win, m.awayWin) : m.awayWin,
         });
       }
     }
 
-    // Include any blank-GW clubs with 0
     for (const t of snapshot.teams) {
-      if (!clubRows.has(t.id)) {
-        clubRows.set(t.id, {
+      if (!clubMap.has(t.id)) {
+        clubMap.set(t.id, {
           teamId: t.id,
           shortName: t.shortName,
           name: t.name,
@@ -367,13 +407,9 @@ export function CommandCenter({
       }
     }
 
-    return {
-      matches,
-      clubs: [...clubRows.values()],
-    };
+    return { matches, clubs: [...clubMap.values()] };
   }, [selectedGw, snapshot.fixtures, snapshot.players, snapshot.teams, teamMap]);
 
-  // Group GW matches by formatted date banner
   const groupedMatches = useMemo(() => {
     const groups: Array<{ dateLabel: string; items: typeof gwMatchesAndClubs.matches }> = [];
     for (const m of gwMatchesAndClubs.matches) {
@@ -384,7 +420,7 @@ export function CommandCenter({
             month: 'long',
           }).format(new Date(m.fixture.kickoffTime))
         : 'Kickoff TBC';
-      const last = groups.at(-1);
+      const last = groups[groups.length - 1];
       if (last && last.dateLabel === dateLabel) {
         last.items.push(m);
       } else {
@@ -394,72 +430,103 @@ export function CommandCenter({
     return groups;
   }, [gwMatchesAndClubs.matches]);
 
-  // Sorted club ranking for Column 3
   const sortedClubs = useMemo(() => {
-    const list = [...gwMatchesAndClubs.clubs];
-    list.sort((a, b) => b[projMetric] - a[projMetric] || a.shortName.localeCompare(b.shortName));
-    return list;
+    return [...gwMatchesAndClubs.clubs].sort((a, b) => b[projMetric] - a[projMetric]);
   }, [gwMatchesAndClubs.clubs, projMetric]);
 
-  const maxClubVal = Math.max(...sortedClubs.map((c) => c[projMetric]), 0.01);
+  const maxClubVal = useMemo(
+    () => Math.max(0.01, ...sortedClubs.map((c) => c[projMetric])),
+    [projMetric, sortedClubs],
+  );
 
-  // Fixture badge info for any player on the Pitch in selectedGw
   const getPitchFixture = (teamIdNum: number) => {
-    const teamMatches = gwMatchesAndClubs.matches.filter(
-      (m) => m.fixture.teamH === teamIdNum || m.fixture.teamA === teamIdNum,
+    const fxs = snapshot.fixtures.filter(
+      (fx) => fx.event === selectedGw && (fx.teamH === teamIdNum || fx.teamA === teamIdNum),
     );
-    if (teamMatches.length === 0) {
-      return { label: 'BLANK', difficulty: 5, isBlank: true };
-    }
-    const labels = teamMatches.map((m) => {
-      const isHome = m.fixture.teamH === teamIdNum;
-      const opp = isHome ? m.awayTeam?.shortName : m.homeTeam?.shortName;
-      return `${opp ?? 'OPP'} (${isHome ? 'H' : 'A'})`;
+    if (fxs.length === 0) return { label: 'BLANK', difficulty: 4, isBlank: true };
+    const labels = fxs.map((fx) => {
+      const isHome = fx.teamH === teamIdNum;
+      const opp = teamMap.get(isHome ? fx.teamA : fx.teamH)?.shortName ?? 'OPP';
+      return `${opp} (${isHome ? 'H' : 'A'})`;
     });
     const maxDiff = Math.max(
-      ...teamMatches.map((m) =>
-        m.fixture.teamH === teamIdNum ? m.fixture.teamHDifficulty : m.fixture.teamADifficulty,
-      ),
+      ...fxs.map((fx) => (fx.teamH === teamIdNum ? fx.teamHDifficulty : fx.teamADifficulty)),
     );
     return { label: labels.join(', '), difficulty: maxDiff, isBlank: false };
   };
 
-  // Lower Row Card 1: Top Players
+  // Top Players (top 10)
   const topPlayersList = useMemo(() => {
-    const scoreOf = (p: EnrichedPlayer) => {
+    const getVal = (p: EnrichedPlayer) => {
       if (topMetric === 'season') return p.totalPoints;
       if (topMetric === 'gwPts') return p.eventPoints;
       if (topMetric === 'horizon5') return p.horizon5Projection;
       return playerGwXp.get(p.id) ?? p.projection;
     };
-    const sorted = [...players].sort((a, b) => scoreOf(b) - scoreOf(a) || b.projection - a.projection);
-    return sorted.slice(0, 10).map((p) => ({ player: p, score: scoreOf(p) }));
+    return [...players]
+      .sort((a, b) => getVal(b) - getVal(a) || b.totalPoints - a.totalPoints)
+      .slice(0, 10)
+      .map((p) => ({ player: p, score: getVal(p) }));
   }, [playerGwXp, players, topMetric]);
 
-  const maxTopScore = Math.max(...topPlayersList.map((item) => item.score), 1);
+  const maxTopScore = Math.max(1, ...topPlayersList.map((r) => r.score));
 
-  // Lower Row Card 2: Price & Transfers
-  const priceTransferRows = useMemo(() => {
-    const enrichedWithDelta = players.map((p) => ({
+  // Price & Transfers
+  const sortedTransfers = useMemo(() => {
+    const rows = players.map((p) => ({
       player: p,
       deltaPct: computePriceDeltaPct(p),
       net: p.transfersInEvent - p.transfersOutEvent,
     }));
     const mul = transferDir === 'desc' ? -1 : 1;
-    enrichedWithDelta.sort((a, b) => {
-      if (transferSort === 'name') return mul * -a.player.name.localeCompare(b.player.name);
+    rows.sort((a, b) => {
+      if (transferSort === 'name') return mul * a.player.name.localeCompare(b.player.name);
       if (transferSort === 'in') return mul * (a.player.transfersInEvent - b.player.transfersInEvent);
       if (transferSort === 'out') return mul * (a.player.transfersOutEvent - b.player.transfersOutEvent);
       if (transferSort === 'net') return mul * (a.net - b.net);
-      // Default 'delta': sort by absolute magnitude so biggest risers AND fallers appear at top (just like reference!)
-      return mul * (Math.abs(a.deltaPct) - Math.abs(b.deltaPct)) || b.player.transfersInEvent - a.player.transfersInEvent;
+      return mul * (Math.abs(a.deltaPct) - Math.abs(b.deltaPct)) || mul * (Math.abs(a.net) - Math.abs(b.net));
     });
-    return enrichedWithDelta;
+    return rows;
   }, [players, transferDir, transferSort]);
 
-  const transferTotalPages = Math.max(1, Math.ceil(priceTransferRows.length / 10));
-  const safeTransferPage = clamp(transferPage, 0, transferTotalPages - 1);
-  const visibleTransfers = priceTransferRows.slice(safeTransferPage * 10, safeTransferPage * 10 + 10);
+  const transferTotalPages = Math.max(1, Math.ceil(sortedTransfers.length / 10));
+  const safeTransferPage = Math.min(transferPage, transferTotalPages - 1);
+  const visibleTransfers = sortedTransfers.slice(safeTransferPage * 10, safeTransferPage * 10 + 10);
+
+  // Injuries & Suspensions
+  const flaggedPlayers = useMemo(() => {
+    const sevRank = (p: EnrichedPlayer) => (['d', 'i', 's'].includes(p.status) ? 0 : 1);
+    return players
+      .filter((p) => p.status !== 'a' || (p.chance !== null && p.chance < 100))
+      .sort(
+        (a, b) =>
+          sevRank(a) - sevRank(b) ||
+          (b.chance ?? 50) - (a.chance ?? 50) ||
+          b.ownership - a.ownership,
+      );
+  }, [players]);
+
+  const injuryTotalPages = Math.max(1, Math.ceil(flaggedPlayers.length / 10));
+  const safeInjuryPage = Math.min(injuryPage, injuryTotalPages - 1);
+  const visibleInjuries = flaggedPlayers.slice(safeInjuryPage * 10, safeInjuryPage * 10 + 10);
+
+  // Swap candidate list for syncing official FPL app transfers
+  const swapCandidates = useMemo(() => {
+    if (!swapOutPlayer) return [];
+    const currentSet = new Set(squadIds);
+    const q = swapSearch.trim().toLowerCase();
+    return players
+      .filter((p) => p.position === swapOutPlayer.position && !currentSet.has(p.id))
+      .filter((p) => !q || `${p.name} ${p.fullName} ${p.team.shortName} ${p.team.name}`.toLowerCase().includes(q))
+      .sort((a, b) => b.projection - a.projection)
+      .slice(0, 12);
+  }, [players, squadIds, swapOutPlayer, swapSearch]);
+
+  const handleTeamSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleaned = teamInput.trim();
+    onTeamIdChange?.(cleaned);
+  };
 
   const toggleTransferSort = (col: typeof transferSort) => {
     if (transferSort === col) {
@@ -471,27 +538,12 @@ export function CommandCenter({
     setTransferPage(0);
   };
 
-  // Lower Row Card 3: Injuries & Suspensions
-  const flaggedPlayers = useMemo(() => {
-    return players
-      .filter((p) => p.status !== 'a' || (p.chance !== null && p.chance < 100) || Boolean(p.news?.trim()))
-      .sort((a, b) => b.ownership - a.ownership || b.projection - a.projection);
-  }, [players]);
-
-  const injuryTotalPages = Math.max(1, Math.ceil(flaggedPlayers.length / 10));
-  const safeInjuryPage = clamp(injuryPage, 0, injuryTotalPages - 1);
-  const visibleInjuries = flaggedPlayers.slice(safeInjuryPage * 10, safeInjuryPage * 10 + 10);
-
-  const handleTeamSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const cleaned = teamInput.trim();
-    if (/^\d{1,12}$/.test(cleaned)) {
-      onTeamIdChange?.(cleaned);
-      setEditingTeam(false);
-    }
+  const scrollVideos = (direction: -1 | 1) => {
+    if (!videoTrackRef.current) return;
+    videoTrackRef.current.scrollBy({ left: direction * 640, behavior: 'smooth' });
   };
 
-  const renderPitchCard = (playerId: number, isBench = false) => {
+  const renderPitchCard = (playerId: number, isBench: boolean, benchSlotIdx = 0) => {
     const p = playerMap.get(playerId);
     if (!p) return null;
     const fx = getPitchFixture(p.teamId);
@@ -502,15 +554,21 @@ export function CommandCenter({
     const hasFlag = p.status !== 'a' || (p.chance !== null && p.chance < 100);
     const isSevere = p.status === 'i' || p.status === 's' || p.status === 'u' || p.chance === 0;
 
+    // In Review Gameweek mode, display actual GW points when matches were played; otherwise opponent + difficulty
+    const bottomText =
+      isReviewMode && selectedGw === snapshot.meta.currentEventId
+        ? `${p.eventPoints * (isCap ? 2 : 1)} pts · ${fx.label}`
+        : fx.label;
+
     return (
       <div
         key={p.id}
         className={classNames('vx-pitch-player', isBench && 'vx-pitch-player--bench')}
-        title={`${p.name} (${p.team.shortName}) · ${fx.label} · ${xp.toFixed(2)} xPts`}
-        onClick={() => onSelectPlayer?.(p.name)}
+        title={`${p.fullName} (${p.team.shortName}) · ${fx.label} · ${xp.toFixed(2)} xPts — Click to sync transfer or inspect`}
+        onClick={() => setSwapOutPlayer(p)}
       >
         {isBench ? (
-          <span className="vx-pitch-pos-label">{p.position}</span>
+          <span className="vx-pitch-pos-label">{benchSlotIdx === 0 ? 'GKP' : p.position}</span>
         ) : (
           <span className="vx-pitch-xp">{(xp * (isCap ? 2 : 1)).toFixed(1)} xP</span>
         )}
@@ -526,7 +584,7 @@ export function CommandCenter({
               aria-label={`${p.name} availability notice`}
               title={formatInjurySummary(p)}
             >
-              <AlertTriangle size={11} />
+              <AlertTriangle size={12} />
             </button>
           )}
           {isCap && <span className="vx-pitch-armband is-cap">C</span>}
@@ -538,12 +596,12 @@ export function CommandCenter({
             fullName={p.fullName}
             teamShort={p.team.shortName}
             position={p.position}
-            size={isBench ? 'md' : 'lg'}
+            size="md"
             className="vx-pitch-portrait"
           />
         </div>
         <strong className="vx-pitch-name">{p.name}</strong>
-        <span className={classNames('vx-pitch-fix', `is-${tone}`)}>{fx.label}</span>
+        <span className={classNames('vx-pitch-fix', `is-${tone}`)}>{bottomText}</span>
       </div>
     );
   };
@@ -555,55 +613,114 @@ export function CommandCenter({
 
   return (
     <div className="page page--command">
-      {/* ==================== 1. TOP VORTEX HERO (IMAGE 1) ==================== */}
-      <section className="hero" aria-labelledby="hero-title">
+      {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
+      <section className="hero hero--compact" aria-labelledby="hero-title">
         <div className="hero__noise" />
-        <div className="hero__content">
+        <div className="hero__content hero__content--compact">
           <div className="eyebrow">
             <Sparkles size={14} /> FPL VORTEX · @FPLVORTEX · {snapshot.meta.season}
           </div>
           <h2 id="hero-title">Every transfer, captain and fixture — pulled into focus.</h2>
-          <p>
-            VORTEX scores all {formatNumber(snapshot.players.length)} Premier League players against upcoming fixtures,
-            expected goals, clean-sheet odds, and transfer momentum so your deadline calls stay sharp.
-          </p>
-          <div className="hero__actions">
-            <button type="button" className="button button--primary button--large" onClick={() => onNavigate('optimizer')}>
-              <WandSparkles size={18} /> Planner, Chips & Simulation <ArrowRight size={17} />
+
+          {/* PROMINENT TOP FPL TEAM ID CONNECT BAR */}
+          <form className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
+            <div className="vx-top-id-bar__field">
+              <label htmlFor="fpl-team-id-top" className="vx-top-id-bar__label">
+                <UserCheck size={16} />
+                <span>FPL Team ID</span>
+              </label>
+              <input
+                ref={topInputRef}
+                id="fpl-team-id-top"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Enter your FPL ID (e.g. 145784)"
+                value={teamInput}
+                onChange={(e) => setTeamInput(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="button button--primary" disabled={entryLoading}>
+              {entryLoading ? 'Loading…' : hasLinkedTeam ? 'Reload Squad' : 'Load Squad & Review'}
             </button>
-            <button type="button" className="button button--ghost button--large" onClick={onOpenPalette}>
-              <Target size={18} /> Search {formatNumber(snapshot.players.length)} players
+            {!hasLinkedTeam ? (
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  setTeamInput('145784');
+                  onTeamIdChange?.('145784');
+                }}
+              >
+                Demo #145784
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  setTeamInput('');
+                  onTeamIdChange?.('');
+                }}
+                title="Disconnect current FPL Team ID"
+              >
+                Change / Clear
+              </button>
+            )}
+          </form>
+
+          {entryError && (
+            <p className="vx-top-id-error" role="alert">
+              <AlertTriangle size={14} /> {entryError}
+            </p>
+          )}
+
+          <div className="hero__actions hero__actions--compact">
+            <button type="button" className="button button--primary" onClick={() => onNavigate('optimizer')}>
+              <WandSparkles size={17} /> Planner, Chips & Simulation <ArrowRight size={16} />
+            </button>
+            <button type="button" className="button button--ghost" onClick={onOpenPalette}>
+              <Target size={17} /> Search {formatNumber(snapshot.players.length)} players
             </button>
           </div>
-          <div className="hero__trust">
-            <span><Users size={15} /> <strong>{formatNumber(snapshot.players.length)}</strong> players</span>
-            <span><Trophy size={15} /> OR <strong>{formatNumber(entry?.overallRank ?? 237000)}</strong></span>
+
+          <div className="hero__trust hero__trust--premium">
             <span>
-              <CircleDollarSign size={15} /> <strong>{entry?.freeTransfers ?? 4} FT</strong> · £
-              {((entry?.history.bank ?? 4) / 10).toFixed(1)}m bank
+              <Users size={16} /> <strong>{formatNumber(snapshot.players.length)}</strong> Premier League players
             </span>
+            <span>
+              <Clock size={16} /> GW{nextEventId} deadline <strong>{deadline.label}</strong>
+            </span>
+            {hasLinkedTeam && entry && (
+              <span>
+                <Trophy size={16} /> <strong>{entry.teamName}</strong> · OR{' '}
+                <strong>{entry.overallRank ? formatNumber(entry.overallRank) : '—'}</strong> ·{' '}
+                <strong>{entry.freeTransfers} FT</strong>
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="hero__visual" aria-hidden="true">
-          <div className="vortex-orb">
+        {/* PREMIUM RIGHT VISUAL ORB + HIGH-CONTRAST FLOAT CARDS */}
+        <div className="hero__visual hero__visual--compact" aria-hidden="true">
+          <div className="vortex-orb vortex-orb--compact">
             <span className="vortex-orb__ring vortex-orb__ring--one" />
             <span className="vortex-orb__ring vortex-orb__ring--two" />
             <span className="vortex-orb__ring vortex-orb__ring--three" />
-            <div className="vortex-orb__core">
+            <div className="vortex-orb__core vortex-orb__core--premium">
               <img
                 src="/player-images/brand/fpl-vortex-lion.jpg"
                 alt=""
                 className="vortex-orb__crest"
               />
-              <span>GW{snapshot.meta.nextEventId}</span>
-              <strong>{heroLineupXp > 0 ? heroLineupXp.toFixed(1) : '57.0'}</strong>
-              <small>projected XI pts</small>
+              <span className="vortex-orb__gw">GW{nextEventId}</span>
+              <strong className="vortex-orb__pts">{heroOrbXp.toFixed(1)}</strong>
+              <small className="vortex-orb__caption">Projected XI pts</small>
             </div>
           </div>
 
           {captain && (
-            <div className="float-card float-card--captain">
+            <div className="float-card float-card--captain float-card--premium">
               <div className="float-card__row">
                 <PlayerAvatar
                   code={captain.code}
@@ -612,30 +729,38 @@ export function CommandCenter({
                   fullName={captain.fullName}
                   teamShort={captain.team.shortName}
                   position={captain.position}
-                  size="sm"
+                  size="md"
                 />
                 <div className="float-card__copy">
-                  <span className="float-card__label"><Crown size={12} /> #1 Captain</span>
-                  <strong>{captain.name}</strong>
-                  <small>{captain.team.shortName} · {(captain.projection * 2).toFixed(1)} 2× xPts</small>
+                  <span className="float-card__label">
+                    <Crown size={13} /> #1 CAPTAIN
+                  </span>
+                  <div className="float-card__title">{captain.name}</div>
+                  <div className="float-card__meta">
+                    {captain.team.shortName} · {(captain.projection * 2).toFixed(1)} 2× xPts
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {bestFixture && (
-            <div className="float-card float-card--fixture">
+            <div className="float-card float-card--fixture float-card--premium">
               <div className="float-card__row">
                 <ClubBadge
                   teamCode={bestFixture.team.code}
                   shortName={bestFixture.team.shortName}
                   teamName={bestFixture.team.name}
-                  size="md"
+                  size="lg"
                 />
                 <div className="float-card__copy">
-                  <span className="float-card__label"><Flame size={12} /> Best 5-GW run</span>
-                  <strong>{bestFixture.team.name}</strong>
-                  <small>Ease {bestFixture.easeSum5} · {bestFixture.next5.toFixed(2)} FDR</small>
+                  <span className="float-card__label">
+                    <Flame size={13} /> BEST 5-GW RUN
+                  </span>
+                  <div className="float-card__title">{bestFixture.team.name}</div>
+                  <div className="float-card__meta">
+                    Ease +{bestFixture.easeSum5} · {bestFixture.next5.toFixed(2)} FDR
+                  </div>
                 </div>
               </div>
             </div>
@@ -643,12 +768,29 @@ export function CommandCenter({
         </div>
       </section>
 
-      {/* ==================== GAMEWEEK STEPPER & DEADLINE BAR ==================== */}
-      <section className="vx-gw-bar" aria-label="Gameweek selector and deadline">
+      {/* ==================== GAMEWEEK REVIEW & FORECAST CONTROL BAR ==================== */}
+      <section className="vx-gw-bar" aria-label="Review gameweek and sync controls">
         <div className="vx-gw-bar__left">
           <span className="vx-gw-bar__dot" />
-          <strong>Dashboard</strong>
-          <span className="vx-gw-bar__season">{snapshot.meta.season}</span>
+          <strong>Gameweek Hub</strong>
+          {hasLinkedTeam && (
+            <div className="vx-seg-pills" role="group" aria-label="Review vs Forecast mode">
+              <button
+                type="button"
+                className={classNames(selectedGw === reviewEventId && 'is-active')}
+                onClick={() => setSelectedGw(reviewEventId)}
+              >
+                Review GW {reviewEventId}
+              </button>
+              <button
+                type="button"
+                className={classNames(selectedGw === nextEventId && 'is-active')}
+                onClick={() => setSelectedGw(nextEventId)}
+              >
+                Forecast GW {nextEventId}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="vx-gw-stepper">
@@ -659,21 +801,22 @@ export function CommandCenter({
             disabled={selectedGw <= 1}
             aria-label="Previous gameweek"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={17} />
           </button>
           <label className="vx-gw-stepper__select-wrap">
             <select
               value={selectedGw}
               onChange={(e) => setSelectedGw(Number(e.target.value))}
-              aria-label="Select gameweek"
+              aria-label="Select review gameweek"
             >
               {snapshot.gameweeks.map((gw) => (
                 <option key={gw.id} value={gw.id}>
                   Gameweek {gw.id}
+                  {gw.id === reviewEventId ? ' (Review GW)' : gw.id === nextEventId ? ' (Next GW)' : ''}
                 </option>
               ))}
             </select>
-            <ChevronDown size={14} />
+            <ChevronDown size={15} />
           </label>
           <button
             type="button"
@@ -682,185 +825,294 @@ export function CommandCenter({
             disabled={selectedGw >= 38}
             aria-label="Next gameweek"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={17} />
           </button>
         </div>
 
         <div className="vx-gw-bar__right">
-          <span className="vx-deadline-chip">
-            Next deadline: <strong>{deadline.label}</strong>
-          </span>
-          <button type="button" className="button button--subtle button--sm" onClick={onRefresh} disabled={refreshing}>
-            <Zap size={14} /> {refreshing ? 'Syncing…' : 'Sync'}
+          {hasLinkedTeam && (
+            <button
+              type="button"
+              className="button button--ghost button--sm"
+              onClick={() => {
+                const firstStarter = playerMap.get(pitchLineup.starters[0]);
+                if (firstStarter) setSwapOutPlayer(firstStarter);
+              }}
+              title="Official FPL hides pre-deadline transfers on public endpoints until the deadline locks. Click to apply any transfer you already made in the FPL app."
+            >
+              <ArrowLeftRight size={14} /> Sync App Transfer
+              {pendingSwaps.length > 0 ? ` (${pendingSwaps.length})` : ''}
+            </button>
+          )}
+          <button
+            type="button"
+            className="button button--subtle button--sm"
+            onClick={onRefresh}
+            disabled={refreshing || entryLoading}
+          >
+            <RefreshCw size={14} className={classNames((refreshing || entryLoading) && 'spin')} />{' '}
+            {refreshing || entryLoading ? 'Syncing…' : 'Sync Official FPL'}
           </button>
         </div>
       </section>
 
-      {/* ==================== 2. MAIN 3-COLUMN VORTEX HUB (IMAGE 3) ==================== */}
-      <section className="vx-hub-upper" aria-label="Squad pitch, fixtures and projected goals">
-        {/* COLUMN 1: SOCCER PITCH CARD */}
+      {/* ==================== 2. UPPER 3-COLUMN VORTEX HUB (IMAGE 1 — STAYS AT TOP!) ==================== */}
+      <section className="vx-hub-upper" aria-label="Squad review pitch, fixtures and projected goals">
+        {/* COLUMN 1: GATED ON FPL TEAM ID INPUT -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
         <article className="panel vx-card vx-card--pitch">
-          <header className="vx-card__header vx-pitch-header">
-            <div className="vx-pitch-header__identity">
-              <strong>{entry?.teamName ?? 'FPLVORTEX'}</strong>
-              {!editingTeam ? (
-                <button
-                  type="button"
-                  className="vx-team-id-trigger"
-                  onClick={() => setEditingTeam(true)}
-                  title="Change FPL Team ID"
-                >
-                  <span>Team ID: {entry?.id ?? 145784}</span>
-                  <Pencil size={11} />
-                </button>
-              ) : (
-                <form className="vx-team-id-form" onSubmit={handleTeamSubmit}>
-                  <input
-                    value={teamInput}
-                    onChange={(e) => setTeamInput(e.target.value)}
-                    placeholder="Team ID"
-                    aria-label="FPL Team ID"
-                    autoFocus
-                  />
-                  <button type="submit" className="button button--primary button--xs">Load</button>
-                  <button type="button" className="button button--ghost button--xs" onClick={() => setEditingTeam(false)}>
-                    Cancel
-                  </button>
-                </form>
-              )}
-            </div>
+          {!hasLinkedTeam ? (
+            <div className="vx-pitch-gate">
+              <div className="vx-pitch-gate__badge">
+                <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="FPL VORTEX" width={58} height={58} />
+              </div>
+              <span className="panel__eyebrow">SQUAD PITCH & GAMEWEEK {reviewEventId} REVIEW</span>
+              <h3>Enter your FPL Team ID to view your Soccer Pitch & Review Gameweek</h3>
+              <p>
+                Connect your public FPL Team ID (no password needed) to load your 15-player starting XI & bench,
+                Review Gameweek {reviewEventId} points, overall rank, free transfers, and Gameweek {nextEventId} xP
+                forecast.
+              </p>
 
-            <div className="vx-pitch-header__center">
-              <strong>{pitchLineup.totalXp.toFixed(1)}</strong>
-              <span>GW {selectedGw} xP</span>
-            </div>
-
-            <div className="vx-pitch-header__actions">
-              <button type="button" className="vx-inline-link" onClick={() => onNavigate('optimizer')}>
-                Plan team <ArrowRight size={13} />
-              </button>
-              <div className="vx-view-toggle" role="group" aria-label="Squad view">
-                <button
-                  type="button"
-                  className={classNames(squadView === 'pitch' && 'is-active')}
-                  onClick={() => setSquadView('pitch')}
-                  aria-label="Pitch view"
-                  title="Pitch view"
-                >
-                  <LayoutGrid size={14} />
+              <form className="vx-pitch-gate__form" onSubmit={handleTeamSubmit}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Enter FPL Team ID (e.g. 145784)"
+                  value={teamInput}
+                  onChange={(e) => setTeamInput(e.target.value)}
+                  aria-label="Enter FPL Team ID to unlock pitch"
+                />
+                <button type="submit" className="button button--primary" disabled={entryLoading}>
+                  {entryLoading ? 'Loading…' : 'Load My Squad'}
                 </button>
+              </form>
+
+              <div className="vx-pitch-gate__quick">
+                <span>Want to preview with the channel squad?</span>
                 <button
                   type="button"
-                  className={classNames(squadView === 'table' && 'is-active')}
-                  onClick={() => setSquadView('table')}
-                  aria-label="Table view"
-                  title="Table view"
+                  className="vx-inline-link"
+                  onClick={() => {
+                    setTeamInput('145784');
+                    onTeamIdChange?.('145784');
+                  }}
                 >
-                  <List size={14} />
+                  Load FPLVORTEX (#145784) <ArrowRight size={14} />
                 </button>
               </div>
-            </div>
-          </header>
 
-          {squadView === 'pitch' ? (
-            <div className="vx-soccer-pitch">
-              {/* Top Stadium Sponsor Boards with User's Lion Logo & Channel */}
-              <div className="vx-pitch-top-boards">
-                <div className="vx-pitch-board">
-                  <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="" width={18} height={18} />
-                  <span>FPL VORTEX</span>
-                </div>
-                <div className="vx-pitch-goal-net" aria-hidden="true" />
-                <a
-                  href="https://www.youtube.com/@Fplvortex"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="vx-pitch-board vx-pitch-board--link"
-                >
-                  <span>@FPLVORTEX</span>
-                </a>
-              </div>
-
-              {/* Crisp White Turf Markings */}
-              <div className="vx-pitch-turf">
-                <div className="vx-pitch-lines" aria-hidden="true">
-                  <span className="vx-pitch-box-18" />
-                  <span className="vx-pitch-box-6" />
-                  <span className="vx-pitch-halfway" />
-                  <span className="vx-pitch-circle" />
-                </div>
-
-                <div className="vx-pitch-formation">
-                  <div className="vx-pitch-row">{startersByPos('GKP').map((id) => renderPitchCard(id, false))}</div>
-                  <div className="vx-pitch-row">{startersByPos('DEF').map((id) => renderPitchCard(id, false))}</div>
-                  <div className="vx-pitch-row">{startersByPos('MID').map((id) => renderPitchCard(id, false))}</div>
-                  <div className="vx-pitch-row">{startersByPos('FWD').map((id) => renderPitchCard(id, false))}</div>
-                </div>
-
-                {/* 4-Man Bench Tray inside bottom of pitch */}
-                <div className="vx-pitch-bench">
-                  {pitchLineup.bench.map((id) => renderPitchCard(id, true))}
-                </div>
+              <div className="vx-pitch-gate__note">
+                <strong>Where is my FPL ID?</strong> Open <em>fantasy.premierleague.com</em> → <em>Points</em>. Your
+                ID is the number in <code>/entry/123456/event/…</code>.
               </div>
             </div>
           ) : (
-            <div className="vx-squad-table-wrap">
-              <table className="vx-compact-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Pos</th>
-                    <th>Fixture</th>
-                    <th>GW {selectedGw} xP</th>
-                    <th>5-GW xP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...pitchLineup.starters, ...pitchLineup.bench].map((id, idx) => {
-                    const p = playerMap.get(id);
-                    if (!p) return null;
-                    const fx = getPitchFixture(p.teamId);
-                    const tone = fdrPillTone(fx.difficulty, fx.isBlank);
-                    const isBench = idx >= 11;
-                    const isCap = p.id === pitchLineup.captainId;
-                    const isVice = p.id === pitchLineup.viceId;
-                    return (
-                      <tr key={p.id} className={classNames(isBench && 'is-bench-row')}>
-                        <td>
-                          <div className="vx-mini-player">
-                            <PlayerAvatar
-                              code={p.code}
-                              teamCode={p.team.code}
-                              name={p.name}
-                              fullName={p.fullName}
-                              teamShort={p.team.shortName}
-                              position={p.position}
-                              size="sm"
-                            />
-                            <div>
-                              <strong>
-                                {p.name} {isCap ? '(C)' : isVice ? '(V)' : ''}
-                              </strong>
-                              <small>{p.team.shortName} · {formatPrice(p.price)}</small>
-                            </div>
-                          </div>
-                        </td>
-                        <td>{p.position}</td>
-                        <td>
-                          <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', `is-${tone}`)}>
-                            {fx.label}
-                          </span>
-                        </td>
-                        <td className="mono-num">
-                          <strong>{((playerGwXp.get(p.id) ?? p.projection) * (isCap ? 2 : 1)).toFixed(2)}</strong>
-                        </td>
-                        <td className="mono-num">{p.horizon5Projection.toFixed(1)}</td>
+            <>
+              <header className="vx-card__header vx-pitch-header">
+                <div className="vx-pitch-header__identity">
+                  <strong>{entry!.teamName}</strong>
+                  <button
+                    type="button"
+                    className="vx-team-id-trigger"
+                    onClick={() => topInputRef.current?.focus()}
+                    title="Change FPL Team ID at top"
+                  >
+                    <span>Team ID: {entry!.id}</span>
+                    <Pencil size={12} />
+                  </button>
+                </div>
+
+                <div className="vx-pitch-header__center">
+                  <strong>
+                    {isReviewMode ? entry!.history.points : pitchLineup.totalXp.toFixed(1)}
+                  </strong>
+                  <span>
+                    {isReviewMode ? `GW ${selectedGw} Review Pts` : `GW ${selectedGw} xP`}
+                  </span>
+                </div>
+
+                <div className="vx-pitch-header__actions">
+                  <button type="button" className="vx-inline-link" onClick={() => onNavigate('optimizer')}>
+                    Plan team <ArrowRight size={14} />
+                  </button>
+                  <div className="vx-view-toggle" role="group" aria-label="Squad view">
+                    <button
+                      type="button"
+                      className={classNames(squadView === 'pitch' && 'is-active')}
+                      onClick={() => setSquadView('pitch')}
+                      aria-label="Pitch view"
+                      title="Pitch view"
+                    >
+                      <LayoutGrid size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className={classNames(squadView === 'table' && 'is-active')}
+                      onClick={() => setSquadView('table')}
+                      aria-label="Table view"
+                      title="Table view"
+                    >
+                      <List size={15} />
+                    </button>
+                  </div>
+                </div>
+              </header>
+
+              {/* 5-STAT REVIEW GAMEWEEK DATA STRIP */}
+              <div className="vx-review-strip" aria-label="Review gameweek summary">
+                <div>
+                  <strong>{entry!.history.points}</strong>
+                  <small>GW {entry!.currentEvent} Pts</small>
+                </div>
+                <div>
+                  <strong>{reviewEventObj?.averageEntryScore || '—'}</strong>
+                  <small>GW {entry!.currentEvent} Avg</small>
+                </div>
+                <div>
+                  <strong>{entry!.overallRank ? formatCompact(entry!.overallRank) : '—'}</strong>
+                  <small>Overall Rank</small>
+                </div>
+                <div>
+                  <strong>{pitchLineup.nextGwXp.toFixed(1)}</strong>
+                  <small>GW {nextEventId} xP</small>
+                </div>
+                <div>
+                  <strong>
+                    {entry!.freeTransfers} FT · £{(entry!.history.bank / 10).toFixed(1)}m
+                  </strong>
+                  <small>Transfers & Bank</small>
+                </div>
+              </div>
+
+              {/* SYNC NOTICE FOR PRE-DEADLINE OFFICIAL APP TRANSFERS */}
+              <div className="vx-sync-banner">
+                <span>
+                  <span className="vx-sync-dot" />
+                  {pendingSwaps.length > 0 ? (
+                    <>
+                      <strong>{pendingSwaps.length} app transfer{pendingSwaps.length > 1 ? 's' : ''} applied</strong>{' '}
+                      on top of official GW {entry!.currentEvent} squad.
+                    </>
+                  ) : (
+                    <>
+                      Official FPL locks public squad feeds at <strong>GW {entry!.currentEvent}</strong> until GW{' '}
+                      {nextEventId} deadline. Made a transfer in the FPL app? Click any player below to sync it.
+                    </>
+                  )}
+                </span>
+                {pendingSwaps.length > 0 && (
+                  <button type="button" className="vx-inline-link" onClick={onClearPendingSwaps}>
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              {squadView === 'pitch' ? (
+                <div className="vx-soccer-pitch">
+                  <div className="vx-pitch-top-boards">
+                    <div className="vx-pitch-board">
+                      <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="" width={20} height={20} />
+                      <span>FPL VORTEX</span>
+                    </div>
+                    <div className="vx-pitch-goal-net" aria-hidden="true" />
+                    <a
+                      href="https://www.youtube.com/@Fplvortex"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="vx-pitch-board vx-pitch-board--link"
+                    >
+                      <span>@FPLVORTEX · GW {selectedGw}</span>
+                    </a>
+                  </div>
+
+                  <div className="vx-pitch-turf">
+                    <div className="vx-pitch-lines" aria-hidden="true">
+                      <span className="vx-pitch-box-18" />
+                      <span className="vx-pitch-box-6" />
+                      <span className="vx-pitch-halfway" />
+                      <span className="vx-pitch-circle" />
+                    </div>
+
+                    <div className="vx-pitch-formation">
+                      <div className="vx-pitch-row">{startersByPos('GKP').map((id) => renderPitchCard(id, false))}</div>
+                      <div className="vx-pitch-row">{startersByPos('DEF').map((id) => renderPitchCard(id, false))}</div>
+                      <div className="vx-pitch-row">{startersByPos('MID').map((id) => renderPitchCard(id, false))}</div>
+                      <div className="vx-pitch-row">{startersByPos('FWD').map((id) => renderPitchCard(id, false))}</div>
+                    </div>
+
+                    <div className="vx-pitch-bench">
+                      {pitchLineup.bench.map((id, idx) => renderPitchCard(id, true, idx))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="vx-squad-table-wrap">
+                  <table className="vx-compact-table">
+                    <thead>
+                      <tr>
+                        <th>Player</th>
+                        <th>Pos</th>
+                        <th>Fixture</th>
+                        <th>GW {entry!.currentEvent} Pts</th>
+                        <th>GW {nextEventId} xP</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {[...pitchLineup.starters, ...pitchLineup.bench].map((id, idx) => {
+                        const p = playerMap.get(id);
+                        if (!p) return null;
+                        const fx = getPitchFixture(p.teamId);
+                        const tone = fdrPillTone(fx.difficulty, fx.isBlank);
+                        const isBench = idx >= 11;
+                        const isCap = p.id === pitchLineup.captainId;
+                        const isVice = p.id === pitchLineup.viceId;
+                        return (
+                          <tr
+                            key={p.id}
+                            className={classNames('vx-clickable-row', isBench && 'is-bench-row')}
+                            onClick={() => setSwapOutPlayer(p)}
+                          >
+                            <td>
+                              <div className="vx-mini-player">
+                                <PlayerAvatar
+                                  code={p.code}
+                                  teamCode={p.team.code}
+                                  name={p.name}
+                                  fullName={p.fullName}
+                                  teamShort={p.team.shortName}
+                                  position={p.position}
+                                  size="sm"
+                                />
+                                <div>
+                                  <strong>
+                                    {p.name} {isCap ? '(C)' : isVice ? '(V)' : ''}
+                                  </strong>
+                                  <small className="block-sub">
+                                    {p.team.shortName} · {formatPrice(p.price)}
+                                  </small>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{p.position}</td>
+                            <td>
+                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', `is-${tone}`)}>
+                                {fx.label}
+                              </span>
+                            </td>
+                            <td className="mono-num">{p.eventPoints}</td>
+                            <td className="mono-num">
+                              <strong>
+                                {((p.gwProjections?.[nextEventId] ?? p.projection) * (isCap ? 2 : 1)).toFixed(2)}
+                              </strong>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </article>
 
@@ -876,7 +1128,7 @@ export function CommandCenter({
               )}
             </div>
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
-              All matches <ArrowRight size={13} />
+              All matches <ArrowRight size={14} />
             </button>
           </header>
 
@@ -887,13 +1139,16 @@ export function CommandCenter({
                 {group.items.map((m) => {
                   const homeShort = m.homeTeam?.shortName ?? 'HOM';
                   const awayShort = m.awayTeam?.shortName ?? 'AWY';
-                  const kickoffLabel = m.fixture.started || m.fixture.finished
-                    ? `${m.fixture.teamHScore ?? 0} – ${m.fixture.teamAScore ?? 0}`
-                    : m.fixture.kickoffTime
-                      ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(
-                          new Date(m.fixture.kickoffTime),
-                        )
-                      : 'TBC';
+                  const kickoffLabel =
+                    m.fixture.started || m.fixture.finished
+                      ? `${m.fixture.teamHScore ?? 0} – ${m.fixture.teamAScore ?? 0}`
+                      : m.fixture.kickoffTime
+                        ? new Intl.DateTimeFormat('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                          }).format(new Date(m.fixture.kickoffTime))
+                        : 'TBC';
                   const isExpanded = expandedFixtureId === m.fixture.id;
                   const homeBarColor = CLUB_BAR_COLORS[homeShort] ?? '#5BF5D6';
                   const awayBarColor = CLUB_BAR_COLORS[awayShort] ?? '#7772FF';
@@ -929,7 +1184,7 @@ export function CommandCenter({
                             />
                           )}
                           <strong>{awayShort}</strong>
-                          <ChevronDown size={13} className={classNames('vx-match-chevron', isExpanded && 'is-open')} />
+                          <ChevronDown size={14} className={classNames('vx-match-chevron', isExpanded && 'is-open')} />
                         </span>
                       </button>
 
@@ -948,7 +1203,9 @@ export function CommandCenter({
                           <span>Home {(m.homeWin * 100).toFixed(0)}%</span>
                           <span>Draw {(m.draw * 100).toFixed(0)}%</span>
                           <span>Away {(m.awayWin * 100).toFixed(0)}%</span>
-                          <span>CS {(m.homeCs * 100).toFixed(0)}% / {(m.awayCs * 100).toFixed(0)}%</span>
+                          <span>
+                            CS {(m.homeCs * 100).toFixed(0)}% / {(m.awayCs * 100).toFixed(0)}%
+                          </span>
                         </div>
                       )}
                     </div>
@@ -963,7 +1220,7 @@ export function CommandCenter({
         <article className="panel vx-card vx-card--goals">
           <header className="vx-card__header vx-card__header--wrap">
             <div className="vx-card__title-icon">
-              <Shield size={15} />
+              <Shield size={16} className="vx-icon-mint" />
               <h3>
                 GW {selectedGw}{' '}
                 {projMetric === 'goals' ? 'Projected Goals' : projMetric === 'cs' ? 'Clean Sheet %' : 'Win Odds'}
@@ -1017,13 +1274,13 @@ export function CommandCenter({
         </article>
       </section>
 
-      {/* ==================== 3. LOWER 3-COLUMN INTELLIGENCE GRID (IMAGE 2) ==================== */}
+      {/* ==================== 3. LOWER 3-COLUMN INTELLIGENCE GRID (IMAGE 2 TOP) ==================== */}
       <section className="vx-hub-lower" aria-label="Top players, price changes and injuries">
         {/* CARD 1: TOP PLAYERS */}
         <article className="panel vx-card vx-card--lower">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
-              <Trophy size={15} className="vx-icon-amber" />
+              <Trophy size={16} className="vx-icon-amber" />
               <h3>Top Players</h3>
             </div>
             <select
@@ -1059,7 +1316,8 @@ export function CommandCenter({
                     fullName={player.fullName}
                     teamShort={player.team.shortName}
                     position={player.position}
-                    size="sm"
+                    size="md"
+                    className="vx-list-avatar"
                   />
                   <div className="vx-player-meta">
                     <strong>{player.name}</strong>
@@ -1086,7 +1344,7 @@ export function CommandCenter({
 
           <footer className="vx-card__footer">
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('players')}>
-              All player stats <ArrowRight size={13} />
+              All player stats <ArrowRight size={14} />
             </button>
             <small>{formatNumber(players.length)} players</small>
           </footer>
@@ -1096,11 +1354,11 @@ export function CommandCenter({
         <article className="panel vx-card vx-card--lower">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
-              <ArrowLeftRight size={15} className="vx-icon-mint" />
+              <ArrowLeftRight size={16} className="vx-icon-mint" />
               <h3>Price & Transfers</h3>
             </div>
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('players')}>
-              Price changes <ArrowRight size={13} />
+              Price changes <ArrowRight size={14} />
             </button>
           </header>
 
@@ -1147,7 +1405,8 @@ export function CommandCenter({
                           fullName={player.fullName}
                           teamShort={player.team.shortName}
                           position={player.position}
-                          size="sm"
+                          size="md"
+                          className="vx-list-avatar"
                         />
                         <div className="vx-player-meta">
                           <strong>{player.name}</strong>
@@ -1193,7 +1452,7 @@ export function CommandCenter({
                 onClick={() => setTransferPage((p) => Math.max(0, p - 1))}
                 aria-label="Previous transfer page"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={15} />
               </button>
               <button
                 type="button"
@@ -1202,7 +1461,7 @@ export function CommandCenter({
                 onClick={() => setTransferPage((p) => Math.min(transferTotalPages - 1, p + 1))}
                 aria-label="Next transfer page"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={15} />
               </button>
             </div>
           </footer>
@@ -1212,7 +1471,7 @@ export function CommandCenter({
         <article className="panel vx-card vx-card--lower">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
-              <Stethoscope size={15} className="vx-icon-pink" />
+              <Stethoscope size={16} className="vx-icon-pink" />
               <h3>Injuries & Suspensions</h3>
             </div>
             <small className="vx-card__sub">{flaggedPlayers.length} players</small>
@@ -1236,7 +1495,8 @@ export function CommandCenter({
                     fullName={player.fullName}
                     teamShort={player.team.shortName}
                     position={player.position}
-                    size="sm"
+                    size="md"
+                    className="vx-list-avatar"
                   />
                   <div className="vx-injury-copy">
                     <div className="vx-injury-head">
@@ -1252,7 +1512,7 @@ export function CommandCenter({
                     <small>{formatInjurySummary(player)}</small>
                   </div>
                   <span className={classNames('vx-warn-icon', isSevere && 'is-severe')}>
-                    <AlertTriangle size={15} />
+                    <AlertTriangle size={16} />
                   </span>
                 </button>
               );
@@ -1266,7 +1526,7 @@ export function CommandCenter({
               disabled={safeInjuryPage <= 0}
               onClick={() => setInjuryPage((p) => Math.max(0, p - 1))}
             >
-              <ChevronLeft size={13} /> Prev
+              <ChevronLeft size={14} /> Prev
             </button>
             <small>
               {safeInjuryPage + 1} / {injuryTotalPages}
@@ -1277,65 +1537,95 @@ export function CommandCenter({
               disabled={safeInjuryPage >= injuryTotalPages - 1}
               onClick={() => setInjuryPage((p) => Math.min(injuryTotalPages - 1, p + 1))}
             >
-              Next <ChevronRight size={13} />
+              Next <ChevronRight size={14} />
             </button>
           </footer>
         </article>
       </section>
 
-      {/* ==================== 4. LATEST @FPLVORTEX YOUTUBE VIDEOS STRIP (IMAGE 2 BOTTOM) ==================== */}
+      {/* ==================== 4. COMPACT HORIZONTAL SCROLLABLE YOUTUBE STRIP (IMAGE 2 BOTTOM) ==================== */}
       <section className="panel vx-videos-strip" aria-label="Latest FPL VORTEX YouTube videos">
-        <header className="vx-card__header">
+        <header className="vx-card__header vx-videos-strip__header">
           <div className="vx-card__title-icon">
             <span className="vx-yt-badge">
-              <Play size={11} fill="currentColor" />
+              <Play size={12} fill="currentColor" />
             </span>
             <h3>Latest FPL Videos · @FPLVORTEX</h3>
           </div>
-          <a
-            href="https://www.youtube.com/@Fplvortex"
-            target="_blank"
-            rel="noreferrer"
-            className="vx-yt-channel-btn"
-          >
-            <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="" width={20} height={20} />
-            <span>youtube.com/@Fplvortex</span>
-            <ExternalLink size={13} />
-          </a>
+
+          <div className="vx-videos-strip__actions">
+            <div className="vx-pager" role="group" aria-label="Scroll videos">
+              <button
+                type="button"
+                className="icon-button vx-pager__btn"
+                onClick={() => scrollVideos(-1)}
+                aria-label="Scroll videos left"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                className="icon-button vx-pager__btn"
+                onClick={() => scrollVideos(1)}
+                aria-label="Scroll videos right"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <a
+              href="https://www.youtube.com/@Fplvortex"
+              target="_blank"
+              rel="noreferrer"
+              className="vx-yt-channel-btn"
+            >
+              <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="" width={20} height={20} />
+              <span>@FPLVORTEX Channel</span>
+              <ExternalLink size={13} />
+            </a>
+          </div>
         </header>
 
-        <div className="vx-videos-carousel">
+        <div className="vx-videos-scroll-row" ref={videoTrackRef}>
           {videos.map((video) => (
             <a
               key={video.id}
               href={video.url}
               target="_blank"
               rel="noreferrer"
-              className="vx-video-tile"
+              className="vx-video-pill"
             >
-              <div className="vx-video-tile__thumb">
-                <img src={video.thumbnail} alt={video.title} loading="lazy" />
-                <span className="vx-video-tile__play">
-                  <Play size={12} fill="currentColor" /> Watch
+              <div className="vx-video-pill__thumb">
+                <img
+                  src={`https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
+                  alt={video.title}
+                  loading="lazy"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (!img.dataset.fallback) {
+                      img.dataset.fallback = '1';
+                      img.src = '/player-images/brand/fpl-vortex-lion.jpg';
+                    }
+                  }}
+                />
+                <span className="vx-video-pill__badge">
+                  <Play size={10} fill="currentColor" /> Watch
                 </span>
               </div>
-              <div className="vx-video-tile__body">
+              <div className="vx-video-pill__copy">
                 <strong>{video.title}</strong>
                 <span>FPL VORTEX (@FPLVORTEX)</span>
-                <small>{relativeTime(video.published)}</small>
+                <small>
+                  <Clock size={11} /> {relativeTime(video.published)}
+                </small>
               </div>
             </a>
           ))}
         </div>
       </section>
 
-      {/* Availability Detail Modal when clicking a warning triangle */}
+      {/* Availability Detail Modal */}
       {inspectedFlagPlayer && (
-        <div
-          className="palette-overlay"
-          role="presentation"
-          onMouseDown={() => setInspectedFlagPlayer(null)}
-        >
+        <div className="palette-overlay" role="presentation" onMouseDown={() => setInspectedFlagPlayer(null)}>
           <section
             className="vx-flag-modal panel"
             role="dialog"
@@ -1355,7 +1645,8 @@ export function CommandCenter({
               />
               <div>
                 <span className="panel__eyebrow">
-                  {inspectedFlagPlayer.team.name} · {inspectedFlagPlayer.position} · {formatPrice(inspectedFlagPlayer.price)}
+                  {inspectedFlagPlayer.team.name} · {inspectedFlagPlayer.position} ·{' '}
+                  {formatPrice(inspectedFlagPlayer.price)}
                 </span>
                 <h3>{inspectedFlagPlayer.fullName}</h3>
                 <p>{formatInjurySummary(inspectedFlagPlayer)}</p>
@@ -1399,6 +1690,108 @@ export function CommandCenter({
                 Close
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {/* Sync App Transfer Modal (when clicking a player on pitch or "Sync App Transfer") */}
+      {swapOutPlayer && hasLinkedTeam && (
+        <div className="palette-overlay" role="presentation" onMouseDown={() => setSwapOutPlayer(null)}>
+          <section
+            className="vx-swap-modal panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Sync transfer for ${swapOutPlayer.name}`}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <header className="vx-swap-modal__head">
+              <div>
+                <span className="panel__eyebrow">SYNC OFFICIAL FPL APP TRANSFER · {swapOutPlayer.position}</span>
+                <h3>Replace {swapOutPlayer.name} ({formatPrice(swapOutPlayer.price)})</h3>
+                <p>
+                  Official FPL hides upcoming-GW transfers on public endpoints before the deadline. Select the{' '}
+                  {swapOutPlayer.position} you brought in on the FPL app to sync your pitch & planner immediately.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setSwapOutPlayer(null)}
+                aria-label="Close transfer sync"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <label className="vx-swap-modal__search">
+              <Search size={15} />
+              <input
+                type="text"
+                placeholder={`Search ${swapOutPlayer.position} replacement by name or club…`}
+                value={swapSearch}
+                onChange={(e) => setSwapSearch(e.target.value)}
+                autoFocus
+              />
+            </label>
+
+            <div className="vx-swap-modal__list">
+              {swapCandidates.map((cand) => (
+                <button
+                  type="button"
+                  key={cand.id}
+                  className="vx-swap-modal__row"
+                  onClick={() => {
+                    onAddPendingSwap?.(swapOutPlayer.id, cand.id);
+                    setSwapOutPlayer(null);
+                    setSwapSearch('');
+                  }}
+                >
+                  <PlayerAvatar
+                    code={cand.code}
+                    teamCode={cand.team.code}
+                    name={cand.name}
+                    fullName={cand.fullName}
+                    teamShort={cand.team.shortName}
+                    position={cand.position}
+                    size="sm"
+                  />
+                  <div className="vx-player-meta">
+                    <strong>{cand.name}</strong>
+                    <small>
+                      <ClubBadge
+                        teamCode={cand.team.code}
+                        shortName={cand.team.shortName}
+                        teamName={cand.team.name}
+                        size="sm"
+                      />
+                      <span>
+                        {cand.team.shortName} · {formatPrice(cand.price)}
+                      </span>
+                    </small>
+                  </div>
+                  <span className="vx-swap-modal__xp mono-num">
+                    {(cand.gwProjections?.[nextEventId] ?? cand.projection).toFixed(2)} xP
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <footer className="vx-flag-modal__actions">
+              <button
+                type="button"
+                className="button button--ghost button--sm"
+                onClick={() => {
+                  const name = swapOutPlayer.name;
+                  setSwapOutPlayer(null);
+                  onSelectPlayer?.(name);
+                }}
+              >
+                Inspect {swapOutPlayer.name} in Player Lab
+              </button>
+              <button type="button" className="button button--ghost button--sm" onClick={() => setSwapOutPlayer(null)}>
+                Cancel
+              </button>
+            </footer>
           </section>
         </div>
       )}

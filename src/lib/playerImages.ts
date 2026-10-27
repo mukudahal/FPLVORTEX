@@ -63,11 +63,9 @@ export function getPlayerPhotoCandidates(
   const urls: string[] = [];
 
   if (code) {
-    if (size === 'lg') {
-      urls.push(`${PL_PHOTO_BASE_CURRENT}/500x500/${code}.png`);
-    }
     urls.push(
       `${PL_PHOTO_BASE_CURRENT}/250x250/${code}.png`,
+      ...(size === 'lg' ? [`${PL_PHOTO_BASE_CURRENT}/500x500/${code}.png`] : []),
       `${PL_PHOTO_BASE_CURRENT}/110x140/${code}.png`,
       `${PL_PHOTO_BASE_LEGACY}/250x250/p${code}.png`,
       `${PL_PHOTO_BASE_LEGACY}/110x140/p${code}.png`,

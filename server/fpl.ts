@@ -291,24 +291,73 @@ function normalizeLeaguePayload(raw: RawRecord, id: string, source: DataSource):
   };
 }
 
-export async function getEntry(id: string): Promise<EntryData> {
-  const cached = readCache<EntryData>(`entry:${id}`);
-  if (cached) {
-    return {
-      ...cached,
-      source: cached.source === 'snapshot' ? 'snapshot' : 'cache',
-      generatedAt: new Date().toISOString(),
-    };
+export interface GetEntryOptions {
+  force?: boolean;
+  gameweek?: number;
+}
+
+export async function getEntry(id: string, options?: GetEntryOptions): Promise<EntryData> {
+  const requestedGw =
+    options?.gameweek && Number.isFinite(options.gameweek) && options.gameweek >= 1 && options.gameweek <= 38
+      ? Math.round(options.gameweek)
+      : undefined;
+  const cacheKey = requestedGw ? `entry:${id}:gw:${requestedGw}` : `entry:${id}`;
+  if (!options?.force) {
+    const cached = readCache<EntryData>(cacheKey);
+    if (cached) {
+      return {
+        ...cached,
+        source: cached.source === 'snapshot' ? 'snapshot' : 'cache',
+        generatedAt: new Date().toISOString(),
+      };
+    }
   }
-  const snapshot = await getSnapshot();
+  const snapshot = await getSnapshot(Boolean(options?.force));
   const enriched = enrichPlayers(snapshot, 'balanced');
   try {
-    const [root, picks] = await Promise.all([
-      fetchFplJson<RawRecord>(`/entry/${id}/`, { retries: 1 }),
-      fetchFplJson<RawRecord>(`/entry/${id}/event/${snapshot.meta.currentEventId}/picks/`, { retries: 1 }),
+    const root = await fetchFplJson<RawRecord>(`/entry/${id}/`, { retries: 1 });
+    const latestLockedGw = clamp(
+      numberValue(root.current_event, snapshot.meta.currentEventId),
+      1,
+      38,
+    );
+    const targetGw = requestedGw ? Math.min(requestedGw, latestLockedGw) : latestLockedGw;
+    const [picks, rawTransfers] = await Promise.all([
+      fetchFplJson<RawRecord>(`/entry/${id}/event/${targetGw}/picks/`, { retries: 1 }),
+      fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => [] as RawRecord[]),
     ]);
+    const recentTransfers = Array.isArray(rawTransfers)
+      ? rawTransfers.slice(0, 12).map((tr) => ({
+          event: numberValue(tr.event),
+          elementIn: numberValue(tr.element_in),
+          elementOut: numberValue(tr.element_out),
+          elementInCost: numberValue(tr.element_in_cost),
+          elementOutCost: numberValue(tr.element_out_cost),
+          time: stringValue(tr.time),
+        }))
+      : [];
+
+    // Apply any published post-GW transfers when viewing upcoming GWs
     const result = normalizeEntry(root, picks, snapshot, enriched, 'live');
-    return writeCache(`entry:${id}`, result, PROFILE_TTL);
+    result.recentTransfers = recentTransfers;
+    const newerTransfers = recentTransfers
+      .filter((tr) => tr.event > targetGw)
+      .reverse();
+    if (newerTransfers.length > 0 && (!requestedGw || requestedGw > targetGw)) {
+      const playerIndex = new Map(enriched.map((p) => [p.id, p]));
+      const updatedPicks = result.picks.map((pk) => ({ ...pk }));
+      for (const tr of newerTransfers) {
+        const slot = updatedPicks.find((pk) => pk.element === tr.elementOut);
+        if (slot && playerIndex.has(tr.elementIn)) {
+          slot.element = tr.elementIn;
+        }
+      }
+      result.picks = updatedPicks;
+      result.players = updatedPicks
+        .map((pk) => playerIndex.get(pk.element))
+        .filter((p): p is (typeof enriched)[number] => Boolean(p));
+    }
+    return writeCache(cacheKey, result, PROFILE_TTL);
   } catch (error) {
     if (error instanceof UpstreamHttpError && error.status === 404) {
       throw new UpstreamHttpError(`FPL team ID ${id} was not found.`, 404);
@@ -318,7 +367,7 @@ export async function getEntry(id: string): Promise<EntryData> {
     const fallbackResult = archived
       ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot')
       : buildOfflineSyntheticEntry(numberValue(id, CONFIGURED_REPO_ENTRY_ID), snapshot, enriched);
-    return writeCache(`entry:${id}`, fallbackResult, 120_000);
+    return writeCache(cacheKey, fallbackResult, 120_000);
   }
 }
 

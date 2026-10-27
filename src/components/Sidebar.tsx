@@ -81,11 +81,20 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
           </div>
           <div className="sidebar__team-summary">
             <span className="sidebar__season-label">SEASON {snapshot?.meta.season ?? '2026/27'}</span>
-            <strong>{entry?.teamName ?? 'FPLVORTEX'} · #{entry?.id ?? 145784}</strong>
-            <span>
-              {entry?.overallRank ? `OR ${formatNumber(entry.overallRank)} · ` : ''}
-              {entry?.freeTransfers ?? 4} FT · £{((entry?.history.bank ?? 4) / 10).toFixed(1)}m ITB
-            </span>
+            {entry ? (
+              <>
+                <strong>{entry.teamName} · #{entry.id}</strong>
+                <span>
+                  {entry.overallRank ? `OR ${formatNumber(entry.overallRank)} · ` : ''}
+                  {entry.freeTransfers} FT · £{(entry.history.bank / 10).toFixed(1)}m ITB
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>Link Your FPL Team</strong>
+                <span>Enter your FPL ID at the top</span>
+              </>
+            )}
           </div>
         </div>
 
