@@ -281,6 +281,15 @@ export interface EntryHistory {
   pointsOnBench: number;
 }
 
+export interface EntryTransferRecord {
+  event: number;
+  elementIn: number;
+  elementOut: number;
+  elementInCost: number;
+  elementOutCost: number;
+  time: string;
+}
+
 export interface EntryData {
   id: number;
   name: string;
@@ -298,6 +307,7 @@ export interface EntryData {
   players: EnrichedPlayer[];
   projectedPoints: number;
   squadValue: number;
+  recentTransfers?: EntryTransferRecord[];
   source: DataSource;
   generatedAt: string;
 }

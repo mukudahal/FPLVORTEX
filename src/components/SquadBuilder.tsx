@@ -192,11 +192,12 @@ export function SquadBuilder({
     if (entry?.freeTransfers) setFreeTransfers(entry.freeTransfers);
   }, [entry?.freeTransfers]);
 
+  const baseSquadSignature = baseEntrySquadIds.join(',');
   useEffect(() => {
-    if (customSquadIds.length !== 15 && baseEntrySquadIds.length === 15) {
+    if (baseEntrySquadIds.length === 15) {
       setCustomSquadIds(baseEntrySquadIds);
     }
-  }, [baseEntrySquadIds, customSquadIds.length]);
+  }, [entry?.id, baseSquadSignature]);
 
   const autoResult = useMemo(
     () =>
@@ -743,7 +744,12 @@ export function SquadBuilder({
               <div className="pitch-panel__header">
                 <div>
                   <span className="panel__eyebrow">
-                    {squadMode === 'mySquad' ? `TEAM #${entry?.id ?? 145784} PITCH` : 'OPTIMAL XV PITCH'} · {result.formation}
+                    {squadMode === 'mySquad'
+                      ? entry
+                        ? `TEAM #${entry.id} (${entry.teamName.toUpperCase()}) PITCH`
+                        : 'TEMPLATE XV PITCH'
+                      : 'OPTIMAL XV PITCH'}{' '}
+                    · {result.formation}
                   </span>
                   <h3>Click any player to filter replacements</h3>
                 </div>
@@ -882,8 +888,8 @@ export function SquadBuilder({
           <section className="panel" aria-label="Gameweek by chip EV matrix">
             <div className="panel__header">
               <div>
-                <span className="panel__eyebrow">FPLREVIEW-STYLE HORIZON EV MATRIX (`1_APP_dashboard/src/lib/solver.py`)</span>
-                <h3>Net expected points gained vs realistic free-transfer squad across GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
+                <span className="panel__eyebrow">CHIP HORIZON EV MATRIX</span>
+                <h3>Net expected points gained vs free-transfer baseline across GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
               </div>
               <span className="badge badge--mint">2026/27 Half-Season Chip Rules</span>
             </div>
@@ -1019,7 +1025,7 @@ export function SquadBuilder({
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">
-                  PAIRED MONTE CARLO ENGINE (`site/model/monteCarlo.ts` · {reviewSim.monteCarlo.draws.toLocaleString()} DRAWS · SEED {reviewSim.monteCarlo.seed})
+                  MONTE CARLO SIMULATION · {reviewSim.monteCarlo.draws.toLocaleString()} PAIRED DRAWS
                 </span>
                 <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Strategy Outcome Distributions</h3>
               </div>

@@ -66,9 +66,18 @@ interface RawLeagueFallback {
   leagues?: Record<string, Record<string, any>>;
 }
 
-export async function fetchEntry(id: string, signal?: AbortSignal): Promise<EntryData> {
+export async function fetchEntry(
+  id: string,
+  signal?: AbortSignal,
+  options?: { refresh?: boolean; gw?: number },
+): Promise<EntryData> {
   try {
-    return await getJson<EntryData>(`/api/vortex/entry/${encodeURIComponent(id)}`, signal);
+    const params = new URLSearchParams();
+    if (options?.refresh) params.set('refresh', '1');
+    if (options?.gw) params.set('gw', String(options.gw));
+    const qs = params.toString();
+    const url = `/api/vortex/entry/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`;
+    return await getJson<EntryData>(url, signal);
   } catch (error) {
     if (error instanceof ApiRequestError && error.status < 500) throw error;
     const [snapshot, fallback] = await Promise.all([

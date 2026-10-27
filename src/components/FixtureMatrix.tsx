@@ -74,11 +74,11 @@ export function FixtureMatrix({ snapshot, fixtureRows, players, onToast }: Fixtu
     <div className="page page--fixtures">
       <section className="fixture-hero panel">
         <div>
-          <span className="panel__eyebrow">POISSON SCHEDULE INTELLIGENCE (`buildStrengths` + `projectMatch`)</span>
-          <h3>Expected goals, clean sheets & 5-GW schedule swings.</h3>
+          <span className="panel__eyebrow">POISSON SCHEDULE INTELLIGENCE</span>
+          <h3>Find the run before the market does.</h3>
           <p>
-            Every club is modeled with Empirical-Bayes team strengths (`API_BASE=1100`, `HOME_GOALS=1.55`, `AWAY_GOALS=1.25`,
-            `PRIOR_GAMES=4`) and ranked by 5-GW fixture ease (`sum(6 − FDR)`), Poisson goal expectancy, and clean-sheet probability.
+            Every club is modeled with expected goals, clean-sheet odds, and 5-gameweek fixture difficulty swings so you
+            can target attacking and defensive runs ahead of the template.
           </p>
           <div className="fixture-hero__legend">
             <span><i className="legend-dot legend-dot--easy" /> Easy 1.5–2.5</span>

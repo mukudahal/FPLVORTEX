@@ -136,8 +136,10 @@ app.get(
       res.status(400).json({ error: 'Enter a valid numeric FPL team ID.' });
       return;
     }
-    const entry = await getEntry(id);
-    res.set('Cache-Control', 'public, max-age=30');
+    const force = req.query.refresh === '1' || req.query.force === '1';
+    const gwParam = req.query.gw ? Number(req.query.gw) : undefined;
+    const entry = await getEntry(id, { force, gameweek: gwParam });
+    res.set('Cache-Control', force ? 'no-store' : 'public, max-age=30');
     res.json(entry);
   }),
 );
