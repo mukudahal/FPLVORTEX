@@ -369,14 +369,14 @@ async function configureFrontend(): Promise<void> {
     app.use(async (req: Request, res: Response, next: NextFunction) => {
       const accept = req.headers.accept ?? '*/*';
       const wantsHtml = accept.includes('text/html') || accept.includes('*/*');
-      if (req.method !== 'GET' || !wantsHtml) {
+      if ((req.method !== 'GET' && req.method !== 'HEAD') || !wantsHtml) {
         next();
         return;
       }
       try {
         const template = await import('node:fs/promises').then((fs) => fs.readFile(path.join(root, 'index.html'), 'utf8'));
         const html = await vite.transformIndexHtml(req.originalUrl, template);
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(req.method === 'HEAD' ? undefined : html);
       } catch (error) {
         vite.ssrFixStacktrace(error as Error);
         next(error);
@@ -387,7 +387,7 @@ async function configureFrontend(): Promise<void> {
     const publicDir = path.join(root, 'public');
     app.use(
       express.static(dist, {
-        index: false,
+        index: 'index.html',
         maxAge: '1h',
         setHeaders(res, filePath) {
           if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
@@ -397,10 +397,11 @@ async function configureFrontend(): Promise<void> {
     );
     app.use(express.static(publicDir, { index: false, maxAge: '1h' }));
     app.use((req: Request, res: Response, next: NextFunction) => {
-      if (req.method !== 'GET') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
         next();
         return;
       }
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(dist, 'index.html'));
     });
   }
