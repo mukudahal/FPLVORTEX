@@ -1,0 +1,1141 @@
+import { useDeferredValue, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  BarChart3,
+  Check,
+  CircleDollarSign,
+  Copy,
+  Crown,
+  Dices,
+  Gauge,
+  Layers,
+  Lock,
+  LockOpen,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  WandSparkles,
+} from 'lucide-react';
+import type {
+  EnrichedPlayer,
+  EntryData,
+  FixtureRow,
+  Position,
+  RiskProfile,
+  Snapshot,
+  SquadPlayer,
+  SquadResult,
+} from '../lib/types';
+import { toRepoElement } from '../lib/analytics';
+import { fixtureTone, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
+import { classNames, formatPercent, formatPrice } from '../lib/format';
+import { evaluateSquad, formationRisk, MAX_PLAYERS_PER_CLUB, optimizeSquad } from '../lib/optimize';
+import { runFplReviewSimulation } from '../lib/repoModel/fplReviewSimulator';
+import { ClubBadge } from './ClubBadge';
+import { PlayerAvatar } from './PlayerAvatar';
+import { StatCard } from './StatCard';
+
+interface SquadBuilderProps {
+  snapshot: Snapshot;
+  players: EnrichedPlayer[];
+  fixtureRows: FixtureRow[];
+  entry?: EntryData | null;
+  profile: RiskProfile;
+  onProfileChange: (profile: RiskProfile) => void;
+  onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
+}
+
+type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
+type PoolSortKey = 'optaXP5Gw' | 'projection' | 'horizon5' | 'easeSum5' | 'price' | 'ownership' | 'totalPoints' | 'name';
+
+const DEFAULT_145784_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
+
+const PROFILES: Array<{ id: RiskProfile; label: string; hint: string; icon: ReactNode }> = [
+  { id: 'balanced', label: 'Balanced (1.0× Repo)', hint: 'Exact unmodified repository xPts', icon: <Gauge size={15} /> },
+  { id: 'safe', label: 'Safe Floor', hint: 'Availability & high-EO floor protection', icon: <ShieldCheck size={15} /> },
+  { id: 'differential', label: 'Differential', hint: '1 + 0.15 × (1 − EO) anti-template boost', icon: <Sparkles size={15} /> },
+  { id: 'upside', label: 'Ceiling', hint: 'Goal, assist & bonus upside weighting', icon: <WandSparkles size={15} /> },
+];
+
+const CHIP_META: Record<string, { label: string; badge: string; tone: string }> = {
+  wildcard: { label: 'Wildcard', badge: 'WC', tone: 'mint' },
+  freehit: { label: 'Free Hit', badge: 'FH', tone: 'violet' },
+  bboost: { label: 'Bench Boost', badge: 'BB', tone: 'blue' },
+  '3xc': { label: 'Triple Captain', badge: 'TC', tone: 'pink' },
+};
+
+function Constraint({ ok, children }: { ok: boolean; children: ReactNode }) {
+  return (
+    <div className={classNames('constraint', ok && 'is-ok')}>
+      <span>{ok ? <Check size={13} /> : <AlertTriangle size={13} />}</span>
+      {children}
+    </div>
+  );
+}
+
+function buildSquadText(result: SquadResult, label: string): string {
+  const lines = [
+    `FPL VORTEX (${label}) · ${result.formation} · ${result.projectedPoints.toFixed(1)} projected pts · £${result.cost.toFixed(1)}m`,
+    'STARTERS',
+    ...result.starters.map(
+      (player) =>
+        `${player.position} ${player.name} (${player.team.shortName}) ${player.projection.toFixed(2)} xPts ${player.isCaptain ? '[C]' : ''}${player.isViceCaptain ? '[VC]' : ''}`,
+    ),
+    'BENCH',
+    ...result.bench.map((player) => `${player.position} ${player.name} (${player.team.shortName}) ${player.projection.toFixed(2)} xPts`),
+  ];
+  return lines.join('\n');
+}
+
+interface PitchPlayerCardProps {
+  player: SquadPlayer;
+  locked: boolean;
+  selectedForSwap: boolean;
+  onToggleLock: (id: number) => void;
+  onSelectForSwap: (id: number) => void;
+  compact?: boolean;
+}
+
+function PitchPlayerCard({
+  player,
+  locked,
+  selectedForSwap,
+  onToggleLock,
+  onSelectForSwap,
+  compact = false,
+}: PitchPlayerCardProps) {
+  return (
+    <article
+      className={classNames(
+        'pitch-player',
+        compact && 'pitch-player--compact',
+        !player.isStarter && 'is-bench',
+        selectedForSwap && 'is-selected-swap',
+      )}
+      onClick={() => onSelectForSwap(player.id)}
+    >
+      <button
+        type="button"
+        className={classNames('pitch-player__lock', locked && 'is-locked')}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleLock(player.id);
+        }}
+        aria-label={`${locked ? 'Unlock' : 'Lock'} ${player.name}`}
+        title={locked ? 'Unlock player' : 'Lock player in Auto-Build'}
+      >
+        {locked ? <Lock size={11} /> : <LockOpen size={11} />}
+      </button>
+      {player.isCaptain && <span className="pitch-player__badge is-captain" title="Captain"><Crown size={10} /> C</span>}
+      {player.isViceCaptain && <span className="pitch-player__badge is-vice" title="Vice-captain">V</span>}
+      <PlayerAvatar
+        code={player.code}
+        teamCode={player.team.code}
+        name={player.name}
+        fullName={player.fullName}
+        teamShort={player.team.shortName}
+        position={player.position}
+        size={compact ? 'sm' : 'md'}
+      />
+      <div className="pitch-player__info">
+        <strong>{player.name}</strong>
+        <small>{player.team.shortName} · {formatPrice(player.price)}</small>
+      </div>
+      <span className="pitch-player__projection">
+        {(player.projection * (player.isCaptain ? 2 : 1)).toFixed(2)}
+      </span>
+    </article>
+  );
+}
+
+export function SquadBuilder({
+  snapshot,
+  players,
+  fixtureRows,
+  entry,
+  profile,
+  onProfileChange,
+  onToast,
+}: SquadBuilderProps) {
+  const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
+  const [squadMode, setSquadMode] = useState<'mySquad' | 'autoOptimal'>('mySquad');
+  const [budget, setBudget] = useState(100);
+  const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 4);
+  const [lockedIds, setLockedIds] = useState<number[]>([]);
+  const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
+  const [selectedOutId, setSelectedOutId] = useState<number | null>(null);
+  const [poolQuery, setPoolQuery] = useState('');
+  const [poolPos, setPoolPos] = useState<'ALL' | Position>('ALL');
+  const [sortKey, setSortKey] = useState<PoolSortKey>('optaXP5Gw');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
+  const [, startTransition] = useTransition();
+
+  const deferredBudget = useDeferredValue(budget);
+  const deferredQuery = useDeferredValue(poolQuery);
+  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+  const fixtureByTeam = useMemo(() => new Map(fixtureRows.map((r) => [r.team.id, r])), [fixtureRows]);
+
+  const baseEntrySquadIds = useMemo(() => {
+    if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
+      return entry.picks.map((p) => p.element);
+    }
+    const valid = DEFAULT_145784_SQUAD.filter((id) => playerMap.has(id));
+    return valid.length === 15 ? valid : players.slice(0, 15).map((p) => p.id);
+  }, [entry, playerMap, players]);
+
+  useEffect(() => {
+    if (entry?.freeTransfers) setFreeTransfers(entry.freeTransfers);
+  }, [entry?.freeTransfers]);
+
+  useEffect(() => {
+    if (customSquadIds.length !== 15 && baseEntrySquadIds.length === 15) {
+      setCustomSquadIds(baseEntrySquadIds);
+    }
+  }, [baseEntrySquadIds, customSquadIds.length]);
+
+  const autoResult = useMemo(
+    () =>
+      optimizeSquad(players, {
+        budget: Math.round(deferredBudget * 10),
+        profile,
+        lockedIds,
+      }),
+    [deferredBudget, lockedIds, players, profile],
+  );
+
+  const activeSquadIds = useMemo(() => {
+    if (squadMode === 'autoOptimal') return autoResult.squad.map((p) => p.id);
+    return customSquadIds.length === 15 ? customSquadIds : baseEntrySquadIds;
+  }, [autoResult.squad, baseEntrySquadIds, customSquadIds, squadMode]);
+
+  const activeSquadPlayers = useMemo(
+    () => activeSquadIds.map((id) => playerMap.get(id)).filter((p): p is EnrichedPlayer => Boolean(p)),
+    [activeSquadIds, playerMap],
+  );
+
+  const result = useMemo(
+    () =>
+      activeSquadPlayers.length === 15
+        ? evaluateSquad(activeSquadPlayers, profile)
+        : autoResult,
+    [activeSquadPlayers, autoResult, profile],
+  );
+
+  const bankTenths = useMemo(() => {
+    if (squadMode === 'autoOptimal') {
+      return Math.max(0, Math.round(deferredBudget * 10) - Math.round(result.cost * 10));
+    }
+    const baseCost = baseEntrySquadIds.reduce((s, id) => s + (playerMap.get(id)?.cost ?? 0), 0);
+    const totalCap = baseCost + (entry?.history.bank ?? 4);
+    const currentCost = activeSquadPlayers.reduce((s, p) => s + p.cost, 0);
+    return totalCap - currentCost;
+  }, [activeSquadPlayers, baseEntrySquadIds, deferredBudget, entry?.history.bank, playerMap, result.cost, squadMode]);
+
+  // Run full FPLReview-style multi-GW Transfer + Half-Season Chip EV Matrix + 3,000-draw Monte Carlo
+  const reviewSim = useMemo(() => {
+    if (players.length < 15 || activeSquadIds.length < 15) return null;
+    return runFplReviewSimulation({
+      players,
+      currentSquadIds: activeSquadIds,
+      bankTenths: Math.max(0, bankTenths),
+      freeTransfersNow: freeTransfers,
+      nextGw: snapshot.meta.nextEventId,
+      horizon: 6,
+      repoFixtures: toRepoFixtures(snapshot.fixtures),
+      repoTeams: toRepoTeams(snapshot.teams),
+      repoElements: snapshot.players.map(toRepoElement),
+      draws: 3000,
+    });
+  }, [activeSquadIds, bankTenths, freeTransfers, players, snapshot]);
+
+  // Clickable automatic column sorting (following `7_skills/fpl-team-planner.skill`)
+  const handleSortBy = (key: PoolSortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
+  };
+
+  const selectedOutPlayer = selectedOutId ? playerMap.get(selectedOutId) ?? null : null;
+
+  const sortedPool = useMemo(() => {
+    const needle = deferredQuery.trim().toLowerCase();
+    const activeSet = new Set(activeSquadIds);
+    const effectiveFilterPos = selectedOutPlayer ? selectedOutPlayer.position : poolPos;
+
+    const list = players.filter((p) => {
+      if (activeSet.has(p.id)) return false;
+      if (effectiveFilterPos !== 'ALL' && p.position !== effectiveFilterPos) return false;
+      if (needle) {
+        const hay = `${p.name} ${p.fullName} ${p.team.name} ${p.team.shortName}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name);
+          break;
+        case 'easeSum5':
+          cmp = a.modelBreakdown.fiveGwEaseScore - b.modelBreakdown.fiveGwEaseScore;
+          break;
+        case 'price':
+          cmp = a.cost - b.cost;
+          break;
+        case 'ownership':
+          cmp = a.ownership - b.ownership;
+          break;
+        case 'totalPoints':
+          cmp = a.totalPoints - b.totalPoints;
+          break;
+        case 'projection':
+          cmp = a.projection - b.projection;
+          break;
+        case 'horizon5':
+          cmp = a.horizon5Projection - b.horizon5Projection;
+          break;
+        case 'optaXP5Gw':
+        default:
+          cmp = a.modelBreakdown.optaXP5Gw - b.modelBreakdown.optaXP5Gw;
+          break;
+      }
+      if (cmp !== 0) return cmp * dir;
+      return b.modelBreakdown.optaXP5Gw - a.modelBreakdown.optaXP5Gw;
+    });
+    return list;
+  }, [activeSquadIds, deferredQuery, players, poolPos, selectedOutPlayer, sortDir, sortKey]);
+
+  const swapInPlayer = (incoming: EnrichedPlayer) => {
+    const currentIds = [...activeSquadIds];
+    let outId = selectedOutId;
+    if (!outId || playerMap.get(outId)?.position !== incoming.position) {
+      // Pick lowest-projected unlocked player in same position
+      const candidatesOut = currentIds
+        .map((id) => playerMap.get(id))
+        .filter((p): p is EnrichedPlayer => p !== undefined && p.position === incoming.position && !lockedIds.includes(p.id))
+        .sort((a, b) => a.projection - b.projection);
+      outId = candidatesOut[0]?.id ?? null;
+    }
+    if (!outId) {
+      onToast(`Unlock a ${incoming.position} first before swapping.`, 'info');
+      return;
+    }
+    const outP = playerMap.get(outId);
+    if (!outP) return;
+
+    // Validate <= 3 per club
+    const clubCountAfter = currentIds
+      .filter((id) => id !== outId)
+      .filter((id) => playerMap.get(id)?.teamId === incoming.teamId).length;
+    if (clubCountAfter >= MAX_PLAYERS_PER_CLUB) {
+      onToast(`Max 3 players from ${incoming.team.shortName} allowed.`, 'error');
+      return;
+    }
+
+    const nextIds = currentIds.map((id) => (id === outId ? incoming.id : id));
+    setSquadMode('mySquad');
+    setCustomSquadIds(nextIds);
+    setSelectedOutId(null);
+    onToast(`Swapped ${outP.name} → ${incoming.name} (${incoming.projection >= outP.projection ? '+' : ''}${(incoming.projection - outP.projection).toFixed(2)} xPts).`, 'success');
+  };
+
+  const applySolverOption = (optionId: 'roll' | 'transfer1' | 'transfer2') => {
+    if (!reviewSim) return;
+    const nextSq =
+      optionId === 'transfer2' ? reviewSim.squad2 : optionId === 'transfer1' ? reviewSim.squad1 : reviewSim.squad0;
+    setSquadMode('mySquad');
+    setCustomSquadIds(nextSq);
+    onToast(`Applied ${optionId === 'roll' ? 'Roll (0 moves)' : optionId === 'transfer1' ? 'Optimal 1-FT move' : 'Optimal 2-move plan'} to pitch.`, 'success');
+  };
+
+  const toggleLock = (id: number) => {
+    setLockedIds((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id);
+      if (current.length >= 8) {
+        onToast('You can lock up to 8 players at once.', 'info');
+        return current;
+      }
+      return [...current, id];
+    });
+  };
+
+  const copySquad = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        buildSquadText(result, squadMode === 'mySquad' ? `Team #${entry?.id ?? 145784}` : 'Auto Optimal XV'),
+      );
+      onToast('Squad copied to clipboard.', 'success');
+    } catch {
+      onToast('Clipboard access was blocked by the browser.', 'error');
+    }
+  };
+
+  const clubCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const player of result.squad) {
+      counts.set(player.team.shortName, (counts.get(player.team.shortName) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [result.squad]);
+
+  const maxPerClubUsed = Math.max(0, ...clubCounts.map(([, count]) => count));
+  const startersByPosition = {
+    GKP: result.starters.filter((player) => player.position === 'GKP'),
+    DEF: result.starters.filter((player) => player.position === 'DEF'),
+    MID: result.starters.filter((player) => player.position === 'MID'),
+    FWD: result.starters.filter((player) => player.position === 'FWD'),
+  };
+  const transfersUsedCount = activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
+  const hitPoints = squadMode === 'mySquad' ? Math.max(0, transfersUsedCount - freeTransfers) * 4 : 0;
+
+  const activeChipSim = reviewSim?.chipSimulations.find((c) => c.chip === selectedChipPreview) ?? null;
+
+  return (
+    <div className="page page--optimizer">
+      {/* Sub-navigation bar: Team Planner | Chip Strategy (FPLReview style) | Monte Carlo (3,000 Draws) */}
+      <section className="panel optimizer-header-panel">
+        <div className="optimizer-top-row">
+          <div className="subtab-bar" role="tablist" aria-label="Optimizer & simulation modes">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={subTab === 'planner'}
+              className={classNames('subtab-btn', subTab === 'planner' && 'is-active')}
+              onClick={() => setSubTab('planner')}
+            >
+              <Layers size={16} />
+              <span>1. Team Planner & Solver</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={subTab === 'chips'}
+              className={classNames('subtab-btn', subTab === 'chips' && 'is-active')}
+              onClick={() => setSubTab('chips')}
+            >
+              <BarChart3 size={16} />
+              <span>2. Chip Strategy & EV Matrix</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={subTab === 'montecarlo'}
+              className={classNames('subtab-btn', subTab === 'montecarlo' && 'is-active')}
+              onClick={() => setSubTab('montecarlo')}
+            >
+              <Dices size={16} />
+              <span>3. Monte Carlo (3,000 Draws)</span>
+            </button>
+          </div>
+
+          <div className="optimizer-mode-pills">
+            <button
+              type="button"
+              className={classNames('button', squadMode === 'mySquad' ? 'button--primary' : 'button--ghost')}
+              onClick={() => setSquadMode('mySquad')}
+            >
+              <Users size={15} /> {entry?.teamName ?? 'FPLVORTEX'} (#{entry?.id ?? 145784})
+            </button>
+            <button
+              type="button"
+              className={classNames('button', squadMode === 'autoOptimal' ? 'button--primary' : 'button--ghost')}
+              onClick={() => setSquadMode('autoOptimal')}
+            >
+              <WandSparkles size={15} /> Auto-Build £{budget.toFixed(1)}m XV
+            </button>
+            {squadMode === 'mySquad' && transfersUsedCount > 0 && (
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  setCustomSquadIds(baseEntrySquadIds);
+                  setSelectedOutId(null);
+                  onToast('Reset to Entry #145784 GW squad.', 'info');
+                }}
+              >
+                <RotateCcw size={14} /> Reset ({transfersUsedCount} {transfersUsedCount === 1 ? 'move' : 'moves'})
+              </button>
+            )}
+            <button type="button" className="button button--subtle" onClick={copySquad}>
+              <Copy size={15} /> Copy XV
+            </button>
+          </div>
+        </div>
+
+        <div className="optimizer-controls-inline">
+          <div className="profile-switcher" role="radiogroup" aria-label="Optimization strategy">
+            {PROFILES.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                role="radio"
+                aria-checked={profile === item.id}
+                className={classNames('profile-option', profile === item.id && 'is-active')}
+                onClick={() => startTransition(() => onProfileChange(item.id))}
+              >
+                <span className="profile-option__head">{item.icon} {item.label}</span>
+                <small>{item.hint}</small>
+              </button>
+            ))}
+          </div>
+
+          <div className="ft-budget-controls">
+            <label className="ft-select-box">
+              <span>Free Transfers</span>
+              <select
+                value={freeTransfers}
+                onChange={(e) => setFreeTransfers(Number(e.target.value))}
+                aria-label="Free transfers available"
+              >
+                {[1, 2, 3, 4, 5].map((ft) => (
+                  <option key={ft} value={ft}>{ft} FT</option>
+                ))}
+              </select>
+            </label>
+            {squadMode === 'autoOptimal' && (
+              <label className="ft-select-box">
+                <span>Budget Cap: {formatPrice(budget)}</span>
+                <input
+                  type="range"
+                  min={84}
+                  max={105}
+                  step={0.5}
+                  value={budget}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="stat-grid stat-grid--optimizer">
+        <StatCard
+          label={`GW${snapshot.meta.nextEventId} XI Projection`}
+          value={`${(result.projectedPoints - hitPoints).toFixed(1)} pts`}
+          detail={`${result.formation} · ${hitPoints > 0 ? `−${hitPoints} hit applied` : `${freeTransfers} FT available`}`}
+          icon={<WandSparkles size={18} />}
+          tone="mint"
+        />
+        <StatCard
+          label="Squad Cost / Bank"
+          value={formatPrice(result.cost)}
+          detail={`Bank: ${bankTenths >= 0 ? formatPrice(bankTenths / 10) : `−${formatPrice(Math.abs(bankTenths) / 10)}`}`}
+          icon={<CircleDollarSign size={18} />}
+          tone={bankTenths >= 0 ? 'violet' : 'pink'}
+        />
+        <StatCard
+          label="Solver Recommendation"
+          value={reviewSim ? reviewSim.recommendedDecision : 'ROLL'}
+          detail={reviewSim ? reviewSim.winner.label : 'Computing exact B&B'}
+          icon={<Crown size={18} />}
+          tone="amber"
+        />
+        <StatCard
+          label="Chip Strategy Posture"
+          value={
+            reviewSim?.recommendedChipDecision.bestFutureChip
+              ? `${reviewSim.recommendedChipDecision.action} · ${CHIP_META[reviewSim.recommendedChipDecision.bestFutureChip]?.badge ?? ''} GW${reviewSim.recommendedChipDecision.bestFutureGw}`
+              : 'HOLD CHIPS'
+          }
+          detail={
+            reviewSim
+              ? `Peak swing +${reviewSim.recommendedChipDecision.bestFutureGain.toFixed(1)} xPts · ${formationRisk(result)}`
+              : 'Evaluating half-season'
+          }
+          icon={<ShieldCheck size={18} />}
+          tone="blue"
+        />
+      </section>
+
+      {/* ==================== TAB 1: TEAM PLANNER & TRANSFER SOLVER ==================== */}
+      {subTab === 'planner' && (
+        <>
+          {reviewSim && (
+            <section className="option-cards-grid" aria-label="Roll vs transfer solver comparison">
+              {reviewSim.options.map((opt) => (
+                <article
+                  key={opt.id}
+                  className={classNames('panel option-card', opt.winner && 'option-card--winner')}
+                >
+                  <div className="option-card__head">
+                    <span className={classNames('badge', opt.winner ? 'badge--mint' : 'badge--violet')}>
+                      {opt.winner ? '★ Engine Winner' : opt.action}
+                    </span>
+                    <strong>{opt.nextGwXPts.toFixed(2)} GW xPts</strong>
+                  </div>
+                  <h4>{opt.label}</h4>
+                  <p>{opt.why}</p>
+                  <div className="option-card__foot">
+                    <span>6-GW Horizon: <strong>{opt.horizonXPts.toFixed(1)} xPts</strong></span>
+                    <button
+                      type="button"
+                      className="button button--ghost button--sm"
+                      onClick={() => applySolverOption(opt.id as 'roll' | 'transfer1' | 'transfer2')}
+                    >
+                      Load on pitch
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </section>
+          )}
+
+          <div className="planner-workspace">
+            {/* Left column (14/24): Sortable Player Pool Table (`7_skills/fpl-team-planner.skill`) */}
+            <section className="panel planner-pool-panel" aria-label="Suggested transfer targets">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">
+                    SUGGESTED TARGETS · {selectedOutPlayer ? `REPLACING ${selectedOutPlayer.name.toUpperCase()} (${selectedOutPlayer.position})` : 'ALL POSITIONS'}
+                  </span>
+                  <h3>Click any column heading to sort ({sortedPool.length} available)</h3>
+                </div>
+                {selectedOutPlayer && (
+                  <button type="button" className="button button--ghost button--sm" onClick={() => setSelectedOutId(null)}>
+                    Clear {selectedOutPlayer.name} filter
+                  </button>
+                )}
+              </div>
+
+              <div className="planner-pool-filters">
+                <label className="search-input search-input--compact">
+                  <Search size={15} />
+                  <input
+                    type="search"
+                    value={poolQuery}
+                    onChange={(e) => setPoolQuery(e.target.value)}
+                    placeholder="Filter player or club…"
+                  />
+                </label>
+                <div className="pos-pills">
+                  {(['ALL', 'GKP', 'DEF', 'MID', 'FWD'] as const).map((pos) => (
+                    <button
+                      key={pos}
+                      type="button"
+                      className={classNames(
+                        'pos-pill',
+                        (selectedOutPlayer ? selectedOutPlayer.position === pos : poolPos === pos) && 'is-active',
+                      )}
+                      onClick={() => {
+                        setSelectedOutId(null);
+                        setPoolPos(pos);
+                      }}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="planner-table-scroll">
+                <table className="planner-pool-table">
+                  <thead>
+                    <tr>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('name')}>
+                          Player <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('easeSum5')}>
+                          Next 5 Fixtures <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('price')}>
+                          £ <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('ownership')}>
+                          EO% <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('totalPoints')}>
+                          Pts <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('projection')}>
+                          GW xP <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>
+                        <button type="button" className="sortable-th" onClick={() => handleSortBy('optaXP5Gw')}>
+                          Opta xP <ArrowUpDown size={11} />
+                        </button>
+                      </th>
+                      <th>Move</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPool.slice(0, 35).map((player) => {
+                      const fxRow = fixtureByTeam.get(player.teamId);
+                      return (
+                        <tr key={player.id}>
+                          <td>
+                            <div className="player-cell player-cell--avatar">
+                              <PlayerAvatar
+                                code={player.code}
+                                teamCode={player.team.code}
+                                name={player.name}
+                                fullName={player.fullName}
+                                teamShort={player.team.shortName}
+                                position={player.position}
+                                size="sm"
+                              />
+                              <div>
+                                <strong>{player.name}</strong>
+                                <small>{player.team.shortName} · {player.position}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="fixchip-row">
+                              {(fxRow?.cells ?? []).map((cell) => (
+                                <span
+                                  key={cell.event}
+                                  className={`fixchip fdr-chip--${fixtureTone(cell.difficulty, cell.isBlank)}`}
+                                  title={`GW${cell.event}: ${cell.label}`}
+                                >
+                                  {cell.isBlank ? '—' : cell.label.split(' ')[0]}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="mono-num">{formatPrice(player.price)}</td>
+                          <td className="mono-num">{formatPercent(player.ownership)}</td>
+                          <td className="mono-num">{player.totalPoints}</td>
+                          <td><strong className="score-pill is-strong">{player.projection.toFixed(2)}</strong></td>
+                          <td><strong className="score-pill is-elite">{player.modelBreakdown.optaXP5Gw.toFixed(1)}</strong></td>
+                          <td>
+                            <button
+                              type="button"
+                              className="button button--subtle button--xs"
+                              onClick={() => swapInPlayer(player)}
+                            >
+                              Swap in
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* Right column (10/24): Resized Interactive Pitch & Constraints */}
+            <section className="pitch-panel planner-pitch-panel" aria-label="Squad pitch view">
+              <div className="pitch-panel__header">
+                <div>
+                  <span className="panel__eyebrow">
+                    {squadMode === 'mySquad' ? `TEAM #${entry?.id ?? 145784} PITCH` : 'OPTIMAL XV PITCH'} · {result.formation}
+                  </span>
+                  <h3>Click any player to filter replacements</h3>
+                </div>
+                <div className="pitch-panel__badges">
+                  <span className="badge badge--mint">C: {result.captain.name}</span>
+                  <span className="badge badge--violet">VC: {result.viceCaptain.name}</span>
+                </div>
+              </div>
+
+              <div className="pitch pitch--planner">
+                <div className="pitch__halfway" />
+                <div className="pitch__circle" />
+                <div className="pitch__box pitch__box--top" />
+                <div className="pitch__box pitch__box--bottom" />
+
+                <div className="pitch__row pitch__row--gkp">
+                  {startersByPosition.GKP.map((player) => (
+                    <PitchPlayerCard
+                      key={player.id}
+                      player={player}
+                      locked={lockedIds.includes(player.id)}
+                      selectedForSwap={selectedOutId === player.id}
+                      onToggleLock={toggleLock}
+                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                    />
+                  ))}
+                </div>
+                <div className="pitch__row">
+                  {startersByPosition.DEF.map((player) => (
+                    <PitchPlayerCard
+                      key={player.id}
+                      player={player}
+                      locked={lockedIds.includes(player.id)}
+                      selectedForSwap={selectedOutId === player.id}
+                      onToggleLock={toggleLock}
+                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                    />
+                  ))}
+                </div>
+                <div className="pitch__row">
+                  {startersByPosition.MID.map((player) => (
+                    <PitchPlayerCard
+                      key={player.id}
+                      player={player}
+                      locked={lockedIds.includes(player.id)}
+                      selectedForSwap={selectedOutId === player.id}
+                      onToggleLock={toggleLock}
+                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                    />
+                  ))}
+                </div>
+                <div className="pitch__row pitch__row--fwd">
+                  {startersByPosition.FWD.map((player) => (
+                    <PitchPlayerCard
+                      key={player.id}
+                      player={player}
+                      locked={lockedIds.includes(player.id)}
+                      selectedForSwap={selectedOutId === player.id}
+                      onToggleLock={toggleLock}
+                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="bench">
+                <div className="bench__header">
+                  <span>BENCH ORDER</span>
+                  <small>Auto-sub priority · click to swap</small>
+                </div>
+                <div className="bench__players">
+                  {result.bench.map((player) => (
+                    <PitchPlayerCard
+                      key={player.id}
+                      player={player}
+                      locked={lockedIds.includes(player.id)}
+                      selectedForSwap={selectedOutId === player.id}
+                      onToggleLock={toggleLock}
+                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                      compact
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="constraint-list constraint-list--inline">
+                <Constraint ok={result.squad.length === 15}>15 players (2-5-5-3)</Constraint>
+                <Constraint ok={bankTenths >= 0}>
+                  {bankTenths >= 0 ? `Within budget (${formatPrice(bankTenths / 10)} ITB)` : `Over budget by ${formatPrice(Math.abs(bankTenths) / 10)}`}
+                </Constraint>
+                <Constraint ok={maxPerClubUsed <= MAX_PLAYERS_PER_CLUB}>Max {maxPerClubUsed}/3 per club</Constraint>
+              </div>
+            </section>
+          </div>
+        </>
+      )}
+
+      {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
+      {subTab === 'chips' && reviewSim && (
+        <div className="chips-strategy-stack">
+          <section className="chip-cards-grid" aria-label="Half-season chip valuations">
+            {reviewSim.chipSimulations.map((chip) => {
+              const meta = CHIP_META[chip.chip] ?? { label: chip.chip, badge: 'CHIP', tone: 'violet' };
+              const isSelected = selectedChipPreview === chip.chip;
+              return (
+                <article
+                  key={chip.chip}
+                  className={classNames('panel chip-sim-card', isSelected && 'chip-sim-card--active')}
+                  onClick={() => setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc')}
+                >
+                  <div className="chip-sim-card__head">
+                    <span className={`badge badge--${meta.tone}`}>{meta.badge} · {meta.label}</span>
+                    <small>Half-1 expires GW{chip.expiresGw}</small>
+                  </div>
+                  <div className="chip-sim-card__kpis">
+                    <div>
+                      <span>Peak Window</span>
+                      <strong>{chip.bestGw ? `GW${chip.bestGw}` : '—'}</strong>
+                    </div>
+                    <div>
+                      <span>Peak Net EV</span>
+                      <strong className="is-positive">+{chip.bestGain.toFixed(2)} xPts</strong>
+                    </div>
+                    <div>
+                      <span>GW{reviewSim.nextGw} Gain</span>
+                      <strong>+{chip.gainNow.toFixed(2)}</strong>
+                    </div>
+                  </div>
+                  <p className="chip-sim-card__verdict">{chip.verdictLine}</p>
+                </article>
+              );
+            })}
+          </section>
+
+          {/* FPLReview-style GW × Chip Expected Value Matrix */}
+          <section className="panel" aria-label="Gameweek by chip EV matrix">
+            <div className="panel__header">
+              <div>
+                <span className="panel__eyebrow">FPLREVIEW-STYLE HORIZON EV MATRIX (`1_APP_dashboard/src/lib/solver.py`)</span>
+                <h3>Net expected points gained vs realistic free-transfer squad across GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
+              </div>
+              <span className="badge badge--mint">2026/27 Half-Season Chip Rules</span>
+            </div>
+
+            <div className="table-wrap">
+              <table className="chip-matrix-table">
+                <thead>
+                  <tr>
+                    <th>Gameweek</th>
+                    <th>Base XI xPts</th>
+                    <th>Wildcard (3-GW ΔxPts)</th>
+                    <th>Free Hit (1-GW ΔxPts)</th>
+                    <th>Bench Boost (ΔxPts)</th>
+                    <th>Triple Captain (ΔxPts)</th>
+                    <th>Optimal Captain</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewSim.chipMatrixByGw.map((row) => {
+                    const wcBest = reviewSim.chipSimulations.find((c) => c.chip === 'wildcard')?.bestGw === row.gw;
+                    const fhBest = reviewSim.chipSimulations.find((c) => c.chip === 'freehit')?.bestGw === row.gw;
+                    const bbBest = reviewSim.chipSimulations.find((c) => c.chip === 'bboost')?.bestGw === row.gw;
+                    const tcSim = reviewSim.chipSimulations.find((c) => c.chip === '3xc');
+                    const tcBest = tcSim?.bestGw === row.gw;
+                    const capId = tcSim?.topGws.find((g) => g.gw === row.gw)?.captainId ?? result.captain.id;
+                    const capPlayer = playerMap.get(capId);
+                    return (
+                      <tr key={row.gw}>
+                        <td><strong>GW{row.gw}</strong></td>
+                        <td className="mono-num">{row.baseXPts.toFixed(2)}</td>
+                        <td className={classNames('chip-ev-cell', wcBest && 'is-peak')}>
+                          +{row.wildcardGain.toFixed(2)} {wcBest && <em>★ Peak</em>}
+                        </td>
+                        <td className={classNames('chip-ev-cell', fhBest && 'is-peak')}>
+                          +{row.freehitGain.toFixed(2)} {fhBest && <em>★ Peak</em>}
+                        </td>
+                        <td className={classNames('chip-ev-cell', bbBest && 'is-peak')}>
+                          +{row.bboostGain.toFixed(2)} {bbBest && <em>★ Peak</em>}
+                        </td>
+                        <td className={classNames('chip-ev-cell', tcBest && 'is-peak')}>
+                          +{row.tripleCapGain.toFixed(2)} {tcBest && <em>★ Peak</em>}
+                        </td>
+                        <td>
+                          {capPlayer ? (
+                            <span className="inline-player-tag">
+                              <ClubBadge teamCode={capPlayer.team.code} shortName={capPlayer.team.shortName} size="sm" />
+                              {capPlayer.name}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Optimal Chip Squad Preview + Multi-GW Rollout */}
+          <div className="method-grid">
+            {activeChipSim?.bestPitch && (
+              <section className="panel">
+                <div className="panel__header">
+                  <div>
+                    <span className="panel__eyebrow">OPTIMAL CHIP LINEUP PREVIEW</span>
+                    <h3>
+                      {CHIP_META[activeChipSim.chip]?.label} Peak Squad · GW{activeChipSim.bestPitch.gw} (+{activeChipSim.bestPitch.gain.toFixed(2)} xPts)
+                    </h3>
+                  </div>
+                  <span className="badge badge--mint">{activeChipSim.bestPitch.xPtsWithChip.toFixed(1)} xPts</span>
+                </div>
+                <div className="squad-mini-grid">
+                  {activeChipSim.bestPitch.starters.map((id) => {
+                    const p = playerMap.get(id);
+                    if (!p) return null;
+                    const isCap = id === activeChipSim.bestPitch?.captainId;
+                    return (
+                      <div key={id} className="squad-mini-card">
+                        {isCap && <span className="squad-mini-card__cap is-cap">{activeChipSim.chip === '3xc' ? '3×' : 'C'}</span>}
+                        <PlayerAvatar
+                          code={p.code}
+                          teamCode={p.team.code}
+                          name={p.name}
+                          fullName={p.fullName}
+                          teamShort={p.team.shortName}
+                          position={p.position}
+                          size="sm"
+                        />
+                        <strong>{p.name}</strong>
+                        <small>{p.team.shortName} · {formatPrice(p.price)}</small>
+                        <span className="squad-mini-card__xp">
+                          {((p.gwProjections?.[activeChipSim.bestPitch!.gw] ?? p.projection) * (isCap ? (activeChipSim.chip === '3xc' ? 3 : 2) : 1)).toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            <section className="panel">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">6-GAMEWEEK HORIZON ROLLOUT</span>
+                  <h3>Projected XI & FT trajectory</h3>
+                </div>
+                <RefreshCw size={16} />
+              </div>
+              <div className="rollout-list">
+                {reviewSim.multiGwRollout.map((step) => {
+                  const cap = playerMap.get(step.lineup.captainId);
+                  return (
+                    <div key={step.gw} className="rollout-row">
+                      <span className="badge badge--violet">GW{step.gw}</span>
+                      <div>
+                        <strong>{step.lineup.formation} · Captain {cap?.name ?? '—'}</strong>
+                        <small>{step.ftAvailable} FT available · Bench {step.lineup.benchXPts.toFixed(1)} xPts</small>
+                      </div>
+                      <strong className="score-pill is-elite">{step.lineup.totalXPts.toFixed(2)} xPts</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB 3: PAIRED 3,000-DRAW MONTE CARLO SIMULATION ==================== */}
+      {subTab === 'montecarlo' && reviewSim && (
+        <div className="chips-strategy-stack">
+          <section className="panel" aria-label="Monte Carlo strategy distribution">
+            <div className="panel__header">
+              <div>
+                <span className="panel__eyebrow">
+                  PAIRED MONTE CARLO ENGINE (`site/model/monteCarlo.ts` · {reviewSim.monteCarlo.draws.toLocaleString()} DRAWS · SEED {reviewSim.monteCarlo.seed})
+                </span>
+                <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Strategy Outcome Distributions</h3>
+              </div>
+              <span className="badge badge--mint">Auto-Sub + VC + NegBin DEFCON</span>
+            </div>
+
+            <div className="mc-paths-list">
+              {reviewSim.monteCarlo.paths.map((path) => {
+                const maxP90 = Math.max(...reviewSim.monteCarlo.paths.map((p) => p.p90), 1);
+                const minP10 = Math.min(...reviewSim.monteCarlo.paths.map((p) => p.p10), 0);
+                const span = Math.max(20, maxP90 - minP10 + 20);
+                const leftPct = Math.max(0, ((path.p10 - (minP10 - 10)) / span) * 100);
+                const widthPct = Math.min(100 - leftPct, ((path.p90 - path.p10) / span) * 100);
+                const meanPct = Math.min(99, Math.max(1, ((path.mean - (minP10 - 10)) / span) * 100));
+
+                return (
+                  <div key={path.id} className="mc-range-row">
+                    <div className="mc-range-row__head">
+                      <div>
+                        <strong>{path.label}</strong>
+                        <small>
+                          Floor P10: {path.p10.toFixed(1)} · Median P50: {path.median.toFixed(1)} · Ceiling P90: {path.p90.toFixed(1)} · σ {path.sd.toFixed(1)}
+                        </small>
+                      </div>
+                      <div className="mc-range-row__badges">
+                        {path.probBeatsHold !== null && (
+                          <span className={classNames('badge', path.probBeatsHold >= 0.5 ? 'badge--mint' : 'badge--violet')}>
+                            {(path.probBeatsHold * 100).toFixed(1)}% Win vs Hold
+                          </span>
+                        )}
+                        <strong className="score-pill is-elite">Mean {path.mean.toFixed(1)} pts</strong>
+                      </div>
+                    </div>
+                    <div className="mc-range-track" aria-hidden="true">
+                      <div className="mc-range-band" style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
+                      <span className="mc-range-mean" style={{ left: `${meanPct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="method-grid">
+            <section className="panel">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">GW{reviewSim.nextGw} CAPTAINCY VARIANCE</span>
+                  <h3>2× Captaincy haul & blank probabilities</h3>
+                </div>
+                <Crown size={17} />
+              </div>
+              <div className="table-wrap">
+                <table className="chip-matrix-table">
+                  <thead>
+                    <tr>
+                      <th>Captain</th>
+                      <th>Mean (2×)</th>
+                      <th>P90 Ceiling (2×)</th>
+                      <th>P(Haul ≥ 9 pts)</th>
+                      <th>P(Blank ≤ 2 pts)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviewSim.monteCarlo.captains.map((cap) => {
+                      const p = playerMap.get(cap.id);
+                      return (
+                        <tr key={cap.id}>
+                          <td>
+                            <div className="player-cell player-cell--avatar">
+                              {p && (
+                                <PlayerAvatar
+                                  code={p.code}
+                                  teamCode={p.team.code}
+                                  name={p.name}
+                                  fullName={p.fullName}
+                                  teamShort={p.team.shortName}
+                                  position={p.position}
+                                  size="sm"
+                                />
+                              )}
+                              <div>
+                                <strong>{p?.name ?? `#${cap.id}`}</strong>
+                                <small>{p?.team.shortName ?? ''} {cap.isPick ? '· Active [C]' : ''}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td><strong>{(cap.mean * 2).toFixed(2)}</strong></td>
+                          <td className="mono-num">{(cap.p90 * 2).toFixed(1)}</td>
+                          <td className="is-positive mono-num">{(cap.pHaul * 100).toFixed(1)}%</td>
+                          <td className="is-negative mono-num">{(cap.pBlank * 100).toFixed(1)}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">SIMULATION ASSUMPTIONS</span>
+                  <h3>Stochastic engine mechanics</h3>
+                </div>
+                <Dices size={17} />
+              </div>
+              <ul className="reason-list">
+                {reviewSim.monteCarlo.assumptions.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

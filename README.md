@@ -1,53 +1,125 @@
 # FPL VORTEX
 
-Private source repository for the merged FPL VORTEX project and the deployed Model Lab.
+<p align="center">
+  <img src="public/og-image.svg" alt="FPL VORTEX — Automated Fantasy Premier League Intelligence" width="100%" />
+</p>
 
-## What to edit
+**FPL VORTEX** is an automated Fantasy Premier League intelligence platform built on official public FPL endpoints, repository benchmark archives, and a zero-dependency TypeScript projection and squad optimization engine.
 
-| Folder | Purpose |
-| --- | --- |
-| `site/` | Current private website: dashboard, official FPL API routes, shared prediction maths and simulation UI. |
-| `1_APP_dashboard/` | Original larger Next.js application, backend and optimisation source. Its database and background jobs are not deployed by the lightweight site. |
-| `2_notebooks/` | Original analytical notebooks, including their saved outputs. |
-| `3_data_third_party/` | Supplied data files; these are snapshots, not a live data service. |
-| `4_backup/` through `9_dashboard_reference/` | Preserved backups, design references, reports and project documentation. |
-| `design-tools/` | Imported design tooling. |
+It turns live FPL player, club, fixture, and scoring feeds into explainable next-gameweek projections, captaincy leverage, fixture-swing heatmaps, FPL-legal squad builds, public team/league scans, and `@FPLVORTEX` channel briefings — with automatic memory caching and offline snapshot fallback.
 
-The source was imported from `FPL_VORTEX_MERGED.zip`. Nested Git metadata and runtime/build caches are excluded. The original ZIP remains saved in the project files.
+---
 
-## Run the current website
+## Key Capabilities
 
-Use Node.js 22 or newer. No dependency installation is required for the lightweight site:
+- **Command Center (`/#/command`)** — Live deadline countdown, adaptive refresh status, projected points leaderboard with 9-point SVG sparklines, captaincy leverage rings, schedule swings, and transfer momentum.
+- **Squad Optimizer (`/#/optimizer`)** — Beam-search Best XV builder across four strategy profiles (`Balanced`, `Safe`, `Differential`, `Upside`) enforcing all official 2026/27 FPL constraints (`15` players, `2/5/5/3` structure, max `3` per club, budget cap, legal `11`-player formation, captain/vice-captain, ordered bench, and lockable players).
+- **Player Lab (`/#/players`)** — Searchable, filterable, CSV-exportable universe of all Premier League players with FDR-5 ratings, confidence bars, repository `xMins` / 5-GW `xPts` benchmarks, and explainable player modals.
+- **Fixture Matrix (`/#/fixtures`)** — 5-gameweek club difficulty heatmap with Blank (`BLK`) and Double (`2×`) indicators, schedule swing rankings, club asset spotlight, and CSV export.
+- **League Intel (`/#/league`)** — Passwordless public FPL team (`5112705`, `145784`, or any numeric entry ID) and classic league (`314` or any classic league ID) scanner with 15-player squad projection, one-move transfer upgrades, and live/offline standings.
+- **Model & Automation (`/#/method`)** — Full transparency into system health, projection weights, 2026/27 season rules, upstream feeds, `@FPLVORTEX` video briefings, and resilience architecture.
 
-```sh
-cd site
-npm run build
-npm run validate
-node scripts/smoke-test.mjs
+---
+
+## Quick Start
+
+Requires **Node.js 20.19+** (22 LTS recommended).
+
+```bash
+npm ci
 npm run dev
 ```
 
-Open the local URL printed by the server. The live site remains private:
-https://fpl-vortex-lab-muku-1024.wavysnipe6.chatgpt.site/
+Open `http://localhost:3000`. Both the Vite React frontend and Express API run on the same origin.
 
-## Real data and storage
+### Verification & Production Build
 
-The deployed server reads official FPL player, fixture, manager, picks, history and live-score APIs. Browser responses include data-source and retrieval-time headers. Player portraits load from the Premier League image host with a second-size retry and an unavailable-photo fallback.
+```bash
+npm run typecheck    # TypeScript strict check across src, server, scripts, tests
+npm test             # Node test suite (normalization, analytics, fixtures, optimizer, repo data)
+npm run build        # Production client bundle into dist/
+npm run preview      # Production Express server on 0.0.0.0:3000
+```
 
-Browser-local test squads and the linked manager number are not synced across devices. Forecasts are computed in the browser. There is no persistent historical-statistics database or unattended ingestion worker yet. Do not commit personal API captures, credentials, `.env` files or browser QA captures.
+### Refreshing the Offline Snapshot
 
-Forecasts remain unvalidated. The repository does not contain licensed FPLReview forecasts or establish a predictive advantage over FPLReview. The Gameweek Analysis subtab is implemented: it reports the linked manager's score breakdown, captain and bench impact, position contributions, published form and rank movement, a sortable 15-player contribution table, a next-gameweek captain/availability focus, and a head-to-head comparison against another public FPL Team ID. Rival comparison reads public picks and scores only; the linked team and rival IDs stay in the browser.
+```bash
+npm run data:refresh
+```
 
-## Updates and deployment
+### Companion Model Lab (`site/`)
 
-GitHub tracks reviewable source changes and runs the site build/smoke checks. Changes can be prepared here in chat or through GitHub.
+The dependency-free `site/` application is a separate private test interface over the corrected projection maths. Build and run it with `cd site && npm run build && npm run validate && npm run dev`. Its Gameweek Hub has an Overview subtab and a **Gameweek Analysis** subtab: score breakdown, captain and bench impact, position contributions, published form and rank movement, a sortable 15-player contribution table, a next-gameweek captain/availability focus, and a head-to-head comparison against another public FPL Team ID. Rival comparison reads public picks and scores only; the linked team and rival IDs stay in the browser. A self-contained offline copy is at `DASHBOARD_PREVIEW.html`.
 
-The private hosted Site currently uses its own managed source repository. A GitHub commit alone does **not** deploy it. To release a GitHub change, ask in this project to sync the desired commit, run the checks and deploy it to the existing private Site. Automatic GitHub-to-host deployment is not configured.
+Forecasts remain unvalidated. The repository does not contain licensed FPLReview forecasts or establish a predictive advantage over FPLReview.
 
-See `site/scripts/smoke-test.mjs` for the hosting-cache regression test and `1_APP_dashboard/docs/MATH_CORRECTIONS.md` for the mathematics audit.
+---
 
-## Branding and alternate hosting
+## Architecture & Resilience Chain
 
-The supplied crowned-lion logo is stored unchanged at `site/ui/brand/fpl-vortex-lion.jpg` and appears in the shared navigation. FPL VORTEX is shown in the header and document title of every page.
+```text
+Official FPL API (/bootstrap-static, /fixtures, /event/{id}/live, /entry/{id}, /leagues-classic/{id})
+   ↓
+Express Server (server/index.ts, server/fpl.ts, server/normalize.ts, server/repoData.ts)
+   ├─ Tier 1: Live official FPL API (45s TTL during live scoring · 10m TTL between deadlines)
+   ├─ Tier 2: Last-good normalized in-memory cache (stale-while-revalidate)
+   ├─ Tier 3: Committed offline snapshots (public/data/fpl-snapshot.json & public/data/fpl-league-fallback.json)
+   └─ Primary Repository Enrichment:
+        • 3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv (667 player xMins & xPts)
+        • site/ui/videos.json + live YouTube RSS (@FPLVORTEX channel UCDU7nEIN72xoiR3NtxCT6CQ)
+        • 2026/27 official FPL rules (5 banked free transfers, GW19 chip-half split)
+   ↓
+React 19 + Vite 6 + Brand Kit Design System (brand-kit/design-tokens.css, self-hosted Inter Variable)
+```
 
-`site/vercel.json`, `site/api/index.mjs` and `site/scripts/build-vercel.mjs` prepare the same application for Git-linked Vercel hosting. This configuration has been checked locally; linking and deployment require authorizing the existing Vercel account. No Vercel address has been claimed yet. Preserve private access during setup.
+### API Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Service health, cache source (`live` / `cache` / `snapshot`), season rules, and repository metadata |
+| `GET` | `/api/vortex/snapshot` | Full normalized FPL universe enriched with repository `xMins` / `xPts` benchmarks |
+| `POST` | `/api/vortex/refresh` | Rate-limited manual upstream refresh |
+| `GET` | `/api/vortex/entry/:id` | Public FPL manager entry, GW picks, squad value, and projected points (with offline fallback) |
+| `GET` | `/api/vortex/league/:id` | Public classic league standings and rank movement (with offline fallback) |
+| `GET` | `/api/vortex/videos` | `@FPLVORTEX` channel video briefings (live YouTube RSS → `site/ui/videos.json`) |
+| `GET` | `/api/vortex/benchmarks` | Repository multi-GW `xMins` & `xPts` benchmark table (`?gw=9`) |
+
+Compatibility aliases (`/api/status`, `/api/videos`, `/api/fpl/bootstrap`, `/api/fpl/fixtures`, `/api/fpl/entry/:id`, `/api/fpl/league/:id`) are also served on the same Express router.
+
+---
+
+## Brand Kit & Visual Reference
+
+All visual tokens, typography, icons, and reference baselines live in [`brand-kit/`](brand-kit/BRAND-KIT.md):
+
+- `brand-kit/design-tokens.css` — Mint (`#5BF5D6`), Electric Violet (`#7772FF`), Neon Pink (`#FF5BC8`), Signal Blue (`#49B3FF`), Warm Amber (`#FFC66D`), dark (`#070914`) & light (`#F4F6FF`) surface tokens.
+- `public/fonts/InterVariable.woff2` — Self-hosted `Inter Variable` (`100–900`) with tabular numerals.
+- `brand-kit/brand-preview.html` & `brand-kit/assets/website-preview.html` — Visual spec sheet and full 6-page static parity baseline (also served at `/brand-kit/assets/website-preview.html`).
+
+---
+
+## Repository Directory Map
+
+| Path | Contents |
+| --- | --- |
+| `src/`, `server/`, `public/`, `tests/`, `scripts/` | Unified FPL VORTEX full-stack TypeScript application |
+| `brand-kit/` | Official FPL VORTEX brand guidelines, CSS design tokens, SVG marks, and visual preview baselines |
+| `3_data_third_party/` | Primary multi-gameweek `xMins` and `xPts` benchmark CSV dataset (667 players) |
+| `site/` | Companion static/serverless bundle & `@FPLVORTEX` verified video archive (`site/ui/videos.json`) |
+| `1_APP_dashboard/` | Reference Next.js dashboard & 2026/27 season rule specifications |
+| `2_notebooks/` | Monte Carlo (`V4.6`) & Wildcard/Free Hit optimization notebooks (configured entry `145784`) |
+| `4_backup/` – `9_dashboard_reference/` | Historical backups, screenshots, recon docs, skills, engineering handoff reports, and references |
+
+---
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+---
+
+## License & Disclaimer
+
+MIT License. FPL VORTEX is an independent analytics tool and is not affiliated with or endorsed by the Premier League or Fantasy Premier League.

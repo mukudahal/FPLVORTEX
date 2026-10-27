@@ -1,0 +1,40 @@
+{
+  "name": "fpl-vortex",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An automated Fantasy Premier League intelligence and squad optimization platform.",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "build": "vite build",
+    "start": "tsx server/index.ts",
+    "preview": "npm run build && cross-env NODE_ENV=production npm start",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:watch": "node --import tsx --test --watch tests/*.test.ts",
+    "data:refresh": "tsx scripts/refresh-snapshot.ts",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "compression": "^1.8.2",
+    "express": "^5.3.0",
+    "lucide-react": "^1.61.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "cross-env": "^10.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

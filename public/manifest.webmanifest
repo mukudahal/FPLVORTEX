@@ -1,0 +1,22 @@
+{
+  "name": "FPL VORTEX — Automated FPL Intelligence",
+  "short_name": "FPL VORTEX",
+  "description": "Live Fantasy Premier League analytics, projections, and squad optimization.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070914",
+  "theme_color": "#070914",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Squad Optimizer", "short_name": "Optimizer", "url": "/#/optimizer" },
+    { "name": "Fixture Matrix", "short_name": "Fixtures", "url": "/#/fixtures" }
+  ]
+}
