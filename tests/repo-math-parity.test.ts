@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+
+process.env.VORTEX_OFFLINE = '1';
+
 import { getEntry, getSnapshot } from '../server/fpl.ts';
 import { buildInsights, enrichPlayers, toRepoElement } from '../src/lib/analytics.ts';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';

@@ -247,41 +247,45 @@ export async function getRepoVideos(): Promise<VideosResponse> {
   }
   const archive = await loadRepoVideosArchive();
   const channelId = process.env.YOUTUBE_CHANNEL_ID || archive.channelId || DEFAULT_CHANNEL_ID;
-  try {
-    const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`, {
-      signal: AbortSignal.timeout(3500),
-      headers: { accept: 'application/atom+xml,text/xml,application/xml;q=0.9,*/*;q=0.8' },
-    });
-    if (!response.ok) throw new Error(`YouTube RSS status ${response.status}`);
-    const xml = await response.text();
-    const liveVideos: VideoItem[] = [];
-    for (const match of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
-      const block = match[1];
-      const id = block.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
-      const title = block.match(/<title>([^<]*)<\/title>/)?.[1];
-      const published = block.match(/<published>([^<]+)<\/published>/)?.[1];
-      if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id) || !title || !published) continue;
-      liveVideos.push({
-        id,
-        title: decodeXmlEntities(title),
-        published,
-        thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
-        url: `https://www.youtube.com/watch?v=${id}`,
+  if (process.env.VORTEX_OFFLINE !== '1') {
+    try {
+      const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`, {
+        signal: AbortSignal.timeout(3500),
+        headers: { accept: 'application/atom+xml,text/xml,application/xml;q=0.9,*/*;q=0.8' },
       });
+      if (!response.ok) throw new Error(`YouTube RSS status ${response.status}`);
+      const xml = await response.text();
+      const liveVideos: VideoItem[] = [];
+      for (const match of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+        const block = match[1];
+        const id = block.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
+        const title = block.match(/<title>([^<]*)<\/title>/)?.[1];
+        const published = block.match(/<published>([^<]+)<\/published>/)?.[1];
+        if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id) || !title || !published) continue;
+        liveVideos.push({
+          id,
+          title: decodeXmlEntities(title),
+          published,
+          thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+          url: `https://www.youtube.com/watch?v=${id}`,
+        });
+      }
+      if (liveVideos.length > 0) {
+        const seen = new Set(liveVideos.map((v) => v.id));
+        const merged = [...liveVideos, ...archive.videos.filter((v) => !seen.has(v.id))];
+        const result: VideosResponse = {
+          channelId,
+          channelTitle: archive.channelTitle,
+          capturedAt: new Date().toISOString(),
+          source: 'live',
+          videos: merged,
+        };
+        liveVideosCache = { value: result, expiresAt: Date.now() + 30 * 60_000 };
+        return result;
+      }
+    } catch {
+      // Fall back to repository's verified videos.json archive.
     }
-    if (liveVideos.length > 0) {
-      const result: VideosResponse = {
-        channelId,
-        channelTitle: archive.channelTitle,
-        capturedAt: new Date().toISOString(),
-        source: 'live',
-        videos: liveVideos,
-      };
-      liveVideosCache = { value: result, expiresAt: Date.now() + 30 * 60_000 };
-      return result;
-    }
-  } catch {
-    // Fall back to repository's verified videos.json archive.
   }
   const fallback: VideosResponse = {
     channelId: archive.channelId,

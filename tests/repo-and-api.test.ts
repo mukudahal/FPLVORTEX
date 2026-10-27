@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+
+process.env.VORTEX_OFFLINE = '1';
+
 import { getEntry, getHealth, getLeague, getSnapshot } from '../server/fpl.ts';
 import {
   CONFIGURED_REPO_ENTRY_ID,

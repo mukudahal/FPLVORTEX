@@ -21,6 +21,9 @@ function isRetryableStatus(status: number): boolean {
 }
 
 export async function fetchFplJson<T>(path: string, options: FetchOptions = {}): Promise<T> {
+  if (process.env.VORTEX_OFFLINE === '1') {
+    throw new Error('Offline mode enabled (VORTEX_OFFLINE=1)');
+  }
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const url = `${BASE_URL}${normalizedPath}`;
   const retries = options.retries ?? 1;
