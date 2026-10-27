@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "bash scripts/build.sh",
-    "validate": "node scripts/validate-artifact.mjs && node scripts/check-availability.mjs && node scripts/check-forecast-data.mjs",
+    "validate": "node scripts/validate-artifact.mjs && node scripts/check-availability.mjs && node scripts/check-forecast-data.mjs && node scripts/check-analysis.mjs && node scripts/check-standalone.mjs",
     "dev": "FPL_QA_DIRECTORY=.openai/qa-data node scripts/dev-server.mjs"
   }
 }

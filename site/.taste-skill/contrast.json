@@ -10,14 +10,14 @@
     "theme": "light",
     "text": "muted",
     "background": "panel",
-    "ratio": 5.49,
+    "ratio": 9.18,
     "minimum": 4.5
   },
   {
     "theme": "light",
     "text": "muted",
     "background": "bg",
-    "ratio": 5.0,
+    "ratio": 8.35,
     "minimum": 4.5
   },
   {
@@ -73,14 +73,14 @@
     "theme": "dark",
     "text": "muted",
     "background": "panel",
-    "ratio": 8.46,
+    "ratio": 12.02,
     "minimum": 4.5
   },
   {
     "theme": "dark",
     "text": "muted",
     "background": "bg",
-    "ratio": 9.3,
+    "ratio": 13.21,
     "minimum": 4.5
   },
   {

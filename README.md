@@ -47,6 +47,12 @@ npm run preview      # Production Express server on 0.0.0.0:3000
 npm run data:refresh
 ```
 
+### Companion Model Lab (`site/`)
+
+The dependency-free `site/` application is a separate private test interface over the corrected projection maths. Build and run it with `cd site && npm run build && npm run validate && npm run dev`. Its Gameweek Hub has an Overview subtab and a **Gameweek Analysis** subtab: score breakdown, captain and bench impact, position contributions, published form and rank movement, a sortable 15-player contribution table, a next-gameweek captain/availability focus, and a head-to-head comparison against another public FPL Team ID. Rival comparison reads public picks and scores only; the linked team and rival IDs stay in the browser. A self-contained offline copy is at `DASHBOARD_PREVIEW.html`.
+
+Forecasts remain unvalidated. The repository does not contain licensed FPLReview forecasts or establish a predictive advantage over FPLReview.
+
 ---
 
 ## Architecture & Resilience Chain

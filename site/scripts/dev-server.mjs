@@ -12,8 +12,10 @@ const server=createServer(async(incoming,outgoing)=>{
       outgoing.writeHead(200,{'content-type':'text/html','cache-control':'no-store'});outgoing.end(html);return;
     }
     if(qaDirectory&&/^\/api\/(?:bootstrap|fixtures|entry\/[1-9]\d{0,9}|history\/[1-9]\d{0,9}|picks\/[1-9]\d{0,9}\/\d{1,2}|live\/\d{1,2})$/.test(pathname)){
-      const data=await readFile(resolve(qaDirectory,pathname.slice(5).replaceAll('/','-')+'.json'));
-      outgoing.writeHead(200,{'content-type':'application/json','cache-control':'no-store','x-qa-source':'Captured official API response'});outgoing.end(data);return;
+      try{
+        const data=await readFile(resolve(qaDirectory,pathname.slice(5).replaceAll('/','-')+'.json'));
+        outgoing.writeHead(200,{'content-type':'application/json','cache-control':'no-store','x-qa-source':'Captured official API response'});outgoing.end(data);return;
+      }catch(error){if(error?.code!=='ENOENT')throw error;}
     }
     const result=await worker.fetch(new Request('http://127.0.0.1:'+port+incoming.url,{method:incoming.method}),{}, {waitUntil:promise=>promise.catch(()=>{})});outgoing.writeHead(result.status,Object.fromEntries(result.headers));outgoing.end(Buffer.from(await result.arrayBuffer()));
   }
