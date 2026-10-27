@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { PendingSwap } from '../App';
 import type { RouteId } from '../hooks/useHashRoute';
+import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { useNow } from '../hooks/useNow';
 import { fetchVideos } from '../lib/api';
 import { buildInsights, toRepoElement } from '../lib/analytics';
@@ -709,7 +710,7 @@ export function CommandCenter({
             <span className="vortex-orb__ring vortex-orb__ring--three" />
             <div className="vortex-orb__core vortex-orb__core--premium">
               <img
-                src="/player-images/brand/fpl-vortex-lion.jpg"
+                src={BRAND_LION_SRC}
                 alt=""
                 className="vortex-orb__crest"
               />
@@ -863,7 +864,7 @@ export function CommandCenter({
           {!hasLinkedTeam ? (
             <div className="vx-pitch-gate">
               <div className="vx-pitch-gate__badge">
-                <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="FPL VORTEX" width={58} height={58} />
+                <img src={BRAND_LION_SRC} alt="FPL VORTEX" width={58} height={58} />
               </div>
               <span className="panel__eyebrow">SQUAD PITCH & GAMEWEEK {reviewEventId} REVIEW</span>
               <h3>Enter your FPL Team ID to view your Soccer Pitch & Review Gameweek</h3>
@@ -1011,7 +1012,7 @@ export function CommandCenter({
                 <div className="vx-soccer-pitch">
                   <div className="vx-pitch-top-boards">
                     <div className="vx-pitch-board">
-                      <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="" width={20} height={20} />
+                      <img src={BRAND_LION_SRC} alt="" width={20} height={20} />
                       <span>FPL VORTEX</span>
                     </div>
                     <div className="vx-pitch-goal-net" aria-hidden="true" />
@@ -1578,7 +1579,7 @@ export function CommandCenter({
               rel="noreferrer"
               className="vx-yt-channel-btn"
             >
-              <img src="/player-images/brand/fpl-vortex-lion.jpg" alt="" width={20} height={20} />
+              <img src={BRAND_LION_SRC} alt="" width={20} height={20} />
               <span>@FPLVORTEX Channel</span>
               <ExternalLink size={13} />
             </a>
@@ -1603,7 +1604,7 @@ export function CommandCenter({
                     const img = e.currentTarget;
                     if (!img.dataset.fallback) {
                       img.dataset.fallback = '1';
-                      img.src = '/player-images/brand/fpl-vortex-lion.jpg';
+                      img.src = BRAND_LION_SRC;
                     }
                   }}
                 />

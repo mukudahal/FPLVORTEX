@@ -9,6 +9,8 @@
  * Identity rule: FPL player ID -> official FPL code -> Premier League photo chain -> official club shirt -> clean club jersey monogram fallback.
  */
 
+import { withBase } from './baseUrl';
+
 export const PHOTO_RESOLVER_VERSION = 'official-fpl-code-four-endpoints-v4';
 export const PL_PHOTO_BASE_CURRENT = 'https://resources.premierleague.com/premierleague25/photos/players';
 export const PL_PHOTO_BASE_LEGACY = 'https://resources.premierleague.com/premierleague/photos/players';
@@ -81,7 +83,10 @@ export function getPlayerPhotoCandidates(
   }
 
   if (code) {
-    urls.push(`/api/img/player/${code}${teamCode ? `?teamCode=${teamCode}` : ''}`);
+    urls.push(
+      withBase(`player-images/players/${code}.png`),
+      `/api/img/player/${code}${teamCode ? `?teamCode=${teamCode}` : ''}`,
+    );
   }
 
   return [...new Set(urls)];
@@ -94,6 +99,7 @@ export function getClubBadgeCandidates(teamCodeRaw: unknown): string[] {
     `${PL_BADGE_BASE}/100/t${teamCode}.png`,
     `${PL_BADGE_BASE}/70/t${teamCode}.png`,
     `${PL_BADGE_BASE}/t${teamCode}.png`,
+    withBase(`player-images/badges/t${teamCode}.png`),
     `/api/img/badge/${teamCode}`,
   ];
 }

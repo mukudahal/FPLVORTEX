@@ -6,7 +6,7 @@
   "description": "An automated Fantasy Premier League intelligence and squad optimization platform.",
   "scripts": {
     "dev": "tsx watch server/index.ts",
-    "build": "vite build",
+    "build": "vite build && tsx scripts/export-static-data.ts",
     "start": "tsx server/index.ts",
     "preview": "npm run build && cross-env NODE_ENV=production npm start",
     "typecheck": "tsc --noEmit",
