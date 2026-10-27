@@ -207,7 +207,7 @@ export function PlayerLab({
               type="search"
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder={`Search all ${players.length} repository players, clubs or roles…`}
+              placeholder={`Search all ${players.length} players, clubs or roles…`}
             />
             {query && (
               <button type="button" className="icon-inline" onClick={() => onQueryChange('')} aria-label="Clear search">
@@ -284,9 +284,8 @@ export function PlayerLab({
         </div>
 
         <div className="player-results-meta">
-          <strong>{filtered.length}</strong> of {players.length} repository players · Source:{' '}
-          <code>3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv</code> + <code>computePlayerXPts</code>
-          <span>Click any column heading to sort · Click any row for GW7–GW16 breakdown</span>
+          <strong>{filtered.length}</strong> of {players.length} Premier League players · Multi-gameweek xPts, Opta xP & DEFCON
+          <span>Click any column heading to sort · Click any row for full GW7–GW16 breakdown</span>
         </div>
       </section>
 
@@ -514,7 +513,7 @@ export function PlayerLab({
 
             {selected.gwProjections && Object.keys(selected.gwProjections).length > 0 && (
               <div className="gw-horizon-strip">
-                <h4>GW7–GW16 Authoritative Repo Projections (`fplcopilot-projections-gw7-2026-10-15-v4.csv`)</h4>
+                <h4>GW7–GW16 Gameweek Horizon Projections</h4>
                 <div className="gw-horizon-cells">
                   {Object.keys(selected.gwProjections)
                     .map(Number)
@@ -540,7 +539,7 @@ export function PlayerLab({
                 </ul>
               </div>
               <div>
-                <h4>2026/27 `computePlayerXPts` Breakdown</h4>
+                <h4>2026/27 Expected Points Breakdown</h4>
                 <div className="player-modal__stats">
                   <div><span>Model xPts</span><strong>{selected.modelBreakdown.modelXPts.toFixed(2)}</strong></div>
                   <div><span>Opta 5GW xP</span><strong>{selected.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>

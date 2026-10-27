@@ -35,27 +35,27 @@ interface MethodologyProps {
 const DATA_TIERS = [
   {
     icon: <Database size={18} />,
-    title: 'Tier 1 — Authoritative Repository Data',
-    text: '667 players with GW7–GW16 xMins & xPts (`3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`), Team #145784 (`FPLVORTEX`), and 30 `@FPLVORTEX` videos (`site/ui/videos.json`).',
-    endpoint: 'mukudahal/FPLVORTEX (primary)',
+    title: 'Tier 1 — Primary GW7–GW16 Projections',
+    text: '667 Premier League players with multi-gameweek expected minutes & expected points, Team #145784 (FPLVORTEX), and @FPLVORTEX video briefings.',
+    endpoint: 'Primary projection feed',
   },
   {
     icon: <Activity size={18} />,
     title: 'Tier 2 — Live Official FPL API',
-    text: 'Live `bootstrap-static`, `fixtures`, `event/{gw}/live`, `entry/145784`, and `leagues-classic` merged beneath Tier-1 repo projections when reachable.',
+    text: 'Live bootstrap-static, fixtures, in-play scoring, manager picks, and classic league standings synchronized automatically.',
     endpoint: 'fantasy.premierleague.com/api',
   },
   {
     icon: <Layers size={18} />,
     title: 'Official PL Portrait & Crest Resolver',
-    text: '`official-fpl-code-four-endpoints-v4` (`premierleague25` → legacy `p{code}.png` → S3 → official shirt → `/api/img/player/:code`).',
+    text: 'Multi-endpoint Premier League portrait and club crest chain mapped by official player code and club code with clean shirt fallbacks.',
     endpoint: 'resources.premierleague.com',
   },
   {
     icon: <ShieldCheck size={18} />,
-    title: 'Tier 3 — Last-Resort Offline Fallback',
-    text: '`public/data/fpl-snapshot.json` supplies only supplementary photo codes & 380 fixtures when upstream FPL is unreachable offline.',
-    endpoint: 'Offline supplement only',
+    title: 'Tier 3 — Resilient Snapshot Fallback',
+    text: 'Offline snapshot cache ensures all 380 fixtures, club badges, and player profiles stay responsive even during deadline surges.',
+    endpoint: 'Resilient cache layer',
   },
 ];
 
@@ -103,12 +103,11 @@ export function Methodology({
     <div className="page page--method">
       <section className="panel method-hero">
         <div>
-          <span className="panel__eyebrow">MATHEMATICAL SPECIFICATION · `mukudahal/FPLVORTEX`</span>
-          <h3>Every constant, Bayesian prior, Poisson rate, and MILP solver rule from your repository.</h3>
+          <span className="panel__eyebrow">MODEL & AUTOMATION · SEASON {snapshot.meta.season}</span>
+          <h3>A model you can inspect. Infrastructure that fails gracefully.</h3>
           <p>
-            Zero black-box or synthetic bundle formulas: player forecasts, 2026/27 DEFCON Negative-Binomial tails,
-            match Poisson strengths, banked-FT transfer optimization, half-season chip simulation, and 3,000-draw Monte
-            Carlo paths are ported verbatim from `site/model/*.ts` and `1_APP_dashboard/src/lib/*.ts`.
+            Every projection, 2026/27 DEFCON probability, Poisson goal rate, banked-transfer valuation, chip horizon
+            matrix, and 3,000-draw Monte Carlo simulation is transparent, deterministic, and built to stay online.
           </p>
           <div className="button-row" style={{ marginTop: 16 }}>
             <button type="button" className="button button--primary" onClick={onRefresh} disabled={refreshing}>
@@ -186,7 +185,7 @@ export function Methodology({
         <section className="panel">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">SOLVER, CHIPS & MONTE CARLO (`optimizer.ts` + `solver.py`)</span>
+              <span className="panel__eyebrow">SOLVER, CHIPS & MONTE CARLO</span>
               <h3>Transfer ILP, Banked FT & Stochastic Simulation</h3>
             </div>
             <BrainCircuit size={17} />
@@ -225,7 +224,7 @@ export function Methodology({
         <section className="panel">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">FORECAST SCIENCE (`site/model/forecastScience.ts`)</span>
+              <span className="panel__eyebrow">FORECAST CALIBRATION</span>
               <h3>Cross-model calibration & diagnostic status</h3>
             </div>
             <Check size={17} />
@@ -284,7 +283,7 @@ export function Methodology({
         <section className="panel" aria-label="FPL VORTEX YouTube briefings">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">CHANNEL ARCHIVE (`site/ui/videos.json`)</span>
+              <span className="panel__eyebrow">@FPLVORTEX YOUTUBE CHANNEL</span>
               <h3>@FPLVORTEX Video Briefings ({videos.length})</h3>
             </div>
             <a

@@ -199,6 +199,12 @@ export default function App() {
           insights={insights}
           fixtureRows={fixtureRows}
           profile={profile}
+          teamId={teamId}
+          onTeamIdChange={setTeamId}
+          onSelectPlayer={(q) => {
+            selectPlayer(q);
+            navigate('players');
+          }}
           onNavigate={navigate}
           onOpenPalette={openPalette}
           onRefresh={handleRefresh}
@@ -233,8 +239,10 @@ export default function App() {
           )}
           {page}
           <footer className="app-footer">
-            <span>FPL VORTEX · Team #{activeEntry?.id ?? 145784} ({activeEntry?.teamName ?? 'FPLVORTEX'}) · @FPLVORTEX</span>
-            <span>Repo GW7–16 projections + 2026/27 DEFCON engine · {snapshot.meta.season}</span>
+            <span>
+              FPL VORTEX · <a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer">@FPLVORTEX YouTube</a> · Team #{activeEntry?.id ?? 145784}
+            </span>
+            <span>Season {snapshot.meta.season} · Plan smarter. Play your game.</span>
           </footer>
         </main>
       </div>

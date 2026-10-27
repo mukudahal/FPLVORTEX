@@ -1,7 +1,9 @@
 import {
   BrainCircuit,
   CalendarDays,
+  ExternalLink,
   Gauge,
+  Play,
   Trophy,
   Users,
   WandSparkles,
@@ -24,12 +26,12 @@ interface SidebarProps {
 export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: SidebarProps) {
   const playerCount = snapshot?.players.length ?? 667;
   const navItems = [
-    { id: 'command' as const, label: 'Command center', hint: 'Home & GW hub', icon: Gauge },
-    { id: 'optimizer' as const, label: 'Squad optimizer', hint: 'Planner · Chips · MC', icon: WandSparkles },
-    { id: 'players' as const, label: 'Player lab', hint: `${playerCount} repo profiles`, icon: Users },
-    { id: 'fixtures' as const, label: 'Fixture matrix', hint: 'Poisson & FDR', icon: CalendarDays },
-    { id: 'league' as const, label: 'League intel', hint: 'EO & rivals', icon: Trophy },
-    { id: 'method' as const, label: 'Model & automation', hint: 'Math & backtest', icon: BrainCircuit },
+    { id: 'command' as const, label: 'Command center', hint: 'Gameweek hub', icon: Gauge },
+    { id: 'optimizer' as const, label: 'Squad optimizer', hint: 'Planner · Chips · Sim', icon: WandSparkles },
+    { id: 'players' as const, label: 'Player lab', hint: `${playerCount} profiles`, icon: Users },
+    { id: 'fixtures' as const, label: 'Fixture matrix', hint: 'FDR & xG swings', icon: CalendarDays },
+    { id: 'league' as const, label: 'League intel', hint: 'Team & rivals', icon: Trophy },
+    { id: 'method' as const, label: 'Model & automation', hint: 'Scoring & engine', icon: BrainCircuit },
   ];
 
   return (
@@ -42,7 +44,12 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
       />
       <aside className={classNames('sidebar', open && 'is-open')} aria-label="Main navigation">
         <div className="sidebar__header">
-          <button type="button" className="sidebar__brand-button" onClick={() => onNavigate('command')} aria-label="Go to command center">
+          <button
+            type="button"
+            className="sidebar__brand-button"
+            onClick={() => onNavigate('command')}
+            aria-label="FPL VORTEX home"
+          >
             <Brand />
           </button>
           <button type="button" className="icon-button sidebar__close" onClick={onClose} aria-label="Close navigation">
@@ -51,21 +58,34 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
         </div>
 
         <div className="sidebar__season">
-          <div className="sidebar__manager-row">
-            <img
-              src="/player-images/brand/fpl-vortex-lion.jpg"
-              alt="FPL VORTEX lion crest"
-              className="sidebar__repo-crest"
-              loading="lazy"
-            />
-            <div>
-              <span className="sidebar__season-label">TEAM #{entry?.id ?? 145784}</span>
-              <strong>{entry?.teamName ?? 'FPLVORTEX'}</strong>
-              <span>
-                {snapshot?.meta.season ?? '2026/27'} ·{' '}
-                {entry?.overallRank ? `OR ${formatNumber(entry.overallRank)}` : 'GW8–16 active'}
-              </span>
-            </div>
+          <div className="sidebar__channel-links">
+            <a
+              href="https://www.youtube.com/@Fplvortex"
+              target="_blank"
+              rel="noreferrer"
+              className="sidebar__yt-pill"
+            >
+              <span className="sidebar__yt-icon"><Play size={10} fill="currentColor" /></span>
+              <strong>@FPLVORTEX</strong>
+              <ExternalLink size={11} />
+            </a>
+            <a
+              href="https://x.com/FplVortexM"
+              target="_blank"
+              rel="noreferrer"
+              className="sidebar__x-pill"
+              title="Follow @FPLVORTEXM on X"
+            >
+              𝕏
+            </a>
+          </div>
+          <div className="sidebar__team-summary">
+            <span className="sidebar__season-label">SEASON {snapshot?.meta.season ?? '2026/27'}</span>
+            <strong>{entry?.teamName ?? 'FPLVORTEX'} · #{entry?.id ?? 145784}</strong>
+            <span>
+              {entry?.overallRank ? `OR ${formatNumber(entry.overallRank)} · ` : ''}
+              {entry?.freeTransfers ?? 4} FT · £{((entry?.history.bank ?? 4) / 10).toFixed(1)}m ITB
+            </span>
           </div>
         </div>
 
@@ -99,12 +119,12 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
           <div className="sidebar__status-card">
             <div className="sidebar__status-head">
               <span className={classNames('pulse-dot', snapshot?.meta.upstreamOk ? 'is-live' : 'is-stale')} />
-              <strong>Repo-first data engine</strong>
+              <strong>Automated data engine</strong>
             </div>
             <p>
               {snapshot?.meta.upstreamOk
-                ? 'Repo GW7–16 projections + live FPL feeds synchronized.'
-                : 'Repo GW7–16 CSV projections primary · offline fixture/code supplement.'}
+                ? 'Live Premier League feeds and GW projections synchronized.'
+                : 'GW7–16 projections active with resilient snapshot sync.'}
             </p>
             <div className="sidebar__status-meta">
               <span>{snapshot?.players.length ?? 667} players</span>
@@ -112,8 +132,8 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
             </div>
           </div>
           <div className="sidebar__version">
-            <span>@FPLVORTEX</span>
-            <span>2026/27 DEFCON</span>
+            <span>FPL VORTEX</span>
+            <span>youtube.com/@Fplvortex</span>
           </div>
         </div>
       </aside>

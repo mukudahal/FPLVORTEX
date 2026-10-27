@@ -165,11 +165,11 @@ export function LeagueIntel({
     <div className="page page--league">
       <section className="panel connect-panel" aria-label="Team and league scanner">
         <div>
-          <span className="panel__eyebrow">MANAGER & MINI-LEAGUE SCANNER</span>
-          <h3>Connected to repository Entry #{activeTeamId} ({entry?.teamName ?? 'FPLVORTEX'})</h3>
+          <span className="panel__eyebrow">TEAM & MINI-LEAGUE INTELLIGENCE</span>
+          <h3>Connect without a password · {entry?.teamName ?? 'FPLVORTEX'} (#{activeTeamId})</h3>
           <p>
-            Inspect your 15-player squad, expected rank impact `(multiplier − EO) × xPts`, exact 1-FT upgrades, and
-            classic mini-league rivals. Defaults to repository Entry `145784` (`FPLVORTEX`).
+            Scan any public FPL Team ID and classic mini-league to inspect projected points, effective ownership rank
+            swings, one-move upgrades, and rival standings.
           </p>
         </div>
 
@@ -353,8 +353,8 @@ export function LeagueIntel({
           <section className="panel">
             <div className="panel__header">
               <div>
-                <span className="panel__eyebrow">EXPECTED RANK IMPACT (`(mult − EO) × xPts`)</span>
-                <h3>Differential leverage vs EO threats</h3>
+                <span className="panel__eyebrow">EFFECTIVE OWNERSHIP LEVERAGE</span>
+                <h3>Differential climbers vs field threats</h3>
               </div>
               <Crown size={17} />
             </div>

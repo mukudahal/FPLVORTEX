@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 process.env.VORTEX_OFFLINE = '1';
 
 import { getEntry, getSnapshot } from '../server/fpl.ts';
+import { getRepoVideos } from '../server/repoData.ts';
 import { buildInsights, enrichPlayers, toRepoElement } from '../src/lib/analytics.ts';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
 import { getClubBadgeCandidates, getPlayerPhotoCandidates } from '../src/lib/playerImages.ts';
@@ -43,12 +44,14 @@ import {
 import { RULES_2026_27 } from '../src/lib/repoModel/seasonRules.ts';
 import { computePlayerXPts, computePositionPriors } from '../src/lib/repoModel/xpts.ts';
 
-// Import all 6 route components for full DOM & portrait verification
+// Import all 6 route components + Brand/Sidebar for full DOM & portrait verification
+import { Brand } from '../src/components/Brand.tsx';
 import { CommandCenter } from '../src/components/CommandCenter.tsx';
 import { FixtureMatrix } from '../src/components/FixtureMatrix.tsx';
 import { LeagueIntel } from '../src/components/LeagueIntel.tsx';
 import { Methodology } from '../src/components/Methodology.tsx';
 import { PlayerLab } from '../src/components/PlayerLab.tsx';
+import { Sidebar } from '../src/components/Sidebar.tsx';
 import { SquadBuilder } from '../src/components/SquadBuilder.tsx';
 
 test('exact mathematical parity on 25 sample players against site/model/{xpts,minutes}.ts', async () => {
@@ -209,6 +212,25 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.ok(arsenalBadges.length >= 3);
   assert.match(arsenalBadges[0], /^https:\/\/resources\.premierleague\.com\/premierleague\/badges\/100\/t3\.png$/);
 
+  const videosPayload = await getRepoVideos();
+  const htmlSidebar = renderToStaticMarkup(
+    React.createElement(Sidebar, {
+      route: 'command',
+      onNavigate: noop,
+      snapshot,
+      entry,
+      open: false,
+      onClose: noop,
+    }),
+  );
+  assert.match(htmlSidebar, /\/player-images\/brand\/fpl-vortex-lion\.jpg/);
+  assert.match(htmlSidebar, /FPL VORTEX/);
+  assert.match(htmlSidebar, /https:\/\/www\.youtube\.com\/@Fplvortex/);
+  assert.doesNotMatch(htmlSidebar, /fplcore/i);
+
+  const htmlBrand = renderToStaticMarkup(React.createElement(Brand));
+  assert.match(htmlBrand, /\/player-images\/brand\/fpl-vortex-lion\.jpg/);
+
   const htmlCommand = renderToStaticMarkup(
     React.createElement(CommandCenter, {
       snapshot,
@@ -216,15 +238,36 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       players,
       insights,
       fixtureRows,
+      initialVideos: videosPayload.videos,
       profile: 'balanced',
+      teamId: '145784',
+      onTeamIdChange: noop,
+      onSelectPlayer: noop,
       onNavigate: noop,
       onOpenPalette: noop,
       onRefresh: noop,
       refreshing: false,
     }),
   );
+  // Tier 1: Hero + Vortex Orb + Captain & Fixture float cards
+  assert.match(htmlCommand, /Every transfer, captain and fixture/);
+  assert.match(htmlCommand, /vortex-orb/);
+  assert.match(htmlCommand, /#1 Captain/);
+  assert.match(htmlCommand, /Best 5-GW run/);
+  // Tier 2: Soccer Pitch + GW Fixtures + GW Projected Goals (20 clubs)
   assert.match(htmlCommand, /FPLVORTEX/);
   assert.match(htmlCommand, /145784/);
+  assert.match(htmlCommand, /vx-soccer-pitch/);
+  assert.equal((htmlCommand.match(/vx-pitch-player"/g) ?? []).length + (htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length, 15);
+  assert.match(htmlCommand, /Projected xG/);
+  assert.equal((htmlCommand.match(/class="vx-club-bar-row"/g) ?? []).length, 20);
+  // Tier 3: Top Players + Price & Transfers + Injuries & Suspensions + @FPLVORTEX YouTube strip
+  assert.match(htmlCommand, /Top Players/);
+  assert.match(htmlCommand, /Price &amp; Transfers/);
+  assert.match(htmlCommand, /Injuries &amp; Suspensions/);
+  assert.match(htmlCommand, /Latest FPL Videos · @FPLVORTEX/);
+  assert.match(htmlCommand, /https:\/\/www\.youtube\.com\/@Fplvortex/);
+  assert.doesNotMatch(htmlCommand, /fplcore/i);
 
   const htmlOptimizer = renderToStaticMarkup(
     React.createElement(SquadBuilder, {

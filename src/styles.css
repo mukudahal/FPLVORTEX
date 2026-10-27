@@ -1626,3 +1626,1436 @@ kbd { font-family: var(--font); font-size: 9px; font-weight: 800; color: var(--t
     grid-template-columns: 18px 32px 1fr 44px;
   }
 }
+
+
+/* ==========================================================================
+   FPL VORTEX — Top-Left Crowned Lion Brand & @FPLVORTEX Channel Strip
+   ========================================================================== */
+.brand--lion {
+  gap: 12px;
+}
+.brand__lion-wrap {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  padding: 2px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--brand-mint), var(--brand-violet) 55%, var(--brand-pink));
+  box-shadow: 0 0 22px rgba(119, 114, 255, 0.34), inset 0 0 12px rgba(91, 245, 214, 0.25);
+  overflow: hidden;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+.brand--compact .brand__lion-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+.brand__lion-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+  background: #070914;
+}
+.brand--compact .brand__lion-img {
+  border-radius: 9px;
+}
+.brand--lion .brand__text strong {
+  font-size: 15.5px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  background: linear-gradient(95deg, #ffffff 15%, var(--brand-mint) 65%, #c4bfff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+:root[data-theme="light"] .brand--lion .brand__text strong {
+  background: linear-gradient(95deg, #0f172a 15%, #4338ca 65%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand--lion .brand__text small {
+  color: var(--brand-mint);
+  letter-spacing: 0.14em;
+  font-size: 8.5px;
+}
+:root[data-theme="light"] .brand--lion .brand__text small {
+  color: #4f46e5;
+}
+
+.sidebar__channel-links {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.sidebar__yt-pill,
+.sidebar__x-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+:root[data-theme="light"] .sidebar__yt-pill,
+:root[data-theme="light"] .sidebar__x-pill {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.1);
+}
+.sidebar__yt-pill:hover,
+.sidebar__x-pill:hover {
+  transform: translateY(-1px);
+  border-color: var(--brand-mint);
+}
+.sidebar__yt-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #ff3b5c, #ff5bc8);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+}
+.sidebar__x-pill {
+  width: 32px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--brand-mint);
+}
+:root[data-theme="light"] .sidebar__x-pill {
+  color: #4338ca;
+}
+.sidebar__team-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.topbar__mobile-lion {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1.5px solid rgba(91, 245, 214, 0.55);
+  box-shadow: 0 0 14px rgba(119, 114, 255, 0.3);
+  flex: 0 0 auto;
+}
+@media (max-width: 1040px) {
+  .topbar__mobile-lion {
+    display: block;
+  }
+}
+
+/* ==========================================================================
+   Hero Refinements (Lion Crest in Vortex Orb + Float Card Stacking)
+   ========================================================================== */
+.vortex-orb__crest {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(91, 245, 214, 0.55);
+  box-shadow: 0 0 14px rgba(91, 245, 214, 0.35);
+  margin-bottom: 3px;
+}
+:root[data-theme="light"] .vortex-orb__core {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(99, 102, 241, 0.28);
+}
+:root[data-theme="light"] .vortex-orb__core span {
+  color: #4338ca;
+}
+.float-card {
+  min-width: 174px;
+  padding: 12px 15px;
+}
+:root[data-theme="light"] .float-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(99, 102, 241, 0.22);
+}
+.float-card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.float-card__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.15;
+}
+.float-card__copy strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 850;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.float-card__copy small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   GW Stepper & Deadline Bar (.vx-gw-bar)
+   ========================================================================== */
+.vx-gw-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  flex-wrap: wrap;
+}
+.vx-gw-bar__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.vx-gw-bar__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--brand-mint);
+  box-shadow: 0 0 10px var(--brand-mint);
+}
+.vx-gw-bar__left strong {
+  font-size: 14px;
+  font-weight: 850;
+}
+.vx-gw-bar__season {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(91, 245, 214, 0.12);
+  border: 1px solid rgba(91, 245, 214, 0.25);
+  color: var(--brand-mint);
+}
+:root[data-theme="light"] .vx-gw-bar__season {
+  background: rgba(79, 70, 229, 0.1);
+  border-color: rgba(79, 70, 229, 0.25);
+  color: #4338ca;
+}
+.vx-gw-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.vx-gw-stepper__btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+.vx-gw-stepper__select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.vx-gw-stepper__select-wrap select {
+  appearance: none;
+  padding: 7px 30px 7px 14px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.vx-gw-stepper__select-wrap svg {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: var(--text-muted);
+}
+.vx-gw-bar__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vx-deadline-chip {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.vx-deadline-chip strong {
+  color: var(--brand-mint);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  margin-left: 4px;
+}
+:root[data-theme="light"] .vx-deadline-chip strong {
+  color: #4338ca;
+}
+
+/* ==========================================================================
+   Shared 3-Column VORTEX Hub Cards (.vx-hub-upper, .vx-hub-lower, .vx-card)
+   ========================================================================== */
+.vx-hub-upper {
+  display: grid;
+  grid-template-columns: minmax(365px, 1.24fr) minmax(305px, 1fr) minmax(285px, 0.94fr);
+  gap: 18px;
+  margin-top: 18px;
+  align-items: stretch;
+}
+.vx-hub-lower {
+  display: grid;
+  grid-template-columns: minmax(290px, 1fr) minmax(350px, 1.18fr) minmax(295px, 1fr);
+  gap: 18px;
+  margin-top: 18px;
+  align-items: stretch;
+}
+.vx-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  min-width: 0;
+  overflow: hidden;
+}
+.vx-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.vx-card__header--wrap {
+  flex-wrap: wrap;
+}
+.vx-card__header h3 {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+}
+.vx-card__sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.vx-card__title-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.vx-icon-amber { color: var(--brand-amber); }
+.vx-icon-mint { color: var(--brand-mint); }
+.vx-icon-pink { color: var(--brand-pink); }
+
+.vx-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  padding: 3px 2px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--brand-mint);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+}
+:root[data-theme="light"] .vx-inline-link {
+  color: #4f46e5;
+}
+.vx-inline-link:hover {
+  transform: translateX(2px);
+  opacity: 0.88;
+}
+.vx-card__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.vx-card--fixtures .vx-card__scroll,
+.vx-card--goals .vx-card__scroll {
+  max-height: 575px;
+}
+.vx-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.vx-card__footer--spread {
+  justify-content: space-between;
+}
+.button--xs {
+  padding: 5px 10px;
+  font-size: 11.5px;
+  border-radius: 8px;
+}
+.mono-num {
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ==========================================================================
+   Tier 2 Col 1 — FPLVORTEX Soccer Pitch Card (.vx-card--pitch)
+   ========================================================================== */
+.vx-pitch-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.vx-pitch-header__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.vx-pitch-header__identity > strong {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.vx-team-id-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: var(--panel-soft);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vx-team-id-trigger:hover {
+  border-color: var(--brand-mint);
+  color: var(--text-primary);
+}
+.vx-team-id-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+.vx-team-id-form input {
+  width: 84px;
+  padding: 4px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--brand-mint);
+  background: var(--panel-soft);
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.vx-pitch-header__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 15px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(91, 245, 214, 0.12), rgba(119, 114, 255, 0.18));
+  border: 1px solid rgba(140, 128, 255, 0.3);
+}
+.vx-pitch-header__center strong {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--brand-mint);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme="light"] .vx-pitch-header__center strong {
+  color: #4338ca;
+}
+.vx-pitch-header__center span {
+  font-size: 9.5px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.vx-pitch-header__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.vx-view-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+}
+.vx-view-toggle button {
+  width: 28px;
+  height: 24px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.vx-view-toggle button.is-active {
+  background: rgba(91, 245, 214, 0.18);
+  color: var(--brand-mint);
+}
+:root[data-theme="light"] .vx-view-toggle button.is-active {
+  background: rgba(79, 70, 229, 0.15);
+  color: #4338ca;
+}
+
+/* Soccer Pitch Arena */
+.vx-soccer-pitch {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(91, 245, 214, 0.26);
+  background: #063b27;
+  box-shadow: inset 0 0 42px rgba(0, 0, 0, 0.34);
+  flex: 1;
+}
+.vx-pitch-top-boards {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: linear-gradient(92deg, #0ea5e9 0%, #2dd4bf 28%, #7772FF 66%, #FF5BC8 100%);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.38);
+}
+.vx-pitch-goal-net {
+  width: 68px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  border-bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.2) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+.vx-pitch-board {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(7, 9, 20, 0.84);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  text-decoration: none;
+}
+.vx-pitch-board img {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.vx-pitch-board--link:hover {
+  border-color: var(--brand-mint);
+  color: var(--brand-mint);
+}
+.vx-pitch-turf {
+  position: relative;
+  background: repeating-linear-gradient(
+    180deg,
+    #0f7a4f 0px,
+    #0f7a4f 48px,
+    #0c6842 48px,
+    #0c6842 96px
+  );
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.vx-pitch-lines {
+  position: absolute;
+  inset: 0 0 98px 0;
+  pointer-events: none;
+}
+.vx-pitch-box-18 {
+  position: absolute;
+  top: 0;
+  left: 21%;
+  right: 21%;
+  height: 68px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-top: 0;
+}
+.vx-pitch-box-6 {
+  position: absolute;
+  top: 0;
+  left: 35%;
+  right: 35%;
+  height: 28px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-top: 0;
+}
+.vx-pitch-halfway {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 54%;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.26);
+}
+.vx-pitch-circle {
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.26);
+  top: calc(54% - 41px);
+  left: calc(50% - 41px);
+}
+.vx-pitch-formation {
+  position: relative;
+  z-index: 2;
+  padding: 12px 6px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 11px;
+  flex: 1;
+}
+.vx-pitch-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  gap: 4px;
+}
+
+/* Individual Player Card on Pitch */
+.vx-pitch-player {
+  position: relative;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.16s ease;
+}
+.vx-pitch-player:hover {
+  transform: translateY(-3px);
+}
+.vx-pitch-xp,
+.vx-pitch-pos-label {
+  font-size: 9px;
+  font-weight: 850;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: rgba(7, 9, 20, 0.84);
+  color: var(--brand-mint);
+  border: 1px solid rgba(91, 245, 214, 0.35);
+  margin-bottom: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vx-pitch-pos-label {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.vx-pitch-avatar-box {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.vx-pitch-portrait.player-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.92));
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.38);
+}
+.vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+  width: 40px;
+  height: 40px;
+}
+.vx-pitch-armband {
+  position: absolute;
+  right: -5px;
+  bottom: -3px;
+  z-index: 3;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 950;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.vx-pitch-armband.is-cap {
+  background: var(--brand-mint);
+  color: #050814;
+  border: 1.5px solid #ffffff;
+}
+.vx-pitch-armband.is-vice {
+  background: var(--brand-violet);
+  color: #ffffff;
+  border: 1.5px solid #ffffff;
+}
+.vx-pitch-flag {
+  position: absolute;
+  left: -6px;
+  top: -4px;
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  background: #fbbf24;
+  color: #090d16;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.vx-pitch-flag.is-severe {
+  background: #f43f5e;
+  color: #ffffff;
+}
+.vx-pitch-name {
+  width: 100%;
+  margin-top: 4px;
+  padding: 2px 4px;
+  border-radius: 5px 5px 0 0;
+  background: rgba(255, 255, 255, 0.96);
+  color: #070914;
+  font-size: 10px;
+  font-weight: 850;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.vx-pitch-fix {
+  width: 100%;
+  padding: 2px 4px;
+  border-radius: 0 0 5px 5px;
+  font-size: 9px;
+  font-weight: 850;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.vx-pitch-fix.is-easy {
+  background: #10b981;
+  color: #042f2e;
+}
+.vx-pitch-fix.is-medium {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+.vx-pitch-fix.is-hard {
+  background: linear-gradient(135deg, #ef4444, #e11d48);
+  color: #ffffff;
+}
+.vx-pitch-fix.is-blank {
+  background: #334155;
+  color: #cbd5e1;
+}
+.vx-pitch-fix--inline {
+  width: auto;
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+/* 4-Man Bench Tray inside bottom of pitch */
+.vx-pitch-bench {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 6px 12px;
+  background: linear-gradient(180deg, rgba(6, 38, 26, 0.94), rgba(7, 9, 20, 0.96));
+  border-top: 1.5px solid rgba(91, 245, 214, 0.28);
+}
+
+/* Squad Table Fallback View */
+.vx-squad-table-wrap {
+  overflow-x: auto;
+  flex: 1;
+}
+.vx-compact-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.vx-compact-table th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.vx-compact-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.vx-compact-table tr.is-bench-row {
+  opacity: 0.72;
+}
+.vx-mini-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ==========================================================================
+   Tier 2 Col 2 — GW Fixtures Card (.vx-card--fixtures)
+   ========================================================================== */
+.vx-fixture-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.vx-fixture-group:last-child {
+  margin-bottom: 0;
+}
+.vx-fixture-date-banner {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  padding: 5px 12px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, rgba(91, 245, 214, 0.2), rgba(119, 114, 255, 0.32), rgba(255, 91, 200, 0.22));
+  border: 1px solid rgba(140, 128, 255, 0.3);
+  color: var(--text-primary);
+}
+.vx-match-item {
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--panel-soft);
+  padding: 9px 11px;
+  transition: border-color 0.16s ease;
+}
+.vx-match-item:hover {
+  border-color: rgba(91, 245, 214, 0.42);
+}
+.vx-match-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text-primary);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.vx-match-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.vx-match-team.is-home {
+  justify-content: flex-end;
+}
+.vx-match-team.is-away {
+  justify-content: flex-start;
+}
+.vx-match-chevron {
+  color: var(--text-muted);
+  margin-left: auto;
+  transition: transform 0.16s ease;
+}
+.vx-match-chevron.is-open {
+  transform: rotate(180deg);
+}
+.vx-match-pill {
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+.vx-match-pill.is-finished {
+  background: rgba(91, 245, 214, 0.14);
+  border-color: rgba(91, 245, 214, 0.35);
+  color: var(--brand-mint);
+}
+.vx-xg-split-bar {
+  display: flex;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  gap: 2px;
+  margin-top: 8px;
+}
+.vx-xg-split-bar > span {
+  height: 100%;
+  border-radius: 999px;
+}
+.vx-xg-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.vx-xg-labels span {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+.vx-match-probs {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   Tier 2 Col 3 — GW Projected Goals / CS% / Win% (.vx-card--goals)
+   ========================================================================== */
+.vx-seg-pills {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+.vx-seg-pills button {
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.vx-seg-pills button.is-active {
+  background: linear-gradient(135deg, var(--brand-mint), var(--brand-violet));
+  color: #060914;
+}
+.vx-club-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.vx-club-bar-row {
+  display: grid;
+  grid-template-columns: 20px 20px 36px 54px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 8px;
+  font-size: 11.5px;
+}
+.vx-club-bar-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.vx-row-idx {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.vx-club-short {
+  font-size: 11.5px;
+  font-weight: 850;
+}
+.vx-club-opp {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+:root[data-theme="light"] .vx-bar-track {
+  background: rgba(15, 23, 42, 0.08);
+}
+.vx-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-mint), var(--brand-violet));
+}
+.vx-club-val {
+  font-size: 11.5px;
+  font-weight: 850;
+  text-align: right;
+}
+
+/* ==========================================================================
+   Tier 3 Col 1 — Top Players (.vx-top-players-list)
+   ========================================================================== */
+.vx-mini-select {
+  padding: 5px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.vx-top-players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6.5px;
+}
+.vx-top-player-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 18px 34px minmax(105px, 1.15fr) 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: var(--panel-soft);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.vx-top-player-row:hover {
+  border-color: rgba(91, 245, 214, 0.42);
+  transform: translateX(2px);
+}
+.vx-player-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vx-player-meta strong {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-player-meta small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.vx-top-score {
+  font-size: 12.5px;
+  font-weight: 900;
+  text-align: right;
+  color: var(--brand-mint);
+}
+:root[data-theme="light"] .vx-top-score {
+  color: #4338ca;
+}
+
+/* ==========================================================================
+   Tier 3 Col 2 — Price & Transfers (.vx-transfer-table)
+   ========================================================================== */
+.vx-transfer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.vx-transfer-table th {
+  text-align: left;
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.vx-transfer-table th.is-right,
+.vx-transfer-table td.is-right {
+  text-align: right;
+}
+.vx-transfer-table th button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.vx-transfer-table th button:hover {
+  color: var(--brand-mint);
+}
+.vx-transfer-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.vx-clickable-row {
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+.vx-clickable-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.vx-transfer-table td.is-positive {
+  color: var(--brand-mint);
+  font-weight: 800;
+}
+:root[data-theme="light"] .vx-transfer-table td.is-positive {
+  color: #059669;
+}
+.vx-transfer-table td.is-negative {
+  color: #fb7185;
+  font-weight: 800;
+}
+.vx-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vx-pager__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+/* ==========================================================================
+   Tier 3 Col 3 — Injuries & Suspensions (.vx-injuries-list)
+   ========================================================================== */
+.vx-injuries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6.5px;
+}
+.vx-injury-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 34px 1fr 20px;
+  align-items: center;
+  gap: 9px;
+  padding: 6.5px 9px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: var(--panel-soft);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.vx-injury-row:hover {
+  border-color: rgba(251, 113, 133, 0.45);
+}
+.vx-injury-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vx-injury-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.vx-injury-head strong {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-injury-head span {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.vx-injury-copy small {
+  font-size: 10.5px;
+  color: #fda4af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-theme="light"] .vx-injury-copy small {
+  color: #be123c;
+}
+.vx-warn-icon {
+  display: grid;
+  place-items: center;
+  color: #fbbf24;
+}
+.vx-warn-icon.is-severe {
+  color: #fb7185;
+}
+
+/* ==========================================================================
+   Bottom Full-Width @FPLVORTEX YouTube Videos Strip (.vx-videos-strip)
+   ========================================================================== */
+.vx-videos-strip {
+  margin-top: 18px;
+  padding: 18px;
+}
+.vx-yt-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #ff3b5c, #ff5bc8);
+  color: #ffffff;
+}
+.vx-yt-channel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 245, 214, 0.35);
+  background: linear-gradient(135deg, rgba(91, 245, 214, 0.1), rgba(119, 114, 255, 0.16));
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+.vx-yt-channel-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--brand-mint);
+}
+.vx-yt-channel-btn img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.vx-videos-carousel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.vx-video-tile {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.vx-video-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--brand-mint);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+.vx-video-tile__thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #111633, #1e1b4b);
+  overflow: hidden;
+}
+.vx-video-tile__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.24s ease;
+}
+.vx-video-tile:hover .vx-video-tile__thumb img {
+  transform: scale(1.04);
+}
+.vx-video-tile__play {
+  position: absolute;
+  bottom: 9px;
+  left: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(7, 9, 20, 0.86);
+  border: 1px solid rgba(91, 245, 214, 0.5);
+  color: var(--brand-mint);
+  font-size: 10.5px;
+  font-weight: 850;
+  backdrop-filter: blur(6px);
+}
+.vx-video-tile__body {
+  padding: 12px 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+.vx-video-tile__body strong {
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.38;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vx-video-tile__body span {
+  font-size: 10.5px;
+  font-weight: 750;
+  color: var(--brand-mint);
+  margin-top: auto;
+}
+:root[data-theme="light"] .vx-video-tile__body span {
+  color: #4f46e5;
+}
+.vx-video-tile__body small {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+/* Flagged Player Availability Modal */
+.vx-flag-modal {
+  width: min(460px, 92vw);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.vx-flag-modal__head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+}
+.vx-flag-modal__head h3 {
+  margin: 3px 0 4px;
+  font-size: 17px;
+}
+.vx-flag-modal__head p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #fda4af;
+}
+:root[data-theme="light"] .vx-flag-modal__head p {
+  color: #be123c;
+}
+.vx-flag-modal__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.vx-flag-modal__stats div {
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.vx-flag-modal__stats span {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.vx-flag-modal__stats strong {
+  font-size: 14px;
+}
+.vx-flag-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints for 3-Column VORTEX Hub
+   ========================================================================== */
+@media (max-width: 1320px) {
+  .vx-hub-upper {
+    grid-template-columns: minmax(340px, 1.15fr) minmax(290px, 1fr);
+  }
+  .vx-card--goals {
+    grid-column: 1 / -1;
+  }
+  .vx-hub-lower {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vx-hub-lower > .vx-card:last-child {
+    grid-column: 1 / -1;
+  }
+  .vx-videos-carousel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 920px) {
+  .vx-hub-upper,
+  .vx-hub-lower,
+  .vx-videos-carousel {
+    grid-template-columns: 1fr;
+  }
+  .vx-gw-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vx-gw-bar__right {
+    justify-content: space-between;
+  }
+  .vx-pitch-player {
+    width: 62px;
+  }
+}
