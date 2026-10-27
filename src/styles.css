@@ -3438,3 +3438,167 @@ kbd { font-family: var(--font); font-size: 9px; font-weight: 800; color: var(--t
     width: 72px;
   }
 }
+
+/* ==========================================================================
+   Global Premium Typography & Contrast Polish (per BRAND-KIT.md Type Scale)
+   ========================================================================== */
+.hero.hero--compact {
+  min-height: 0;
+  padding: 20px 26px;
+  border-radius: 24px;
+}
+.hero--compact .hero__content {
+  padding: 0;
+  max-width: none;
+}
+.hero--compact .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  margin-bottom: 8px;
+}
+.hero--compact .hero__content--compact h2 {
+  font-size: clamp(25px, 2.35vw, 35px);
+  line-height: 1.1;
+  margin: 0 0 12px;
+}
+.hero--compact .hero__visual--compact {
+  min-height: 228px;
+}
+.hero--compact .vortex-orb--compact {
+  width: min(226px, 64%);
+}
+
+/* Global App Shell, Sidebar, Topbar, Tables & Secondary Views Legibility */
+.panel__eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+.panel__header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.sidebar__season-label,
+.sidebar__section-label {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+.nav-item__text strong {
+  font-size: 13.5px;
+  font-weight: 750;
+}
+.nav-item__text small {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.sidebar__status-head {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.sidebar__status-card p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.sidebar__status-meta span {
+  font-size: 10.5px;
+}
+.sidebar__version {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+.topbar__heading h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.topbar__heading p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.search-trigger {
+  min-width: 268px;
+  height: 40px;
+}
+.search-trigger span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+kbd {
+  font-size: 10.5px;
+}
+.gameweek-chip {
+  height: 40px;
+  font-size: 12.5px;
+}
+.gameweek-chip small {
+  font-size: 9.5px;
+}
+.source-pill {
+  height: 40px;
+  font-size: 11.5px;
+}
+.app-footer {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Stat Cards, Player Lab, Fixture Matrix, Squad Optimizer & League Intel */
+.stat-card__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.stat-card__value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-card__delta {
+  font-size: 11.5px;
+}
+.stat-card__footer {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.position-tag {
+  font-size: 10.5px;
+  height: 24px;
+  min-width: 40px;
+}
+.filter-control > span {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+.player-results-meta {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.player-table th {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.player-table td {
+  font-size: 13.5px;
+}
+.table-player strong {
+  font-size: 14px;
+  font-weight: 750;
+}
+.table-player small {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.fdr-pill,
+.fdr-chip {
+  font-size: 11px;
+  font-weight: 800;
+}
+.pitch-player__info strong {
+  font-size: 12px;
+  font-weight: 800;
+}
+.pitch-player__info small {
+  font-size: 10.5px;
+}
+.pitch-player__projection {
+  font-size: 11px;
+}

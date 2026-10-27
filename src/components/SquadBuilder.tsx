@@ -192,11 +192,12 @@ export function SquadBuilder({
     if (entry?.freeTransfers) setFreeTransfers(entry.freeTransfers);
   }, [entry?.freeTransfers]);
 
+  const baseSquadSignature = baseEntrySquadIds.join(',');
   useEffect(() => {
-    if (customSquadIds.length !== 15 && baseEntrySquadIds.length === 15) {
+    if (baseEntrySquadIds.length === 15) {
       setCustomSquadIds(baseEntrySquadIds);
     }
-  }, [baseEntrySquadIds, customSquadIds.length]);
+  }, [entry?.id, baseSquadSignature]);
 
   const autoResult = useMemo(
     () =>
@@ -743,7 +744,12 @@ export function SquadBuilder({
               <div className="pitch-panel__header">
                 <div>
                   <span className="panel__eyebrow">
-                    {squadMode === 'mySquad' ? `TEAM #${entry?.id ?? 145784} PITCH` : 'OPTIMAL XV PITCH'} · {result.formation}
+                    {squadMode === 'mySquad'
+                      ? entry
+                        ? `TEAM #${entry.id} (${entry.teamName.toUpperCase()}) PITCH`
+                        : 'TEMPLATE XV PITCH'
+                      : 'OPTIMAL XV PITCH'}{' '}
+                    · {result.formation}
                   </span>
                   <h3>Click any player to filter replacements</h3>
                 </div>
