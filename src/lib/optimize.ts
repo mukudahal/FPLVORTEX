@@ -1,3 +1,8 @@
+/**
+ * Squad Lineup, Full-Squad ILP & Transfer Adapter
+ * Powered directly by `1_APP_dashboard/src/lib/optimizer.ts` + `1_APP_dashboard/src/lib/solver.py`
+ * (`solveLineupTS`, `solveFullSquadTS`, `solveKTransfersExactTS`) and `site/model/seasonRules.ts` (`RULES_2026_27`).
+ */
 import type {
   EnrichedPlayer,
   Position,
@@ -7,23 +12,18 @@ import type {
   TransferSuggestion,
 } from './types';
 import { clamp, round } from './format';
+import {
+  positionToType,
+  solveFullSquadTS,
+  solveKTransfersExactTS,
+  solveLineupTS,
+  type SolverPlayerNode,
+} from './repoModel/fplReviewSimulator';
+import { RULES_2026_27 } from './repoModel/seasonRules';
 
 export const POSITION_QUOTAS: Record<Position, number> = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
-export const DEFAULT_BUDGET_TENTHS = 1000;
-export const MAX_PLAYERS_PER_CLUB = 3;
-
-const FORMATIONS: Array<[number, number, number]> = [
-  [3, 5, 2],
-  [3, 4, 3],
-  [4, 4, 2],
-  [4, 3, 3],
-  [4, 5, 1],
-  [5, 3, 2],
-  [5, 4, 1],
-  [5, 2, 3],
-  [3, 5, 2],
-  [4, 2, 4],
-];
+export const DEFAULT_BUDGET_TENTHS = RULES_2026_27.maxBudgetTenths; // 1000 (£100.0m)
+export const MAX_PLAYERS_PER_CLUB = RULES_2026_27.maxPerClub; // 3
 
 export interface OptimizeOptions {
   budget?: number;
@@ -34,213 +34,75 @@ export interface OptimizeOptions {
   poolSize?: number;
 }
 
-interface Candidate {
-  player: EnrichedPlayer;
-  index: number;
-  score: number;
-}
-
-interface BeamState {
-  ids: number[];
-  costs: number;
-  score: number;
-  teamCounts: Uint8Array;
-  cursor: number;
-}
-
-function profileScore(player: EnrichedPlayer, profile: RiskProfile): number {
-  switch (profile) {
-    case 'safe':
-      return player.projection * 0.92 + player.confidence * 0.55 + (player.ownership / 100) * 0.32;
-    case 'differential':
-      return player.projection * 1.03 + player.leverage * 0.8 - (player.ownership / 100) * 0.15;
-    case 'upside':
-      return player.projection * 1.05 + player.roleScore * 0.22 + Math.max(0, player.momentum) * 0.18;
-    default:
-      return player.projection + player.confidence * 0.12;
+function toSolverMap(players: EnrichedPlayer[]): Map<number, SolverPlayerNode> {
+  const byId = new Map<number, SolverPlayerNode>();
+  for (const p of players) {
+    byId.set(p.id, {
+      id: p.id,
+      type: positionToType(p.position),
+      team: p.teamId,
+      cost: p.cost,
+      name: p.name,
+    });
   }
+  return byId;
 }
 
-function buildCandidatePool(
-  players: EnrichedPlayer[],
-  position: Position,
-  profile: RiskProfile,
-  poolSize: number,
-  lockedIds: Set<number>,
-  excludedIds: Set<number>,
-): Candidate[] {
-  const eligible = players.filter((player) => {
-    if (player.position !== position || player.cost <= 0) return false;
-    if (excludedIds.has(player.id) && !lockedIds.has(player.id)) return false;
-    return player.availability >= 0.08;
-  });
-  const ranked = eligible
-    .map((player) => ({ player, score: profileScore(player, profile) }))
-    .sort((a, b) => b.score - a.score || a.player.cost - b.player.cost);
-  const selected = ranked.slice(0, poolSize);
-  const cheapest = [...eligible].sort((a, b) => a.cost - b.cost).slice(0, 4);
-  const locked = eligible.filter((player) => lockedIds.has(player.id));
-  const unique = new Map<number, EnrichedPlayer>();
-  for (const item of [...selected.map((item) => item.player), ...cheapest, ...locked]) {
-    unique.set(item.id, item);
-  }
-  return [...unique.values()]
-    .map((player, index) => ({ player, index, score: profileScore(player, profile) }))
-    .sort((a, b) => b.score - a.score || a.player.cost - b.player.cost)
-    .map((item, index) => ({ ...item, index }));
-}
-
-function initialState(locked: EnrichedPlayer[]): BeamState {
-  const teamCounts = new Uint8Array(32);
-  let costs = 0;
-  let score = 0;
-  const ids: number[] = [];
-  for (const player of locked) {
-    if (ids.includes(player.id)) continue;
-    ids.push(player.id);
-    costs += player.cost;
-    score += player.projection;
-    if (player.teamId >= 0 && player.teamId < teamCounts.length) teamCounts[player.teamId] += 1;
-  }
-  return { ids, costs, score, teamCounts, cursor: -1 };
-}
-
-function minRemainingCost(
-  pools: Array<{ position: Position; needed: number; candidates: Candidate[] }>,
-  groupIndex: number,
-): number {
-  let total = 0;
-  for (let index = groupIndex; index < pools.length; index += 1) {
-    const pool = pools[index];
-    if (!pool || pool.needed <= 0) continue;
-    const costs = pool.candidates.map((candidate) => candidate.player.cost).sort((a, b) => a - b);
-    if (costs.length < pool.needed) return Number.POSITIVE_INFINITY;
-    total += costs.slice(0, pool.needed).reduce((sum, cost) => sum + cost, 0);
-  }
-  return total;
-}
-
-function expandBeam(
-  states: BeamState[],
-  pool: Candidate[],
-  needed: number,
-  budget: number,
-  beamWidth: number,
-  remainingCostAfterGroup: number,
-): BeamState[] {
-  let current = states;
-  for (let slot = 0; slot < needed; slot += 1) {
-    const next: BeamState[] = [];
-    for (const state of current) {
-      for (const candidate of pool) {
-        if (candidate.index <= state.cursor) continue;
-        const { player } = candidate;
-        if (state.ids.includes(player.id)) continue;
-        const clubCount = state.teamCounts[player.teamId] ?? 0;
-        if (clubCount >= MAX_PLAYERS_PER_CLUB) continue;
-        const newCost = state.costs + player.cost;
-        if (newCost > budget) continue;
-        const slotsAfterThis = needed - slot - 1;
-        const cheapestInGroup = pool
-          .filter((item) => item.index > candidate.index)
-          .slice(0, slotsAfterThis)
-          .reduce((sum, item) => sum + item.player.cost, 0);
-        if (newCost + cheapestInGroup + remainingCostAfterGroup > budget) continue;
-        const teamCounts = new Uint8Array(state.teamCounts);
-        teamCounts[player.teamId] = clubCount + 1;
-        next.push({
-          ids: [...state.ids, player.id],
-          costs: newCost,
-          score: state.score + candidate.score,
-          teamCounts,
-          cursor: candidate.index,
-        });
-      }
-    }
-    if (!next.length) return [];
-    next.sort((a, b) => b.score - a.score || a.costs - b.costs);
-    current = next.slice(0, beamWidth);
-  }
-  return current.map((state) => ({ ...state, cursor: -1 }));
-}
-
-function cheapestFallback(players: EnrichedPlayer[], locked: EnrichedPlayer[]): EnrichedPlayer[] {
-  const squad = [...locked];
-  const index = new Map(players.map((player) => [player.id, player]));
-  for (const [position, quota] of Object.entries(POSITION_QUOTAS) as Array<[Position, number]>) {
-    const have = squad.filter((player) => player.position === position).length;
-    const candidates = players
-      .filter((player) => player.position === position && !squad.some((item) => item.id === player.id))
-      .sort((a, b) => a.cost - b.cost || b.projection - a.projection);
-    for (const player of candidates.slice(0, quota - have)) squad.push(player);
-  }
-  for (const id of squad.map((player) => player.id)) {
-    if (!index.has(id)) return squad;
-  }
-  return squad.slice(0, 15);
-}
-
-export function evaluateSquad(players: EnrichedPlayer[], profile: RiskProfile = 'balanced'): SquadResult {
+export function evaluateSquad(players: EnrichedPlayer[], _profile: RiskProfile = 'balanced'): SquadResult {
   if (players.length < 11) throw new Error('A squad needs at least eleven players.');
-  const sorted = [...players].sort((a, b) => a.position.localeCompare(b.position) || a.cost - b.cost);
-  const projectionRank = (player: EnrichedPlayer) => profileScore(player, profile);
-  const goalkeepers = sorted.filter((player) => player.position === 'GKP').sort((a, b) => projectionRank(b) - projectionRank(a));
-  const defenders = sorted.filter((player) => player.position === 'DEF').sort((a, b) => projectionRank(b) - projectionRank(a));
-  const midfielders = sorted.filter((player) => player.position === 'MID').sort((a, b) => projectionRank(b) - projectionRank(a));
-  const forwards = sorted.filter((player) => player.position === 'FWD').sort((a, b) => projectionRank(b) - projectionRank(a));
-  const preferredGk = goalkeepers[0];
-  if (!preferredGk) throw new Error('A squad needs a goalkeeper.');
+  const byId = toSolverMap(players);
+  const playerMap = new Map(players.map((p) => [p.id, p]));
+  const gwXPts: Record<number, number> = {};
+  for (const p of players) gwXPts[p.id] = p.projection;
 
-  let best: { starters: EnrichedPlayer[]; formation: string; score: number } | null = null;
-  for (const [defCount, midCount, fwdCount] of FORMATIONS) {
-    if (defenders.length < defCount || midfielders.length < midCount || forwards.length < fwdCount) continue;
-    const starters = [
-      preferredGk,
-      ...defenders.slice(0, defCount),
-      ...midfielders.slice(0, midCount),
-      ...forwards.slice(0, fwdCount),
-    ];
-    const starterIds = new Set(starters.map((player) => player.id));
-    const bench = sorted.filter((player) => !starterIds.has(player.id));
-    const rankedStarters = [...starters].sort((a, b) => b.projection - a.projection);
-    const captain = rankedStarters[0];
-    const score =
-      starters.reduce((sum, player) => sum + player.projection, 0) +
-      captain.projection +
-      bench.reduce((sum, player) => sum + player.projection, 0) * 0.075;
-    if (!best || score > best.score) {
-      best = { starters, formation: `${defCount}-${midCount}-${fwdCount}`, score };
-    }
-  }
-  if (!best) throw new Error('No valid formation could be built.');
-
-  const starterIds = new Set(best.starters.map((player) => player.id));
-  const rankedStarters = [...best.starters].sort((a, b) => b.projection - a.projection);
-  const captain = rankedStarters[0];
-  const viceCaptain = rankedStarters[1] ?? rankedStarters[0];
-  const squad: SquadPlayer[] = sorted.map((player) => ({
+  const lu = solveLineupTS(
+    players.map((p) => p.id),
+    byId,
+    gwXPts,
+  );
+  const starterSet = new Set(lu.starters);
+  const squad: SquadPlayer[] = players.map((player) => ({
     ...player,
-    isStarter: starterIds.has(player.id),
-    isCaptain: player.id === captain.id,
-    isViceCaptain: player.id === viceCaptain.id,
-    multiplier: player.id === captain.id ? 2 : starterIds.has(player.id) ? 1 : 0,
+    isStarter: starterSet.has(player.id),
+    isCaptain: player.id === lu.captainId,
+    isViceCaptain: player.id === lu.viceId,
+    multiplier: player.id === lu.captainId ? 2 : starterSet.has(player.id) ? 1 : 0,
   }));
-  const starters = squad.filter((player) => player.isStarter);
-  const bench = squad.filter((player) => !player.isStarter);
-  const costTenths = squad.reduce((sum, player) => sum + player.cost, 0);
-  const projectedPoints = best.score;
+
+  const starters = lu.starters
+    .map((id) => squad.find((p) => p.id === id))
+    .filter((p): p is SquadPlayer => Boolean(p));
+  const bench = lu.bench
+    .map((id) => squad.find((p) => p.id === id))
+    .filter((p): p is SquadPlayer => Boolean(p));
+  const captain = squad.find((p) => p.isCaptain) ?? starters[0] ?? squad[0];
+  const viceCaptain = squad.find((p) => p.isViceCaptain) ?? starters[1] ?? captain;
+
+  const costTenths = squad.reduce((sum, p) => sum + p.cost, 0);
+  const horizon5Points = round(
+    starters.reduce((sum, p) => sum + p.horizon5Projection * (p.isCaptain ? 2 : 1), 0),
+    1,
+  );
+  const averageConfidence = round(
+    squad.reduce((sum, p) => sum + p.confidence, 0) / Math.max(1, squad.length),
+    2,
+  );
+
+  // Preserve deterministic order inside positions for display
+  void playerMap;
   return {
     squad,
     starters,
     bench,
-    captain: squad.find((player) => player.isCaptain) ?? squad[0],
-    viceCaptain: squad.find((player) => player.isViceCaptain) ?? squad[1] ?? squad[0],
-    formation: best.formation,
+    captain,
+    viceCaptain,
+    formation: lu.formation,
     cost: round(costTenths / 10, 1),
-    projectedPoints: round(projectedPoints, 1),
-    averageOwnership: round(squad.reduce((sum, player) => sum + player.ownership, 0) / squad.length, 1),
-    averageConfidence: round(squad.reduce((sum, player) => sum + player.confidence, 0) / squad.length, 2),
-    riskScore: round(1 - squad.reduce((sum, player) => sum + player.confidence, 0) / squad.length, 2),
+    projectedPoints: round(lu.totalXPts + lu.benchXPts * 0.08, 1),
+    horizon5Points,
+    averageOwnership: round(squad.reduce((sum, p) => sum + p.ownership, 0) / Math.max(1, squad.length), 1),
+    averageConfidence,
+    riskScore: round(clamp(1 - averageConfidence, 0, 1), 2),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -248,106 +110,153 @@ export function evaluateSquad(players: EnrichedPlayer[], profile: RiskProfile = 
 export function optimizeSquad(players: EnrichedPlayer[], options: OptimizeOptions = {}): SquadResult {
   const budget = options.budget ?? DEFAULT_BUDGET_TENTHS;
   const profile = options.profile ?? 'balanced';
-  const beamWidth = options.beamWidth ?? 520;
-  const poolSize = options.poolSize ?? 22;
   const lockedIds = new Set(options.lockedIds ?? []);
   const excludedIds = new Set(options.excludedIds ?? []);
-  const playerIndex = new Map(players.map((player) => [player.id, player]));
-  const locked = [...lockedIds]
-    .map((id) => playerIndex.get(id))
-    .filter((player): player is EnrichedPlayer => Boolean(player));
 
-  const groupSpecs = (Object.keys(POSITION_QUOTAS) as Position[]).map((position) => {
-    const need = Math.max(0, POSITION_QUOTAS[position] - locked.filter((player) => player.position === position).length);
-    return {
-      position,
-      needed: need,
-      candidates: buildCandidatePool(players, position, profile, poolSize, lockedIds, excludedIds),
-    };
-  });
+  const byId = toSolverMap(players);
+  const playerMap = new Map(players.map((p) => [p.id, p]));
+  const gwXPts: Record<number, number> = {};
+  const horizonWeights: Record<number, number> = {};
 
-  let states = [initialState(locked)];
-  for (let groupIndex = 0; groupIndex < groupSpecs.length; groupIndex += 1) {
-    const group = groupSpecs[groupIndex];
-    if (group.needed === 0) continue;
-    const remaining = minRemainingCost(groupSpecs, groupIndex + 1);
-    states = expandBeam(states, group.candidates, group.needed, budget, beamWidth, remaining);
-    if (!states.length) break;
+  for (const p of players) {
+    gwXPts[p.id] = p.projection;
+    // Exact discounted horizon objective from `1_APP_dashboard/src/lib/solver.py`:
+    // 0.1 * next + 0.35 * discounted_future
+    const futureSum = Math.max(0, p.horizon5Projection - p.projection);
+    horizonWeights[p.id] = 0.1 * p.projection + 0.35 * futureSum * 0.78;
   }
 
-  let bestResult: SquadResult | null = null;
-  for (const state of states.slice(0, 120)) {
-    const squadPlayers = state.ids
-      .map((id) => playerIndex.get(id))
-      .filter((player): player is EnrichedPlayer => Boolean(player));
-    if (squadPlayers.length !== 15) continue;
-    try {
-      const result = evaluateSquad(squadPlayers, profile);
-      if (!bestResult || result.projectedPoints > bestResult.projectedPoints) bestResult = result;
-    } catch {
-      // Ignore malformed beam states.
+  const candidateIds = players
+    .filter((p) => p.cost > 0 && (!excludedIds.has(p.id) || lockedIds.has(p.id)) && (p.availability >= 0.08 || lockedIds.has(p.id)))
+    .map((p) => p.id);
+
+  const solvedIds = solveFullSquadTS(candidateIds, byId, budget, gwXPts, horizonWeights, lockedIds);
+  if (solvedIds && solvedIds.length === 15) {
+    const solvedPlayers = solvedIds
+      .map((id) => playerMap.get(id))
+      .filter((p): p is EnrichedPlayer => Boolean(p));
+    if (solvedPlayers.length === 15) {
+      return evaluateSquad(solvedPlayers, profile);
     }
   }
-  if (bestResult) return bestResult;
 
-  const fallback = cheapestFallback(players, locked);
-  return evaluateSquad(fallback, profile);
+  // Fallback if locked picks exceed budget: relax to cheapest valid completion
+  const relaxedIds = solveFullSquadTS(
+    players.filter((p) => p.cost > 0).map((p) => p.id),
+    byId,
+    Math.max(budget, 1050),
+    gwXPts,
+    horizonWeights,
+    lockedIds,
+  );
+  const fallbackPlayers = (relaxedIds ?? players.slice(0, 15).map((p) => p.id))
+    .map((id) => playerMap.get(id))
+    .filter((p): p is EnrichedPlayer => Boolean(p));
+  return evaluateSquad(fallbackPlayers, profile);
 }
 
 export function recommendTransfers(
   currentPlayers: EnrichedPlayer[],
   allPlayers: EnrichedPlayer[],
-  options: OptimizeOptions = {},
+  options: OptimizeOptions & { bankTenths?: number } = {},
 ): TransferSuggestion[] {
-  const profile = options.profile ?? 'balanced';
-  const squadCost = currentPlayers.reduce((sum, player) => sum + player.cost, 0);
-  const squadIds = new Set(currentPlayers.map((player) => player.id));
-  const clubCounts = new Map<number, number>();
-  for (const player of currentPlayers) clubCounts.set(player.teamId, (clubCounts.get(player.teamId) ?? 0) + 1);
-  const suggestions: TransferSuggestion[] = [];
+  const byId = toSolverMap(allPlayers);
+  const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
+  const squadIds = currentPlayers.map((p) => p.id);
+  const squadSet = new Set(squadIds);
+  const squadCost = currentPlayers.reduce((sum, p) => sum + p.cost, 0);
+  const bankTenths = options.bankTenths ?? Math.max(0, DEFAULT_BUDGET_TENTHS - squadCost);
 
+  const nextGwXPts: Record<number, number> = {};
+  const horizonWeights: Record<number, number> = {};
+  const sellingPrices: Record<number, number> = {};
+  for (const p of allPlayers) {
+    nextGwXPts[p.id] = p.projection;
+    horizonWeights[p.id] = 0.1 * p.projection + 0.35 * Math.max(0, p.horizon5Projection - p.projection) * 0.78;
+  }
+  for (const p of currentPlayers) {
+    sellingPrices[p.id] = p.cost;
+  }
+
+  const baseLu = solveLineupTS(squadIds, byId, nextGwXPts);
+  const clubCounts = new Map<number, number>();
+  for (const p of currentPlayers) {
+    clubCounts.set(p.teamId, (clubCounts.get(p.teamId) ?? 0) + 1);
+  }
+
+  const suggestions: TransferSuggestion[] = [];
   for (const outgoing of currentPlayers) {
-    const budgetAfterSale = DEFAULT_BUDGET_TENTHS - squadCost + outgoing.cost;
+    const maxBuy = bankTenths + (sellingPrices[outgoing.id] ?? outgoing.cost);
     const candidates = allPlayers
-      .filter((player) => {
-        if (player.position !== outgoing.position || squadIds.has(player.id)) return false;
-        const clubCount = (clubCounts.get(player.teamId) ?? 0) - (player.teamId === outgoing.teamId ? 1 : 0);
-        return clubCount < MAX_PLAYERS_PER_CLUB && player.cost <= budgetAfterSale;
+      .filter((cand) => {
+        if (cand.position !== outgoing.position || squadSet.has(cand.id)) return false;
+        if (cand.cost > maxBuy) return false;
+        const clubAfter = (clubCounts.get(cand.teamId) ?? 0) - (cand.teamId === outgoing.teamId ? 1 : 0);
+        return clubAfter < MAX_PLAYERS_PER_CLUB;
       })
-      .sort((a, b) => profileScore(b, profile) - profileScore(a, profile))
-      .slice(0, 8);
+      .sort((a, b) => b.projection + horizonWeights[b.id] - (a.projection + horizonWeights[a.id]))
+      .slice(0, 6);
+
     for (const incoming of candidates) {
-      const gain = round(profileScore(incoming, profile) - profileScore(outgoing, profile), 2);
-      if (gain <= 0.15) continue;
-      const costChange = round((incoming.cost - outgoing.cost) / 10, 1);
-      const reasonParts = [
-        gain >= 2 ? 'Large projected-point upgrade' : 'Projected-point upgrade',
-        incoming.fixtureScore < outgoing.fixtureScore ? 'better fixture run' : 'stronger current role',
-      ];
-      if (incoming.ownership < 15) reasonParts.push('low ownership');
+      const trialSquad = squadIds.map((id) => (id === outgoing.id ? incoming.id : id));
+      const trialLu = solveLineupTS(trialSquad, byId, nextGwXPts);
+      const xiGain = round(trialLu.totalXPts - baseLu.totalXPts, 2);
+      const rawGain = round(incoming.projection - outgoing.projection, 2);
+      const effectiveGain = Math.max(xiGain, rawGain);
+      const horizonGain = round(incoming.horizon5Projection - outgoing.horizon5Projection, 2);
+      if (effectiveGain <= 0.15 && horizonGain <= 0.8) continue;
       suggestions.push({
         out: outgoing,
         incoming,
-        gain,
-        costChange,
-        reason: `${reasonParts[0]} with ${reasonParts[1]}${reasonParts[2] ? ` and ${reasonParts[2]}` : ''}.`,
+        gain: effectiveGain,
+        horizonGain,
+        costChange: round((incoming.cost - outgoing.cost) / 10, 1),
+        reason: `+${effectiveGain.toFixed(2)} GW xPts (${horizonGain >= 0 ? '+' : ''}${horizonGain.toFixed(1)} over 5 GWs) · ${incoming.modelBreakdown.fiveGwEaseScore} fixture ease score.`,
       });
     }
   }
-  const seenIncoming = new Set<number>();
+
+  // Ensure exact solver's #1 single move is always surfaced first
+  const exact1 = solveKTransfersExactTS(
+    squadIds,
+    allPlayers.map((p) => p.id),
+    byId,
+    sellingPrices,
+    bankTenths,
+    1,
+    nextGwXPts,
+    horizonWeights,
+  );
+  if (exact1.moves[0]) {
+    const outP = playerMap.get(exact1.moves[0].outId);
+    const inP = playerMap.get(exact1.moves[0].inId);
+    if (outP && inP && !suggestions.some((s) => s.out.id === outP.id && s.incoming.id === inP.id)) {
+      const lu1 = solveLineupTS(exact1.squad, byId, nextGwXPts);
+      suggestions.unshift({
+        out: outP,
+        incoming: inP,
+        gain: round(lu1.totalXPts - baseLu.totalXPts, 2),
+        horizonGain: round(inP.horizon5Projection - outP.horizon5Projection, 2),
+        costChange: round((inP.cost - outP.cost) / 10, 1),
+        reason: `Exact solver optimal 1-FT move (+${(lu1.totalXPts - baseLu.totalXPts).toFixed(2)} XI xPts).`,
+      });
+    }
+  }
+
+  const seenIn = new Set<number>();
   return suggestions
-    .sort((a, b) => b.gain - a.gain || a.costChange - b.costChange)
-    .filter((suggestion) => {
-      if (seenIncoming.has(suggestion.incoming.id)) return false;
-      seenIncoming.add(suggestion.incoming.id);
+    .sort((a, b) => b.gain + (b.horizonGain ?? 0) * 0.25 - (a.gain + (a.horizonGain ?? 0) * 0.25))
+    .filter((s) => {
+      if (seenIn.has(s.incoming.id)) return false;
+      seenIn.add(s.incoming.id);
       return true;
     })
-    .slice(0, 5);
+    .slice(0, 6);
 }
 
 export function formationRisk(result: SquadResult): string {
   const risk = clamp(result.riskScore, 0, 1);
-  if (risk < 0.24) return 'Low variance';
-  if (risk < 0.4) return 'Controlled variance';
-  return 'High-upside variance';
+  if (risk < 0.24) return 'Low minutes variance';
+  if (risk < 0.4) return 'Balanced minutes & ceiling';
+  return 'High-ceiling differential variance';
 }

@@ -7,29 +7,31 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react';
-import type { Snapshot } from '../lib/types';
+import type { EntryData, Snapshot } from '../lib/types';
 import type { RouteId } from '../hooks/useHashRoute';
-import { classNames } from '../lib/format';
+import { classNames, formatNumber } from '../lib/format';
 import { Brand } from './Brand';
-
-const NAV_ITEMS = [
-  { id: 'command', label: 'Command center', hint: 'Live overview', icon: Gauge },
-  { id: 'optimizer', label: 'Squad optimizer', hint: 'Best XV', icon: WandSparkles },
-  { id: 'players', label: 'Player lab', hint: '669 profiles', icon: Users },
-  { id: 'fixtures', label: 'Fixture matrix', hint: 'FDR swings', icon: CalendarDays },
-  { id: 'league', label: 'League intel', hint: 'Team & rivals', icon: Trophy },
-  { id: 'method', label: 'Model & automation', hint: 'How it works', icon: BrainCircuit },
-] as const;
 
 interface SidebarProps {
   route: RouteId;
   onNavigate: (route: RouteId) => void;
   snapshot: Snapshot | null;
+  entry?: EntryData | null;
   open: boolean;
   onClose: () => void;
 }
 
-export function Sidebar({ route, onNavigate, snapshot, open, onClose }: SidebarProps) {
+export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: SidebarProps) {
+  const playerCount = snapshot?.players.length ?? 667;
+  const navItems = [
+    { id: 'command' as const, label: 'Command center', hint: 'Home & GW hub', icon: Gauge },
+    { id: 'optimizer' as const, label: 'Squad optimizer', hint: 'Planner · Chips · MC', icon: WandSparkles },
+    { id: 'players' as const, label: 'Player lab', hint: `${playerCount} repo profiles`, icon: Users },
+    { id: 'fixtures' as const, label: 'Fixture matrix', hint: 'Poisson & FDR', icon: CalendarDays },
+    { id: 'league' as const, label: 'League intel', hint: 'EO & rivals', icon: Trophy },
+    { id: 'method' as const, label: 'Model & automation', hint: 'Math & backtest', icon: BrainCircuit },
+  ];
+
   return (
     <>
       <button
@@ -49,14 +51,27 @@ export function Sidebar({ route, onNavigate, snapshot, open, onClose }: SidebarP
         </div>
 
         <div className="sidebar__season">
-          <span className="sidebar__season-label">SEASON</span>
-          <strong>{snapshot?.meta.season ?? '2026/27'}</strong>
-          <span>{snapshot?.meta.isLive ? 'Matchday live' : 'Tracking next deadline'}</span>
+          <div className="sidebar__manager-row">
+            <img
+              src="/player-images/brand/fpl-vortex-lion.jpg"
+              alt="FPL VORTEX lion crest"
+              className="sidebar__repo-crest"
+              loading="lazy"
+            />
+            <div>
+              <span className="sidebar__season-label">TEAM #{entry?.id ?? 145784}</span>
+              <strong>{entry?.teamName ?? 'FPLVORTEX'}</strong>
+              <span>
+                {snapshot?.meta.season ?? '2026/27'} ·{' '}
+                {entry?.overallRank ? `OR ${formatNumber(entry.overallRank)}` : 'GW8–16 active'}
+              </span>
+            </div>
+          </div>
         </div>
 
         <nav className="sidebar__nav">
           <p className="sidebar__section-label">WORKSPACE</p>
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -83,22 +98,22 @@ export function Sidebar({ route, onNavigate, snapshot, open, onClose }: SidebarP
         <div className="sidebar__footer">
           <div className="sidebar__status-card">
             <div className="sidebar__status-head">
-              <span className={classNames('pulse-dot', snapshot?.meta.upstreamOk && 'is-live')} />
-              <strong>Autonomous data engine</strong>
+              <span className={classNames('pulse-dot', snapshot?.meta.upstreamOk ? 'is-live' : 'is-stale')} />
+              <strong>Repo-first data engine</strong>
             </div>
             <p>
               {snapshot?.meta.upstreamOk
-                ? 'Public FPL feeds are normalized, scored and refreshed automatically.'
-                : 'Resilient offline snapshot is keeping the dashboard available.'}
+                ? 'Repo GW7–16 projections + live FPL feeds synchronized.'
+                : 'Repo GW7–16 CSV projections primary · offline fixture/code supplement.'}
             </p>
             <div className="sidebar__status-meta">
-              <span>{snapshot?.players.length ?? 0} players</span>
-              <span>{snapshot?.fixtures.length ?? 0} fixtures</span>
+              <span>{snapshot?.players.length ?? 667} players</span>
+              <span>{snapshot?.fixtures.length ?? 380} fixtures</span>
             </div>
           </div>
           <div className="sidebar__version">
-            <span>VORTEX OS</span>
-            <span>v1.0</span>
+            <span>@FPLVORTEX</span>
+            <span>2026/27 DEFCON</span>
           </div>
         </div>
       </aside>

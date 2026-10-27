@@ -4,23 +4,20 @@ import {
   ArrowRight,
   CircleDollarSign,
   Crown,
-  Info,
   Loader2,
   RefreshCw,
   Search,
-  ShieldCheck,
+  ShieldAlert,
   Target,
-  TrendingUp,
   Trophy,
-  Users,
   WandSparkles,
-  Zap,
 } from 'lucide-react';
 import type { EntryData, EnrichedPlayer, LeagueData, RiskProfile, Snapshot } from '../lib/types';
 import { fetchEntry, fetchLeague } from '../lib/api';
 import { recommendTransfers } from '../lib/optimize';
-import { classNames, formatCompact, formatNumber, formatPrice, formatSigned } from '../lib/format';
-import { Sparkline } from './Sparkline';
+import { classNames, formatNumber, formatPercent, formatPrice, formatSigned } from '../lib/format';
+import { ClubBadge } from './ClubBadge';
+import { PlayerAvatar } from './PlayerAvatar';
 import { StatCard } from './StatCard';
 
 interface LeagueIntelProps {
@@ -33,6 +30,8 @@ interface LeagueIntelProps {
   profile: RiskProfile;
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
 }
+
+const DEFAULT_REPO_ENTRY_ID = '145784';
 
 function isNumeric(value: string): boolean {
   return /^\d{1,12}$/.test(value.trim());
@@ -55,9 +54,10 @@ export function LeagueIntel({
   profile,
   onToast,
 }: LeagueIntelProps) {
-  const [draftTeamId, setDraftTeamId] = useState(teamId);
+  const resolvedInitialTeamId = !teamId || teamId === '5112705' ? DEFAULT_REPO_ENTRY_ID : teamId;
+  const [draftTeamId, setDraftTeamId] = useState(resolvedInitialTeamId);
   const [draftLeagueId, setDraftLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
-  const [activeTeamId, setActiveTeamId] = useState(teamId);
+  const [activeTeamId, setActiveTeamId] = useState(resolvedInitialTeamId);
   const [activeLeagueId, setActiveLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
   const [entry, setEntry] = useState<EntryData | null>(null);
   const [league, setLeague] = useState<LeagueData | null>(null);
@@ -68,26 +68,19 @@ export function LeagueIntel({
   const [scanNonce, setScanNonce] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (!draftTeamId && teamId) {
-      setDraftTeamId(teamId);
-      setActiveTeamId(teamId);
-    }
-  }, [draftTeamId, teamId]);
-
   const loadEntry = useCallback(async (id: string, signal?: AbortSignal) => {
     if (!isNumeric(id)) return;
     setEntryLoading(true);
     setEntryError(null);
     try {
-      const result = await fetchEntry(id.trim(), signal);
-      setEntry(result);
-    } catch (error) {
-      if (signal?.aborted) return;
-      setEntry(null);
-      setEntryError(error instanceof Error ? error.message : 'Could not load this FPL team.');
+      const data = await fetchEntry(id.trim(), signal);
+      setEntry(data);
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setEntryError(err instanceof Error ? err.message : 'Unable to scan team.');
+      }
     } finally {
-      if (!signal?.aborted) setEntryLoading(false);
+      setEntryLoading(false);
     }
   }, []);
 
@@ -96,14 +89,14 @@ export function LeagueIntel({
     setLeagueLoading(true);
     setLeagueError(null);
     try {
-      const result = await fetchLeague(id.trim(), signal);
-      setLeague(result);
-    } catch (error) {
-      if (signal?.aborted) return;
-      setLeague(null);
-      setLeagueError(error instanceof Error ? error.message : 'Could not load this classic league.');
+      const data = await fetchLeague(id.trim(), signal);
+      setLeague(data);
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setLeagueError(err instanceof Error ? err.message : 'Unable to scan classic league.');
+      }
     } finally {
-      if (!signal?.aborted) setLeagueLoading(false);
+      setLeagueLoading(false);
     }
   }, []);
 
@@ -111,249 +104,350 @@ export function LeagueIntel({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    if (activeTeamId) void loadEntry(activeTeamId, controller.signal);
-    if (activeLeagueId) void loadLeague(activeLeagueId, controller.signal);
+    void loadEntry(activeTeamId, controller.signal);
+    void loadLeague(activeLeagueId, controller.signal);
     return () => controller.abort();
   }, [activeLeagueId, activeTeamId, loadEntry, loadLeague, scanNonce]);
 
-  const scan = () => {
-    if (!isNumeric(draftTeamId)) {
-      setEntryError('Enter a valid numeric FPL team ID.');
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTeam = draftTeamId.trim();
+    const cleanLeague = draftLeagueId.trim();
+    if (!isNumeric(cleanTeam)) {
+      onToast('Enter a numeric FPL team ID (e.g. 145784).', 'error');
       return;
     }
-    if (draftLeagueId && !isNumeric(draftLeagueId)) {
-      setLeagueError('Enter a valid numeric classic league ID.');
+    if (!isNumeric(cleanLeague)) {
+      onToast('Enter a numeric classic league ID.', 'error');
       return;
     }
-    onTeamIdChange(draftTeamId.trim());
-    onLeagueIdChange(draftLeagueId.trim());
-    setActiveTeamId(draftTeamId.trim());
-    setActiveLeagueId(draftLeagueId.trim());
-    setScanNonce((value) => value + 1);
-    onToast('Scanning public team and league data…', 'info');
+    onTeamIdChange(cleanTeam);
+    onLeagueIdChange(cleanLeague);
+    setActiveTeamId(cleanTeam);
+    setActiveLeagueId(cleanLeague);
+    setScanNonce((n) => n + 1);
   };
 
-  const usePresetTeam = (presetTeamId: number) => {
-    const targetTeam = String(presetTeamId);
-    const exampleLeague = String(snapshot.meta.exampleLeagueId);
-    setDraftTeamId(targetTeam);
-    setDraftLeagueId(exampleLeague);
-    onTeamIdChange(targetTeam);
-    onLeagueIdChange(exampleLeague);
-    setActiveTeamId(targetTeam);
-    setActiveLeagueId(exampleLeague);
-    setScanNonce((value) => value + 1);
-  };
+  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
 
-  const useExample = () => usePresetTeam(snapshot.meta.exampleEntryId ?? 5112705);
-  const repoEntryId = snapshot.meta.repoData?.configuredEntryId ?? 145784;
+  const transfers = useMemo(() => {
+    if (!entry || entry.players.length === 0) return [];
+    const enrichedSquad = entry.picks
+      .map((pick) => playerMap.get(pick.element))
+      .filter((p): p is EnrichedPlayer => Boolean(p));
+    return recommendTransfers(enrichedSquad, players, {
+      profile,
+      bankTenths: entry.history.bank,
+    });
+  }, [entry, playerMap, players, profile]);
 
-  const transfers = useMemo(
-    () => (entry ? recommendTransfers(entry.players, players, { profile }) : []),
-    [entry, players, profile],
-  );
-  const picksWithPlayers = useMemo(() => {
-    if (!entry) return [];
-    const index = new Map(entry.players.map((player) => [player.id, player]));
-    return entry.picks.map((pick) => ({ ...pick, player: index.get(pick.element) })).filter((pick) => pick.player);
-  }, [entry]);
-  const captain = picksWithPlayers.find((pick) => pick.isCaptain)?.player;
-  const currentStanding = league?.standings.find((row) => row.entry === entry?.id);
-  const leaderGap = league && currentStanding ? league.standings[0].total - currentStanding.total : null;
+  // Rank impact projection (`(myMultiplier - fieldEO) * projectedXPts`) from `1_APP_dashboard/src/lib/explain.ts`
+  const rankImpactSummary = useMemo(() => {
+    if (!entry) return { upside: [], downside: [] };
+    const multMap = new Map<number, number>();
+    for (const p of entry.picks) multMap.set(p.element, p.multiplier);
+
+    const rows = players
+      .map((el) => {
+        const mult = multMap.get(el.id) ?? 0;
+        const eo = Math.min(1, Math.max(0, el.ownership / 100));
+        const expectedSwing = (mult - eo) * el.projection;
+        return { player: el, mult, eo, expectedSwing, owned: multMap.has(el.id) };
+      })
+      .filter((r) => Math.abs(r.expectedSwing) >= 0.45);
+
+    const upside = [...rows].filter((r) => r.expectedSwing > 0).sort((a, b) => b.expectedSwing - a.expectedSwing).slice(0, 5);
+    const downside = [...rows].filter((r) => r.expectedSwing < 0).sort((a, b) => a.expectedSwing - b.expectedSwing).slice(0, 5);
+    return { upside, downside };
+  }, [entry, players]);
 
   return (
     <div className="page page--league">
-      <section className="panel connect-panel">
-        <div className="connect-panel__intro">
-          <span className="panel__eyebrow">PUBLIC TEAM SCANNER</span>
-          <h3>Connect without a password.</h3>
+      <section className="panel connect-panel" aria-label="Team and league scanner">
+        <div>
+          <span className="panel__eyebrow">MANAGER & MINI-LEAGUE SCANNER</span>
+          <h3>Connected to repository Entry #{activeTeamId} ({entry?.teamName ?? 'FPLVORTEX'})</h3>
           <p>
-            FPL team and classic league endpoints are public. Your IDs stay in this browser and are used only to fetch
-            picks, rank and standings.
+            Inspect your 15-player squad, expected rank impact `(multiplier − EO) × xPts`, exact 1-FT upgrades, and
+            classic mini-league rivals. Defaults to repository Entry `145784` (`FPLVORTEX`).
           </p>
-          <div className="privacy-note"><ShieldCheck size={15} /> No login · no token · localStorage only</div>
         </div>
-        <div className="connect-panel__form">
-          <label>
-            <span><Users size={14} /> FPL team ID</span>
-            <input value={draftTeamId} onChange={(event) => setDraftTeamId(event.target.value)} inputMode="numeric" placeholder="e.g. 5112705" />
+
+        <form className="connect-panel__form" onSubmit={handleSubmit}>
+          <label className="filter-select">
+            <span>FPL Team ID</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={draftTeamId}
+              onChange={(e) => setDraftTeamId(e.target.value)}
+              placeholder="145784"
+            />
           </label>
-          <label>
-            <span><Trophy size={14} /> Classic league ID</span>
-            <input value={draftLeagueId} onChange={(event) => setDraftLeagueId(event.target.value)} inputMode="numeric" placeholder="e.g. 314" />
+          <label className="filter-select">
+            <span>Classic League ID</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={draftLeagueId}
+              onChange={(e) => setDraftLeagueId(e.target.value)}
+              placeholder="314"
+            />
           </label>
-          <button type="button" className="button button--primary" onClick={scan} disabled={entryLoading || leagueLoading}>
-            {entryLoading || leagueLoading ? <Loader2 size={16} className="spin" /> : <Search size={16} />} Scan my FPL
-          </button>
-          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <button type="button" className="text-button" onClick={useExample}>Use live example team</button>
-            <button type="button" className="text-button" onClick={() => usePresetTeam(repoEntryId)}>
-              Load repo team #{repoEntryId}
+          <div className="button-row">
+            <button type="submit" className="button button--primary" disabled={entryLoading || leagueLoading}>
+              {entryLoading || leagueLoading ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
+              Scan IDs
+            </button>
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={() => {
+                setDraftTeamId(DEFAULT_REPO_ENTRY_ID);
+                setActiveTeamId(DEFAULT_REPO_ENTRY_ID);
+                onTeamIdChange(DEFAULT_REPO_ENTRY_ID);
+              }}
+            >
+              Reset #145784
             </button>
           </div>
-        </div>
+        </form>
       </section>
 
-      {(entryError || leagueError) && (
-        <div className="error-banner" role="alert">
-          <Info size={16} />
-          <span>{entryError ?? leagueError}</span>
-          <button type="button" onClick={() => {
-            if (entryError) void loadEntry(activeTeamId);
-            if (leagueError) void loadLeague(activeLeagueId);
-          }}><RefreshCw size={14} /> Retry</button>
+      {entryError && (
+        <div className="data-warning" role="alert">
+          <span>{entryError}</span>
+          <button type="button" onClick={() => setScanNonce((n) => n + 1)}>
+            <RefreshCw size={14} /> Retry
+          </button>
         </div>
       )}
 
-      {entryLoading && !entry ? (
-        <div className="panel loading-panel"><Loader2 size={22} className="spin" /><span>Reading team picks…</span></div>
-      ) : entry ? (
-        <>
-          <section className="team-summary panel">
-            <div className="team-summary__identity">
-              <span className="team-summary__avatar">{entry.teamName.slice(0, 2).toUpperCase()}</span>
-              <div>
-                <span className="panel__eyebrow">CONNECTED TEAM</span>
-                <h3>{entry.teamName}</h3>
-                <p>{entry.name} · {entry.region} · started GW {entry.startedEvent}</p>
-              </div>
-              {entry.activeChip && <span className="chip-badge"><Zap size={12} /> {entry.activeChip} active</span>}
-            </div>
-            <div className="team-summary__meta">
-              <span><Crown size={14} /> {captain?.name ?? 'Captain TBC'}</span>
-              <span><Activity size={14} /> GW {entry.currentEvent} · {entry.history.points} pts</span>
-              <span><CircleDollarSign size={14} /> £{entry.squadValue.toFixed(1)}m + £{(entry.history.bank / 10).toFixed(1)}m</span>
-            </div>
-          </section>
+      {entry && (
+        <section className="stat-grid stat-grid--league">
+          <StatCard
+            label={`${entry.teamName} (#${entry.id})`}
+            value={entry.overallRank ? `OR ${formatNumber(entry.overallRank)}` : 'Connected'}
+            detail={`${entry.name || 'Manager'} · ${entry.overallPoints ?? entry.history.totalPoints} total pts`}
+            icon={<Trophy size={18} />}
+            tone="mint"
+          />
+          <StatCard
+            label={`GW${snapshot.meta.nextEventId} Squad Projection`}
+            value={`${entry.projectedPoints.toFixed(1)} xPts`}
+            detail={`GW${entry.currentEvent} actual: ${entry.history.points} pts (${entry.history.pointsOnBench} on bench)`}
+            icon={<Activity size={18} />}
+            tone="violet"
+          />
+          <StatCard
+            label="Free Transfers & Bank"
+            value={`${entry.freeTransfers} FT`}
+            detail={`${formatPrice(entry.history.bank / 10)} ITB · Squad value ${formatPrice(entry.squadValue)}`}
+            icon={<CircleDollarSign size={18} />}
+            tone="amber"
+          />
+          <StatCard
+            label="Top 1-FT Upgrade"
+            value={transfers[0] ? `${transfers[0].out.name} → ${transfers[0].incoming.name}` : 'Roll FT'}
+            detail={transfers[0] ? `+${transfers[0].gain.toFixed(2)} GW xPts (${formatSigned(transfers[0].horizonGain ?? 0, 1)} 5GW)` : 'Squad optimal'}
+            icon={<WandSparkles size={18} />}
+            tone="pink"
+          />
+        </section>
+      )}
 
-          <section className="stat-grid stat-grid--league">
-            <StatCard label="Overall rank" value={formatCompact(entry.overallRank ?? entry.history.overallRank)} icon={<Trophy size={19} />} tone="violet" footer={`${formatNumber(entry.overallPoints ?? entry.history.totalPoints, 0)} total points`} />
-            <StatCard label="Gameweek score" value={`${entry.history.points} pts`} icon={<Activity size={19} />} tone="mint" footer={`GW rank ${formatCompact(entry.history.rank)}`} />
-            <StatCard label="Model projection" value={`${entry.projectedPoints.toFixed(1)} pts`} icon={<Target size={19} />} tone="pink" footer="Current picks, captain doubled" />
-            <StatCard label="Squad value" value={`£${entry.squadValue.toFixed(1)}m`} icon={<CircleDollarSign size={19} />} tone="amber" footer={`£${(entry.history.bank / 10).toFixed(1)}m in the bank`} />
-          </section>
-
-          <div className="league-grid">
-            <section className="panel squad-scan-panel">
-              <div className="panel__header">
-                <div><span className="panel__eyebrow">YOUR FIFTEEN</span><h3>Current squad scan</h3></div>
-                <span className="source-chip">
-                  {entry.source === 'cache' ? 'CACHED' : entry.source === 'snapshot' || entry.source === 'offline' ? 'SNAPSHOT' : 'LIVE PICKS'}
-                </span>
-              </div>
-              <div className="squad-scan-list">
-                {picksWithPlayers.map((pick) => (
-                  <div className={classNames('squad-scan-row', pick.isCaptain && 'is-captain', pick.multiplier === 0 && 'is-bench')} key={`${pick.element}-${pick.position}`}>
-                    <span className="squad-scan-row__pos">{pick.position <= 11 ? pick.position : 'B'}</span>
-                    <span className={`position-tag position-tag--${pick.player?.position.toLowerCase()}`}>{pick.player?.position}</span>
-                    <span className="squad-scan-row__name">
-                      <strong>{pick.player?.name ?? `Player ${pick.element}`}</strong>
-                      <small>{pick.player?.team.shortName} · {pick.player ? formatPrice(pick.player.price) : '—'}</small>
-                    </span>
-                    {pick.isCaptain && <span className="mini-badge is-captain">C</span>}
-                    {pick.isViceCaptain && <span className="mini-badge">V</span>}
-                    <span className="squad-scan-row__event">{pick.player?.eventPoints ?? 0} GW</span>
-                    <strong className="squad-scan-row__projection">{pick.player?.projection.toFixed(1) ?? '—'}</strong>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <div className="league-side">
-              <section className="panel transfer-panel">
-                <div className="panel__header">
-                  <div><span className="panel__eyebrow">AUTO TRANSFER ENGINE</span><h3>Best one-move upgrades</h3></div>
-                  <WandSparkles size={19} className="panel__header-icon" />
-                </div>
-                {transfers.length ? (
-                  <div className="transfer-list">
-                    {transfers.map((suggestion) => (
-                      <article className="transfer-card" key={`${suggestion.out.id}-${suggestion.incoming.id}`}>
-                        <div className="transfer-card__players">
-                          <span className="transfer-player is-out"><small>OUT</small><strong>{suggestion.out.name}</strong><span>{suggestion.out.team.shortName} · {formatPrice(suggestion.out.price)}</span></span>
-                          <ArrowRight size={16} />
-                          <span className="transfer-player is-in"><small>IN</small><strong>{suggestion.incoming.name}</strong><span>{suggestion.incoming.team.shortName} · {formatPrice(suggestion.incoming.price)}</span></span>
-                        </div>
-                        <div className="transfer-card__footer">
-                          <strong className="is-positive">+{suggestion.gain.toFixed(1)} proj</strong>
-                          <span className={suggestion.costChange <= 0 ? 'is-positive' : 'is-negative'}>{formatSigned(suggestion.costChange, 1)}m</span>
-                        </div>
-                        <p>{suggestion.reason}</p>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-state empty-state--compact">
-                    <ShieldCheck size={22} />
-                    <h3>No clear upgrade found</h3>
-                    <p>Your current squad is already strong for this profile and budget.</p>
-                  </div>
-                )}
-                <div className="insight-callout insight-callout--info">
-                  <Info size={15} /><span>Suggestions respect position, budget and the three-players-per-club rule. They do not account for future transfer plans.</span>
-                </div>
-              </section>
-
-              <section className="panel rank-panel">
-                <div className="panel__header">
-                  <div><span className="panel__eyebrow">LEAGUE PULSE</span><h3>{league?.name ?? 'Classic league'}</h3></div>
-                  <Trophy size={19} className="panel__header-icon" />
-                </div>
-                {leagueLoading && !league ? (
-                  <div className="loading-panel"><Loader2 size={20} className="spin" /> Loading standings…</div>
-                ) : league ? (
-                  <>
-                    <div className="rank-summary">
-                      <div><span>Your rank</span><strong>{currentStanding ? `#${formatNumber(currentStanding.rank, 0)}` : 'Outside page 1'}</strong></div>
-                      <div><span>Gap to leader</span><strong>{leaderGap !== null ? `${leaderGap} pts` : '—'}</strong></div>
-                      <div><span>Managers shown</span><strong>{league.standings.length}</strong></div>
-                    </div>
-                    <div className="standings-table">
-                      <div className="standings-table__head"><span>#</span><span>Manager</span><span>GW</span><span>Total</span></div>
-                      {league.standings.slice(0, 12).map((row) => {
-                        const movement = rankMovement(row);
-                        return (
-                          <div className={classNames('standings-row', row.entry === entry.id && 'is-you')} key={row.entry}>
-                            <span className="standings-row__rank">#{row.rank}<small className={movement.tone}>{movement.label}</small></span>
-                            <span className="standings-row__manager"><strong>{row.entryName}</strong><small>{row.playerName}</small></span>
-                            <span>{row.eventTotal}</span>
-                            <strong>{row.total}</strong>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <div className="empty-state empty-state--compact"><Trophy size={22} /><h3>League data unavailable</h3><p>Check the league ID and try again.</p></div>
-                )}
-              </section>
-            </div>
-          </div>
-
-          <section className="panel form-panel">
+      <div className="league-grid">
+        {entry && (
+          <section className="panel" aria-label="Scanned squad">
             <div className="panel__header">
-              <div><span className="panel__eyebrow">MOMENTUM VIEW</span><h3>Projected shape of your squad</h3></div>
-              <TrendingUp size={19} className="panel__header-icon" />
+              <div>
+                <span className="panel__eyebrow">SCANNED 15-PLAYER SQUAD · {entry.source.toUpperCase()}</span>
+                <h3>{entry.teamName} · GW{snapshot.meta.nextEventId} Projections</h3>
+              </div>
+              <span className="badge badge--mint">{entry.freeTransfers} FT · {formatPrice(entry.history.bank / 10)} ITB</span>
             </div>
-            <div className="form-chart">
-              {[...entry.players].sort((a, b) => b.projection - a.projection).map((player) => (
-                <div className="form-chart__row" key={player.id}>
-                  <span>{player.name}</span>
-                  <div><i style={{ width: `${Math.min(100, player.projection / 10 * 100)}%` }} /></div>
-                  <strong>{player.projection.toFixed(1)}</strong>
-                  <Sparkline values={player.sparkline} width={70} height={22} />
+
+            <div className="squad-scan-list">
+              {entry.picks.map((pick) => {
+                const p = playerMap.get(pick.element);
+                if (!p) return null;
+                return (
+                  <div key={pick.element} className={classNames('squad-scan-row', pick.position > 11 && 'is-bench')}>
+                    <span className="squad-scan-row__pos">{pick.position <= 11 ? pick.position : `B${pick.position - 11}`}</span>
+                    <PlayerAvatar
+                      code={p.code}
+                      teamCode={p.team.code}
+                      name={p.name}
+                      fullName={p.fullName}
+                      teamShort={p.team.shortName}
+                      position={p.position}
+                      size="sm"
+                    />
+                    <div className="squad-scan-row__name">
+                      <strong>
+                        {p.name}{' '}
+                        {pick.isCaptain && <span className="mini-badge is-cap">C</span>}
+                        {pick.isViceCaptain && <span className="mini-badge is-vc">V</span>}
+                      </strong>
+                      <small>
+                        {p.team.shortName} · {p.position} · {formatPrice(p.price)} · EO {formatPercent(p.ownership)}
+                      </small>
+                    </div>
+                    <span className="squad-scan-row__event">5GW {p.horizon5Projection.toFixed(1)}</span>
+                    <strong className="score-pill is-strong">
+                      {(p.projection * (pick.isCaptain ? 2 : pick.position <= 11 ? 1 : 1)).toFixed(2)}
+                    </strong>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        <aside className="league-side">
+          {/* Transfer Recommendations */}
+          <section className="panel">
+            <div className="panel__header">
+              <div>
+                <span className="panel__eyebrow">SOLVER UPGRADES</span>
+                <h3>Recommended 1-FT moves</h3>
+              </div>
+              <Target size={17} />
+            </div>
+            <div className="transfer-list">
+              {transfers.map((move) => (
+                <div key={`${move.out.id}-${move.incoming.id}`} className="transfer-card">
+                  <div className="transfer-card__swap">
+                    <div className="inline-player-tag">
+                      <PlayerAvatar
+                        code={move.out.code}
+                        teamCode={move.out.team.code}
+                        name={move.out.name}
+                        teamShort={move.out.team.shortName}
+                        position={move.out.position}
+                        size="sm"
+                      />
+                      <span>{move.out.name}</span>
+                    </div>
+                    <ArrowRight size={14} />
+                    <div className="inline-player-tag">
+                      <PlayerAvatar
+                        code={move.incoming.code}
+                        teamCode={move.incoming.team.code}
+                        name={move.incoming.name}
+                        teamShort={move.incoming.team.shortName}
+                        position={move.incoming.position}
+                        size="sm"
+                      />
+                      <strong>{move.incoming.name}</strong>
+                    </div>
+                    <span className="score-pill is-elite">+{move.gain.toFixed(2)}</span>
+                  </div>
+                  <p>{move.reason}</p>
                 </div>
               ))}
             </div>
           </section>
-        </>
-      ) : (
-        <div className="panel empty-state">
-          <Users size={24} />
-          <h3>Connect a public FPL team</h3>
-          <p>Enter your team ID above, or use the current example team to explore the full league intelligence workflow.</p>
-          <button type="button" className="button button--primary" onClick={useExample}><Zap size={16} /> Load live example</button>
-        </div>
+
+          {/* Rank Impact & EO Leverage (`explain.ts`) */}
+          <section className="panel">
+            <div className="panel__header">
+              <div>
+                <span className="panel__eyebrow">EXPECTED RANK IMPACT (`(mult − EO) × xPts`)</span>
+                <h3>Differential leverage vs EO threats</h3>
+              </div>
+              <Crown size={17} />
+            </div>
+            <div className="momentum-columns">
+              <div>
+                <span className="momentum-label is-positive">Your rank climbers</span>
+                {rankImpactSummary.upside.map((item) => (
+                  <div key={item.player.id} className="momentum-row momentum-row--avatar">
+                    <ClubBadge teamCode={item.player.team.code} shortName={item.player.team.shortName} size="sm" />
+                    <div>
+                      <strong>{item.player.name}</strong>
+                      <small>{item.mult}× vs {(item.eo * 100).toFixed(0)}% EO</small>
+                    </div>
+                    <span className="is-positive">+{item.expectedSwing.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <span className="momentum-label is-negative"><ShieldAlert size={12} /> Field EO danger</span>
+                {rankImpactSummary.downside.map((item) => (
+                  <div key={item.player.id} className="momentum-row momentum-row--avatar">
+                    <ClubBadge teamCode={item.player.team.code} shortName={item.player.team.shortName} size="sm" />
+                    <div>
+                      <strong>{item.player.name}</strong>
+                      <small>{(item.eo * 100).toFixed(0)}% EO unowned</small>
+                    </div>
+                    <span className="is-negative">{item.expectedSwing.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      {/* Classic League Standings */}
+      {league && (
+        <section className="panel" aria-label="Classic league standings">
+          <div className="panel__header">
+            <div>
+              <span className="panel__eyebrow">CLASSIC MINI-LEAGUE · #{league.id} ({league.source.toUpperCase()})</span>
+              <h3>{league.name}</h3>
+            </div>
+            {leagueError && <span className="badge badge--amber">{leagueError}</span>}
+          </div>
+          <div className="table-wrap">
+            <table className="player-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Move</th>
+                  <th>Team</th>
+                  <th>Manager</th>
+                  <th>GW Pts</th>
+                  <th>Total Pts</th>
+                  <th>Inspect</th>
+                </tr>
+              </thead>
+              <tbody>
+                {league.standings.slice(0, 20).map((row) => {
+                  const mv = rankMovement(row);
+                  const isMe = String(row.entry) === activeTeamId;
+                  return (
+                    <tr key={row.entry} className={classNames(isMe && 'is-selected')}>
+                      <td><strong>#{formatNumber(row.rank)}</strong></td>
+                      <td className={mv.tone}>{mv.label}</td>
+                      <td>
+                        <strong>{row.entryName}</strong> {isMe && <span className="badge badge--mint">Active</span>}
+                      </td>
+                      <td>{row.playerName}</td>
+                      <td className="mono-num">{row.eventTotal}</td>
+                      <td className="mono-num"><strong>{row.total}</strong></td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button button--ghost button--xs"
+                          onClick={() => {
+                            const nextId = String(row.entry);
+                            setDraftTeamId(nextId);
+                            setActiveTeamId(nextId);
+                            onTeamIdChange(nextId);
+                          }}
+                        >
+                          Scan #{row.entry}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   );

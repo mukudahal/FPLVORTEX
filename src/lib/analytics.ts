@@ -1,166 +1,309 @@
+/**
+ * Player Forecasting & Intelligence Adapter
+ * 100% powered by `mukudahal/FPLVORTEX` repository math & projections:
+ * - Tier-1 primary projections: `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`
+ * - Mechanistic expected points: `site/model/xpts.ts` + `site/model/playerModel.ts` (`computePositionPriors`, `computePlayerXPts`, `DEFAULT_PRIORS`, `SHRINK_90S=4`)
+ * - Minutes distribution: `site/model/minutes.ts` (`estimateMinutesDistribution`)
+ * - 2026/27 scoring & DEFCON: `site/model/seasonRules.ts` (`RULES_2026_27`)
+ * - Opta xP & 5-GW fixture run: `7_skills/fpl-team-planner.skill` (`computeOptaXP5Gw`, `computeFiveGwFixtureEaseSum`)
+ * - Captaincy & differential risk weighting: `1_APP_dashboard/src/lib/marketLeague.ts`
+ */
 import type {
   EnrichedPlayer,
   FplTeam,
   Player,
+  Position,
   ProjectionContext,
   RiskProfile,
   Snapshot,
 } from './types';
-import { averageFixtureDifficulty, buildProjectionContext } from './fixtures';
+import {
+  averageFixtureDifficulty,
+  buildProjectionContext,
+  toRepoFixtures,
+  toRepoTeams,
+} from './fixtures';
 import { clamp, numberValue, round } from './format';
+import { estimateMinutesDistribution } from './repoModel/minutes';
+import { computeFiveGwFixtureEaseSum, computeOptaXP5Gw } from './repoModel/optaXp';
+import {
+  computePlayerXPts,
+  computePositionPriors,
+  DEFAULT_PRIORS,
+  type PositionPriors,
+} from './repoModel/xpts';
+import type { Fixture as RepoFixture, SlimElement, SlimTeam } from './repoModel/types';
 
-const STATUS_AVAILABILITY: Record<string, number> = {
-  a: 1,
-  d: 0.72,
-  i: 0.12,
-  s: 0.04,
-  u: 0.45,
-  n: 0.02,
-  f: 1,
-};
-
-export function playerAvailability(player: Player): number {
-  const status = player.status?.toLowerCase() ?? 'a';
-  const statusValue = STATUS_AVAILABILITY[status] ?? 0.75;
-  if (player.chance !== null && player.chance !== undefined) {
-    return clamp((numberValue(player.chance, 100) / 100) * (status === 'd' ? 0.94 : 1), 0.01, 1);
-  }
-  return statusValue;
+function positionToElementType(pos: Position): 1 | 2 | 3 | 4 {
+  if (pos === 'GKP') return 1;
+  if (pos === 'DEF') return 2;
+  if (pos === 'MID') return 3;
+  return 4;
 }
 
-function xPer90(value: number, minutes: number): number {
-  return minutes > 0 ? (value / minutes) * 90 : 0;
+export function toRepoElement(player: Player): SlimElement {
+  const [firstName, ...rest] = (player.fullName || player.name).split(' ');
+  const n90 = Math.max(player.minutes / 90, 0);
+  const per90 = (v: number) => (n90 > 0 ? round(v / n90, 3) : 0);
+  return {
+    id: player.id,
+    code: player.code,
+    web_name: player.name,
+    first_name: firstName || player.name,
+    second_name: rest.join(' ') || player.name,
+    team: player.teamId,
+    element_type: positionToElementType(player.position),
+    now_cost: player.cost,
+    cost_change_event: 0,
+    cost_change_start: 0,
+    total_points: player.totalPoints,
+    event_points: player.eventPoints,
+    form: String(player.form ?? 0),
+    points_per_game: String(player.ppg ?? 0),
+    selected_by_percent: String(player.selectedByPercent ?? player.ownership ?? 0),
+    status: player.status || 'a',
+    news: player.news || '',
+    news_added: null,
+    chance_of_playing_next_round: player.chance,
+    chance_of_playing_this_round: player.chance,
+    ep_next: String(player.epNext ?? 0),
+    ep_this: String(player.epThis ?? 0),
+    minutes: player.minutes,
+    starts: player.starts,
+    starts_per_90: per90(player.starts),
+    goals_scored: player.goals,
+    assists: player.assists,
+    clean_sheets: player.cleanSheets,
+    clean_sheets_per_90: per90(player.cleanSheets),
+    saves: player.saves,
+    saves_per_90: per90(player.saves),
+    bonus: player.bonus,
+    bps: player.bps,
+    defensive_contribution: player.defensiveContribution,
+    defensive_contribution_per_90: per90(player.defensiveContribution),
+    yellow_cards: 0,
+    red_cards: 0,
+    own_goals: 0,
+    penalties_saved: 0,
+    penalties_missed: 0,
+    transfers_in_event: player.transfersInEvent,
+    transfers_out_event: player.transfersOutEvent,
+    expected_goals: String(player.xG ?? 0),
+    expected_assists: String(player.xA ?? 0),
+    expected_goal_involvements: String(player.xGI ?? 0),
+    expected_goals_conceded: String(player.xGC ?? 0),
+    expected_goals_per_90: per90(player.xG ?? 0),
+    expected_assists_per_90: per90(player.xA ?? 0),
+    expected_goal_involvements_per_90: per90(player.xGI ?? 0),
+    expected_goals_conceded_per_90: per90(player.xGC ?? 0),
+    price_change_percent: null,
+    price_change_hourly_rate: null,
+    price_change_projections: null,
+    price_change_locked_until: null,
+  };
 }
 
-function roleScoreFor(player: Player, minutesRate: number, maxEvent: number): number {
-  const xGI90 = xPer90(player.xGI, player.minutes);
-  const xGC90 = xPer90(player.xGC, player.minutes);
-  const attackingReturns = xPer90(player.goals + player.assists, player.minutes);
-  if (player.position === 'GKP') {
-    const saveRate = xPer90(player.saves, player.minutes);
-    return clamp(saveRate * 0.22 + (player.cleanSheets / maxEvent) * 0.35 + (1.8 - xGC90) * 0.16, 0, 2.3);
-  }
-  if (player.position === 'DEF') {
-    const cleanSheetRate = player.cleanSheets / maxEvent;
-    const attackingThreat = xGI90 * 0.45 + attackingReturns * 0.16;
-    const defensiveBase = (2 - xGC90) * 0.12 + cleanSheetRate * 0.28;
-    return clamp(defensiveBase + attackingThreat + player.defensiveContribution / Math.max(90, player.minutes) * 0.12, 0, 2.4);
-  }
-  return clamp(
-    xGI90 * 0.72 + attackingReturns * 0.34 + xPer90(player.creativity + player.threat, player.minutes) * 0.0015 * minutesRate,
-    0,
-    3.2,
-  );
+export function playerAvailability(player: Player, completedEvents = 7): number {
+  const el = toRepoElement(player);
+  const dist = estimateMinutesDistribution(el, Math.max(1, completedEvents));
+  return clamp(dist.p60 + dist.pSub, 0, 1);
 }
 
 export function projectionReasons(
   player: Player,
   projection: number,
   fixtureScore: number,
-  roleScore: number,
+  defconPts: number,
   availability: number,
-  xGI90: number,
+  csProb: number,
   team?: FplTeam,
 ): string[] {
   const reasons: string[] = [];
-  if (player.form >= 5.5) reasons.push(`Strong recent form at ${player.form.toFixed(1)} points per match`);
-  if (fixtureScore <= 2.75) reasons.push(`Favourable five-gameweek run (${fixtureScore.toFixed(2)} FDR)`);
-  if (fixtureScore >= 4.1) reasons.push(`Tough upcoming run (${fixtureScore.toFixed(2)} FDR)`);
-  if (roleScore >= 1.15) reasons.push(`Underlying output supports a ${projection.toFixed(1)}-point projection`);
-  if (xGI90 >= 0.45 && player.position !== 'GKP') reasons.push(`${xGI90.toFixed(2)} expected goal involvements per 90`);
-  if (player.penaltiesOrder === 1 || player.cornersOrder === 1) reasons.push('Primary set-piece or penalty role');
-  if (player.ownership < 12 && player.ownership > 0) reasons.push(`Differential at ${player.ownership.toFixed(1)}% ownership`);
-  if (player.ownership > 45) reasons.push(`Highly owned by ${player.ownership.toFixed(1)}% of managers`);
-  if (availability < 0.75) reasons.push('Availability risk is priced into the projection');
-  if (player.minutes > 0 && player.minutes / 90 >= 6) reasons.push('Consistent minutes improve projection confidence');
-  if (team && team.strength >= 4) reasons.push(`${team.name} carry strong baseline team strength`);
-  if (!reasons.length) reasons.push(`Blended form, minutes, role and fixture model: ${projection.toFixed(1)} projected points`);
-  return reasons.slice(0, 4);
+  if (player.gwProjections && Object.keys(player.gwProjections).length > 0) {
+    const mins = player.repoExpectedMinutes ?? 0;
+    reasons.push(`Repo projection ${projection.toFixed(2)} xPts (${Math.round(mins)} xMins)`);
+  } else {
+    reasons.push(`Mechanistic model ${projection.toFixed(2)} xPts (Shrinkage + Poisson)`);
+  }
+  if (defconPts >= 0.45) {
+    const threshold = player.position === 'DEF' ? 10 : 12;
+    reasons.push(`DEFCON +${defconPts.toFixed(2)} xPts (≥${threshold} CBIT${player.position === 'DEF' ? '' : 'R'} tail)`);
+  }
+  if ((player.position === 'GKP' || player.position === 'DEF') && csProb >= 0.34) {
+    reasons.push(`${Math.round(csProb * 100)}% Poisson clean-sheet probability`);
+  }
+  if (fixtureScore <= 2.65) {
+    reasons.push(`Favorable ${team?.shortName ?? 'club'} 5-GW run (FDR ${fixtureScore.toFixed(2)})`);
+  } else if (fixtureScore >= 3.65) {
+    reasons.push(`Tougher 5-GW fixture run (FDR ${fixtureScore.toFixed(2)})`);
+  }
+  if (availability < 0.72) {
+    reasons.push(`Minutes/fitness caution (${Math.round(availability * 100)}% appearance probability)`);
+  }
+  return reasons.slice(0, 3);
 }
 
-function deterministicSparkline(player: Player, projection: number): number[] {
-  const seed = player.id * 0.61803398875;
-  const base = clamp(projection, 0.8, 12);
-  return Array.from({ length: 9 }, (_, index) => {
-    const wave = Math.sin(seed + index * 0.91) * 0.22 + Math.cos(seed * 1.7 + index * 0.42) * 0.14;
-    const trend = (index / 8 - 0.5) * (numberValue(player.form) - numberValue(player.ppg)) * 0.08;
-    return round(Math.max(0, base + base * wave + trend), 2);
-  });
+function applyRepoRiskProfile(
+  baseXPts: number,
+  availability: number,
+  eoRatio: number,
+  attackingShare: number,
+  profile: RiskProfile,
+): number {
+  if (profile === 'balanced') return baseXPts;
+  if (profile === 'safe') {
+    const minsFactor = 0.92 + 0.1 * availability;
+    const eoShield = 1 + 0.05 * eoRatio;
+    return baseXPts * minsFactor * eoShield;
+  }
+  const diffFactor = 1 + 0.08 * (1 - eoRatio);
+  const upsideFactor = 0.95 + 0.12 * clamp(attackingShare, 0, 1);
+  return baseXPts * diffFactor * upsideFactor;
 }
 
 export function projectPlayer(
   player: Player,
   context: ProjectionContext,
   profile: RiskProfile = 'balanced',
+  shared?: {
+    teamsMap: Map<number, SlimTeam>;
+    priors: PositionPriors;
+    repoFixtures: RepoFixture[];
+    allFixtures: Snapshot['fixtures'];
+  },
 ): EnrichedPlayer {
-  const team = context.teamIndex.get(player.teamId) ?? {
+  const team: FplTeam = context.teamIndex.get(player.teamId) ?? {
     id: player.teamId,
     code: player.teamId,
-    name: `Team ${player.teamId}`,
+    name: `Club ${player.teamId}`,
     shortName: `T${player.teamId}`,
-    position: 0,
-    played: 0,
-    points: 0,
-    form: null,
+    position: player.teamId,
+    played: 7,
+    points: 10,
+    form: 'W',
     strength: 3,
-    strengthAttackHome: 3,
-    strengthAttackAway: 3,
-    strengthDefenceHome: 3,
-    strengthDefenceAway: 3,
+    strengthAttackHome: 1100,
+    strengthAttackAway: 1100,
+    strengthDefenceHome: 1100,
+    strengthDefenceAway: 1100,
   };
-  const availability = playerAvailability(player);
+
   const completedEvents = Math.max(1, context.completedEvents);
-  const minutesPerEvent = player.minutes / completedEvents;
-  const minutesRate = clamp(minutesPerEvent / 78, 0.18, 1);
+  const nextGw = context.projectionStartEventId;
+  const el = toRepoElement(player);
+
+  const allFixtures = shared?.allFixtures ?? [...context.fixtureIndex.values()].flat();
+  const repoFixtures = shared?.repoFixtures ?? toRepoFixtures(allFixtures);
+  const teamsMap =
+    shared?.teamsMap ??
+    new Map(toRepoTeams([...context.teamIndex.values()]).map((t) => [t.id, t]));
+  const priors = shared?.priors ?? DEFAULT_PRIORS;
+
+  const modelOut = computePlayerXPts(el, nextGw, repoFixtures, teamsMap, completedEvents, 0, priors);
+  const minsDist = estimateMinutesDistribution(el, completedEvents);
+  const opta = computeOptaXP5Gw(player, allFixtures, nextGw, completedEvents, 5);
+  const fiveGwEaseScore = computeFiveGwFixtureEaseSum(player.teamId, allFixtures, nextGw, 5);
+
+  const csvGwXpts =
+    player.gwProjections?.[nextGw] ??
+    (player.repoBenchmarkXpts !== null && player.repoBenchmarkXpts !== undefined
+      ? player.repoBenchmarkXpts
+      : null);
+  const baseNextGwXPts = csvGwXpts !== null ? csvGwXpts : modelOut.xPts;
+
+  const availability = clamp(minsDist.p60 + minsDist.pSub, 0, 1);
+  const eoRatio = clamp(numberValue(player.ownership, 0) / 100, 0, 1);
+  const attackingPts = modelOut.goalPts + modelOut.assistPts;
+  const attackingShare = modelOut.xPts > 0 ? (attackingPts + modelOut.bonusPts) / modelOut.xPts : 0.4;
+  const projection = round(
+    Math.max(0, applyRepoRiskProfile(baseNextGwXPts, availability, eoRatio, attackingShare, profile)),
+    2,
+  );
+
+  const sparkline: number[] = [];
+  if (player.gwProjections && Object.keys(player.gwProjections).length > 0) {
+    const sortedGws = Object.keys(player.gwProjections)
+      .map(Number)
+      .sort((a, b) => a - b);
+    for (const gw of sortedGws) {
+      sparkline.push(round(player.gwProjections[gw] ?? 0, 2));
+    }
+  } else {
+    for (let offset = 0; offset < 6; offset += 1) {
+      const gw = nextGw + offset;
+      sparkline.push(
+        round(computePlayerXPts(el, gw, repoFixtures, teamsMap, completedEvents, offset, priors).xPts, 2),
+      );
+    }
+  }
+
+  let horizon5Projection = 0;
+  for (let offset = 0; offset < 5; offset += 1) {
+    const gw = nextGw + offset;
+    if (player.gwProjections?.[gw] !== undefined) {
+      horizon5Projection += player.gwProjections[gw];
+    } else {
+      horizon5Projection += computePlayerXPts(el, gw, repoFixtures, teamsMap, completedEvents, offset, priors).xPts;
+    }
+  }
+  horizon5Projection = round(horizon5Projection, 2);
+
   const fixtureScore = averageFixtureDifficulty(player, context, 5);
-  const fixtureDelta = clamp((3 - fixtureScore) * 0.085, -0.2, 0.2);
-  const roleScore = roleScoreFor(player, minutesRate, Math.max(completedEvents, 1));
-  const xGI90 = xPer90(player.xGI, player.minutes);
-  const momentum = Math.tanh((player.transfersInEvent - player.transfersOutEvent) / 50000);
-  const ownershipRatio = clamp(player.ownership / 100, 0, 1);
-  const base =
-    numberValue(player.epNext) * 0.34 +
-    numberValue(player.form) * 0.3 +
-    numberValue(player.ppg) * 0.27 +
-    numberValue(player.epThis) * 0.09;
-  const bonusRate = player.bonus / completedEvents;
-  const rawCore = base * (0.52 + minutesRate * 0.48) + roleScore * 0.48 + bonusRate * 0.26;
-  const fixtureFactor = 1 + fixtureDelta;
-  const profileFactor =
-    profile === 'safe'
-      ? 0.94 + ownershipRatio * 0.13
-      : profile === 'differential'
-        ? 1.09 - ownershipRatio * 0.25
-        : profile === 'upside'
-          ? 1.03 + clamp(roleScore / 8, 0, 0.12) - ownershipRatio * 0.025
-          : 1;
-  const momentumFactor = 1 + momentum * (profile === 'upside' ? 0.035 : 0.018);
-  const projection = clamp(
-    rawCore * availability * fixtureFactor * profileFactor * momentumFactor,
-    0.1,
-    16,
+  const fixtureDelta = round(clamp((3 - fixtureScore) * 0.11, -0.25, 0.25), 3);
+  const momentum = round(Math.tanh((player.transfersInEvent - player.transfersOutEvent) / 50000), 3);
+  const expectedMinutes =
+    player.repoExpectedMinutes !== null && player.repoExpectedMinutes !== undefined
+      ? player.repoExpectedMinutes
+      : minsDist.expectedMinutes;
+  const confidence = round(clamp(modelOut.confidence / 100, 0.08, 0.99), 3);
+  const roleScore = round(attackingPts + modelOut.defensivePts + modelOut.bonusPts, 3);
+  const leverage = round(projection * (1 - eoRatio), 3);
+
+  const reasons = projectionReasons(
+    player,
+    projection,
+    fixtureScore,
+    modelOut.defensivePts,
+    availability,
+    modelOut.csProb,
+    team,
   );
-  const confidence = clamp(
-    0.2 + minutesRate * 0.42 + availability * 0.22 + clamp(player.minutes / 720, 0, 1) * 0.16,
-    0.08,
-    0.99,
-  );
-  const leverage = clamp((1 - ownershipRatio) * (0.45 + projection / 16), 0, 1.45);
-  const reasons = projectionReasons(player, projection, fixtureScore, roleScore, availability, xGI90, team);
+
   return {
     ...player,
     team,
-    projection: round(projection, 2),
-    confidence: round(confidence, 3),
-    value: round(projection / Math.max(4, player.cost) * 10, 3),
+    projection,
+    horizon5Projection,
+    confidence,
+    value: round((projection / Math.max(40, player.cost)) * 10, 3),
     fixtureScore: round(fixtureScore, 2),
-    fixtureDelta: round(fixtureDelta, 3),
-    momentum: round(momentum, 3),
+    fixtureDelta,
+    momentum,
     availability: round(availability, 3),
-    roleScore: round(roleScore, 3),
-    leverage: round(leverage, 3),
+    roleScore,
+    leverage,
     reasons,
-    sparkline: deterministicSparkline(player, projection),
+    sparkline,
+    modelBreakdown: {
+      modelXPts: modelOut.xPts,
+      expectedMinutes: round(expectedMinutes, 1),
+      pStart: round(minsDist.pStart, 3),
+      p60Plus: round(minsDist.p60, 3),
+      appearance: round(modelOut.appearancePts, 2),
+      attacking: round(attackingPts, 2),
+      goal: round(modelOut.goalPts, 2),
+      assist: round(modelOut.assistPts, 2),
+      cleanSheet: round(modelOut.cleanSheetPts, 2),
+      defcon: round(modelOut.defensivePts, 2),
+      saves: round(modelOut.savePts, 2),
+      bonus: round(modelOut.bonusPts, 2),
+      concededPenalty: 0,
+      cardsPenalty: round(modelOut.cardPts, 2),
+      csProb: round(modelOut.csProb, 3),
+      optaXP5Gw: opta.total5Gw,
+      optaXPNext: opta.nextGw,
+      fiveGwEaseScore,
+    },
   };
 }
 
@@ -171,51 +314,84 @@ export function enrichPlayers(snapshot: Snapshot, profile: RiskProfile = 'balanc
     snapshot.gameweeks,
     snapshot.meta.nextEventId,
   );
-  return snapshot.players.map((player) => projectPlayer(player, context, profile));
+  const repoTeams = toRepoTeams(snapshot.teams);
+  const teamsMap = new Map(repoTeams.map((t) => [t.id, t]));
+  const repoFixtures = toRepoFixtures(snapshot.fixtures);
+  const repoElements = snapshot.players.map(toRepoElement);
+  const priors = computePositionPriors(repoElements);
+  const shared = {
+    teamsMap,
+    priors,
+    repoFixtures,
+    allFixtures: snapshot.fixtures,
+  };
+  return snapshot.players.map((player) => projectPlayer(player, context, profile, shared));
+}
+
+export function captaincyRanking(players: EnrichedPlayer[], limit = 8): EnrichedPlayer[] {
+  return [...players]
+    .filter((p) => p.availability >= 0.45)
+    .sort((a, b) => {
+      const aCap = a.projection * (0.85 + 0.15 * a.confidence);
+      const bCap = b.projection * (0.85 + 0.15 * b.confidence);
+      return bCap - aCap || b.horizon5Projection - a.horizon5Projection;
+    })
+    .slice(0, limit);
+}
+
+export function differentialRanking(players: EnrichedPlayer[], maxOwnership = 12, limit = 8): EnrichedPlayer[] {
+  return [...players]
+    .filter((p) => p.ownership > 0 && p.ownership <= maxOwnership && p.availability >= 0.55)
+    .sort((a, b) => b.leverage - a.leverage || b.projection - a.projection)
+    .slice(0, limit);
+}
+
+export function valueRanking(players: EnrichedPlayer[], limit = 8): EnrichedPlayer[] {
+  return [...players]
+    .filter((p) => p.availability >= 0.6 && p.projection >= 3.2)
+    .sort((a, b) => b.value - a.value || b.horizon5Projection - a.horizon5Projection)
+    .slice(0, limit);
+}
+
+export function riskWatchlist(players: EnrichedPlayer[], limit = 8): EnrichedPlayer[] {
+  return [...players]
+    .filter((p) => p.ownership >= 4 && (p.availability < 0.78 || p.status !== 'a'))
+    .sort((a, b) => b.ownership * (1 - b.availability) - a.ownership * (1 - a.availability))
+    .slice(0, limit);
+}
+
+export function searchPlayers(players: EnrichedPlayer[], query: string, limit = 10): EnrichedPlayer[] {
+  const needle = query.trim().toLowerCase();
+  const base = !needle
+    ? [...players].sort((a, b) => b.projection - a.projection)
+    : players
+        .filter(
+          (p) =>
+            p.name.toLowerCase().includes(needle) ||
+            p.fullName.toLowerCase().includes(needle) ||
+            p.team.name.toLowerCase().includes(needle) ||
+            p.team.shortName.toLowerCase().includes(needle) ||
+            p.position.toLowerCase().includes(needle),
+        )
+        .sort((a, b) => b.projection - a.projection);
+  return base.slice(0, limit);
 }
 
 export function buildInsights(players: EnrichedPlayer[]) {
-  const available = players.filter((player) => player.availability >= 0.5 && player.minutes > 0);
-  const byProjection = [...available].sort((a, b) => b.projection - a.projection);
-  const byValue = [...available].filter((player) => player.cost >= 45).sort((a, b) => b.value - a.value);
-  const byForm = [...available].sort((a, b) => b.form - a.form || b.projection - a.projection);
-  const byMomentum = [...players].sort(
-    (a, b) => b.transfersInEvent - b.transfersOutEvent - (a.transfersInEvent - a.transfersOutEvent),
-  );
-  const differentials = [...available]
-    .filter((player) => player.ownership < 15 && player.projection > 4)
-    .sort((a, b) => b.projection - a.projection);
+  const topProjected = [...players].sort((a, b) => b.projection - a.projection).slice(0, 12);
+  const captainCandidates = captaincyRanking(players, 8);
+  const differentials = differentialRanking(players, 12, 8);
+  const bestValues = valueRanking(players, 8);
+  const marketIn = [...players]
+    .sort((a, b) => b.transfersInEvent - b.transfersOutEvent - (a.transfersInEvent - a.transfersOutEvent))
+    .slice(0, 8);
+  const watchlist = riskWatchlist(players, 8);
   return {
-    topProjected: byProjection.slice(0, 12),
-    captainCandidates: byProjection.slice(0, 6),
-    bestValues: byValue.slice(0, 8),
-    formPlayers: byForm.slice(0, 8),
-    marketIn: byMomentum.slice(0, 6),
-    marketOut: byMomentum.slice(-6).reverse(),
-    differentials: differentials.slice(0, 8),
-    averageProjection: players.reduce((sum, player) => sum + player.projection, 0) / Math.max(1, players.length),
-    eliteCount: players.filter((player) => player.projection >= 6).length,
+    topProjected,
+    captainCandidates,
+    differentials,
+    bestValues,
+    marketIn,
+    watchlist,
   };
-}
-
-export function searchPlayers(players: EnrichedPlayer[], query: string, limit = 8): EnrichedPlayer[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return [];
-  return players
-    .map((player) => {
-      const name = player.name.toLowerCase();
-      const fullName = player.fullName.toLowerCase();
-      const teamName = player.team.name.toLowerCase();
-      let score = 0;
-      if (name === needle || fullName === needle) score = 100;
-      else if (name.startsWith(needle) || fullName.startsWith(needle)) score = 80;
-      else if (name.includes(needle) || fullName.includes(needle)) score = 60;
-      else if (teamName.includes(needle) || player.team.shortName.toLowerCase() === needle) score = 35;
-      if (score) score += Math.min(15, player.projection);
-      return { player, score };
-    })
-    .filter((result) => result.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((result) => result.player);
 }

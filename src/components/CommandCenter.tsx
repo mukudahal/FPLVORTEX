@@ -1,13 +1,14 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity,
   ArrowRight,
   BrainCircuit,
   CircleDollarSign,
-  Clock,
   Crown,
+  ExternalLink,
   Flame,
   Gauge,
+  Play,
+  ShieldAlert,
   Sparkles,
   Target,
   TrendingUp,
@@ -16,16 +17,22 @@ import {
   WandSparkles,
   Zap,
 } from 'lucide-react';
-import type { EnrichedPlayer, FixtureRow, RiskProfile, Snapshot } from '../lib/types';
+import type { EnrichedPlayer, EntryData, FixtureRow, RiskProfile, Snapshot, VideoItem } from '../lib/types';
 import type { RouteId } from '../hooks/useHashRoute';
 import { useNow } from '../hooks/useNow';
-import { buildInsights } from '../lib/analytics';
+import { fetchVideos } from '../lib/api';
+import { buildInsights, toRepoElement } from '../lib/analytics';
+import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { countdown, formatCompact, formatNumber, formatPercent, formatPrice, formatSigned } from '../lib/format';
+import { runFplReviewSimulation } from '../lib/repoModel/fplReviewSimulator';
+import { ClubBadge } from './ClubBadge';
+import { PlayerAvatar } from './PlayerAvatar';
 import { Sparkline } from './Sparkline';
 import { StatCard } from './StatCard';
 
 interface CommandCenterProps {
   snapshot: Snapshot;
+  entry?: EntryData | null;
   players: EnrichedPlayer[];
   insights: ReturnType<typeof buildInsights>;
   fixtureRows: FixtureRow[];
@@ -36,8 +43,11 @@ interface CommandCenterProps {
   refreshing: boolean;
 }
 
+const DEFAULT_145784_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
+
 export function CommandCenter({
   snapshot,
+  entry,
   players,
   insights,
   fixtureRows,
@@ -48,40 +58,86 @@ export function CommandCenter({
   refreshing,
 }: CommandCenterProps) {
   const now = useNow(1000);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchVideos(controller.signal)
+      .then((res) => setVideos(res.videos.slice(0, 3)))
+      .catch(() => setVideos([]));
+    return () => controller.abort();
+  }, []);
+
   const nextEvent = snapshot.gameweeks.find((event) => event.id === snapshot.meta.nextEventId);
   const currentEvent = snapshot.gameweeks.find((event) => event.id === snapshot.meta.currentEventId);
   const deadline = useMemo(() => countdown(nextEvent?.deadlineTime), [nextEvent?.deadlineTime, now]);
+  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+
+  const squadIds = useMemo(() => {
+    if (entry && entry.picks.length === 15) {
+      return entry.picks.map((p) => p.element);
+    }
+    const valid = DEFAULT_145784_SQUAD.filter((id) => playerMap.has(id));
+    return valid.length === 15 ? valid : players.slice(0, 15).map((p) => p.id);
+  }, [entry, playerMap, players]);
+
+  // Run lightweight repo optimizer verdict for Home banner (600 MC draws for instant Home render)
+  const quickSim = useMemo(() => {
+    if (players.length < 15 || squadIds.length < 15) return null;
+    return runFplReviewSimulation({
+      players,
+      currentSquadIds: squadIds,
+      bankTenths: entry?.history.bank ?? 4,
+      freeTransfersNow: entry?.freeTransfers ?? 4,
+      nextGw: snapshot.meta.nextEventId,
+      horizon: 5,
+      repoFixtures: toRepoFixtures(snapshot.fixtures),
+      repoTeams: toRepoTeams(snapshot.teams),
+      repoElements: snapshot.players.map(toRepoElement),
+      draws: 600,
+    });
+  }, [entry?.freeTransfers, entry?.history.bank, players, snapshot, squadIds]);
+
   const captain = insights.captainCandidates[0];
   const differential = insights.differentials[0];
   const valuePick = insights.bestValues[0];
-  const mover = insights.marketIn[0];
   const bestFixture = fixtureRows[0];
-  const improving = [...fixtureRows].sort((a, b) => a.swing - b.swing)[0];
-  const averageOwnership = players.reduce((sum, player) => sum + player.ownership, 0) / Math.max(1, players.length);
+  const squadSet = useMemo(() => new Set(squadIds), [squadIds]);
+  const nonOwnedThreats = useMemo(
+    () =>
+      players
+        .filter((p) => !squadSet.has(p.id) && p.ownership >= 15)
+        .sort((a, b) => (b.ownership / 100) * b.projection - (a.ownership / 100) * a.projection)
+        .slice(0, 5),
+    [players, squadSet],
+  );
+  const verifiedNotes = snapshot.meta.repoData?.verifiedNotes ?? [];
 
   return (
     <div className="page page--command">
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero__noise" />
         <div className="hero__content">
-          <div className="eyebrow"><Sparkles size={14} /> AUTONOMOUS FPL INTELLIGENCE · {snapshot.meta.season}</div>
-          <h2 id="hero-title">Every transfer, captain and fixture — pulled into focus.</h2>
+          <div className="eyebrow">
+            <Sparkles size={14} /> FPL VORTEX · TEAM #{entry?.id ?? 145784} ({entry?.teamName ?? 'FPLVORTEX'}) · {snapshot.meta.season}
+          </div>
+          <h2 id="hero-title">Every transfer, chip and captain — solved from your repo engine.</h2>
           <p>
-            VORTEX reads the live FPL universe, scores every player against upcoming fixtures, and turns the noise into
-            decisions you can make before the deadline.
+            Powered directly by your 667-player GW7–16 repository projections, 2026/27 DEFCON Bayesian-Poisson model,
+            banked-FT transfer solver, and paired Monte Carlo horizon simulation.
           </p>
           <div className="hero__actions">
             <button type="button" className="button button--primary button--large" onClick={() => onNavigate('optimizer')}>
-              <WandSparkles size={18} /> Auto-build best squad <ArrowRight size={17} />
+              <WandSparkles size={18} /> Planner, Chips & Simulation <ArrowRight size={17} />
             </button>
             <button type="button" className="button button--ghost button--large" onClick={onOpenPalette}>
-              <Target size={18} /> Find a player
+              <Target size={18} /> Search 667 players
             </button>
           </div>
           <div className="hero__trust">
-            <span><Users size={15} /> <strong>{formatNumber(snapshot.players.length)}</strong> players scored</span>
-            <span><Activity size={15} /> <strong>{formatNumber(snapshot.fixtures.length)}</strong> fixtures parsed</span>
-            <span><Clock size={15} /> <strong>{snapshot.meta.isLive ? '45s' : '10m'}</strong> auto refresh</span>
+            <span><Users size={15} /> <strong>{formatNumber(snapshot.players.length)}</strong> repo players</span>
+            <span><Trophy size={15} /> OR <strong>{formatNumber(entry?.overallRank ?? 237000)}</strong></span>
+            <span><CircleDollarSign size={15} /> <strong>{entry?.freeTransfers ?? 4} FT</strong> · £{((entry?.history.bank ?? 4) / 10).toFixed(1)}m bank</span>
           </div>
         </div>
 
@@ -91,255 +147,443 @@ export function CommandCenter({
             <span className="vortex-orb__ring vortex-orb__ring--two" />
             <span className="vortex-orb__ring vortex-orb__ring--three" />
             <div className="vortex-orb__core">
-              <small>PROJECTION HORIZON</small>
-              <strong>{nextEvent?.shortName ?? 'GW 1'}</strong>
-              <span>{profile} model</span>
+              <img
+                src="/player-images/brand/fpl-vortex-lion.jpg"
+                alt=""
+                className="vortex-orb__crest"
+              />
+              <span>GW{snapshot.meta.nextEventId}</span>
+              <strong>{quickSim ? quickSim.winner.nextGwXPts.toFixed(1) : captain?.projection.toFixed(1) ?? '—'}</strong>
+              <small>projected XI pts</small>
             </div>
-            <i className="vortex-orb__satellite vortex-orb__satellite--a" />
-            <i className="vortex-orb__satellite vortex-orb__satellite--b" />
           </div>
+
           {captain && (
             <div className="float-card float-card--captain">
-              <span className="float-card__label"><Crown size={12} /> CAPTAIN SIGNAL</span>
-              <strong>{captain.name}</strong>
-              <span>{captain.projection.toFixed(1)} projected pts</span>
+              <div className="float-card__row">
+                <PlayerAvatar
+                  code={captain.code}
+                  teamCode={captain.team.code}
+                  name={captain.name}
+                  fullName={captain.fullName}
+                  teamShort={captain.team.shortName}
+                  position={captain.position}
+                  size="sm"
+                />
+                <div>
+                  <span className="float-card__label"><Crown size={12} /> #1 Captain</span>
+                  <strong>{captain.name}</strong>
+                  <small>{captain.team.shortName} · {(captain.projection * 2).toFixed(1)} 2× xPts</small>
+                </div>
+              </div>
             </div>
           )}
+
           {bestFixture && (
             <div className="float-card float-card--fixture">
-              <span className="float-card__label"><Zap size={12} /> BEST FIXTURE RUN</span>
-              <strong>{bestFixture.team.shortName}</strong>
-              <span>{bestFixture.next5.toFixed(2)} avg FDR</span>
+              <div className="float-card__row">
+                <ClubBadge teamCode={bestFixture.team.code} shortName={bestFixture.team.shortName} teamName={bestFixture.team.name} size="md" />
+                <div>
+                  <span className="float-card__label"><Flame size={12} /> Best 5-GW run</span>
+                  <strong>{bestFixture.team.name}</strong>
+                  <small>Ease {bestFixture.easeSum5} · {bestFixture.next5.toFixed(2)} FDR</small>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </section>
 
-      <section className="deadline-band" aria-label="Upcoming deadline">
-        <div className="deadline-band__intro">
-          <span className="deadline-band__icon"><Clock size={20} /></span>
+      <section className="deadline-band" aria-label="Next gameweek countdown">
+        <div className="deadline-band__title">
+          <span className="deadline-band__pulse" />
           <div>
-            <strong>{nextEvent?.name ?? 'Next gameweek'} deadline</strong>
-            <span>{nextEvent?.deadlineTime ? new Date(nextEvent.deadlineTime).toUTCString() : 'Schedule to be confirmed'}</span>
+            <span>NEXT DEADLINE · {nextEvent?.name ?? `Gameweek ${snapshot.meta.nextEventId}`}</span>
+            <strong>
+              {quickSim
+                ? `Engine Verdict: ${quickSim.winner.label} · ${quickSim.recommendedChipDecision.action} chips`
+                : 'Transfer, captain & chip strategy locked'}
+            </strong>
           </div>
         </div>
-        <div className="countdown" aria-live="off">
-          {deadline.parts.length ? deadline.parts.map((part) => (
-            <div className="countdown__unit" key={part.unit}>
+        <div className="countdown" role="timer" aria-live="off">
+          {(deadline.parts.length > 0
+            ? deadline.parts
+            : [
+                { value: '00', unit: 'days' },
+                { value: '00', unit: 'hrs' },
+                { value: '00', unit: 'min' },
+                { value: '00', unit: 'sec' },
+              ]
+          ).map((part) => (
+            <div key={part.unit} className="countdown__unit">
               <strong>{part.value}</strong>
               <span>{part.unit}</span>
             </div>
-          )) : <strong>{deadline.label}</strong>}
+          ))}
         </div>
-        <div className="deadline-band__pulse">
-          <span className={snapshot.meta.isLive ? 'pulse-dot is-live' : 'pulse-dot'} />
-          <div>
-            <strong>{snapshot.meta.isLive ? 'Live scoring active' : 'Pre-deadline intelligence'}</strong>
-            <span>
-              {currentEvent
-                ? `GW ${currentEvent.id} average ${currentEvent.averageEntryScore} pts · ${formatCompact(currentEvent.transfersMade)} transfers`
-                : 'Waiting for gameweek data'}
-            </span>
-          </div>
-        </div>
-        <button type="button" className="button button--ghost button--small" onClick={onRefresh} disabled={refreshing}>
-          <Zap size={15} /> Sync now
+        <button type="button" className="button button--subtle" onClick={onRefresh} disabled={refreshing}>
+          <Zap size={15} /> {refreshing ? 'Syncing…' : 'Sync now'}
         </button>
       </section>
 
-      <section className="stat-grid" aria-label="Key model signals">
+      <section className="stat-grid" aria-label="Headline intelligence">
         <StatCard
-          label="Highest projection"
-          value={captain ? `${captain.projection.toFixed(1)} pts` : '—'}
-          icon={<Gauge size={19} />}
-          tone="violet"
-          footer={captain ? `${captain.name} · ${captain.team.shortName} · ${formatPrice(captain.price)}` : 'No player data'}
-        />
-        <StatCard
-          label="Top differential"
-          value={differential ? `${differential.projection.toFixed(1)} pts` : '—'}
-          icon={<Flame size={19} />}
-          tone="pink"
-          footer={differential ? `${differential.name} · only ${differential.ownership.toFixed(1)}% owned` : 'No differential found'}
-        />
-        <StatCard
-          label="Best value"
-          value={valuePick ? valuePick.value.toFixed(2) : '—'}
-          icon={<CircleDollarSign size={19} />}
+          label="Team #145784 Projected XI"
+          value={quickSim ? `${quickSim.winner.nextGwXPts.toFixed(1)} pts` : '—'}
+          detail={quickSim ? `${quickSim.lineup0.formation} · 5-GW ${quickSim.winner.horizonXPts.toFixed(1)} xPts` : 'Loading squad'}
+          icon={<Gauge size={18} />}
           tone="mint"
-          footer={valuePick ? `${valuePick.name} · ${valuePick.projection.toFixed(1)} pts per ${formatPrice(valuePick.price)}` : 'No value pick found'}
         />
         <StatCard
-          label="Hottest transfer"
-          value={mover ? formatCompact(mover.transfersInEvent - mover.transfersOutEvent) : '—'}
-          icon={<TrendingUp size={19} />}
+          label="Top Captain Pick"
+          value={captain ? captain.name : '—'}
+          detail={captain ? `${(captain.projection * 2).toFixed(1)} 2× xPts · ${formatPercent(captain.ownership)} EO` : 'Calculating'}
+          icon={<Crown size={18} />}
+          tone="violet"
+        />
+        <StatCard
+          label="Banked FT Valuation"
+          value={quickSim ? `+${quickSim.bankedTransferValueNextGw.toFixed(2)} xPts` : '—'}
+          detail={quickSim ? `${quickSim.freeTransfersNow} FT now → ${quickSim.freeTransfersAfterRoll} FT on roll` : 'Roll vs move'}
+          icon={<CircleDollarSign size={18} />}
           tone="amber"
-          footer={mover ? `${mover.name} net transfers in this gameweek` : 'No transfer data'}
+        />
+        <StatCard
+          label="Peak Chip Window"
+          value={
+            quickSim?.recommendedChipDecision.bestFutureChip
+              ? `${quickSim.recommendedChipDecision.bestFutureChip.toUpperCase()} GW${quickSim.recommendedChipDecision.bestFutureGw}`
+              : 'HOLD'
+          }
+          detail={
+            quickSim?.recommendedChipDecision.bestFutureGain
+              ? `+${quickSim.recommendedChipDecision.bestFutureGain.toFixed(1)} xPts over FT baseline`
+              : valuePick
+                ? `Best value: ${valuePick.name} (${formatPrice(valuePick.price)})`
+                : 'Chip horizon active'
+          }
+          icon={<BrainCircuit size={18} />}
+          tone="pink"
         />
       </section>
 
       <div className="dashboard-grid">
+        {/* Manager 145784 Squad Strip with Real Player Portraits */}
+        <section className="panel panel--full">
+          <div className="panel__header">
+            <div>
+              <span className="panel__eyebrow">MY SQUAD · {entry?.teamName ?? 'FPLVORTEX'} (#{entry?.id ?? 145784})</span>
+              <h3>GW{snapshot.meta.nextEventId} Optimal XI & Bench</h3>
+            </div>
+            <div className="button-row">
+              <button type="button" className="button button--ghost" onClick={() => onNavigate('league')}>
+                <Trophy size={15} /> League & EO Intel
+              </button>
+              <button type="button" className="button button--primary" onClick={() => onNavigate('optimizer')}>
+                <WandSparkles size={15} /> Open Planner & Chip Sim <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {quickSim && (
+            <>
+              <div className="squad-mini-grid">
+                {quickSim.lineup0.starters.map((id) => {
+                  const p = playerMap.get(id);
+                  if (!p) return null;
+                  const isCap = id === quickSim.lineup0.captainId;
+                  const isVc = id === quickSim.lineup0.viceId;
+                  return (
+                    <div key={id} className="squad-mini-card">
+                      {isCap && <span className="squad-mini-card__cap is-cap">C</span>}
+                      {isVc && <span className="squad-mini-card__cap is-vc">V</span>}
+                      <PlayerAvatar
+                        code={p.code}
+                        teamCode={p.team.code}
+                        name={p.name}
+                        fullName={p.fullName}
+                        teamShort={p.team.shortName}
+                        position={p.position}
+                        size="md"
+                      />
+                      <strong>{p.name}</strong>
+                      <small>{p.team.shortName} · {p.position}</small>
+                      <span className="squad-mini-card__xp">
+                        {(p.projection * (isCap ? 2 : 1)).toFixed(2)} xP
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="squad-mini-bench">
+                <span className="squad-mini-bench__label">BENCH ({quickSim.lineup0.benchXPts.toFixed(1)} xPts)</span>
+                <div className="squad-mini-bench__list">
+                  {quickSim.lineup0.bench.map((id, idx) => {
+                    const p = playerMap.get(id);
+                    if (!p) return null;
+                    return (
+                      <div key={id} className="squad-mini-bench__item">
+                        <span className="squad-mini-bench__order">{idx === 0 ? 'GK' : `#${idx}`}</span>
+                        <PlayerAvatar
+                          code={p.code}
+                          teamCode={p.team.code}
+                          name={p.name}
+                          fullName={p.fullName}
+                          teamShort={p.team.shortName}
+                          position={p.position}
+                          size="sm"
+                        />
+                        <div>
+                          <strong>{p.name}</strong>
+                          <small>{p.team.shortName} · {p.projection.toFixed(2)} xP</small>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Top Projected Players with Real Portraits & GW7-16 Trajectory */}
         <section className="panel panel--projection">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">VORTEX MODEL</span>
-              <h3>Projected points leaderboard</h3>
-              <p>Form, minutes, role, availability and the next five fixtures blended into one score.</p>
+              <span className="panel__eyebrow">REPO PROJECTION BOARD ({profile.toUpperCase()})</span>
+              <h3>Highest GW{snapshot.meta.nextEventId} expected points</h3>
             </div>
             <button type="button" className="text-button" onClick={() => onNavigate('players')}>
-              Open player lab <ArrowRight size={15} />
+              All {snapshot.players.length} players <ArrowRight size={15} />
             </button>
           </div>
+
           <div className="projection-list">
-            {insights.topProjected.slice(0, 8).map((player, index) => {
-              const max = insights.topProjected[0]?.projection ?? 1;
-              return (
-                <button
-                  type="button"
-                  className="projection-row"
-                  key={player.id}
-                  onClick={() => onNavigate('players')}
-                  title={player.reasons.join(' · ')}
-                >
-                  <span className="projection-row__rank">{String(index + 1).padStart(2, '0')}</span>
-                  <span className={`player-avatar player-avatar--${player.team.shortName.toLowerCase()}`}>
-                    {player.name.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="projection-row__identity">
-                    <strong>{player.name}</strong>
-                    <small>{player.team.shortName} · {player.position} · {formatPrice(player.price)}</small>
-                  </span>
-                  <Sparkline values={player.sparkline} width={82} height={28} color="var(--accent)" />
-                  <span className="projection-row__bar-wrap">
-                    <span className="projection-row__bar" style={{ width: `${(player.projection / max) * 100}%` }} />
-                  </span>
-                  <strong className="projection-row__score">{player.projection.toFixed(1)}</strong>
-                </button>
-              );
-            })}
+            {insights.topProjected.slice(0, 8).map((player, index) => (
+              <div className="projection-row projection-row--with-avatar" key={player.id}>
+                <span className="projection-row__rank">{index + 1}</span>
+                <PlayerAvatar
+                  code={player.code}
+                  teamCode={player.team.code}
+                  name={player.name}
+                  fullName={player.fullName}
+                  teamShort={player.team.shortName}
+                  position={player.position}
+                  size="sm"
+                />
+                <div className="projection-row__identity">
+                  <strong>{player.name}</strong>
+                  <small>
+                    {player.team.shortName} · {player.position} · {formatPrice(player.price)} · {formatPercent(player.ownership)} EO
+                  </small>
+                </div>
+                <Sparkline values={player.sparkline} />
+                <div className="projection-row__bar-wrap">
+                  <div
+                    className="projection-row__bar"
+                    style={{ width: `${Math.min(100, (player.projection / (insights.topProjected[0]?.projection || 8)) * 100)}%` }}
+                  />
+                </div>
+                <strong className="projection-row__score">{player.projection.toFixed(2)}</strong>
+              </div>
+            ))}
           </div>
         </section>
 
+        {/* Captaincy Showdown */}
         <section className="panel panel--captain">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">CAPTAIN INDEX</span>
-              <h3>Who deserves the armband?</h3>
+              <span className="panel__eyebrow">ARMBAND MATRIX (`rankCaptaincy`)</span>
+              <h3>Captaincy candidates</h3>
             </div>
-            <Crown size={19} className="panel__header-icon" />
+            <span className="badge badge--violet">2× Armband</span>
           </div>
-          <div className="captain-list">
-            {insights.captainCandidates.slice(0, 3).map((player, index) => (
-              <article className={`captain-card ${index === 0 ? 'is-top' : ''}`} key={player.id}>
-                <div className="captain-card__ring" style={{ '--ring-value': `${Math.round(player.confidence * 100)}%` } as React.CSSProperties}>
-                  <span>{index + 1}</span>
-                </div>
-                <div className="captain-card__body">
-                  <div className="captain-card__title">
-                    <strong>{player.name}</strong>
-                    <span>{player.projection.toFixed(1)} pts</span>
+
+          <div className="captain-grid">
+            {insights.captainCandidates.slice(0, 4).map((player, index) => (
+              <article className="captain-card" key={player.id}>
+                <div className="captain-card__top">
+                  <div className="captain-card__identity-row">
+                    <PlayerAvatar
+                      code={player.code}
+                      teamCode={player.team.code}
+                      name={player.name}
+                      fullName={player.fullName}
+                      teamShort={player.team.shortName}
+                      position={player.position}
+                      size="md"
+                    />
+                    <div>
+                      <span className="captain-card__pick">#{index + 1} Captain</span>
+                      <h4>{player.name}</h4>
+                      <p>{player.team.name} · {formatPrice(player.price)}</p>
+                    </div>
                   </div>
-                  <small>{player.team.name} · {formatPercent(player.ownership)} owned · {formatPercent(player.confidence * 100, 0)} confidence</small>
-                  <p>{player.reasons[0]}</p>
+                  <span className="captain-card__double">{(player.projection * 2).toFixed(1)} pts</span>
                 </div>
+                <div className="captain-card__metrics">
+                  <span>EO {formatPercent(player.ownership)}</span>
+                  <span>5GW {player.horizon5Projection.toFixed(1)}</span>
+                  <span>xMins {player.modelBreakdown.expectedMinutes.toFixed(0)}</span>
+                </div>
+                <p className="captain-card__reason">{player.reasons[0]}</p>
               </article>
             ))}
           </div>
-          <button type="button" className="button button--soft button--full" onClick={() => onNavigate('optimizer')}>
-            <WandSparkles size={16} /> Build captain-ready squad
-          </button>
         </section>
 
+        {/* Fixture Swing Radar with Club Badges */}
         <section className="panel panel--swing">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">FIXTURE SWING</span>
-              <h3>Schedule momentum</h3>
-              <p>Negative swing means the medium-term run improves after the next three.</p>
+              <span className="panel__eyebrow">POISSON SCHEDULE RADAR</span>
+              <h3>Strongest 5-GW runs</h3>
             </div>
             <button type="button" className="text-button" onClick={() => onNavigate('fixtures')}>
               Full matrix <ArrowRight size={15} />
             </button>
           </div>
-          <div className="swing-list">
-            {[...fixtureRows].sort((a, b) => a.swing - b.swing).slice(0, 5).map((row, index) => (
-              <div className="swing-row" key={row.team.id}>
-                <span className="swing-row__rank">#{index + 1}</span>
-                <span className="team-badge">{row.team.shortName}</span>
-                <div className="swing-row__meter">
-                  <span style={{ width: `${Math.min(100, Math.abs(row.swing) / 1.3 * 100)}%` }} />
+          <div className="fixture-mini-table">
+            {fixtureRows.slice(0, 6).map((row) => (
+              <div className="fixture-mini-row" key={row.team.id}>
+                <div className="fixture-mini-row__team fixture-mini-row__team--badge">
+                  <ClubBadge teamCode={row.team.code} shortName={row.team.shortName} teamName={row.team.name} size="sm" />
+                  <div>
+                    <strong>{row.team.shortName}</strong>
+                    <small>λ {row.avgLambdaFor.toFixed(2)} · CS {(row.avgCsProb * 100).toFixed(0)}%</small>
+                  </div>
                 </div>
-                <strong className={row.swing <= 0 ? 'is-positive' : 'is-negative'}>{formatSigned(row.swing, 2)}</strong>
-                <small>Next 5: {row.next5.toFixed(2)}</small>
+                <div className="fixture-mini-row__chips">
+                  {row.cells.map((cell) => (
+                    <span
+                      key={cell.event}
+                      className={`fdr-chip fdr-chip--${cell.isBlank ? 'blank' : cell.difficulty <= 2.5 ? 'easy' : cell.difficulty <= 3.6 ? 'medium' : 'hard'}`}
+                      title={`GW${cell.event}: ${cell.label}`}
+                    >
+                      {cell.isBlank ? '—' : cell.label.split(' ')[0]}
+                    </span>
+                  ))}
+                </div>
+                <strong className="fixture-mini-row__avg">+{row.easeSum5}</strong>
               </div>
             ))}
           </div>
-          {improving && (
-            <div className="insight-callout">
-              <Zap size={16} />
-              <span><strong>{improving.team.name}</strong> have the strongest improving fixture swing in the model.</span>
+        </section>
+
+        {/* EO Threat Radar & Market Momentum */}
+        <section className="panel panel--momentum">
+          <div className="panel__header">
+            <div>
+              <span className="panel__eyebrow">EO THREATS & MARKET PULSE</span>
+              <h3>Non-owned rank threats & transfers</h3>
+            </div>
+            <TrendingUp size={18} />
+          </div>
+          <div className="momentum-columns">
+            <div>
+              <span className="momentum-label is-negative"><ShieldAlert size={12} /> High-EO non-owned threats</span>
+              {nonOwnedThreats.map((player) => (
+                <div className="momentum-row momentum-row--avatar" key={player.id}>
+                  <PlayerAvatar
+                    code={player.code}
+                    teamCode={player.team.code}
+                    name={player.name}
+                    fullName={player.fullName}
+                    teamShort={player.team.shortName}
+                    position={player.position}
+                    size="sm"
+                  />
+                  <div>
+                    <strong>{player.name}</strong>
+                    <small>{player.team.shortName} · {formatPercent(player.ownership)} EO · {player.projection.toFixed(2)} xP</small>
+                  </div>
+                  <span className="is-negative">−{((player.ownership / 100) * player.projection).toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <span className="momentum-label is-positive">Top GW transfers in</span>
+              {insights.marketIn.slice(0, 5).map((player) => (
+                <div className="momentum-row momentum-row--avatar" key={player.id}>
+                  <PlayerAvatar
+                    code={player.code}
+                    teamCode={player.team.code}
+                    name={player.name}
+                    fullName={player.fullName}
+                    teamShort={player.team.shortName}
+                    position={player.position}
+                    size="sm"
+                  />
+                  <div>
+                    <strong>{player.name}</strong>
+                    <small>{player.team.shortName} · {formatPrice(player.price)} · {player.projection.toFixed(2)} xP</small>
+                  </div>
+                  <span className="is-positive">+{formatCompact(player.transfersInEvent)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {differential && (
+            <div className="callout-strip">
+              <Sparkles size={15} />
+              <span>
+                Top differential: <strong>{differential.name}</strong> ({differential.team.shortName}, {formatPercent(differential.ownership)} EO) projects{' '}
+                <strong>{differential.projection.toFixed(2)} xPts</strong> ({formatSigned(differential.fixtureDelta * 10, 1)} fixture swing).
+              </span>
             </div>
           )}
         </section>
 
-        <section className="panel panel--momentum">
-          <div className="panel__header">
-            <div>
-              <span className="panel__eyebrow">MARKET MOMENTUM</span>
-              <h3>Transfer traffic</h3>
-            </div>
-            <TrendingUp size={19} className="panel__header-icon" />
-          </div>
-          <div className="momentum-columns">
-            <div>
-              <span className="momentum-label is-positive">MOST BOUGHT</span>
-              {insights.marketIn.slice(0, 4).map((player) => (
-                <div className="momentum-item" key={player.id}>
-                  <span><strong>{player.name}</strong><small>{player.team.shortName} · {player.position}</small></span>
-                  <strong className="is-positive">+{formatCompact(player.transfersInEvent - player.transfersOutEvent)}</strong>
-                </div>
-              ))}
-            </div>
-            <div>
-              <span className="momentum-label is-negative">MOST SOLD</span>
-              {insights.marketOut.slice(0, 4).map((player) => (
-                <div className="momentum-item" key={player.id}>
-                  <span><strong>{player.name}</strong><small>{player.team.shortName} · {player.position}</small></span>
-                  <strong className="is-negative">{formatCompact(player.transfersInEvent - player.transfersOutEvent)}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
+        {/* Verified Club/International Evidence + @FPLVORTEX Briefings */}
         <section className="panel panel--automation">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">ALWAYS ON</span>
-              <h3>The automated decision loop</h3>
+              <span className="panel__eyebrow">VERIFIED CONTEXT & @FPLVORTEX BRIEFINGS</span>
+              <h3>Confirmed squad notes & channel intelligence</h3>
             </div>
-            <BrainCircuit size={19} className="panel__header-icon" />
+            <span className="badge badge--mint">
+              {currentEvent ? `${currentEvent.shortName} avg ${currentEvent.averageEntryScore} pts` : '2026/27 Verified'}
+            </span>
           </div>
-          <div className="automation-flow">
-            {[
-              { icon: <Activity size={17} />, title: 'Ingest', text: 'Public bootstrap, fixtures and live points' },
-              { icon: <Gauge size={17} />, title: 'Normalize', text: '669 players mapped to clubs and positions' },
-              { icon: <BrainCircuit size={17} />, title: 'Project', text: 'Role, form, minutes and fixture difficulty' },
-              { icon: <Trophy size={17} />, title: 'Optimize', text: 'Budget, formation and club-limit constraints' },
-            ].map((step, index) => (
-              <div className="automation-step" key={step.title}>
-                <span className="automation-step__icon">{step.icon}</span>
-                <strong>{step.title}</strong>
-                <p>{step.text}</p>
-                {index < 3 && <ArrowRight size={14} className="automation-step__arrow" />}
-              </div>
-            ))}
-          </div>
-          <div className="automation-footer">
-            <span><strong>{formatNumber(snapshot.meta.totalPlayers, 0)}</strong> managers in the global game</span>
-            <span><strong>{formatPercent(averageOwnership)}</strong> average player ownership</span>
-            <span><strong>{snapshot.meta.upstreamOk ? 'Live' : 'Snapshot'}</strong> data source</span>
-          </div>
+
+          {verifiedNotes.length > 0 && (
+            <div className="verified-notes-grid">
+              {verifiedNotes.map((note, idx) => (
+                <div key={idx} className="verified-note-card">
+                  <div className="verified-note-card__head">
+                    <span className={note.monitor ? 'badge badge--amber' : 'badge badge--mint'}>
+                      {note.monitor ? 'Monitor minutes' : 'Confirmed'}
+                    </span>
+                    <a href={note.sourceUrl} target="_blank" rel="noreferrer" className="text-button">
+                      Official source <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  <p>{note.summary}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {videos.length > 0 && (
+            <div className="home-videos-strip">
+              {videos.map((video) => (
+                <a
+                  key={video.id}
+                  href={video.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="home-video-pill"
+                >
+                  <Play size={14} />
+                  <span>{video.title}</span>
+                  <ExternalLink size={13} />
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

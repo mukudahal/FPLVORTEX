@@ -1,21 +1,32 @@
 import compression from 'compression';
 import express, { type NextFunction, type Request, type Response } from 'express';
+import { execFile } from 'node:child_process';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getEntry, getHealth, getLeague, getSnapshot } from './fpl.ts';
 import { isNumericId, UpstreamHttpError } from './http.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
+import {
+  PL_BADGE_BASE,
+  PL_PHOTO_BASE_CURRENT,
+  PL_PHOTO_BASE_LEGACY,
+  PL_PHOTO_BASE_S3,
+  normalizeNumericCode,
+} from '../src/lib/playerImages.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const isProduction = process.env.NODE_ENV === 'production';
 const port = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
+const imageCacheDir = path.join(root, '.cache', 'player-images');
+
 export const app = express();
 
 app.disable('x-powered-by');
 app.set('etag', 'weak');
 app.use(compression());
-app.use(express.json({ limit: '64kb' }));
+app.use(express.json({ limit: '512kb' }));
 
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -52,6 +63,45 @@ function rateLimit(limit: number, windowMs: number) {
     }
     next();
   };
+}
+
+async function fileExistsNonEmpty(filePath: string): Promise<boolean> {
+  try {
+    const info = await stat(filePath);
+    return info.isFile() && info.size > 200;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchImageBytes(urls: string[]): Promise<Buffer | null> {
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(2200),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 FPL-VORTEX/4.0',
+          Accept: 'image/avif,image/webp,image/png,image/*,*/*;q=0.8',
+        },
+      });
+      if (!response.ok) continue;
+      const contentType = String(response.headers.get('content-type') ?? '').toLowerCase();
+      if (contentType && !contentType.startsWith('image/')) continue;
+      const buf = Buffer.from(await response.arrayBuffer());
+      if (buf.byteLength > 300) return buf;
+    } catch {
+      // Continue through fallback candidate URLs.
+    }
+  }
+  return null;
+}
+
+function buildServerJerseySvg(label: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 100" role="img" aria-label="${label}">
+    <rect width="88" height="100" rx="18" fill="#10142a"/>
+    <path d="M24 22 L34 16 Q44 23 54 16 L64 22 L75 36 L66 44 L61 38 L61 84 L27 84 L27 38 L22 44 L13 36 Z" fill="#1f2756" stroke="#5bf5d6" stroke-width="2.2"/>
+    <text x="44" y="60" text-anchor="middle" fill="#f3f6ff" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="18">${label}</text>
+  </svg>`;
 }
 
 app.get('/api/health', asyncRoute(async (_req, res) => {
@@ -127,6 +177,131 @@ app.get('/api/vortex/benchmarks', asyncRoute(async (req, res) => {
   res.set('Cache-Control', 'public, max-age=300');
   res.json(benchmarks);
 }));
+
+app.get('/api/projections', asyncRoute(async (req, res) => {
+  const snapshot = await getSnapshot();
+  const gwParam = Number.parseInt(String(req.query.gw ?? ''), 10);
+  const targetEventId = Number.isInteger(gwParam) && gwParam >= 1 && gwParam <= 38 ? gwParam : snapshot.meta.nextEventId;
+  const benchmarks = await getRepoBenchmarks(targetEventId);
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(benchmarks);
+}));
+
+app.get('/api/player-images/manifest', asyncRoute(async (_req, res) => {
+  const manifestPath = path.join(root, 'public', 'player-images', 'player-image-manifest.json');
+  const raw = await readFile(manifestPath, 'utf8');
+  res.set('Cache-Control', 'public, max-age=600');
+  res.type('application/json').send(raw);
+}));
+
+app.get('/api/img/player/:code', asyncRoute(async (req, res) => {
+  const code = normalizeNumericCode(req.params.code);
+  const teamCode = normalizeNumericCode(req.query.teamCode);
+  if (!code) {
+    res.status(400).json({ error: 'Invalid player photo code.' });
+    return;
+  }
+
+  const localPublicPath = path.join(root, 'public', 'player-images', 'players', `${code}.png`);
+  if (await fileExistsNonEmpty(localPublicPath)) {
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(localPublicPath);
+    return;
+  }
+
+  const cachedPath = path.join(imageCacheDir, `player-${code}.png`);
+  if (await fileExistsNonEmpty(cachedPath)) {
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(cachedPath);
+    return;
+  }
+
+  const candidates = [
+    `${PL_PHOTO_BASE_CURRENT}/250x250/${code}.png`,
+    `${PL_PHOTO_BASE_CURRENT}/110x140/${code}.png`,
+    `${PL_PHOTO_BASE_LEGACY}/250x250/p${code}.png`,
+    `${PL_PHOTO_BASE_LEGACY}/110x140/p${code}.png`,
+    `${PL_PHOTO_BASE_S3}/500x500/${code}.png`,
+    ...(teamCode
+      ? [
+          `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-220.png`,
+          `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.png`,
+        ]
+      : []),
+  ];
+
+  const upstreamBytes = await fetchImageBytes(candidates);
+  if (upstreamBytes) {
+    await mkdir(imageCacheDir, { recursive: true });
+    await writeFile(cachedPath, upstreamBytes);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.type('image/png').send(upstreamBytes);
+    return;
+  }
+
+  res.set('Cache-Control', 'public, max-age=300');
+  res.type('image/svg+xml').send(buildServerJerseySvg('FV'));
+}));
+
+app.get('/api/img/badge/:teamCode', asyncRoute(async (req, res) => {
+  const teamCode = normalizeNumericCode(req.params.teamCode);
+  if (!teamCode) {
+    res.status(400).json({ error: 'Invalid club badge code.' });
+    return;
+  }
+
+  const localPublicPath = path.join(root, 'public', 'player-images', 'badges', `t${teamCode}.png`);
+  if (await fileExistsNonEmpty(localPublicPath)) {
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(localPublicPath);
+    return;
+  }
+
+  const cachedPath = path.join(imageCacheDir, `badge-t${teamCode}.png`);
+  if (await fileExistsNonEmpty(cachedPath)) {
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(cachedPath);
+    return;
+  }
+
+  const upstreamBytes = await fetchImageBytes([
+    `${PL_BADGE_BASE}/100/t${teamCode}.png`,
+    `${PL_BADGE_BASE}/70/t${teamCode}.png`,
+    `${PL_BADGE_BASE}/t${teamCode}.png`,
+  ]);
+  if (upstreamBytes) {
+    await mkdir(imageCacheDir, { recursive: true });
+    await writeFile(cachedPath, upstreamBytes);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.type('image/png').send(upstreamBytes);
+    return;
+  }
+
+  res.set('Cache-Control', 'public, max-age=300');
+  res.type('image/svg+xml').send(buildServerJerseySvg(`T${teamCode}`));
+}));
+
+app.post(
+  '/api/vortex/solve',
+  rateLimit(20, 60_000),
+  asyncRoute(async (req, res) => {
+    const payload = JSON.stringify(req.body ?? {});
+    const scriptPath = path.join(root, 'server', 'solver.py');
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = execFile('python3', [scriptPath], { timeout: 15_000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
+        if (err) {
+          reject(new Error(stderr || err.message));
+          return;
+        }
+        resolve(stdout);
+      });
+      child.stdin?.write(payload);
+      child.stdin?.end();
+    });
+    res.set('Cache-Control', 'no-store');
+    res.type('application/json').send(output);
+  }),
+);
 
 app.get('/api/fpl/bootstrap', asyncRoute(async (_req, res) => {
   const snapshot = await getSnapshot();

@@ -9,12 +9,14 @@ interface StatCardProps {
   tone?: 'mint' | 'violet' | 'pink' | 'amber' | 'blue';
   delta?: number;
   deltaLabel?: string;
+  detail?: ReactNode;
   footer?: ReactNode;
   className?: string;
 }
 
-export function StatCard({ label, value, icon, tone = 'violet', delta, deltaLabel, footer, className }: StatCardProps) {
+export function StatCard({ label, value, icon, tone = 'violet', delta, deltaLabel, detail, footer, className }: StatCardProps) {
   const positive = (delta ?? 0) >= 0;
+  const subcopy = deltaLabel ?? detail ?? footer;
   return (
     <article className={classNames('stat-card', `stat-card--${tone}`, className)}>
       <div className="stat-card__top">
@@ -28,8 +30,7 @@ export function StatCard({ label, value, icon, tone = 'violet', delta, deltaLabe
       </div>
       <span className="stat-card__label">{label}</span>
       <strong className="stat-card__value">{value}</strong>
-      {footer && <div className="stat-card__footer">{deltaLabel ?? footer}</div>}
-      {!footer && deltaLabel && <div className="stat-card__footer">{deltaLabel}</div>}
+      {subcopy && <div className="stat-card__footer">{subcopy}</div>}
     </article>
   );
 }

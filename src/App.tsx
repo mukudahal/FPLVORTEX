@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
-import type { RiskProfile } from './lib/types';
+import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
+import type { EntryData, RiskProfile } from './lib/types';
 import type { RouteId } from './hooks/useHashRoute';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useVortexData } from './hooks/useVortexData';
+import { fetchEntry } from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
 import { buildFixtureMatrix } from './lib/fixtures';
 import { CommandCenter } from './components/CommandCenter';
@@ -25,12 +26,15 @@ interface ToastState {
   tone: ToastTone;
 }
 
+const DEFAULT_REPO_ENTRY_ID = '145784';
+
 const MOBILE_NAV: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
   { id: 'command', label: 'Home', icon: Gauge },
-  { id: 'optimizer', label: 'Squad', icon: WandSparkles },
+  { id: 'optimizer', label: 'Planner', icon: WandSparkles },
   { id: 'players', label: 'Players', icon: Users },
   { id: 'fixtures', label: 'Fixtures', icon: CalendarDays },
   { id: 'league', label: 'League', icon: Trophy },
+  { id: 'method', label: 'Model', icon: BrainCircuit },
 ];
 
 export default function App() {
@@ -38,8 +42,9 @@ export default function App() {
   const [route, navigate] = useHashRoute();
   const [theme, setTheme] = useLocalStorage<'dark' | 'light'>('vortex:theme', 'dark');
   const [profile, setProfile] = useLocalStorage<RiskProfile>('vortex:profile', 'balanced');
-  const [teamId, setTeamId] = useLocalStorage('vortex:teamId', '');
+  const [teamId, setTeamId] = useLocalStorage('vortex:teamId', DEFAULT_REPO_ENTRY_ID);
   const [leagueId, setLeagueId] = useLocalStorage('vortex:leagueId', '314');
+  const [activeEntry, setActiveEntry] = useState<EntryData | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [playerQuery, setPlayerQuery] = useState('');
@@ -56,10 +61,24 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
-    if (snapshot && !teamId && snapshot.meta.exampleEntryId) {
-      setTeamId(String(snapshot.meta.exampleEntryId));
+    if (!teamId || teamId === '5112705') {
+      setTeamId(String(snapshot?.meta.exampleEntryId ?? DEFAULT_REPO_ENTRY_ID));
     }
-  }, [setTeamId, snapshot, teamId]);
+  }, [setTeamId, snapshot?.meta.exampleEntryId, teamId]);
+
+  useEffect(() => {
+    const cleanId = (teamId || DEFAULT_REPO_ENTRY_ID).trim();
+    if (!/^\d{1,12}$/.test(cleanId)) return;
+    const controller = new AbortController();
+    fetchEntry(cleanId, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setActiveEntry(data);
+      })
+      .catch(() => {
+        // Entry fallback handled gracefully inside LeagueIntel / SquadBuilder.
+      });
+    return () => controller.abort();
+  }, [teamId, snapshot?.meta.servedAt]);
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -118,7 +137,17 @@ export default function App() {
   let page: React.ReactNode;
   switch (route) {
     case 'optimizer':
-      page = <SquadBuilder players={players} profile={profile} onProfileChange={setProfile} onToast={showToast} />;
+      page = (
+        <SquadBuilder
+          snapshot={snapshot}
+          players={players}
+          fixtureRows={fixtureRows}
+          entry={activeEntry}
+          profile={profile}
+          onProfileChange={setProfile}
+          onToast={showToast}
+        />
+      );
       break;
     case 'players':
       page = (
@@ -126,6 +155,7 @@ export default function App() {
           players={players}
           teams={snapshot.teams}
           fixtureRows={fixtureRows}
+          nextEventId={snapshot.meta.nextEventId}
           query={playerQuery}
           onQueryChange={setPlayerQuery}
           onToast={showToast}
@@ -150,12 +180,21 @@ export default function App() {
       );
       break;
     case 'method':
-      page = <Methodology snapshot={snapshot} lastSuccessAt={lastSuccessAt} refreshing={refreshing} onRefresh={handleRefresh} />;
+      page = (
+        <Methodology
+          snapshot={snapshot}
+          players={players}
+          lastSuccessAt={lastSuccessAt}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
+      );
       break;
     default:
       page = (
         <CommandCenter
           snapshot={snapshot}
+          entry={activeEntry}
           players={players}
           insights={insights}
           fixtureRows={fixtureRows}
@@ -170,7 +209,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar route={route} onNavigate={navigate} snapshot={snapshot} open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar route={route} onNavigate={navigate} snapshot={snapshot} entry={activeEntry} open={sidebarOpen} onClose={closeSidebar} />
       <div className="app-main">
         <Topbar
           route={route}
@@ -194,13 +233,13 @@ export default function App() {
           )}
           {page}
           <footer className="app-footer">
-            <span>FPL VORTEX · independent Fantasy Premier League analytics</span>
-            <span>Data refreshes automatically · {snapshot.meta.season}</span>
+            <span>FPL VORTEX · Team #{activeEntry?.id ?? 145784} ({activeEntry?.teamName ?? 'FPLVORTEX'}) · @FPLVORTEX</span>
+            <span>Repo GW7–16 projections + 2026/27 DEFCON engine · {snapshot.meta.season}</span>
           </footer>
         </main>
       </div>
 
-      <nav className="mobile-nav" aria-label="Mobile navigation">
+      <nav className="mobile-nav mobile-nav--six" aria-label="Mobile navigation">
         {MOBILE_NAV.map((item) => {
           const Icon = item.icon;
           return (
@@ -211,7 +250,7 @@ export default function App() {
               onClick={() => navigate(item.id)}
               aria-current={route === item.id ? 'page' : undefined}
             >
-              <Icon size={19} />
+              <Icon size={18} />
               <span>{item.label}</span>
             </button>
           );

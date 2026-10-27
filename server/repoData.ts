@@ -6,6 +6,7 @@ import type {
   RepoBenchmarksResponse,
   RepoDataMeta,
   Snapshot,
+  VerifiedEvidenceNote,
   VideoItem,
   VideosResponse,
 } from '../src/lib/types.ts';
@@ -15,7 +16,8 @@ const BENCHMARK_REL_PATH =
   process.env.VORTEX_BENCHMARK_CSV_PATH ?? '3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv';
 const VIDEOS_REL_PATH = process.env.VORTEX_VIDEOS_JSON_PATH ?? 'site/ui/videos.json';
 const DEFAULT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID ?? 'UCDU7nEIN72xoiR3NtxCT6CQ';
-const CONFIGURED_REPO_ENTRY_ID = Number.parseInt(process.env.VORTEX_DEFAULT_ENTRY_ID ?? '145784', 10) || 145784;
+export const CONFIGURED_REPO_ENTRY_ID = Number.parseInt(process.env.VORTEX_DEFAULT_ENTRY_ID ?? '145784', 10) || 145784;
+export const CONFIGURED_REPO_ENTRY_NAME = 'FPLVORTEX';
 
 export const REPO_SEASON_RULES_2026_27 = Object.freeze({
   season: '2026/27',
@@ -28,10 +30,44 @@ export const REPO_SEASON_RULES_2026_27 = Object.freeze({
   startingXI: 11,
   maxBudgetTenths: 1000,
   transferDeadlineLeadMinutes: 90,
+  defconThresholds: { DEF: 10, MID: 12, FWD: 12, points: 2 },
   chips: ['wc', 'fh', 'bb', 'tc'] as const,
 });
 
-interface ParsedCsvPlayer {
+/**
+ * Verified match/club context from `2_notebooks/FPL_VORTEX_Wildcard_Slides1_to_4_Premium_Captaincy.ipynb`
+ * Cell 9 (`VX_WC_VERIFIED_EVIDENCE_JSON`).
+ */
+export const REPO_VERIFIED_NOTES: VerifiedEvidenceNote[] = [
+  {
+    playerId: 411,
+    teamId: 15,
+    checkedAt: '2026-10-05T15:29:59Z',
+    sourceUrl: 'https://www.mancity.com/news/mens/international-roundup-4-october-2026-63926730',
+    summary:
+      'Haaland (MCI): Norway Nations League appearance, substituted after 67 minutes; workload monitored, no club absence confirmed.',
+    monitor: true,
+  },
+  {
+    playerId: 12,
+    teamId: 1,
+    checkedAt: '2026-10-05T15:29:59Z',
+    sourceUrl:
+      'https://www.englandfootball.com/articles/2026/Oct/03/croatia-england-uefa-nations-league-harry-kane-bukayo-saka-reaction-20260310',
+    summary: 'Saka (ARS): Scored twice for England in 7-0 Nations League win over Croatia.',
+    monitor: false,
+  },
+  {
+    teamId: 15,
+    checkedAt: '2026-10-05T15:29:59Z',
+    sourceUrl: 'https://www.premierleague.com/en/news/4729207',
+    summary:
+      'Manchester City: Premier League statement confirms no fixture or player-eligibility change; zero numerical penalty applied.',
+    monitor: false,
+  },
+];
+
+export interface ParsedCsvPlayer {
   fplId: number;
   name: string;
   team: string;
@@ -153,6 +189,14 @@ function resolveHorizonSum(metricMap: Map<number, number>, startGw: number, hori
     }
   }
   return found > 0 ? round(total, 2) : null;
+}
+
+function mapToRecord(metricMap: Map<number, number>): Record<number, number> {
+  const out: Record<number, number> = {};
+  for (const [k, v] of metricMap.entries()) {
+    out[k] = v;
+  }
+  return out;
 }
 
 async function loadRepoVideosArchive(): Promise<{
@@ -288,27 +332,60 @@ export async function getRepoMeta(): Promise<RepoDataMeta> {
     videosCount: videos.videos.length,
     channelId: videos.channelId,
     configuredEntryId: CONFIGURED_REPO_ENTRY_ID,
+    configuredEntryName: CONFIGURED_REPO_ENTRY_NAME,
     seasonRules: REPO_SEASON_RULES_2026_27.season,
+    verifiedNotes: REPO_VERIFIED_NOTES,
   };
 }
 
+/**
+ * Tier-1 Authoritative Repository Data Adapter:
+ * Overrides player identity (`name`, `teamId`, `position`, `price`, `cost`) and GW7-GW16
+ * projections (`gwProjections`, `gwExpectedMinutes`) from `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`.
+ * When `snapshot.meta.source !== 'live'`, restricts the pool strictly to the 667 repo CSV players.
+ */
 export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Snapshot> {
   const [benchmarks, repoData] = await Promise.all([loadRepoBenchmarkIndex(), getRepoMeta()]);
   const targetGw = snapshot.meta.nextEventId || 9;
-  const players = snapshot.players.map((player) => {
+  const teamIdByShort = new Map(
+    snapshot.teams.map((t) => [t.shortName.trim().toUpperCase(), t.id]),
+  );
+
+  const sourcePlayers =
+    benchmarks.size > 0 && snapshot.meta.source !== 'live'
+      ? snapshot.players.filter((player) => benchmarks.has(player.id))
+      : snapshot.players;
+
+  const players = sourcePlayers.map((player) => {
     const bench = benchmarks.get(player.id);
     if (!bench) return player;
+    const resolvedTeamId = teamIdByShort.get(bench.team.toUpperCase()) ?? player.teamId;
+    const resolvedPrice = bench.price > 0 ? bench.price : player.price;
+    const resolvedCost = Math.round(resolvedPrice * 10);
     return {
       ...player,
+      name: bench.name || player.name,
+      teamId: resolvedTeamId,
+      position: bench.position,
+      price: resolvedPrice,
+      cost: resolvedCost,
       repoExpectedMinutes: resolveGwMetric(bench.xmins, targetGw),
       repoBenchmarkXpts: resolveGwMetric(bench.xpts, targetGw),
       repoHorizon5Xpts: resolveHorizonSum(bench.xpts, targetGw, 5),
+      gwProjections: mapToRecord(bench.xpts),
+      gwExpectedMinutes: mapToRecord(bench.xmins),
     };
   });
+
   return {
     ...snapshot,
     meta: {
       ...snapshot.meta,
+      exampleEntryId: CONFIGURED_REPO_ENTRY_ID,
+      fallbackNotice:
+        snapshot.meta.source === 'live'
+          ? undefined
+          : 'Tier-1 repo projections (3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv) active; offline snapshot supplying codes & fixtures.',
       repoData,
     },
     players,

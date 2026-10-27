@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
+  BrainCircuit,
   CalendarDays,
   Command,
   Gauge,
@@ -34,11 +35,12 @@ interface CommandPaletteProps {
 }
 
 const PAGE_ITEMS: Array<{ id: RouteId; label: string; subLabel: string; icon: ReactNode }> = [
-  { id: 'command', label: 'Command center', subLabel: 'Live overview and league pulse', icon: <Gauge size={17} /> },
-  { id: 'optimizer', label: 'Squad optimizer', subLabel: 'Auto-build the best legal squad', icon: <WandSparkles size={17} /> },
-  { id: 'players', label: 'Player lab', subLabel: 'Explore every player projection', icon: <Users size={17} /> },
-  { id: 'fixtures', label: 'Fixture matrix', subLabel: 'Find the best fixture swings', icon: <CalendarDays size={17} /> },
-  { id: 'league', label: 'League intel', subLabel: 'Connect your team and league', icon: <Trophy size={17} /> },
+  { id: 'command', label: 'Command center', subLabel: 'Team #145784 overview, engine verdict & @FPLVORTEX briefings', icon: <Gauge size={17} /> },
+  { id: 'optimizer', label: 'Squad optimizer', subLabel: 'Team planner, FPLReview chip EV matrix & 3,000-draw Monte Carlo', icon: <WandSparkles size={17} /> },
+  { id: 'players', label: 'Player lab', subLabel: 'All 667 repo players with portraits, Opta xP, DEFCON & GW7–16 horizon', icon: <Users size={17} /> },
+  { id: 'fixtures', label: 'Fixture matrix', subLabel: '5-GW Poisson expected goals, clean-sheet % & club badges', icon: <CalendarDays size={17} /> },
+  { id: 'league', label: 'League intel', subLabel: 'Scan FPLVORTEX (#145784), EO rank impact & classic leagues', icon: <Trophy size={17} /> },
+  { id: 'method', label: 'Model & automation', subLabel: '2026/27 DEFCON math, shrinkage priors, calibration & provenance', icon: <BrainCircuit size={17} /> },
 ];
 
 export function CommandPalette({ open, onClose, players, snapshot, onNavigate, onSelectPlayer }: CommandPaletteProps) {

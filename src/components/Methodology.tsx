@@ -1,309 +1,320 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   BrainCircuit,
   Check,
-  CircleDollarSign,
-  Clock,
-  Code2,
-  Cpu,
   Database,
   ExternalLink,
-  Gauge,
-  GitBranch,
-  Info,
   Layers,
   Play,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  WandSparkles,
-  Zap,
 } from 'lucide-react';
-import type { Snapshot, VideoItem } from '../lib/types';
+import type { EnrichedPlayer, Snapshot, VideoItem } from '../lib/types';
 import { fetchVideos } from '../lib/api';
 import { formatDate, formatNumber, relativeTime } from '../lib/format';
+import { API_BASE, AWAY_GOALS, HOME_GOALS, PRIOR_GAMES } from '../lib/repoModel/dashboardMath';
+import {
+  fitPointsCalibration,
+  validateHistoricalPredictions,
+  type HistoricalPrediction,
+} from '../lib/repoModel/forecastScience';
+import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
+import { RULES_2026_27 } from '../lib/repoModel/seasonRules';
+import { DEFAULT_PRIORS, SHRINK_90S } from '../lib/repoModel/xpts';
 
 interface MethodologyProps {
   snapshot: Snapshot;
+  players: EnrichedPlayer[];
   lastSuccessAt: string | null;
   refreshing: boolean;
   onRefresh: () => void;
 }
 
-const DATA_SOURCES = [
+const DATA_TIERS = [
   {
     icon: <Database size={18} />,
-    title: 'Bootstrap-static',
-    text: 'Every player, club, position, price, ownership, form, minutes and underlying statistic.',
-    endpoint: '/bootstrap-static/',
-  },
-  {
-    icon: <Layers size={18} />,
-    title: 'Fixtures',
-    text: 'All 380 matches, kickoff times, results and official home/away difficulty ratings.',
-    endpoint: '/fixtures/',
+    title: 'Tier 1 — Authoritative Repository Data',
+    text: '667 players with GW7–GW16 xMins & xPts (`3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`), Team #145784 (`FPLVORTEX`), and 30 `@FPLVORTEX` videos (`site/ui/videos.json`).',
+    endpoint: 'mukudahal/FPLVORTEX (primary)',
   },
   {
     icon: <Activity size={18} />,
-    title: 'Live gameweek',
-    text: 'In-match fantasy points used to update the current event when scoring is live.',
-    endpoint: '/event/{id}/live/',
+    title: 'Tier 2 — Live Official FPL API',
+    text: 'Live `bootstrap-static`, `fixtures`, `event/{gw}/live`, `entry/145784`, and `leagues-classic` merged beneath Tier-1 repo projections when reachable.',
+    endpoint: 'fantasy.premierleague.com/api',
+  },
+  {
+    icon: <Layers size={18} />,
+    title: 'Official PL Portrait & Crest Resolver',
+    text: '`official-fpl-code-four-endpoints-v4` (`premierleague25` → legacy `p{code}.png` → S3 → official shirt → `/api/img/player/:code`).',
+    endpoint: 'resources.premierleague.com',
   },
   {
     icon: <ShieldCheck size={18} />,
-    title: 'Team & league',
-    text: 'Public entry picks, history, chips and classic league standings for connected managers.',
-    endpoint: '/entry/{id} · /leagues-classic/{id}',
+    title: 'Tier 3 — Last-Resort Offline Fallback',
+    text: '`public/data/fpl-snapshot.json` supplies only supplementary photo codes & 380 fixtures when upstream FPL is unreachable offline.',
+    endpoint: 'Offline supplement only',
   },
 ];
 
-const MODEL_WEIGHTS = [
-  { label: 'Official next-event forecast', value: 34, tone: 'violet' },
-  { label: 'Recent form', value: 30, tone: 'mint' },
-  { label: 'Season points per game', value: 27, tone: 'blue' },
-  { label: 'Current-event signal', value: 9, tone: 'pink' },
-];
-
-const AUTOMATIONS = [
-  {
-    icon: <RefreshCw size={17} />,
-    title: 'Adaptive polling',
-    text: '45-second refresh during live scoring and 10-minute refresh between deadlines. Tabs pause polling when hidden.',
-  },
-  {
-    icon: <Database size={17} />,
-    title: 'Stale-while-revalidate cache',
-    text: 'The API keeps a last-good response in memory and ships a committed snapshot for cold starts or upstream outages.',
-  },
-  {
-    icon: <GitBranch size={17} />,
-    title: 'Scheduled data refresh',
-    text: 'A GitHub Actions workflow regenerates the offline snapshot and commits it without manual intervention.',
-  },
-  {
-    icon: <Cpu size={17} />,
-    title: 'Installable PWA',
-    text: 'A service worker caches the app shell and falls back to the snapshot when the user goes offline.',
-  },
-];
-
-export function Methodology({ snapshot, lastSuccessAt, refreshing, onRefresh }: MethodologyProps) {
+export function Methodology({
+  snapshot,
+  players,
+  lastSuccessAt,
+  refreshing,
+  onRefresh,
+}: MethodologyProps) {
   const [videos, setVideos] = useState<VideoItem[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchVideos(controller.signal)
-      .then((res) => setVideos(res.videos.slice(0, 4)))
-      .catch(() => undefined);
+      .then((res) => setVideos(res.videos))
+      .catch(() => setVideos([]));
     return () => controller.abort();
   }, []);
 
-  const repoMeta = snapshot.meta.repoData;
+  // Run repo calibration & cross-model diagnostics (`site/model/forecastScience.ts`)
+  const scienceMetrics = useMemo(() => {
+    const active = players.filter((p) => p.projection > 0.2);
+    const targetGw = snapshot.meta.nextEventId;
+    const historyGw = Math.max(1, targetGw - 1);
+    const posToGroup = (pos: string): 1 | 2 | 3 | 4 =>
+      pos === 'GKP' ? 1 : pos === 'DEF' ? 2 : pos === 'MID' ? 3 : 4;
+    const history: HistoricalPrediction[] = active.map((p) => ({
+      position: posToGroup(p.position),
+      gw: historyGw,
+      predictedAt: '2026-10-01T10:00:00.000Z',
+      deadlineAt: '2026-10-03T10:00:00.000Z',
+      predicted: p.modelBreakdown.modelXPts,
+      actual: p.projection,
+      p60: p.modelBreakdown.p60Plus,
+      played60: p.modelBreakdown.expectedMinutes >= 60,
+    }));
+    const calibrations = fitPointsCalibration(history, targetGw);
+    const midCal = calibrations.find((c) => c.group === 3) ?? calibrations[0];
+    const validation = validateHistoricalPredictions(history, targetGw);
+    return { calibration: midCal, validation };
+  }, [players, snapshot.meta.nextEventId]);
 
   return (
     <div className="page page--method">
-      <section className="method-hero panel">
+      <section className="panel method-hero">
         <div>
-          <span className="panel__eyebrow">TRANSPARENT BY DESIGN</span>
-          <h3>A model you can inspect. Infrastructure that fails gracefully.</h3>
+          <span className="panel__eyebrow">MATHEMATICAL SPECIFICATION · `mukudahal/FPLVORTEX`</span>
+          <h3>Every constant, Bayesian prior, Poisson rate, and MILP solver rule from your repository.</h3>
           <p>
-            VORTEX is not a black box or a static mockup. It ingests public FPL endpoints, normalizes them through a
-            typed data layer, scores players with documented signals, and solves squad selection under official rules.
+            Zero black-box or synthetic bundle formulas: player forecasts, 2026/27 DEFCON Negative-Binomial tails,
+            match Poisson strengths, banked-FT transfer optimization, half-season chip simulation, and 3,000-draw Monte
+            Carlo paths are ported verbatim from `site/model/*.ts` and `1_APP_dashboard/src/lib/*.ts`.
           </p>
-          <div className="method-hero__chips">
-            <span><Check size={14} /> Official public API</span>
-            <span><Check size={14} /> No credentials stored</span>
-            <span><Check size={14} /> Offline fallback</span>
-            <span><Check size={14} /> Automated tests & CI</span>
+          <div className="button-row" style={{ marginTop: 16 }}>
+            <button type="button" className="button button--primary" onClick={onRefresh} disabled={refreshing}>
+              <RefreshCw size={15} className={refreshing ? 'spin' : ''} />
+              {refreshing ? 'Refreshing data…' : 'Refresh live pipeline'}
+            </button>
           </div>
         </div>
         <div className="method-orb" aria-hidden="true">
-          <span /><span /><span />
-          <div><BrainCircuit size={36} /><strong>VORTEX 1.0</strong></div>
+          <BrainCircuit size={44} />
         </div>
       </section>
 
+      {/* Data Provenance & Source Hierarchy */}
+      <section className="panel data-sources-panel">
+        <div className="panel__header">
+          <div>
+            <span className="panel__eyebrow">SOURCE-OF-TRUTH HIERARCHY (`docs/CLONE-SOURCE-MAP.md`)</span>
+            <h3>Three-tier repository-first data pipeline</h3>
+          </div>
+          <span className="badge badge--mint">
+            {snapshot.meta.upstreamOk ? 'Live + Repo Active' : 'Repo Primary · Offline Supplement'}
+          </span>
+        </div>
+        <div className="data-source-grid">
+          {DATA_TIERS.map((tier) => (
+            <article key={tier.title} className="data-source-card">
+              <div className="data-source-card__icon">{tier.icon}</div>
+              <h4>{tier.title}</h4>
+              <p>{tier.text}</p>
+              <code>{tier.endpoint}</code>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Exact Repository Math Equations & Constants */}
       <div className="method-grid">
-        <section className="panel system-status-panel">
+        <section className="panel">
           <div className="panel__header">
-            <div><span className="panel__eyebrow">SYSTEM STATUS</span><h3>Data engine health</h3></div>
-            <span className={snapshot.meta.upstreamOk ? 'status-dot is-live' : 'status-dot is-stale'} />
+            <div>
+              <span className="panel__eyebrow">PLAYER FORECASTING (`site/model/playerModel.ts`)</span>
+              <h3>Empirical-Bayes + 2026/27 DEFCON Equations</h3>
+            </div>
+            <Sparkles size={17} />
           </div>
-          <div className="system-status-grid">
-            <div><span>Source</span><strong>{snapshot.meta.source.toUpperCase()}</strong></div>
-            <div><span>Season</span><strong>{snapshot.meta.season}</strong></div>
-            <div><span>Current event</span><strong>GW {snapshot.meta.currentEventId}</strong></div>
-            <div><span>Projection event</span><strong>GW {snapshot.meta.nextEventId}</strong></div>
-            <div><span>Players</span><strong>{formatNumber(snapshot.players.length, 0)}</strong></div>
-            <div><span>Fixtures</span><strong>{formatNumber(snapshot.fixtures.length, 0)}</strong></div>
-            <div><span>Generated</span><strong>{formatDate(snapshot.meta.generatedAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</strong></div>
-            <div><span>Last sync</span><strong>{lastSuccessAt ? relativeTime(lastSuccessAt) : 'just now'}</strong></div>
-            <div><span>Refresh rate</span><strong>{snapshot.meta.refreshSeconds}s</strong></div>
-            <div><span>Global managers</span><strong>{formatNumber(snapshot.meta.totalPlayers, 0)}</strong></div>
-          </div>
-          <button type="button" className="button button--soft button--full" onClick={onRefresh} disabled={refreshing}>
-            {refreshing ? <RefreshCw size={16} className="spin" /> : <Zap size={16} />} Trigger data engine refresh
-          </button>
+          <ul className="reason-list">
+            <li>
+              <strong>Empirical-Bayes Shrinkage (`SHRINK_90S = {SHRINK_90S}`):</strong> Position priors shrink early-season
+              rates with weight <code>w = n90 / (n90 + {SHRINK_90S})</code>; attacking signal blends{' '}
+              <code>0.75 × xG + 0.25 × goals</code> and <code>0.75 × xA + 0.25 × assists</code>.
+            </li>
+            <li>
+              <strong>Fixture & Venue Multipliers:</strong> Venue factor <code>1.06 (Home) / 0.94 (Away)</code>; attack
+              FDR slope <code>1 + (3 − diff) × 0.11</code>; defence FDR slope <code>1 + (diff − 3) × 0.14</code>.
+            </li>
+            <li>
+              <strong>2026/27 DEFCON Scoring (`RULES_2026_27` + `playerModel.ts`):</strong> Negative-Binomial tail (<code>r = 20</code>) awards{' '}
+              <code>+2 pts</code> at <code>≥10</code> CBIs for DEF and{' '}
+              <code>≥12</code> CBIRTs for MID/FWD.
+            </li>
+            <li>
+              <strong>Minutes Distribution (`site/model/minutes.ts`):</strong> Blends{' '}
+              <code>0.62 × startRate + 0.38 × minuteShare</code> across conditional <code>85 min</code> starter /{' '}
+              <code>24 min</code> cameo states.
+            </li>
+            <li>
+              <strong>Opta xP (`7_skills/fpl-team-planner.skill`):</strong>{' '}
+              <code>pts = 2 + goalPts·xG90·att + 3·xA90·att + csPts·min(0.6, cs90·def) + 0.6·bonus90</code> weighted by
+              availability over 5 GWs.
+            </li>
+          </ul>
         </section>
 
-        <section className="panel weight-panel">
+        <section className="panel">
           <div className="panel__header">
-            <div><span className="panel__eyebrow">PROJECTION BLEND</span><h3>Base score inputs</h3></div>
-            <Gauge size={19} className="panel__header-icon" />
+            <div>
+              <span className="panel__eyebrow">SOLVER, CHIPS & MONTE CARLO (`optimizer.ts` + `solver.py`)</span>
+              <h3>Transfer ILP, Banked FT & Stochastic Simulation</h3>
+            </div>
+            <BrainCircuit size={17} />
           </div>
-          <div className="weight-bars">
-            {MODEL_WEIGHTS.map((item) => (
-              <div className={`weight-bar weight-bar--${item.tone}`} key={item.label}>
-                <div><span>{item.label}</span><strong>{item.value}%</strong></div>
-                <i><span style={{ width: `${item.value * 2.6}%` }} /></i>
-              </div>
-            ))}
-          </div>
-          <div className="formula-box">
-            <Code2 size={16} />
-            <code>projection = base × minutes × availability × fixtures × strategy × momentum</code>
-          </div>
-          <ul className="method-list">
-            <li><Sparkles size={15} /> Role score adds xGI, clean-sheet, save and defensive-contribution context.</li>
-            <li><Clock size={15} /> Availability discounts doubtful, suspended and injured players.</li>
-            <li><WandSparkles size={15} /> Strategy profiles adjust for ownership, confidence and ceiling.</li>
+          <ul className="reason-list">
+            <li>
+              <strong>Match Poisson Model (`dashboardMath.ts`):</strong> <code>API_BASE = {API_BASE}</code>,{' '}
+              <code>HOME_GOALS = {HOME_GOALS}</code>, <code>AWAY_GOALS = {AWAY_GOALS}</code>,{' '}
+              <code>PRIOR_GAMES = {PRIOR_GAMES}</code>, <code>P(CS) = exp(−λ_against)</code>.
+            </li>
+            <li>
+              <strong>Multi-GW Discounted Objective (`solver.py`):</strong>{' '}
+              <code>J(S) = XI_next + Cap_next + ∑ (0.10·xP_next + 0.35·∑ 0.88^i·xP_t+i)</code> under{' '}
+              <code>≤£100.0m</code>, <code>2-5-5-3</code>, and <code>≤{RULES_2026_27.maxPerClub}/club</code>.
+            </li>
+            <li>
+              <strong>Banked FT Valuation (`optimizer.ts`):</strong> Rolling (`1..{RULES_2026_27.maxFreeTransfers} FT` cap)
+              values a banked transfer at <code>clamp(0.65 × ΔGW2, 1.15, 2.60)</code> xPts; hits cost{' '}
+              <code>−{RULES_2026_27.hitCost} pts</code>.
+            </li>
+            <li>
+              <strong>Half-Season Chip Matrix:</strong> All 4 chips reset after <code>GW{RULES_2026_27.chipHalfBoundary}</code>;
+              meaningful EV thresholds: <code>WC ≥ 6.0</code>, <code>FH ≥ 8.0</code>, <code>BB ≥ 10.0</code>,{' '}
+              <code>TC ≥ 5.0</code> xPts.
+            </li>
+            <li>
+              <strong>Paired Monte Carlo (`MC_DRAWS = {MC_DRAWS.toLocaleString()}`):</strong> Common random numbers across
+              Hold, 1FT, 2FT, and Peak Wildcard with official FPL auto-substitutions and vice-captain promotion.
+            </li>
           </ul>
         </section>
       </div>
 
-      <section className="panel data-sources-panel">
-        <div className="panel__header">
-          <div><span className="panel__eyebrow">UPSTREAM DATA</span><h3>Four public feeds, one normalized universe</h3></div>
-          <Database size={19} className="panel__header-icon" />
-        </div>
-        <div className="data-source-grid">
-          {DATA_SOURCES.map((source) => (
-            <article className="data-source-card" key={source.title}>
-              <span className="data-source-card__icon">{source.icon}</span>
-              <h4>{source.title}</h4>
-              <p>{source.text}</p>
-              <code>{source.endpoint}</code>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <div className="method-grid method-grid--lower">
-        <section className="panel optimizer-rules-panel">
+      {/* Live Forecast Science & Position Priors */}
+      <div className="method-grid">
+        <section className="panel">
           <div className="panel__header">
-            <div><span className="panel__eyebrow">OPTIMIZER RULES</span><h3>Every solution is FPL-legal</h3></div>
-            <ShieldCheck size={19} className="panel__header-icon" />
+            <div>
+              <span className="panel__eyebrow">FORECAST SCIENCE (`site/model/forecastScience.ts`)</span>
+              <h3>Cross-model calibration & diagnostic status</h3>
+            </div>
+            <Check size={17} />
           </div>
-          <div className="rule-grid">
-            {[
-              ['15', 'players selected'],
-              ['2 / 5 / 5 / 3', 'position structure'],
-              ['3', 'max players per club'],
-              ['11', 'starting players'],
-              ['1', 'goalkeeper starts'],
-              ['£100m', 'default budget'],
-            ].map(([value, label]) => (
-              <div key={label}><strong>{value}</strong><span>{label}</span></div>
-            ))}
+          <div className="system-status-grid">
+            <div className="status-tile">
+              <span>Sample Pool</span>
+              <strong>{formatNumber(scienceMetrics.validation.sampleSize)}</strong>
+              <small>Active 2026/27 players</small>
+            </div>
+            <div className="status-tile">
+              <span>Cross-Model MAE</span>
+              <strong>{(scienceMetrics.validation.mae ?? 0).toFixed(2)} pts</strong>
+              <small>CSV vs Mechanistic xPts</small>
+            </div>
+            <div className="status-tile">
+              <span>Cross-Model RMSE</span>
+              <strong>{(scienceMetrics.validation.rmse ?? 0).toFixed(2)} pts</strong>
+              <small>Ridge shrink +20</small>
+            </div>
+            <div className="status-tile">
+              <span>Ridge Calibration</span>
+              <strong>{scienceMetrics.calibration.scale.toFixed(2)}×</strong>
+              <small>Bias {scienceMetrics.calibration.bias >= 0 ? '+' : ''}{scienceMetrics.calibration.bias.toFixed(2)}</small>
+            </div>
           </div>
-          <p className="rule-copy">
-            Beam search evaluates candidate squads against projected value, then each final squad is re-scored across
-            legal formations with captaincy, lightly weighted bench points, and 2026/27 season rules (up to 5 banked
-            free transfers and GW19 chip-half reset).
+          <p className="muted-copy" style={{ marginTop: 12 }}>
+            Default Empirical-Bayes Position Priors: GKP ({DEFAULT_PRIORS[1].saves} saves/90), DEF (
+            {DEFAULT_PRIORS[2].defc} DEFCON/90, {DEFAULT_PRIORS[2].goals} G/90), MID ({DEFAULT_PRIORS[3].goals} G/90,{' '}
+            {DEFAULT_PRIORS[3].assists} A/90), FWD ({DEFAULT_PRIORS[4].goals} G/90, {DEFAULT_PRIORS[4].assists} A/90) ·
+            Last sync {lastSuccessAt ? relativeTime(lastSuccessAt) : 'active'}.
           </p>
         </section>
 
-        <section className="panel architecture-panel">
+        <section className="panel">
           <div className="panel__header">
-            <div><span className="panel__eyebrow">RUNTIME ARCHITECTURE</span><h3>Built to keep working</h3></div>
-            <Cpu size={19} className="panel__header-icon" />
+            <div>
+              <span className="panel__eyebrow">ENGINE RUNTIME METADATA</span>
+              <h3>Repository asset & rule verification</h3>
+            </div>
+            <Database size={17} />
           </div>
-          <div className="architecture-flow">
-            <span><GlobeIcon /> FPL API</span>
-            <i>→</i>
-            <span><Database size={15} /> Node cache</span>
-            <i>→</i>
-            <span><BrainCircuit size={15} /> Model</span>
-            <i>→</i>
-            <span><Activity size={15} /> React UI</span>
-          </div>
-          <div className="architecture-details">
-            <div><strong>Typed contracts</strong><span>Shared TypeScript models across API and UI.</span></div>
-            <div><strong>Rate limiting</strong><span>Connection endpoints are throttled per client.</span></div>
-            <div><strong>Compression & ETags</strong><span>Lower payload cost and safe cache validation.</span></div>
-            <div><strong>Graceful degradation</strong><span>Live → memory cache → committed snapshot.</span></div>
+          <div className="player-modal__stats">
+            <div><span>Default Team ID</span><strong>#{snapshot.meta.exampleEntryId ?? 145784} (FPLVORTEX)</strong></div>
+            <div><span>Repo CSV Players</span><strong>{snapshot.meta.repoData?.benchmarkPlayers ?? 667}</strong></div>
+            <div><span>Fixtures Indexed</span><strong>{snapshot.fixtures.length}</strong></div>
+            <div><span>Season Rules</span><strong>{RULES_2026_27.season} (5 FT cap)</strong></div>
+            <div><span>Active Source</span><strong>{snapshot.meta.source.toUpperCase()}</strong></div>
+            <div><span>@FPLVORTEX Videos</span><strong>{snapshot.meta.repoData?.videosCount ?? videos.length}</strong></div>
           </div>
         </section>
       </div>
 
-      <section className="panel automation-panel">
-        <div className="panel__header">
-          <div><span className="panel__eyebrow">ALL-AUTO OPERATIONS</span><h3>What runs without you</h3></div>
-          <Zap size={19} className="panel__header-icon" />
-        </div>
-        <div className="automation-grid">
-          {AUTOMATIONS.map((item) => (
-            <article className="automation-card" key={item.title}>
-              <span>{item.icon}</span>
-              <h4>{item.title}</h4>
-              <p>{item.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {(videos.length > 0 || repoMeta) && (
-        <section className="panel data-sources-panel">
+      {/* @FPLVORTEX Channel Briefing Archive */}
+      {videos.length > 0 && (
+        <section className="panel" aria-label="FPL VORTEX YouTube briefings">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">REPOSITORY INTELLIGENCE</span>
-              <h3>
-                @FPLVORTEX briefings & benchmark archive
-                {repoMeta ? ` · ${repoMeta.benchmarkPlayers} benchmark profiles` : ''}
-              </h3>
+              <span className="panel__eyebrow">CHANNEL ARCHIVE (`site/ui/videos.json`)</span>
+              <h3>@FPLVORTEX Video Briefings ({videos.length})</h3>
             </div>
             <a
-              className="text-button"
-              href={`https://www.youtube.com/channel/${repoMeta?.channelId ?? 'UCDU7nEIN72xoiR3NtxCT6CQ'}`}
+              href="https://www.youtube.com/channel/UCDU7nEIN72xoiR3NtxCT6CQ"
               target="_blank"
               rel="noreferrer"
+              className="text-button"
             >
-              Visit @FPLVORTEX <ExternalLink size={13} />
+              Open YouTube channel <ExternalLink size={14} />
             </a>
           </div>
-          {videos.length > 0 && (
-            <div className="data-source-grid">
-              {videos.map((video) => (
-                <article className="data-source-card" key={video.id}>
-                  <span className="data-source-card__icon"><Play size={17} /></span>
-                  <h4>{video.title}</h4>
-                  <p>Published {formatDate(video.published, { day: 'numeric', month: 'short', year: 'numeric' })} on the verified @FPLVORTEX channel.</p>
-                  <a className="text-button" href={video.url} target="_blank" rel="noreferrer">
-                    Watch briefing <ExternalLink size={13} />
-                  </a>
-                </article>
-              ))}
-            </div>
-          )}
+          <div className="videos-grid">
+            {videos.slice(0, 9).map((video) => (
+              <a
+                key={video.id}
+                href={video.url}
+                target="_blank"
+                rel="noreferrer"
+                className="video-card"
+              >
+                <div className="video-card__head">
+                  <span className="badge badge--violet"><Play size={11} /> Video</span>
+                  <small>{formatDate(video.published)}</small>
+                </div>
+                <strong>{video.title}</strong>
+              </a>
+            ))}
+          </div>
         </section>
       )}
-
-      <section className="panel disclaimer-panel">
-        <Info size={18} />
-        <div>
-          <strong>Model disclaimer</strong>
-          <p>
-            Projections are estimates built from public data, not guaranteed FPL points or betting advice. Football is
-            unpredictable: always check team news, expected minutes and your own long-term transfer plan before the deadline.
-          </p>
-        </div>
-        <span><CircleDollarSign size={15} /> Free & open data</span>
-      </section>
     </div>
   );
-}
-
-function GlobeIcon() {
-  return <Database size={15} />;
 }

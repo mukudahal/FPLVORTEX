@@ -12,6 +12,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
+    "paths": {
+      "@/lib/types": ["./1_APP_dashboard/src/lib/types.ts"]
+    },
     "types": ["vite/client", "node"],
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,

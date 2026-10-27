@@ -104,6 +104,17 @@ export interface Player {
   repoExpectedMinutes?: number | null;
   repoBenchmarkXpts?: number | null;
   repoHorizon5Xpts?: number | null;
+  gwProjections?: Record<number, number>;
+  gwExpectedMinutes?: Record<number, number>;
+}
+
+export interface VerifiedEvidenceNote {
+  playerId?: number;
+  teamId: number;
+  checkedAt: string;
+  sourceUrl: string;
+  summary: string;
+  monitor: boolean;
 }
 
 export interface RepoDataMeta {
@@ -113,7 +124,9 @@ export interface RepoDataMeta {
   videosCount: number;
   channelId: string;
   configuredEntryId: number;
+  configuredEntryName: string;
   seasonRules: string;
+  verifiedNotes?: VerifiedEvidenceNote[];
 }
 
 export interface SnapshotMeta {
@@ -132,6 +145,7 @@ export interface SnapshotMeta {
   version: number;
   exampleEntryId: number | null;
   exampleLeagueId: number;
+  fallbackNotice?: string;
   repoData?: RepoDataMeta;
 }
 
@@ -151,9 +165,31 @@ export interface ProjectionContext {
   maxEventId: number;
 }
 
+export interface ModelComponentBreakdown {
+  modelXPts: number;
+  expectedMinutes: number;
+  pStart: number;
+  p60Plus: number;
+  appearance: number;
+  attacking: number;
+  goal: number;
+  assist: number;
+  cleanSheet: number;
+  defcon: number;
+  saves: number;
+  bonus: number;
+  concededPenalty: number;
+  cardsPenalty: number;
+  csProb: number;
+  optaXP5Gw: number;
+  optaXPNext: number;
+  fiveGwEaseScore: number;
+}
+
 export interface EnrichedPlayer extends Player {
   team: FplTeam;
   projection: number;
+  horizon5Projection: number;
   confidence: number;
   value: number;
   fixtureScore: number;
@@ -164,6 +200,7 @@ export interface EnrichedPlayer extends Player {
   leverage: number;
   reasons: string[];
   sparkline: number[];
+  modelBreakdown: ModelComponentBreakdown;
 }
 
 export interface FixtureCell {
@@ -173,6 +210,10 @@ export interface FixtureCell {
   label: string;
   isBlank: boolean;
   isDouble: boolean;
+  lambdaFor?: number;
+  lambdaAgainst?: number;
+  csProb?: number;
+  winProb?: number;
 }
 
 export interface FixtureRow {
@@ -180,6 +221,9 @@ export interface FixtureRow {
   cells: FixtureCell[];
   next3: number;
   next5: number;
+  easeSum5: number;
+  avgLambdaFor: number;
+  avgCsProb: number;
   swing: number;
   rank: number;
 }
@@ -200,6 +244,7 @@ export interface SquadResult {
   formation: string;
   cost: number;
   projectedPoints: number;
+  horizon5Points?: number;
   averageOwnership: number;
   averageConfidence: number;
   riskScore: number;
@@ -210,6 +255,7 @@ export interface TransferSuggestion {
   out: EnrichedPlayer;
   incoming: EnrichedPlayer;
   gain: number;
+  horizonGain?: number;
   costChange: number;
   reason: string;
 }
@@ -244,6 +290,7 @@ export interface EntryData {
   favouriteTeamId: number | null;
   overallRank: number | null;
   overallPoints: number | null;
+  freeTransfers: number;
   currentEvent: number;
   activeChip: string | null;
   history: EntryHistory;

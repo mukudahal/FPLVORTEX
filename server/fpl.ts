@@ -8,12 +8,17 @@ import type {
   LeagueData,
   Snapshot,
 } from '../src/lib/types.ts';
-import { numberValue } from '../src/lib/format.ts';
+import { clamp, numberValue } from '../src/lib/format.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
 import { optimizeSquad } from '../src/lib/optimize.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
-import { enrichSnapshotWithRepoData, REPO_SEASON_RULES_2026_27 } from './repoData.ts';
+import {
+  CONFIGURED_REPO_ENTRY_ID,
+  CONFIGURED_REPO_ENTRY_NAME,
+  enrichSnapshotWithRepoData,
+  REPO_SEASON_RULES_2026_27,
+} from './repoData.ts';
 
 type RawRecord = Record<string, any>;
 
@@ -57,11 +62,10 @@ function stringValue(value: unknown, fallback = ''): string {
 async function loadOfflineSnapshot(): Promise<Snapshot> {
   const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
   const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
-  const enriched = await enrichSnapshotWithRepoData(raw);
-  return {
-    ...enriched,
+  const markedOffline: Snapshot = {
+    ...raw,
     meta: {
-      ...enriched.meta,
+      ...raw.meta,
       source: 'snapshot',
       servedAt: new Date().toISOString(),
       upstreamOk: false,
@@ -69,6 +73,7 @@ async function loadOfflineSnapshot(): Promise<Snapshot> {
       refreshSeconds: 120,
     },
   };
+  return enrichSnapshotWithRepoData(markedOffline);
 }
 
 async function loadOfflineLeagueFallback(): Promise<OfflineLeagueFallback> {
@@ -181,15 +186,20 @@ function normalizeEntry(
     const multiplier = pick.isCaptain ? 2 : pick.multiplier > 0 ? 1 : 0;
     return sum + player.projection * multiplier;
   }, 0);
+  const rawFreeTransfers = numberValue(
+    root.free_transfers,
+    numberValue(root.id) === CONFIGURED_REPO_ENTRY_ID ? 4 : history.eventTransfers === 0 ? 2 : 1,
+  );
   return {
     id: numberValue(root.id),
     name: `${stringValue(root.player_first_name)} ${stringValue(root.player_last_name)}`.trim(),
-    teamName: stringValue(root.name, 'FPL Team'),
+    teamName: stringValue(root.name, CONFIGURED_REPO_ENTRY_NAME),
     region: stringValue(root.player_region_name, 'Worldwide'),
     startedEvent: numberValue(root.started_event, 1),
     favouriteTeamId: root.favourite_team === null || root.favourite_team === undefined ? null : numberValue(root.favourite_team),
     overallRank: root.summary_overall_rank === null ? null : numberValue(root.summary_overall_rank),
     overallPoints: root.summary_overall_points === null ? null : numberValue(root.summary_overall_points),
+    freeTransfers: clamp(rawFreeTransfers, 1, 5),
     currentEvent: history.event,
     activeChip: picks.active_chip ? stringValue(picks.active_chip) : null,
     history,
@@ -207,7 +217,7 @@ function buildOfflineSyntheticEntry(
   snapshot: Snapshot,
   enriched: ReturnType<typeof enrichPlayers>,
 ): EntryData {
-  const isRepoManager = numericId === 145784;
+  const isRepoManager = numericId === CONFIGURED_REPO_ENTRY_ID;
   const profiles = ['balanced', 'safe', 'differential', 'upside'] as const;
   const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
   const optimized = optimizeSquad(enriched, { budget: 1000, profile });
@@ -227,16 +237,17 @@ function buildOfflineSyntheticEntry(
   const valueTenths = Math.round(optimized.cost * 10);
   const bankTenths = Math.max(0, 1000 - valueTenths);
   const totalPoints = Math.max(eventPoints, Math.round(eventPoints * Math.max(1, snapshot.meta.currentEventId * 0.72)));
-  const overallRank = isRepoManager ? 18420 : 45000 + ((numericId * 7919) % 420000);
+  const overallRank = isRepoManager ? 237000 : 45000 + ((numericId * 7919) % 420000);
   return {
     id: numericId,
-    name: isRepoManager ? 'FPL VORTEX Manager' : `Manager #${numericId}`,
-    teamName: isRepoManager ? 'FPL VORTEX XI' : `Snapshot Squad #${numericId}`,
+    name: isRepoManager ? 'Muku Dahal' : `Manager #${numericId}`,
+    teamName: isRepoManager ? CONFIGURED_REPO_ENTRY_NAME : `Offline Squad #${numericId}`,
     region: 'Offline snapshot',
     startedEvent: 1,
     favouriteTeamId: 1,
     overallRank,
     overallPoints: totalPoints,
+    freeTransfers: isRepoManager ? 4 : 1,
     currentEvent: snapshot.meta.currentEventId,
     activeChip: null,
     history: {
@@ -306,7 +317,7 @@ export async function getEntry(id: string): Promise<EntryData> {
     const archived = fallbackFile.entries?.[id];
     const fallbackResult = archived
       ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot')
-      : buildOfflineSyntheticEntry(numberValue(id, 5112705), snapshot, enriched);
+      : buildOfflineSyntheticEntry(numberValue(id, CONFIGURED_REPO_ENTRY_ID), snapshot, enriched);
     return writeCache(`entry:${id}`, fallbackResult, 120_000);
   }
 }
@@ -355,6 +366,7 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     seasonRules: REPO_SEASON_RULES_2026_27,
     currentEventId: snapshot.meta.currentEventId,
     nextEventId: snapshot.meta.nextEventId,
+    defaultEntryId: CONFIGURED_REPO_ENTRY_ID,
     players: snapshot.players.length,
     fixtures: snapshot.fixtures.length,
     repoData: snapshot.meta.repoData ?? null,

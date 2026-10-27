@@ -75,7 +75,7 @@ export async function fetchEntry(id: string, signal?: AbortSignal): Promise<Entr
       fetchOfflineSnapshot(signal),
       getJson<RawLeagueFallback>('/data/fpl-league-fallback.json', signal),
     ]);
-    const archived = fallback.entries?.[id] ?? fallback.entries?.['5112705'];
+    const archived = fallback.entries?.[id] ?? fallback.entries?.['145784'];
     if (!archived) throw error;
     const enriched = enrichPlayers(snapshot, 'balanced');
     const playerIndex = new Map(enriched.map((player) => [player.id, player]));
@@ -99,7 +99,7 @@ export async function fetchEntry(id: string, signal?: AbortSignal): Promise<Entr
     return {
       id: numberValue(archived.root.id, numberValue(id)),
       name: `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim(),
-      teamName: String(archived.root.name ?? 'FPL Team'),
+      teamName: String(archived.root.name ?? 'FPLVORTEX'),
       region: String(archived.root.player_region_name ?? 'Worldwide'),
       startedEvent: numberValue(archived.root.started_event, 1),
       favouriteTeamId: archived.root.favourite_team ?? null,
@@ -107,6 +107,7 @@ export async function fetchEntry(id: string, signal?: AbortSignal): Promise<Entr
       overallPoints: archived.root.summary_overall_points ?? null,
       currentEvent: numberValue(history.event, snapshot.meta.currentEventId),
       activeChip: archived.picks.active_chip ?? null,
+      freeTransfers: numberValue((archived.root as Record<string, any>).free_transfers, 4),
       history: {
         event: numberValue(history.event, snapshot.meta.currentEventId),
         points: numberValue(history.points),
