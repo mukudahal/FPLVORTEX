@@ -117,6 +117,39 @@ Tier 3 (Last-Resort Offline Fallback):
 
 ---
 
+## Ownership, Privacy & Backups
+
+**Licence:** proprietary — all rights reserved (see `LICENSE`). This repository was previously
+MIT-licensed; that permissive grant has been withdrawn so the models, notebooks and brand kit stay
+exclusive to `@FPLVORTEX`.
+
+**What is public vs private**
+
+| Public | Private (this repository only) |
+| --- | --- |
+| The deployed site at `https://fplvortex.onrender.com` — anyone with the link can view and use it | Source code, notebooks, benchmark CSV, projections, brand kit, docs |
+| The JSON API responses the site itself fetches | `.env` and any API keys (never committed) |
+
+**Never committed:** `.env`, `node_modules/`, `dist/`, `.cache/` — see `.gitignore`. No FPL Team ID
+is ever stored server-side; saved IDs live in the visitor's own browser.
+
+**Backups** — GitHub is the master copy, but a private repository can still be lost through account
+loss or accidental deletion, so keep an offline copy:
+
+```bash
+bash scripts/backup-local.sh                 # -> ~/FPLVORTEX-backups
+bash scripts/backup-local.sh /Volumes/SSD    # custom destination
+```
+
+That writes a full mirror clone (every branch, tag and commit) plus a single `.bundle` file you can
+drop into Google Drive or a USB stick, and keeps the three most recent snapshots. Restore with
+`git clone <backup>.bundle FPLVORTEX`.
+
+**Recommended account hygiene:** enable two-factor authentication on the GitHub account, keep the
+repository private, and review the Dependabot pull requests listed in the repository's Pull requests tab.
+
+---
+
 ## Docker
 
 ```bash
