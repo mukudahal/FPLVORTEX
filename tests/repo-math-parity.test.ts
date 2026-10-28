@@ -339,7 +339,9 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       (htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length,
     15,
   );
-  assert.match(htmlCommand, /Projected xG/);
+  // GW Fixtures header shows model xG without odds, and implied market goals once bookmaker
+  // lines are present (e.g. a snapshot mirrored from the published deployment).
+  assert.match(htmlCommand, /Projected xG|Implied Goals/);
   assert.equal((htmlCommand.match(/class="vx-club-bar-row"/g) ?? []).length, 20);
   // Tier 3: Top Players + Price & Transfers + Injuries & Suspensions + Horizontal Scrollable @FPLVORTEX YouTube strip
   assert.match(htmlCommand, /Top Players/);

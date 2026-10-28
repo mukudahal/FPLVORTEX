@@ -181,6 +181,9 @@ export interface SnapshotMeta {
   fallbackNotice?: string;
   repoData?: RepoDataMeta;
   oddsMeta?: MarketOddsMeta;
+  /** Set when the snapshot file was mirrored from a published deployment (`npm run data:mirror`). */
+  mirroredFrom?: string;
+  mirroredAt?: string;
 }
 
 export interface Snapshot {
