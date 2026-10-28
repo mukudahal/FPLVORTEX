@@ -49,6 +49,7 @@ const LEAGUE_FALLBACK_PATH = process.env.VORTEX_LEAGUE_FALLBACK_PATH ?? 'public/
 const STATIC_TTL = (Number.parseInt(process.env.FPL_CACHE_STATIC_SECONDS ?? '600', 10) || 600) * 1000;
 const LIVE_TTL = (Number.parseInt(process.env.FPL_CACHE_LIVE_SECONDS ?? '45', 10) || 45) * 1000;
 const PROFILE_TTL = (Number.parseInt(process.env.FPL_CACHE_PROFILE_SECONDS ?? '180', 10) || 180) * 1000;
+const MIRROR_FRESH_MS = (Number.parseInt(process.env.VORTEX_MIRROR_FRESH_MINUTES ?? '180', 10) || 180) * 60_000;
 
 function readCache<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
@@ -65,17 +66,29 @@ function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
+/**
+ * A snapshot mirrored from a published deployment (`scripts/mirror-upstream.ts`) is already
+ * upstream-enriched (official FPL payload + bookmaker odds). While it is still inside the
+ * freshness window we serve it as healthy cached data instead of flagging an offline fallback.
+ */
+function mirroredSnapshotState(raw: Snapshot): { source: DataSource; upstreamOk: boolean; stale: boolean } {
+  const generatedAt = Date.parse(raw.meta.generatedAt ?? '');
+  const fresh = Boolean(raw.meta.mirroredFrom) && Number.isFinite(generatedAt) && Date.now() - generatedAt < MIRROR_FRESH_MS;
+  return fresh ? { source: 'cache', upstreamOk: true, stale: false } : { source: 'snapshot', upstreamOk: false, stale: true };
+}
+
 async function loadOfflineSnapshot(): Promise<Snapshot> {
   const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
   const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
+  const mirroredState = mirroredSnapshotState(raw);
   const markedOffline: Snapshot = {
     ...raw,
     meta: {
       ...raw.meta,
-      source: 'snapshot',
+      source: mirroredState.source,
       servedAt: new Date().toISOString(),
-      upstreamOk: false,
-      stale: true,
+      upstreamOk: mirroredState.upstreamOk,
+      stale: mirroredState.stale,
       refreshSeconds: 120,
     },
   };
