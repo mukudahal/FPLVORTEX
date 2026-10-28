@@ -1,7 +1,11 @@
 import { enrichPlayers } from './analytics';
 import { withBase } from './baseUrl';
 import { numberValue } from './format';
-import { computeDynamicFreeTransfers, type RawEntryHistoryPayload } from './freeTransfers';
+import {
+  computeDynamicFreeTransfers,
+  resolveSquadPurchaseAndSellingPrices,
+  type RawEntryHistoryPayload,
+} from './freeTransfers';
 import type { RecentTeamEntry } from './recentTeamIds';
 import type { EntryData, LeagueData, Snapshot, VideosResponse } from './types';
 
@@ -124,13 +128,21 @@ export async function fetchEntry(
     if (!archived) throw error;
     const enriched = enrichPlayers(snapshot, 'balanced');
     const playerIndex = new Map(enriched.map((player) => [player.id, player]));
-    const picks = (Array.isArray(archived.picks.picks) ? archived.picks.picks : []).map((pick: Record<string, any>) => ({
-      element: numberValue(pick.element),
-      position: numberValue(pick.position),
-      multiplier: numberValue(pick.multiplier),
-      isCaptain: Boolean(pick.is_captain),
-      isViceCaptain: Boolean(pick.is_vice_captain),
-    }));
+    const picks = (Array.isArray(archived.picks.picks) ? archived.picks.picks : []).map((pick: Record<string, any>) => {
+      const element = numberValue(pick.element);
+      const matched = playerIndex.get(element);
+      const prices = matched
+        ? resolveSquadPurchaseAndSellingPrices(matched, pick.purchase_price, pick.selling_price)
+        : undefined;
+      return {
+        element,
+        position: numberValue(pick.position),
+        multiplier: numberValue(pick.multiplier),
+        isCaptain: Boolean(pick.is_captain),
+        isViceCaptain: Boolean(pick.is_vice_captain),
+        ...(prices ?? {}),
+      };
+    });
     const players = picks
       .map((pick) => playerIndex.get(pick.element))
       .filter((player): player is (typeof enriched)[number] => Boolean(player));

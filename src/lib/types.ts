@@ -300,6 +300,8 @@ export interface EntryPick {
   multiplier: number;
   isCaptain: boolean;
   isViceCaptain: boolean;
+  purchasePrice?: number;
+  sellingPrice?: number;
 }
 
 export interface EntryHistory {

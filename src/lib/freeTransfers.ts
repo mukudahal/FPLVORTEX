@@ -1,5 +1,10 @@
 import { clamp, numberValue } from './format.ts';
-import { MAX_FREE_TRANSFERS, nextFreeTransfers, type PlanningChip } from './repoModel/scoring.ts';
+import {
+  MAX_FREE_TRANSFERS,
+  nextFreeTransfers,
+  sellingPrice as computeOfficialSellingPriceTenths,
+  type PlanningChip,
+} from './repoModel/scoring.ts';
 
 export interface RawEntryHistoryRow {
   event?: unknown;
@@ -98,4 +103,62 @@ export function computeDynamicFreeTransfers(input: ComputeFreeTransfersInput): n
   const rolled = nextFreeTransfers(1, singleTransfers, singleChip);
   const extraUsed = Math.max(0, Math.round(numberValue(input.postLockTransfersUsed, 0)));
   return clamp(rolled - extraUsed, 0, MAX_FREE_TRANSFERS);
+}
+
+/**
+ * Dynamically resolves a squad player's `purchasePrice` and official FPL `sellingPrice` (in £m)
+ * using explicit pick data when available, most recent transfer-in cost from `/transfers/`,
+ * or GW1 starting cost (`now_cost - cost_change_start`), plus FPL's 50%-profit-rounded-down rule.
+ */
+export function resolveSquadPurchaseAndSellingPrices(
+  player: { cost: number; price: number; costChangeStart?: number },
+  explicitPurchaseTenths?: unknown,
+  explicitSellingTenths?: unknown,
+  latestTransferInTenths?: number,
+): { purchasePrice: number; sellingPrice: number } {
+  const currentTenths = Math.max(
+    35,
+    Math.round(player.cost > 0 ? player.cost : player.price * 10),
+  );
+
+  const parsedExplicitBuy =
+    explicitPurchaseTenths !== null &&
+    explicitPurchaseTenths !== undefined &&
+    explicitPurchaseTenths !== ''
+      ? Number(explicitPurchaseTenths)
+      : Number.NaN;
+
+  const parsedExplicitSell =
+    explicitSellingTenths !== null &&
+    explicitSellingTenths !== undefined &&
+    explicitSellingTenths !== ''
+      ? Number(explicitSellingTenths)
+      : Number.NaN;
+
+  let purchaseTenths: number;
+  if (Number.isFinite(parsedExplicitBuy) && parsedExplicitBuy >= 35) {
+    purchaseTenths = Math.round(parsedExplicitBuy);
+  } else if (
+    typeof latestTransferInTenths === 'number' &&
+    Number.isFinite(latestTransferInTenths) &&
+    latestTransferInTenths >= 35
+  ) {
+    purchaseTenths = Math.round(latestTransferInTenths);
+  } else {
+    const startDelta =
+      typeof player.costChangeStart === 'number' && Number.isFinite(player.costChangeStart)
+        ? Math.round(player.costChangeStart)
+        : 0;
+    purchaseTenths = Math.max(35, currentTenths - startDelta);
+  }
+
+  const sellingTenths =
+    Number.isFinite(parsedExplicitSell) && parsedExplicitSell >= 35
+      ? Math.round(parsedExplicitSell)
+      : computeOfficialSellingPriceTenths(purchaseTenths, currentTenths);
+
+  return {
+    purchasePrice: purchaseTenths / 10,
+    sellingPrice: sellingTenths / 10,
+  };
 }

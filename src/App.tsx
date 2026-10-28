@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
-import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
+import type { EnrichedPlayer, EntryData, RiskProfile, VideoItem } from './lib/types';
 import { BRAND_LION_SRC } from './lib/baseUrl';
 import type { RouteId } from './hooks/useHashRoute';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -10,6 +10,7 @@ import {
   deleteSavedTeamOnServer,
   fetchEntry,
   fetchSavedTeams,
+  fetchVideos,
   saveTeamOnServer,
 } from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
@@ -37,6 +38,11 @@ import { XBrandLogo, YouTubeBrandLogo } from './components/SocialIcons';
 import { SquadBuilder } from './components/SquadBuilder';
 import { Toast } from './components/Toast';
 import { Topbar } from './components/Topbar';
+import {
+  YOUTUBE_CHANNEL_URL,
+  YouTubePlayerModal,
+  handleYouTubeChannelClick,
+} from './components/YouTubePlayerModal';
 
 type ToastTone = 'success' | 'error' | 'info';
 interface ToastState {
@@ -90,6 +96,28 @@ export default function App() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [globalCardPlayer, setGlobalCardPlayer] = useState<EnrichedPlayer | null>(null);
   const [globalInjuryPlayer, setGlobalInjuryPlayer] = useState<EnrichedPlayer | null>(null);
+  const [channelVideos, setChannelVideos] = useState<VideoItem[]>([]);
+  const [ytModalOpen, setYtModalOpen] = useState(false);
+  const [ytActiveVideo, setYtActiveVideo] = useState<VideoItem | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchVideos(controller.signal)
+      .then((res) => {
+        if (Array.isArray(res.videos) && res.videos.length > 0) {
+          setChannelVideos(res.videos);
+        }
+      })
+      .catch(() => {
+        // Fallback videos inside YouTubePlayerModal remain available.
+      });
+    return () => controller.abort();
+  }, []);
+
+  const handleOpenYouTubePlayer = useCallback((video?: VideoItem | null) => {
+    setYtActiveVideo(video ?? null);
+    setYtModalOpen(true);
+  }, []);
 
   const handleInspectPlayer = useCallback((player: EnrichedPlayer) => {
     setGlobalInjuryPlayer(null);
@@ -443,13 +471,22 @@ export default function App() {
           onOpenPalette={openPalette}
           onRefresh={handleRefresh}
           refreshing={refreshing}
+          onPlayVideo={handleOpenYouTubePlayer}
         />
       );
   }
 
   return (
     <div className="app-shell">
-      <Sidebar route={route} onNavigate={navigate} snapshot={snapshot} entry={effectiveEntry} open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar
+        route={route}
+        onNavigate={navigate}
+        snapshot={snapshot}
+        entry={effectiveEntry}
+        open={sidebarOpen}
+        onClose={closeSidebar}
+        onOpenYouTubeChannel={() => handleOpenYouTubePlayer(null)}
+      />
       <div className="app-main">
         <Topbar
           route={route}
@@ -511,11 +548,12 @@ export default function App() {
               <img src={BRAND_LION_SRC} alt="" className="app-footer__lion" width={26} height={26} />
               <strong className="app-footer__title">FPL VORTEX</strong>
               <a
-                href="https://www.youtube.com/@Fplvortex"
+                href={YOUTUBE_CHANNEL_URL}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="app-footer__social-link is-yt"
-                title="Subscribe to @FPLVORTEX on YouTube"
+                title="Visit https://www.youtube.com/@Fplvortex"
+                onClick={(e) => handleYouTubeChannelClick(e, () => handleOpenYouTubePlayer(null))}
               >
                 <YouTubeBrandLogo size={20} />
                 <span>@FPLVORTEX</span>
@@ -523,7 +561,7 @@ export default function App() {
               <a
                 href="https://x.com/FplVortexM"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="app-footer__social-link is-x"
                 title="Follow @FplVortexM on X"
               >
@@ -586,6 +624,13 @@ export default function App() {
         nextEventId={snapshot.meta.nextEventId}
         onClose={() => setGlobalInjuryPlayer(null)}
         onOpenPlayerCard={handleInspectPlayer}
+      />
+
+      <YouTubePlayerModal
+        open={ytModalOpen}
+        initialVideo={ytActiveVideo}
+        videos={channelVideos}
+        onClose={() => setYtModalOpen(false)}
       />
 
       <CommandPalette

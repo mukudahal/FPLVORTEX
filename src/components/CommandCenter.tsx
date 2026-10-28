@@ -12,13 +12,17 @@ import {
   Flame,
   LayoutGrid,
   List,
+  Minus,
   Pencil,
   Play,
   RefreshCw,
   Shield,
   Sparkles,
+  Star,
   Stethoscope,
   Target,
+  TrendingDown,
+  TrendingUp,
   Trophy,
   UserCheck,
   Users,
@@ -46,6 +50,7 @@ import {
   relativeTime,
 } from '../lib/format';
 import { buildStrengths, projectMatch } from '../lib/repoModel/dashboardMath';
+import { resolveSquadPurchaseAndSellingPrices } from '../lib/freeTransfers';
 import { selectOptimalXI } from '../lib/repoModel/scoring';
 import type {
   EnrichedPlayer,
@@ -63,6 +68,11 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { YouTubeBrandLogo } from './SocialIcons';
 import { TeamIdInput } from './TeamIdInput';
+import {
+  YOUTUBE_CHANNEL_URL,
+  YouTubePlayerModal,
+  handleYouTubeChannelClick,
+} from './YouTubePlayerModal';
 
 interface CommandCenterProps {
   snapshot: Snapshot;
@@ -86,6 +96,7 @@ interface CommandCenterProps {
   onOpenPalette: () => void;
   onRefresh: () => void;
   refreshing: boolean;
+  onPlayVideo?: (video?: VideoItem | null) => void;
 }
 
 const DEFAULT_SAMPLE_SQUAD = [1, 149, 256, 369, 444, 16, 48, 82, 136, 224, 240, 297, 381, 411, 560];
@@ -211,6 +222,7 @@ export function CommandCenter({
   onOpenPalette,
   onRefresh,
   refreshing,
+  onPlayVideo,
 }: CommandCenterProps) {
   const now = useNow(1000);
   const videoTrackRef = useRef<HTMLDivElement | null>(null);
@@ -231,10 +243,22 @@ export function CommandCenter({
   const [projMetric, setProjMetric] = useState<'goals' | 'cs' | 'win'>('goals');
   const [oddsSourceMode, setOddsSourceMode] = useState<'auto' | 'model'>('auto');
   const [topMetric, setTopMetric] = useState<'season' | 'nextXp' | 'gwPts' | 'horizon5'>('season');
-  const [transferSort, setTransferSort] = useState<'progress' | 'predicted' | 'status' | 'name' | 'net'>('progress');
+  const [transferSort, setTransferSort] = useState<
+    'trend' | 'progress' | 'predicted' | 'status' | 'price' | 'purchase' | 'selling' | 'name'
+  >('trend');
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
   const [transferPage, setTransferPage] = useState(0);
   const [injuryPage, setInjuryPage] = useState(0);
+  const [localYtOpen, setLocalYtOpen] = useState(false);
+  const [localYtVideo, setLocalYtVideo] = useState<VideoItem | null>(null);
+  const openVideoPlayer = (video?: VideoItem | null) => {
+    if (onPlayVideo) {
+      onPlayVideo(video);
+      return;
+    }
+    setLocalYtVideo(video ?? null);
+    setLocalYtOpen(true);
+  };
   const [selectedCardPlayer, rawSetSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
   const [selectedInjuryPlayer, rawSetSelectedInjuryPlayer] = useState<EnrichedPlayer | null>(null);
   const setSelectedCardPlayer = (p: EnrichedPlayer | null) => {
@@ -522,23 +546,98 @@ export function CommandCenter({
 
   const maxTopScore = Math.max(1, ...topPlayersList.map((r) => r.score));
 
-  // Price & Transfers — Dynamic Status, Progress & Predicted Progress
+  // Dynamic squad Purchase Price & Selling Price lookup for the linked manager's 15 picks (zero hardcoding)
+  const ownedSquadPricingMap = useMemo(() => {
+    const map = new Map<number, { purchasePrice: number; sellingPrice: number }>();
+    if (!hasLinkedTeam || !entry || !Array.isArray(entry.picks)) return map;
+
+    const latestTransferCostByElement = new Map<number, number>();
+    if (Array.isArray(entry.recentTransfers)) {
+      const sortedNewest = [...entry.recentTransfers].sort((a, b) => b.event - a.event);
+      for (const tr of sortedNewest) {
+        if (
+          tr.elementIn > 0 &&
+          tr.elementInCost >= 35 &&
+          !latestTransferCostByElement.has(tr.elementIn)
+        ) {
+          latestTransferCostByElement.set(tr.elementIn, tr.elementInCost);
+        }
+      }
+    }
+
+    for (const pick of entry.picks) {
+      const p = playerMap.get(pick.element);
+      if (!p) continue;
+      if (
+        typeof pick.purchasePrice === 'number' &&
+        Number.isFinite(pick.purchasePrice) &&
+        typeof pick.sellingPrice === 'number' &&
+        Number.isFinite(pick.sellingPrice)
+      ) {
+        map.set(pick.element, {
+          purchasePrice: pick.purchasePrice,
+          sellingPrice: pick.sellingPrice,
+        });
+      } else {
+        map.set(
+          pick.element,
+          resolveSquadPurchaseAndSellingPrices(
+            p,
+            undefined,
+            undefined,
+            latestTransferCostByElement.get(pick.element),
+          ),
+        );
+      }
+    }
+    return map;
+  }, [entry, hasLinkedTeam, playerMap]);
+
+  // Price & Transfers — Dynamic Status, Progress, Predicted Progress, Ownership Trend, Current/Purchase/Selling Price
   const sortedTransfers = useMemo(() => {
     const totalManagers = snapshot.meta.totalPlayers || 11_000_000;
     const rows = players.map((p) => {
       const prediction = computePriceChangePrediction(p, totalManagers);
+      const squadPrices = ownedSquadPricingMap.get(p.id);
+      const trendDir: 'up' | 'down' | 'flat' =
+        prediction.netTransfers > 0 ? 'up' : prediction.netTransfers < 0 ? 'down' : 'flat';
       return {
         player: p,
         status: prediction.status,
         progressPct: prediction.progressPct,
         predictedProgressPct: prediction.predictedProgressPct,
         net: prediction.netTransfers,
+        trendDir,
+        isOwned: Boolean(squadPrices),
+        purchasePrice: squadPrices?.purchasePrice ?? null,
+        sellingPrice: squadPrices?.sellingPrice ?? null,
       };
     });
     const mul = transferDir === 'desc' ? -1 : 1;
     rows.sort((a, b) => {
       if (transferSort === 'name') return mul * a.player.name.localeCompare(b.player.name);
-      if (transferSort === 'net') return mul * (a.net - b.net);
+      if (transferSort === 'trend') {
+        return (
+          mul * (a.net - b.net) ||
+          mul * (a.predictedProgressPct - b.predictedProgressPct) ||
+          b.player.ownership - a.player.ownership
+        );
+      }
+      if (transferSort === 'price') {
+        return mul * (a.player.price - b.player.price) || mul * (a.net - b.net);
+      }
+      if (transferSort === 'purchase') {
+        if (a.purchasePrice === null && b.purchasePrice === null) return mul * (a.player.price - b.player.price);
+        if (a.purchasePrice === null) return 1;
+        if (b.purchasePrice === null) return -1;
+        return mul * (a.purchasePrice - b.purchasePrice) || mul * (a.player.price - b.player.price);
+      }
+      if (transferSort === 'selling') {
+        if (a.sellingPrice === null && b.sellingPrice === null) return mul * (a.player.price - b.player.price);
+        if (a.sellingPrice === null) return 1;
+        if (b.sellingPrice === null) return -1;
+        return mul * (a.sellingPrice - b.sellingPrice) || mul * (a.player.price - b.player.price);
+      }
       if (transferSort === 'status') {
         const diff = statusSortRank(a.status) - statusSortRank(b.status);
         if (diff !== 0) return mul * diff;
@@ -558,7 +657,7 @@ export function CommandCenter({
       );
     });
     return rows;
-  }, [players, snapshot.meta.totalPlayers, transferDir, transferSort]);
+  }, [ownedSquadPricingMap, players, snapshot.meta.totalPlayers, transferDir, transferSort]);
 
   const transferTotalPages = Math.max(1, Math.ceil(sortedTransfers.length / 10));
   const safeTransferPage = Math.min(transferPage, transferTotalPages - 1);
@@ -1547,8 +1646,8 @@ export function CommandCenter({
           </footer>
         </article>
 
-        {/* CARD 2: PRICE & TRANSFERS */}
-        <article className="panel vx-card vx-card--lower vx-card--transfers">
+        {/* CARD 2: PRICE & TRANSFERS (HOME TAB FULL-SPECTRUM TRADING TABLE) */}
+        <article className="panel vx-card vx-card--lower vx-card--transfers vx-card--transfers-wide">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
               <ArrowLeftRight size={16} className="vx-icon-mint" />
@@ -1559,106 +1658,204 @@ export function CommandCenter({
             </button>
           </header>
 
-          <div className="vx-card__scroll">
-            <table className="vx-transfer-table vx-transfer-table--predictor">
+          <div className="vx-card__scroll vx-transfer-scroll-x">
+            <table className="vx-transfer-table vx-transfer-table--predictor vx-transfer-table--home-full">
               <thead>
                 <tr>
                   <th>
-                    <button type="button" onClick={() => toggleTransferSort('name')}>
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'name' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('name')}
+                    >
                       Player {transferSort === 'name' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
                   <th className="is-center">
-                    <button type="button" onClick={() => toggleTransferSort('status')}>
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'status' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('status')}
+                    >
                       Status {transferSort === 'status' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
-                  <th className="is-right">
-                    <button type="button" onClick={() => toggleTransferSort('progress')}>
+                  <th className="is-center">
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'progress' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('progress')}
+                    >
                       Progress {transferSort === 'progress' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
-                  <th className="is-right">
-                    <button type="button" onClick={() => toggleTransferSort('predicted')}>
+                  <th className="is-center">
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'predicted' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('predicted')}
+                    >
                       Predicted Progress {transferSort === 'predicted' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                    </button>
+                  </th>
+                  <th className="is-center">
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'trend' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('trend')}
+                    >
+                      Ownership Trend {transferSort === 'trend' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                    </button>
+                  </th>
+                  <th className="is-right">
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'price' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('price')}
+                    >
+                      Current Price {transferSort === 'price' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                    </button>
+                  </th>
+                  <th className="is-right">
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'purchase' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('purchase')}
+                    >
+                      Purchase Price {transferSort === 'purchase' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                    </button>
+                  </th>
+                  <th className="is-right">
+                    <button
+                      type="button"
+                      className={classNames(transferSort === 'selling' && 'is-sorted')}
+                      onClick={() => toggleTransferSort('selling')}
+                    >
+                      Selling Price {transferSort === 'selling' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {visibleTransfers.map(({ player, status, progressPct, predictedProgressPct, net }) => {
-                  const rowFlag =
-                    player.status !== 'a' || (player.chance !== null && player.chance < 100)
-                      ? parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label)
-                      : null;
-                  return (
-                    <tr key={player.id} onClick={() => setSelectedCardPlayer(player)} className="vx-clickable-row">
-                      <td>
-                        <div className="vx-mini-player">
-                          <PlayerAvatar
-                            code={player.code}
-                            teamCode={player.team.code}
-                            name={player.name}
-                            fullName={player.fullName}
-                            teamShort={player.team.shortName}
-                            position={player.position}
-                            size="md"
-                            className="vx-list-avatar"
-                          />
-                          <div className="vx-player-meta">
-                            <div className="vx-name-with-flag">
-                              <strong>{player.name}</strong>
-                              {rowFlag && (
-                                <button
-                                  type="button"
-                                  className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${rowFlag.severity}`)}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedInjuryPlayer(player);
-                                  }}
-                                  aria-label={`${player.name} injury details`}
-                                  title={`${rowFlag.injuryType} · ${rowFlag.expectedReturn}`}
-                                >
-                                  <AlertTriangle size={10} />
-                                  <span>{rowFlag.badgeText}</span>
-                                </button>
-                              )}
-                            </div>
-                            <small>
-                              <ClubBadge
-                                teamCode={player.team.code}
-                                shortName={player.team.shortName}
-                                teamName={player.team.name}
-                                size="sm"
-                              />
-                              <span>
-                                {player.position} · {formatPrice(player.price)} ·{' '}
-                                <em className={classNames('vx-net-inline', net >= 0 ? 'is-pos' : 'is-neg')}>
-                                  {net > 0 ? `+${formatCompact(net)}` : formatCompact(net)}
-                                </em>
+                {visibleTransfers.map(
+                  ({
+                    player,
+                    status,
+                    progressPct,
+                    predictedProgressPct,
+                    net,
+                    trendDir,
+                    isOwned,
+                    purchasePrice,
+                    sellingPrice: sellVal,
+                  }) => {
+                    const rowFlag =
+                      player.status !== 'a' || (player.chance !== null && player.chance < 100)
+                        ? parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label)
+                        : null;
+                    return (
+                      <tr
+                        key={player.id}
+                        onClick={() => setSelectedCardPlayer(player)}
+                        className={classNames('vx-clickable-row', isOwned && 'is-owned-row')}
+                      >
+                        <td>
+                          <div className="vx-mini-player">
+                            {isOwned && (
+                              <span
+                                className="vx-owned-star"
+                                title="In your linked FPL squad"
+                                aria-label="In your linked FPL squad"
+                              >
+                                <Star size={11} fill="currentColor" />
                               </span>
-                            </small>
+                            )}
+                            <PlayerAvatar
+                              code={player.code}
+                              teamCode={player.team.code}
+                              name={player.name}
+                              fullName={player.fullName}
+                              teamShort={player.team.shortName}
+                              position={player.position}
+                              size="md"
+                              className="vx-list-avatar"
+                            />
+                            <div className="vx-player-meta">
+                              <div className="vx-name-with-flag">
+                                <strong>{player.name}</strong>
+                                {rowFlag && (
+                                  <button
+                                    type="button"
+                                    className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${rowFlag.severity}`)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedInjuryPlayer(player);
+                                    }}
+                                    aria-label={`${player.name} injury details`}
+                                    title={`${rowFlag.injuryType} · ${rowFlag.expectedReturn}`}
+                                  >
+                                    <AlertTriangle size={10} />
+                                    <span>{rowFlag.badgeText}</span>
+                                  </button>
+                                )}
+                              </div>
+                              <small>
+                                <ClubBadge
+                                  teamCode={player.team.code}
+                                  shortName={player.team.shortName}
+                                  teamName={player.team.name}
+                                  size="sm"
+                                />
+                                <span>
+                                  {player.position} ·{' '}
+                                  <em className={classNames('vx-net-inline', net >= 0 ? 'is-pos' : 'is-neg')}>
+                                    {net > 0 ? `+${formatCompact(net)}` : formatCompact(net)}
+                                  </em>
+                                </span>
+                              </small>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="is-center">
-                        <span className={classNames('vx-price-status-pill', statusPillToneClass(status))}>
-                          {status}
-                        </span>
-                      </td>
-                      <td className="is-right mono-num">
-                        <span className={classNames('vx-price-pct-pill', progressPillToneClass(progressPct))}>
-                          {formatSignedPct(progressPct)}
-                        </span>
-                      </td>
-                      <td className="is-right mono-num">
-                        <span className={classNames('vx-price-pct-pill', progressPillToneClass(predictedProgressPct))}>
-                          {formatSignedPct(predictedProgressPct)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="is-center">
+                          <span className={classNames('vx-price-status-pill', statusPillToneClass(status))}>
+                            {status}
+                          </span>
+                        </td>
+                        <td className="is-center mono-num">
+                          <span className={classNames('vx-price-pct-pill', progressPillToneClass(progressPct))}>
+                            {formatSignedPct(progressPct)}
+                          </span>
+                        </td>
+                        <td className="is-center mono-num">
+                          <span className={classNames('vx-price-pct-pill', progressPillToneClass(predictedProgressPct))}>
+                            {formatSignedPct(predictedProgressPct)}
+                          </span>
+                        </td>
+                        <td className="is-center">
+                          <span className={classNames('vx-ownership-trend', `is-${trendDir}`)}>
+                            {trendDir === 'up' ? (
+                              <TrendingUp size={14} />
+                            ) : trendDir === 'down' ? (
+                              <TrendingDown size={14} />
+                            ) : (
+                              <Minus size={14} />
+                            )}
+                            <span>{trendDir === 'up' ? 'Up' : trendDir === 'down' ? 'Down' : 'Flat'}</span>
+                          </span>
+                        </td>
+                        <td className="is-right mono-num vx-price-col vx-price-col--current">
+                          {formatPrice(player.price)}
+                        </td>
+                        <td className="is-right mono-num vx-price-col">
+                          {purchasePrice !== null ? formatPrice(purchasePrice) : <span className="vx-price-dash">-</span>}
+                        </td>
+                        <td className="is-right mono-num vx-price-col">
+                          {sellVal !== null ? formatPrice(sellVal) : <span className="vx-price-dash">-</span>}
+                        </td>
+                      </tr>
+                    );
+                  },
+                )}
               </tbody>
             </table>
           </div>
@@ -1817,10 +2014,12 @@ export function CommandCenter({
               </button>
             </div>
             <a
-              href="https://www.youtube.com/@Fplvortex"
+              href={YOUTUBE_CHANNEL_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="vx-yt-channel-btn"
+              title="Visit https://www.youtube.com/@Fplvortex"
+              onClick={(e) => handleYouTubeChannelClick(e, () => openVideoPlayer(null))}
             >
               <YouTubeBrandLogo size={18} />
               <span>@FPLVORTEX Channel</span>
@@ -1831,14 +2030,13 @@ export function CommandCenter({
 
         <div className="vx-videos-scroll-row" ref={videoTrackRef}>
           {videos.map((video) => (
-            <a
-              key={video.id}
-              href={video.url}
-              target="_blank"
-              rel="noreferrer"
-              className="vx-video-pill"
-            >
-              <div className="vx-video-pill__thumb">
+            <div key={video.id} className="vx-video-pill" role="group" aria-label={video.title}>
+              <button
+                type="button"
+                className="vx-video-pill__thumb vx-video-pill__play-btn"
+                onClick={() => openVideoPlayer(video)}
+                aria-label={`Play ${video.title}`}
+              >
                 <img
                   src={`https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
                   alt={video.title}
@@ -1854,18 +2052,42 @@ export function CommandCenter({
                 <span className="vx-video-pill__badge">
                   <Play size={10} fill="currentColor" /> Watch
                 </span>
-              </div>
+              </button>
               <div className="vx-video-pill__copy">
-                <strong>{video.title}</strong>
-                <span>FPL VORTEX (@FPLVORTEX)</span>
+                <button
+                  type="button"
+                  className="vx-video-pill__title-btn"
+                  onClick={() => openVideoPlayer(video)}
+                >
+                  <strong>{video.title}</strong>
+                </button>
+                <a
+                  href={YOUTUBE_CHANNEL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="vx-video-pill__channel-link"
+                  title="Visit https://www.youtube.com/@Fplvortex"
+                  onClick={(e) => handleYouTubeChannelClick(e, () => openVideoPlayer(null))}
+                >
+                  FPL VORTEX (@FPLVORTEX)
+                </a>
                 <small>
                   <Clock size={11} /> {relativeTime(video.published)}
                 </small>
               </div>
-            </a>
+            </div>
           ))}
         </div>
       </section>
+
+      {!onPlayVideo && (
+        <YouTubePlayerModal
+          open={localYtOpen}
+          initialVideo={localYtVideo}
+          videos={videos}
+          onClose={() => setLocalYtOpen(false)}
+        />
+      )}
 
       {/* FPL VORTEX Broadcast Player Graphic Card Modal (Image 1 style — pure stats & fixtures, no transfer-out) */}
       <PlayerGraphicModal

@@ -13,6 +13,7 @@ import type { RouteId } from '../hooks/useHashRoute';
 import { classNames, formatNumber } from '../lib/format';
 import { Brand } from './Brand';
 import { XBrandLogo, YouTubeBrandLogo } from './SocialIcons';
+import { YOUTUBE_CHANNEL_URL, handleYouTubeChannelClick } from './YouTubePlayerModal';
 
 interface SidebarProps {
   route: RouteId;
@@ -21,9 +22,18 @@ interface SidebarProps {
   entry?: EntryData | null;
   open: boolean;
   onClose: () => void;
+  onOpenYouTubeChannel?: () => void;
 }
 
-export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: SidebarProps) {
+export function Sidebar({
+  route,
+  onNavigate,
+  snapshot,
+  entry,
+  open,
+  onClose,
+  onOpenYouTubeChannel,
+}: SidebarProps) {
   const playerCount = snapshot?.players.length ?? 667;
   const navItems = [
     { id: 'command' as const, label: 'Command center', hint: 'Gameweek hub', icon: Gauge },
@@ -60,11 +70,12 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
         <div className="sidebar__season">
           <div className="sidebar__channel-links">
             <a
-              href="https://www.youtube.com/@Fplvortex"
+              href={YOUTUBE_CHANNEL_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="sidebar__yt-pill"
               title="Subscribe to @FPLVORTEX on YouTube"
+              onClick={(e) => handleYouTubeChannelClick(e, onOpenYouTubeChannel)}
             >
               <YouTubeBrandLogo size={18} />
               <strong>@FPLVORTEX</strong>
@@ -144,7 +155,16 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
           </div>
           <div className="sidebar__version">
             <span>FPL VORTEX</span>
-            <span>youtube.com/@Fplvortex</span>
+            <a
+              href={YOUTUBE_CHANNEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sidebar__version-yt-link"
+              onClick={(e) => handleYouTubeChannelClick(e, onOpenYouTubeChannel)}
+            >
+              <YouTubeBrandLogo size={14} />
+              <span>youtube.com/@Fplvortex</span>
+            </a>
           </div>
         </div>
       </aside>

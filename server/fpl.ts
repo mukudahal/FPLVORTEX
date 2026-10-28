@@ -9,7 +9,11 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
-import { computeDynamicFreeTransfers, type RawEntryHistoryPayload } from '../src/lib/freeTransfers.ts';
+import {
+  computeDynamicFreeTransfers,
+  resolveSquadPurchaseAndSellingPrices,
+  type RawEntryHistoryPayload,
+} from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
 import { optimizeSquad } from '../src/lib/optimize.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
@@ -188,6 +192,7 @@ function normalizeEntry(
   source: DataSource,
   historyPayload?: RawEntryHistoryPayload | null,
   postLockTransfersUsed = 0,
+  latestTransferInCostByElement?: Map<number, number>,
 ): EntryData {
   const history: EntryHistory = {
     event: numberValue(picks.entry_history?.event, snapshot.meta.currentEventId),
@@ -201,14 +206,27 @@ function normalizeEntry(
     eventTransfersCost: numberValue(picks.entry_history?.event_transfers_cost),
     pointsOnBench: numberValue(picks.entry_history?.points_on_bench),
   };
-  const normalizedPicks: EntryPick[] = (Array.isArray(picks.picks) ? picks.picks : []).map((pick: RawRecord) => ({
-    element: numberValue(pick.element),
-    position: numberValue(pick.position),
-    multiplier: numberValue(pick.multiplier),
-    isCaptain: Boolean(pick.is_captain),
-    isViceCaptain: Boolean(pick.is_vice_captain),
-  }));
   const playerIndex = new Map(enriched.map((player) => [player.id, player]));
+  const normalizedPicks: EntryPick[] = (Array.isArray(picks.picks) ? picks.picks : []).map((pick: RawRecord) => {
+    const element = numberValue(pick.element);
+    const matchedPlayer = playerIndex.get(element);
+    const prices = matchedPlayer
+      ? resolveSquadPurchaseAndSellingPrices(
+          matchedPlayer,
+          pick.purchase_price,
+          pick.selling_price,
+          latestTransferInCostByElement?.get(element),
+        )
+      : undefined;
+    return {
+      element,
+      position: numberValue(pick.position),
+      multiplier: numberValue(pick.multiplier),
+      isCaptain: Boolean(pick.is_captain),
+      isViceCaptain: Boolean(pick.is_vice_captain),
+      ...(prices ?? {}),
+    };
+  });
   const players = normalizedPicks
     .map((pick) => playerIndex.get(pick.element))
     .filter((player): player is (typeof enriched)[number] => Boolean(player));
@@ -260,13 +278,18 @@ function buildOfflineSyntheticEntry(
   const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
   const optimized = optimizeSquad(enriched, { budget: 1000, profile });
   const ordered = [...optimized.starters, ...optimized.bench];
-  const picks: EntryPick[] = ordered.map((player, index) => ({
-    element: player.id,
-    position: index + 1,
-    multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
-    isCaptain: player.isCaptain,
-    isViceCaptain: player.isViceCaptain,
-  }));
+  const picks: EntryPick[] = ordered.map((player, index) => {
+    const prices = resolveSquadPurchaseAndSellingPrices(player);
+    return {
+      element: player.id,
+      position: index + 1,
+      multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
+      isCaptain: player.isCaptain,
+      isViceCaptain: player.isViceCaptain,
+      purchasePrice: prices.purchasePrice,
+      sellingPrice: prices.sellingPrice,
+    };
+  });
   const eventPoints = ordered.reduce((sum, player, index) => {
     const mult = player.isCaptain ? 2 : index < 11 ? 1 : 0;
     return sum + player.eventPoints * mult;
@@ -383,6 +406,21 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       ? rawTransfers.filter((tr) => numberValue(tr.event, 0) > maxHistoryEvent).length
       : 0;
 
+    const latestTransferInCostByElement = new Map<number, number>();
+    if (Array.isArray(rawTransfers)) {
+      // Official FPL returns transfers sorted newest-first; keep the most recent transfer-in cost per element
+      const sortedNewestFirst = [...rawTransfers].sort(
+        (a, b) => numberValue(b?.event, 0) - numberValue(a?.event, 0),
+      );
+      for (const tr of sortedNewestFirst) {
+        const elIn = numberValue(tr?.element_in, 0);
+        const inCost = numberValue(tr?.element_in_cost, 0);
+        if (elIn > 0 && inCost >= 35 && !latestTransferInCostByElement.has(elIn)) {
+          latestTransferInCostByElement.set(elIn, inCost);
+        }
+      }
+    }
+
     // Apply any published post-GW transfers when viewing upcoming GWs
     const result = normalizeEntry(
       root,
@@ -392,6 +430,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       'live',
       entryHistory,
       postLockTransfersUsed,
+      latestTransferInCostByElement,
     );
     result.recentTransfers = recentTransfers;
     const newerTransfers = recentTransfers
@@ -404,6 +443,15 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
         const slot = updatedPicks.find((pk) => pk.element === tr.elementOut);
         if (slot && playerIndex.has(tr.elementIn)) {
           slot.element = tr.elementIn;
+          const incomingPlayer = playerIndex.get(tr.elementIn)!;
+          const prices = resolveSquadPurchaseAndSellingPrices(
+            incomingPlayer,
+            undefined,
+            undefined,
+            tr.elementInCost > 0 ? tr.elementInCost : latestTransferInCostByElement.get(tr.elementIn),
+          );
+          slot.purchasePrice = prices.purchasePrice;
+          slot.sellingPrice = prices.sellingPrice;
         }
       }
       result.picks = updatedPicks;

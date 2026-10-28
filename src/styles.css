@@ -5016,24 +5016,26 @@ kbd {
   white-space: nowrap;
 }
 .vx-price-status-pill.is-rise {
-  background: linear-gradient(135deg, #22c55e, #10b981);
-  color: #041d11;
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.32);
+  background: linear-gradient(135deg, rgba(15, 112, 92, 0.9) 0%, rgba(32, 92, 138, 0.88) 100%);
+  color: #e6fff9;
+  border: 1px solid rgba(91, 245, 214, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 4px 12px rgba(13, 96, 84, 0.24);
 }
 .vx-price-status-pill.is-drop {
-  background: linear-gradient(135deg, #fb3767, #e11d48);
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.34);
+  background: linear-gradient(135deg, rgba(132, 26, 62, 0.9) 0%, rgba(86, 34, 112, 0.88) 100%);
+  color: #ffeaf0;
+  border: 1px solid rgba(255, 111, 145, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(124, 24, 58, 0.25);
 }
 .vx-price-status-pill.is-neutral {
-  background: rgba(151, 162, 221, 0.14);
-  color: var(--text-secondary);
-  border: 1px solid rgba(151, 162, 221, 0.18);
+  background: linear-gradient(135deg, rgba(30, 37, 70, 0.84) 0%, rgba(50, 42, 92, 0.78) 100%);
+  color: #ced7f4;
+  border: 1px solid rgba(151, 162, 221, 0.22);
 }
 :root[data-theme="light"] .vx-price-status-pill.is-neutral {
-  background: rgba(64, 74, 121, 0.09);
-  color: #475569;
-  border-color: rgba(64, 74, 121, 0.18);
+  background: linear-gradient(135deg, rgba(71, 85, 105, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
+  color: #334155;
+  border-color: rgba(71, 85, 105, 0.22);
 }
 
 .vx-price-pct-pill {
@@ -5049,26 +5051,29 @@ kbd {
   white-space: nowrap;
 }
 .vx-price-pct-pill.is-rise-strong {
-  background: linear-gradient(135deg, #22c55e, #10b981);
-  color: #041d11;
+  background: linear-gradient(135deg, rgba(15, 112, 92, 0.9) 0%, rgba(32, 92, 138, 0.88) 100%);
+  color: #e6fff9;
+  border: 1px solid rgba(91, 245, 214, 0.34);
 }
 .vx-price-pct-pill.is-rise-soft {
-  background: rgba(91, 245, 214, 0.16);
-  color: #5bf5d6;
-  border: 1px solid rgba(91, 245, 214, 0.32);
+  background: linear-gradient(135deg, rgba(16, 94, 80, 0.44) 0%, rgba(42, 58, 114, 0.44) 100%);
+  color: #98eedb;
+  border: 1px solid rgba(91, 245, 214, 0.25);
 }
 .vx-price-pct-pill.is-drop-strong {
-  background: linear-gradient(135deg, #fb3767, #e11d48);
-  color: #ffffff;
+  background: linear-gradient(135deg, rgba(132, 26, 62, 0.9) 0%, rgba(86, 34, 112, 0.88) 100%);
+  color: #ffeaf0;
+  border: 1px solid rgba(255, 111, 145, 0.35);
 }
 .vx-price-pct-pill.is-drop-soft {
-  background: rgba(255, 111, 145, 0.17);
-  color: #ff6f91;
-  border: 1px solid rgba(255, 111, 145, 0.34);
+  background: linear-gradient(135deg, rgba(122, 28, 60, 0.44) 0%, rgba(58, 36, 98, 0.44) 100%);
+  color: #f9adc0;
+  border: 1px solid rgba(255, 111, 145, 0.25);
 }
 .vx-price-pct-pill.is-neutral {
-  background: rgba(151, 162, 221, 0.12);
-  color: var(--text-secondary);
+  background: linear-gradient(135deg, rgba(30, 37, 70, 0.84) 0%, rgba(50, 42, 92, 0.78) 100%);
+  color: #ced7f4;
+  border: 1px solid rgba(151, 162, 221, 0.22);
 }
 :root[data-theme="light"] .vx-price-pct-pill.is-rise-soft {
   background: rgba(16, 185, 129, 0.14);
@@ -5845,5 +5850,516 @@ kbd {
   color: var(--text-secondary);
   font-size: 12px;
 }
+
+/* ==========================================================================
+   Home-Only Full-Spectrum Price & Transfers Table + Two-Gradient Premium Fills
+   + Clickable YouTube Channel & Embedded @FPLVORTEX Player Modal
+   ========================================================================== */
+
+/* 1. Home Lower Grid: Top Players + Injuries paired; Price & Transfers full-width for 8 columns */
+@media (min-width: 961px) {
+  .vx-hub-lower {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vx-hub-lower > .vx-card:last-child {
+    grid-column: auto;
+  }
+  .vx-hub-lower > .vx-card--transfers-wide {
+    grid-column: 1 / -1;
+    order: 2;
+  }
+}
+
+.vx-transfer-scroll-x {
+  overflow-x: auto;
+}
+
+.vx-transfer-table--home-full {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.vx-transfer-table--home-full th {
+  padding: 10px 10px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.vx-transfer-table--home-full th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.vx-transfer-table--home-full th button.is-sorted {
+  color: var(--text-primary);
+  border-color: rgba(119, 114, 255, 0.52);
+  background: linear-gradient(135deg, rgba(119, 114, 255, 0.2), rgba(91, 245, 214, 0.1));
+}
+
+.vx-transfer-table--home-full td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vx-transfer-table--home-full tr.is-owned-row {
+  background: linear-gradient(90deg, rgba(16, 112, 92, 0.12) 0%, rgba(119, 114, 255, 0.04) 55%, transparent 100%);
+}
+.vx-transfer-table--home-full tr.is-owned-row:hover {
+  background: linear-gradient(90deg, rgba(16, 112, 92, 0.2) 0%, rgba(119, 114, 255, 0.08) 65%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.vx-owned-star {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(16, 122, 96, 0.85), rgba(45, 110, 152, 0.82));
+  border: 1px solid rgba(91, 245, 214, 0.36);
+  color: #b8ffec;
+  box-shadow: 0 3px 10px rgba(16, 122, 96, 0.26);
+}
+
+.vx-ownership-trend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.vx-ownership-trend.is-up {
+  color: #7ee8cf;
+  background: linear-gradient(135deg, rgba(16, 108, 88, 0.28), rgba(38, 72, 124, 0.26));
+  border: 1px solid rgba(91, 245, 214, 0.22);
+}
+.vx-ownership-trend.is-down {
+  color: #f9a8bd;
+  background: linear-gradient(135deg, rgba(126, 28, 64, 0.28), rgba(66, 36, 98, 0.26));
+  border: 1px solid rgba(255, 111, 145, 0.22);
+}
+.vx-ownership-trend.is-flat {
+  color: var(--text-muted);
+  background: rgba(151, 162, 221, 0.08);
+  border: 1px solid rgba(151, 162, 221, 0.16);
+}
+:root[data-theme="light"] .vx-ownership-trend.is-up {
+  color: #0f766e;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(59, 130, 246, 0.12));
+}
+:root[data-theme="light"] .vx-ownership-trend.is-down {
+  color: #be123c;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.13), rgba(147, 51, 234, 0.11));
+}
+
+.vx-price-col {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.vx-price-col--current {
+  font-weight: 850;
+}
+.vx-price-dash {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* 2. Refined Two-Gradient Premium Color Fills (Jewel-toned satin, never harsh neon) */
+.vx-bar-fill {
+  background: linear-gradient(90deg, rgba(94, 86, 216, 0.88) 0%, rgba(36, 158, 146, 0.88) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.vx-price-status-pill.is-rise,
+.vx-price-pct-pill.is-rise-strong {
+  background: linear-gradient(135deg, rgba(15, 112, 92, 0.9) 0%, rgba(32, 92, 138, 0.88) 100%);
+  color: #e6fff9;
+  border: 1px solid rgba(91, 245, 214, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 4px 12px rgba(13, 96, 84, 0.24);
+}
+
+.vx-price-pct-pill.is-rise-soft {
+  background: linear-gradient(135deg, rgba(16, 94, 80, 0.44) 0%, rgba(42, 58, 114, 0.44) 100%);
+  color: #98eedb;
+  border: 1px solid rgba(91, 245, 214, 0.25);
+}
+
+.vx-price-status-pill.is-drop,
+.vx-price-pct-pill.is-drop-strong {
+  background: linear-gradient(135deg, rgba(132, 26, 62, 0.9) 0%, rgba(86, 34, 112, 0.88) 100%);
+  color: #ffeaf0;
+  border: 1px solid rgba(255, 111, 145, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 12px rgba(124, 24, 58, 0.25);
+}
+
+.vx-price-pct-pill.is-drop-soft {
+  background: linear-gradient(135deg, rgba(122, 28, 60, 0.44) 0%, rgba(58, 36, 98, 0.44) 100%);
+  color: #f9adc0;
+  border: 1px solid rgba(255, 111, 145, 0.25);
+}
+
+.vx-price-status-pill.is-neutral,
+.vx-price-pct-pill.is-neutral {
+  background: linear-gradient(135deg, rgba(30, 37, 70, 0.84) 0%, rgba(50, 42, 92, 0.78) 100%);
+  color: #ced7f4;
+  border: 1px solid rgba(151, 162, 221, 0.22);
+}
+
+:root[data-theme="light"] .vx-price-status-pill.is-rise,
+:root[data-theme="light"] .vx-price-pct-pill.is-rise-strong {
+  background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border-color: rgba(15, 118, 110, 0.35);
+}
+:root[data-theme="light"] .vx-price-pct-pill.is-rise-soft {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.14) 0%, rgba(37, 99, 235, 0.12) 100%);
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.26);
+}
+:root[data-theme="light"] .vx-price-status-pill.is-drop,
+:root[data-theme="light"] .vx-price-pct-pill.is-drop-strong {
+  background: linear-gradient(135deg, #9f1239 0%, #6b21a8 100%);
+  color: #ffffff;
+  border-color: rgba(159, 18, 57, 0.35);
+}
+:root[data-theme="light"] .vx-price-pct-pill.is-drop-soft {
+  background: linear-gradient(135deg, rgba(159, 18, 57, 0.13) 0%, rgba(107, 33, 168, 0.11) 100%);
+  color: #9f1239;
+  border-color: rgba(159, 18, 57, 0.26);
+}
+:root[data-theme="light"] .vx-price-status-pill.is-neutral,
+:root[data-theme="light"] .vx-price-pct-pill.is-neutral {
+  background: linear-gradient(135deg, rgba(71, 85, 105, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
+  color: #334155;
+  border-color: rgba(71, 85, 105, 0.22);
+}
+
+/* 3. Clickable Bottom YouTube Links, Split Video Pill Triggers & @FPLVORTEX Player Modal */
+.vx-videos-strip,
+.app-footer {
+  position: relative;
+  z-index: 8;
+  pointer-events: auto;
+}
+
+.app-footer__social-link {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+@media (max-width: 1080px) {
+  .app-footer {
+    padding-bottom: 84px;
+  }
+}
+
+.sidebar__version-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.sidebar__version-yt-link:hover {
+  color: var(--brand-mint);
+}
+
+.vx-video-pill__play-btn {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.vx-video-pill__title-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.vx-video-pill__title-btn:hover strong {
+  color: var(--brand-mint);
+}
+
+.vx-video-pill__channel-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--brand-mint);
+  text-decoration: none;
+  cursor: pointer;
+}
+.vx-video-pill__channel-link:hover {
+  text-decoration: underline;
+}
+
+/* Embedded @FPLVORTEX YouTube Player Modal */
+.vx-yt-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2800;
+  background: rgba(5, 7, 16, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.vx-yt-modal-card {
+  width: min(860px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(151, 162, 221, 0.28);
+  background: linear-gradient(155deg, rgba(16, 19, 40, 0.98) 0%, rgba(10, 12, 26, 0.98) 100%);
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, 0.78),
+    0 0 42px rgba(119, 114, 255, 0.24);
+  padding: 16px 18px 18px;
+  color: #f3f6ff;
+}
+
+.vx-yt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.vx-yt-modal-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vx-yt-modal-brand strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 850;
+}
+.vx-yt-modal-brand small {
+  display: block;
+  font-size: 11.5px;
+  color: #98eedb;
+}
+
+.vx-yt-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vx-yt-modal-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(151, 162, 221, 0.28);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f3f6ff;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.vx-yt-modal-action-btn:hover {
+  border-color: rgba(91, 245, 214, 0.5);
+  background: rgba(91, 245, 214, 0.1);
+}
+.vx-yt-modal-action-btn.is-channel {
+  background: linear-gradient(135deg, rgba(142, 24, 62, 0.72), rgba(88, 36, 118, 0.72));
+  border-color: rgba(255, 111, 145, 0.42);
+}
+
+.vx-yt-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(151, 162, 221, 0.24);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f3f6ff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.vx-yt-player-frame-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #050710;
+  border: 1px solid rgba(151, 162, 221, 0.2);
+}
+
+.vx-yt-player-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.vx-yt-now-playing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(151, 162, 221, 0.16);
+}
+.vx-yt-now-playing__info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.vx-yt-live-badge {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, rgba(15, 112, 92, 0.85), rgba(32, 92, 138, 0.85));
+  color: #e6fff9;
+}
+.vx-yt-now-playing h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-yt-watch-ext {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #98eedb;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.vx-yt-watch-ext:hover {
+  text-decoration: underline;
+}
+
+.vx-yt-playlist {
+  margin-top: 12px;
+}
+.vx-yt-playlist__head {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a8b1d6;
+  margin-bottom: 9px;
+}
+.vx-yt-playlist__strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 9px;
+}
+.vx-yt-playlist__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border-radius: 11px;
+  border: 1px solid rgba(151, 162, 221, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f3f6ff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.vx-yt-playlist__item:hover,
+.vx-yt-playlist__item.is-active {
+  border-color: rgba(91, 245, 214, 0.45);
+  background: linear-gradient(135deg, rgba(15, 112, 92, 0.25), rgba(42, 58, 114, 0.25));
+}
+.vx-yt-playlist__thumb {
+  position: relative;
+  width: 78px;
+  height: 46px;
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #0b0e1f;
+}
+.vx-yt-playlist__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.vx-yt-playlist__play {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(7, 9, 20, 0.85);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+}
+.vx-yt-playlist__meta {
+  min-width: 0;
+  flex: 1;
+}
+.vx-yt-playlist__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.vx-yt-playlist__meta small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #a8b1d6;
+}
+
 
 

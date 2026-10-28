@@ -17,10 +17,17 @@ import {
   toRepoElement,
 } from '../src/lib/analytics.ts';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
-import { computeDynamicFreeTransfers } from '../src/lib/freeTransfers.ts';
+import {
+  computeDynamicFreeTransfers,
+  resolveSquadPurchaseAndSellingPrices,
+} from '../src/lib/freeTransfers.ts';
 import { getClubBadgeCandidates, getPlayerPhotoCandidates } from '../src/lib/playerImages.ts';
 import { InjuryDetailModal } from '../src/components/InjuryDetailModal.tsx';
 import { Topbar } from '../src/components/Topbar.tsx';
+import {
+  YOUTUBE_CHANNEL_URL,
+  YouTubePlayerModal,
+} from '../src/components/YouTubePlayerModal.tsx';
 import { filterRecentTeams, removeRecentTeam, upsertRecentTeam } from '../src/lib/recentTeamIds.ts';
 import { runFplReviewSimulation } from '../src/lib/repoModel/fplReviewSimulator.ts';
 
@@ -497,6 +504,35 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlBrand, /width="56"/);
   assert.match(htmlSidebar, /vx-social-svg--yt/);
   assert.match(htmlSidebar, /vx-social-svg--x/);
+  assert.match(htmlSidebar, /sidebar__version-yt-link/);
+
+  // Home-only 8-column Price & Transfers table + Two-Gradient Premium CSS + Clickable YouTube Channel & Video Modal
+  assert.match(htmlCommand, /vx-transfer-table--home-full/);
+  assert.match(htmlCommand, /Ownership Trend/);
+  assert.match(htmlCommand, /Current Price/);
+  assert.match(htmlCommand, /Purchase Price/);
+  assert.match(htmlCommand, /Selling Price/);
+  assert.match(htmlCommand, /vx-ownership-trend/);
+  assert.match(htmlCommand, /vx-video-pill__channel-link/);
+  assert.match(htmlCommand, new RegExp(YOUTUBE_CHANNEL_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  // Other tabs (e.g. SquadOptimizer) do NOT render the Home-only 8-column table
+  assert.doesNotMatch(htmlOptimizer, /vx-transfer-table--home-full/);
+
+  // Two-gradient premium color fills (toned down from harsh neon)
+  assert.match(stylesRaw, /linear-gradient\(135deg,\s*rgba\(15,\s*112,\s*92/);
+  assert.match(stylesRaw, /linear-gradient\(135deg,\s*rgba\(132,\s*26,\s*62/);
+  assert.doesNotMatch(stylesRaw, /#22c55e,\s*#10b981/);
+
+  const htmlYtModal = renderToStaticMarkup(
+    React.createElement(YouTubePlayerModal, {
+      open: true,
+      videos: videosPayload.videos,
+      onClose: noop,
+    }),
+  );
+  assert.match(htmlYtModal, /vx-yt-player-iframe/);
+  assert.match(htmlYtModal, /youtube\.com\/embed\//);
+  assert.match(htmlYtModal, /@FPLVORTEX Channel/);
   const htmlTopbar = renderToStaticMarkup(
     React.createElement(Topbar, {
       route: 'command',
@@ -588,4 +624,35 @@ test('computes dynamic Free Transfers, Injury Return parsing & Price Change Stat
   assert.ok(predictions.some((pr) => pr.status === 'Likely to rise'), 'Expected at least 1 dynamic Likely to rise player');
   assert.ok(predictions.some((pr) => pr.status === 'Likely to drop'), 'Expected at least 1 dynamic Likely to drop player');
   assert.ok(predictions.some((pr) => pr.status === 'Unlikely to change'), 'Expected Unlikely to change players');
+
+  // Dynamic Purchase Price & Selling Price math (official FPL 50%-profit-rounded-down rule)
+  // Case 1: Bought at £6.6m (66), now £6.8m (68) -> profit 2 tenths -> Selling Price = £6.7m (67)
+  const plusTwo = resolveSquadPurchaseAndSellingPrices({ cost: 68, price: 6.8 }, undefined, undefined, 66);
+  assert.deepEqual(plusTwo, { purchasePrice: 6.6, sellingPrice: 6.7 });
+
+  // Case 2: Bought at £6.3m (63), now £6.4m (64) -> profit 1 tenth -> floor(1/2)=0 -> Selling Price = £6.3m (63)
+  const plusOne = resolveSquadPurchaseAndSellingPrices({ cost: 64, price: 6.4 }, undefined, undefined, 63);
+  assert.deepEqual(plusOne, { purchasePrice: 6.3, sellingPrice: 6.3 });
+
+  // Case 3: Held since GW1 with costChangeStart = +5 (started £7.5m, now £8.0m) -> Selling Price = £7.7m
+  const heldFromGw1 = resolveSquadPurchaseAndSellingPrices({ cost: 80, price: 8.0, costChangeStart: 5 });
+  assert.deepEqual(heldFromGw1, { purchasePrice: 7.5, sellingPrice: 7.7 });
+
+  // Case 4: Dropped after purchase (bought £5.0m, now £4.7m) -> Selling Price = full current £4.7m
+  const dropped = resolveSquadPurchaseAndSellingPrices({ cost: 47, price: 4.7 }, undefined, undefined, 50);
+  assert.deepEqual(dropped, { purchasePrice: 5.0, sellingPrice: 4.7 });
+
+  // Verify offline entry picks carry dynamic purchasePrice & sellingPrice
+  const offlineEntry = await getEntry('145784');
+  assert.equal(offlineEntry.picks.length, 15);
+  assert.ok(
+    offlineEntry.picks.every(
+      (pk) =>
+        typeof pk.purchasePrice === 'number' &&
+        pk.purchasePrice >= 3.5 &&
+        typeof pk.sellingPrice === 'number' &&
+        pk.sellingPrice >= 3.5,
+    ),
+    'Expected all 15 EntryPicks to include dynamic purchasePrice & sellingPrice',
+  );
 });
