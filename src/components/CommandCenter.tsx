@@ -15,7 +15,6 @@ import {
   Pencil,
   Play,
   RefreshCw,
-  Search,
   Shield,
   Sparkles,
   Stethoscope,
@@ -24,7 +23,6 @@ import {
   UserCheck,
   Users,
   WandSparkles,
-  X,
 } from 'lucide-react';
 import type { PendingSwap } from '../App';
 import type { RouteId } from '../hooks/useHashRoute';
@@ -55,6 +53,7 @@ import type {
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { TeamIdInput } from './TeamIdInput';
 
 interface CommandCenterProps {
@@ -175,9 +174,6 @@ export function CommandCenter({
   entry,
   entryLoading = false,
   entryError = null,
-  pendingSwaps = [],
-  onAddPendingSwap,
-  onClearPendingSwaps,
   players,
   insights,
   fixtureRows,
@@ -186,7 +182,6 @@ export function CommandCenter({
   recentTeams = [],
   onRemoveRecentTeam,
   onTeamIdChange,
-  onSelectPlayer,
   onNavigate,
   onOpenPalette,
   onRefresh,
@@ -215,9 +210,7 @@ export function CommandCenter({
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
   const [transferPage, setTransferPage] = useState(0);
   const [injuryPage, setInjuryPage] = useState(0);
-  const [inspectedFlagPlayer, setInspectedFlagPlayer] = useState<EnrichedPlayer | null>(null);
-  const [swapOutPlayer, setSwapOutPlayer] = useState<EnrichedPlayer | null>(null);
-  const [swapSearch, setSwapSearch] = useState('');
+  const [selectedCardPlayer, setSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
 
   // Whenever an FPL ID finishes loading, jump cleanly to its Review Gameweek so the user sees their Review GW immediately
   useEffect(() => {
@@ -534,18 +527,6 @@ export function CommandCenter({
   const safeInjuryPage = Math.min(injuryPage, injuryTotalPages - 1);
   const visibleInjuries = flaggedPlayers.slice(safeInjuryPage * 10, safeInjuryPage * 10 + 10);
 
-  // Swap candidate list for syncing official FPL app transfers
-  const swapCandidates = useMemo(() => {
-    if (!swapOutPlayer) return [];
-    const currentSet = new Set(squadIds);
-    const q = swapSearch.trim().toLowerCase();
-    return players
-      .filter((p) => p.position === swapOutPlayer.position && !currentSet.has(p.id))
-      .filter((p) => !q || `${p.name} ${p.fullName} ${p.team.shortName} ${p.team.name}`.toLowerCase().includes(q))
-      .sort((a, b) => b.projection - a.projection)
-      .slice(0, 12);
-  }, [players, squadIds, swapOutPlayer, swapSearch]);
-
   const handleTeamSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const cleaned = teamInput.trim();
@@ -587,9 +568,17 @@ export function CommandCenter({
     return (
       <div
         key={p.id}
+        role="button"
+        tabIndex={0}
         className={classNames('vx-pitch-player', isBench && 'vx-pitch-player--bench')}
-        title={`${p.fullName} (${p.team.shortName}) · ${fx.label} · ${xp.toFixed(2)} xPts — Click to sync transfer or inspect`}
-        onClick={() => setSwapOutPlayer(p)}
+        title={`${p.fullName} (${p.team.shortName}) · ${fx.label} — Click to view player stats card`}
+        onClick={() => setSelectedCardPlayer(p)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setSelectedCardPlayer(p);
+          }
+        }}
       >
         {isBench ? (
           <span className="vx-pitch-pos-label">{benchSlotIdx === 0 ? 'GKP' : p.position}</span>
@@ -603,7 +592,7 @@ export function CommandCenter({
               className={classNames('vx-pitch-flag', isSevere && 'is-severe')}
               onClick={(e) => {
                 e.stopPropagation();
-                setInspectedFlagPlayer(p);
+                setSelectedCardPlayer(p);
               }}
               aria-label={`${p.name} availability notice`}
               title={formatInjurySummary(p)}
@@ -783,26 +772,19 @@ export function CommandCenter({
         </div>
       </section>
 
-      {/* ==================== GAMEWEEK REVIEW & FORECAST CONTROL BAR ==================== */}
-      <section className="vx-gw-bar" aria-label="Review gameweek and sync controls">
+      {/* ==================== GAMEWEEK REVIEW CONTROL BAR ==================== */}
+      <section className="vx-gw-bar" aria-label="Gameweek review and sync controls">
         <div className="vx-gw-bar__left">
           <span className="vx-gw-bar__dot" />
-          <strong>Gameweek Hub</strong>
+          <strong>Gameweek Review</strong>
           {hasLinkedTeam && (
-            <div className="vx-seg-pills" role="group" aria-label="Review vs Forecast mode">
+            <div className="vx-seg-pills" role="group" aria-label="Review gameweek">
               <button
                 type="button"
                 className={classNames(selectedGw === reviewEventId && 'is-active')}
                 onClick={() => setSelectedGw(reviewEventId)}
               >
                 Review GW {reviewEventId}
-              </button>
-              <button
-                type="button"
-                className={classNames(selectedGw === nextEventId && 'is-active')}
-                onClick={() => setSelectedGw(nextEventId)}
-              >
-                Forecast GW {nextEventId}
               </button>
             </div>
           )}
@@ -845,20 +827,6 @@ export function CommandCenter({
         </div>
 
         <div className="vx-gw-bar__right">
-          {hasLinkedTeam && (
-            <button
-              type="button"
-              className="button button--ghost button--sm"
-              onClick={() => {
-                const firstStarter = playerMap.get(pitchLineup.starters[0]);
-                if (firstStarter) setSwapOutPlayer(firstStarter);
-              }}
-              title="Official FPL hides pre-deadline transfers on public endpoints until the deadline locks. Click to apply any transfer you already made in the FPL app."
-            >
-              <ArrowLeftRight size={14} /> Sync App Transfer
-              {pendingSwaps.length > 0 ? ` (${pendingSwaps.length})` : ''}
-            </button>
-          )}
           <button
             type="button"
             className="button button--subtle button--sm"
@@ -873,7 +841,7 @@ export function CommandCenter({
 
       {/* ==================== 2. UPPER 3-COLUMN VORTEX HUB (IMAGE 1 — STAYS AT TOP!) ==================== */}
       <section className="vx-hub-upper" aria-label="Squad review pitch, fixtures and projected goals">
-        {/* COLUMN 1: GATED ON FPL TEAM ID INPUT -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
+        {/* COLUMN 1: GATED ON TOP FPL TEAM ID BAR -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
         <article className="panel vx-card vx-card--pitch">
           {!hasLinkedTeam ? (
             <div className="vx-pitch-gate">
@@ -881,29 +849,23 @@ export function CommandCenter({
                 <img src={BRAND_LION_SRC} alt="FPL VORTEX" width={58} height={58} />
               </div>
               <span className="panel__eyebrow">SQUAD PITCH & GAMEWEEK {reviewEventId} REVIEW</span>
-              <h3>Enter your FPL Team ID to view your Soccer Pitch & Review Gameweek</h3>
+              <h3>Enter your FPL Team ID above to unlock your Review Pitch</h3>
               <p>
-                Connect your public FPL Team ID (no password needed) to load your 15-player starting XI & bench,
-                Review Gameweek {reviewEventId} points, overall rank, free transfers, and Gameweek {nextEventId} xP
-                forecast.
+                Use the <strong>FPL Team ID</strong> bar at the top of the page (no password needed) to load your
+                15-player starting XI & bench, Review Gameweek {reviewEventId} points, overall rank, and tap any
+                player for their full FPL VORTEX stats card.
               </p>
 
-              <form className="vx-pitch-gate__form" onSubmit={handleTeamSubmit}>
-                <TeamIdInput
-                  value={teamInput}
-                  onChange={setTeamInput}
-                  recentTeams={recentTeams}
-                  onRemoveRecent={onRemoveRecentTeam}
-                  onSelectRecent={(selectedId) => {
-                    setTeamInput(selectedId);
-                    onTeamIdChange?.(selectedId);
-                  }}
-                  ariaLabel="FPL Team ID"
-                />
-                <button type="submit" className="button button--primary" disabled={entryLoading}>
-                  {entryLoading ? 'Loading…' : 'Load My Squad'}
-                </button>
-              </form>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  topInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  topInputRef.current?.focus();
+                }}
+              >
+                <UserCheck size={16} /> Go to Top FPL Team ID Box
+              </button>
 
               <div className="vx-pitch-gate__note">
                 <strong>Where is my FPL ID?</strong> Open <em>fantasy.premierleague.com</em> → <em>Points</em>. Your
@@ -988,29 +950,6 @@ export function CommandCenter({
                 </div>
               </div>
 
-              {/* SYNC NOTICE FOR PRE-DEADLINE OFFICIAL APP TRANSFERS */}
-              <div className="vx-sync-banner">
-                <span>
-                  <span className="vx-sync-dot" />
-                  {pendingSwaps.length > 0 ? (
-                    <>
-                      <strong>{pendingSwaps.length} app transfer{pendingSwaps.length > 1 ? 's' : ''} applied</strong>{' '}
-                      on top of official GW {entry!.currentEvent} squad.
-                    </>
-                  ) : (
-                    <>
-                      Official FPL locks public squad feeds at <strong>GW {entry!.currentEvent}</strong> until GW{' '}
-                      {nextEventId} deadline. Made a transfer in the FPL app? Click any player below to sync it.
-                    </>
-                  )}
-                </span>
-                {pendingSwaps.length > 0 && (
-                  <button type="button" className="vx-inline-link" onClick={onClearPendingSwaps}>
-                    Reset
-                  </button>
-                )}
-              </div>
-
               {squadView === 'pitch' ? (
                 <div className="vx-soccer-pitch">
                   <div className="vx-pitch-top-boards">
@@ -1074,7 +1013,7 @@ export function CommandCenter({
                           <tr
                             key={p.id}
                             className={classNames('vx-clickable-row', isBench && 'is-bench-row')}
-                            onClick={() => setSwapOutPlayer(p)}
+                            onClick={() => setSelectedCardPlayer(p)}
                           >
                             <td>
                               <div className="vx-mini-player">
@@ -1355,7 +1294,7 @@ export function CommandCenter({
                   type="button"
                   key={player.id}
                   className="vx-top-player-row"
-                  onClick={() => onSelectPlayer?.(player.name)}
+                  onClick={() => setSelectedCardPlayer(player)}
                 >
                   <span className="vx-row-idx">{idx + 1}.</span>
                   <PlayerAvatar
@@ -1444,7 +1383,7 @@ export function CommandCenter({
               </thead>
               <tbody>
                 {visibleTransfers.map(({ player, deltaPct, net }) => (
-                  <tr key={player.id} onClick={() => onSelectPlayer?.(player.name)} className="vx-clickable-row">
+                  <tr key={player.id} onClick={() => setSelectedCardPlayer(player)} className="vx-clickable-row">
                     <td>
                       <div className="vx-mini-player">
                         <PlayerAvatar
@@ -1535,7 +1474,7 @@ export function CommandCenter({
                   type="button"
                   key={player.id}
                   className="vx-injury-row"
-                  onClick={() => setInspectedFlagPlayer(player)}
+                  onClick={() => setSelectedCardPlayer(player)}
                 >
                   <PlayerAvatar
                     code={player.code}
@@ -1672,178 +1611,16 @@ export function CommandCenter({
         </div>
       </section>
 
-      {/* Availability Detail Modal */}
-      {inspectedFlagPlayer && (
-        <div className="palette-overlay" role="presentation" onMouseDown={() => setInspectedFlagPlayer(null)}>
-          <section
-            className="vx-flag-modal panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${inspectedFlagPlayer.name} availability`}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="vx-flag-modal__head">
-              <PlayerAvatar
-                code={inspectedFlagPlayer.code}
-                teamCode={inspectedFlagPlayer.team.code}
-                name={inspectedFlagPlayer.name}
-                fullName={inspectedFlagPlayer.fullName}
-                teamShort={inspectedFlagPlayer.team.shortName}
-                position={inspectedFlagPlayer.position}
-                size="lg"
-              />
-              <div>
-                <span className="panel__eyebrow">
-                  {inspectedFlagPlayer.team.name} · {inspectedFlagPlayer.position} ·{' '}
-                  {formatPrice(inspectedFlagPlayer.price)}
-                </span>
-                <h3>{inspectedFlagPlayer.fullName}</h3>
-                <p>{formatInjurySummary(inspectedFlagPlayer)}</p>
-              </div>
-            </div>
-            <div className="vx-flag-modal__stats">
-              <div>
-                <span>GW {selectedGw} xP</span>
-                <strong>{(playerGwXp.get(inspectedFlagPlayer.id) ?? inspectedFlagPlayer.projection).toFixed(2)}</strong>
-              </div>
-              <div>
-                <span>5-GW xP</span>
-                <strong>{inspectedFlagPlayer.horizon5Projection.toFixed(1)}</strong>
-              </div>
-              <div>
-                <span>Expected Mins</span>
-                <strong>{Math.round(inspectedFlagPlayer.modelBreakdown.expectedMinutes)}m</strong>
-              </div>
-              <div>
-                <span>Ownership</span>
-                <strong>{inspectedFlagPlayer.ownership.toFixed(1)}%</strong>
-              </div>
-            </div>
-            <div className="vx-flag-modal__actions">
-              <button
-                type="button"
-                className="button button--primary button--sm"
-                onClick={() => {
-                  const name = inspectedFlagPlayer.name;
-                  setInspectedFlagPlayer(null);
-                  onSelectPlayer?.(name);
-                }}
-              >
-                Open in Player Lab <ArrowRight size={14} />
-              </button>
-              <button
-                type="button"
-                className="button button--ghost button--sm"
-                onClick={() => setInspectedFlagPlayer(null)}
-              >
-                Close
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {/* Sync App Transfer Modal (when clicking a player on pitch or "Sync App Transfer") */}
-      {swapOutPlayer && hasLinkedTeam && (
-        <div className="palette-overlay" role="presentation" onMouseDown={() => setSwapOutPlayer(null)}>
-          <section
-            className="vx-swap-modal panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Sync transfer for ${swapOutPlayer.name}`}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <header className="vx-swap-modal__head">
-              <div>
-                <span className="panel__eyebrow">SYNC OFFICIAL FPL APP TRANSFER · {swapOutPlayer.position}</span>
-                <h3>Replace {swapOutPlayer.name} ({formatPrice(swapOutPlayer.price)})</h3>
-                <p>
-                  Official FPL hides upcoming-GW transfers on public endpoints before the deadline. Select the{' '}
-                  {swapOutPlayer.position} you brought in on the FPL app to sync your pitch & planner immediately.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => setSwapOutPlayer(null)}
-                aria-label="Close transfer sync"
-              >
-                <X size={18} />
-              </button>
-            </header>
-
-            <label className="vx-swap-modal__search">
-              <Search size={15} />
-              <input
-                type="text"
-                placeholder={`Search ${swapOutPlayer.position} replacement by name or club…`}
-                value={swapSearch}
-                onChange={(e) => setSwapSearch(e.target.value)}
-                autoFocus
-              />
-            </label>
-
-            <div className="vx-swap-modal__list">
-              {swapCandidates.map((cand) => (
-                <button
-                  type="button"
-                  key={cand.id}
-                  className="vx-swap-modal__row"
-                  onClick={() => {
-                    onAddPendingSwap?.(swapOutPlayer.id, cand.id);
-                    setSwapOutPlayer(null);
-                    setSwapSearch('');
-                  }}
-                >
-                  <PlayerAvatar
-                    code={cand.code}
-                    teamCode={cand.team.code}
-                    name={cand.name}
-                    fullName={cand.fullName}
-                    teamShort={cand.team.shortName}
-                    position={cand.position}
-                    size="sm"
-                  />
-                  <div className="vx-player-meta">
-                    <strong>{cand.name}</strong>
-                    <small>
-                      <ClubBadge
-                        teamCode={cand.team.code}
-                        shortName={cand.team.shortName}
-                        teamName={cand.team.name}
-                        size="sm"
-                      />
-                      <span>
-                        {cand.team.shortName} · {formatPrice(cand.price)}
-                      </span>
-                    </small>
-                  </div>
-                  <span className="vx-swap-modal__xp mono-num">
-                    {(cand.gwProjections?.[nextEventId] ?? cand.projection).toFixed(2)} xP
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <footer className="vx-flag-modal__actions">
-              <button
-                type="button"
-                className="button button--ghost button--sm"
-                onClick={() => {
-                  const name = swapOutPlayer.name;
-                  setSwapOutPlayer(null);
-                  onSelectPlayer?.(name);
-                }}
-              >
-                Inspect {swapOutPlayer.name} in Player Lab
-              </button>
-              <button type="button" className="button button--ghost button--sm" onClick={() => setSwapOutPlayer(null)}>
-                Cancel
-              </button>
-            </footer>
-          </section>
-        </div>
-      )}
+      {/* FPL VORTEX Broadcast Player Graphic Card Modal (Image 3 style — pure stats & fixtures, no transfer-out) */}
+      <PlayerGraphicModal
+        player={selectedCardPlayer}
+        teams={snapshot.teams}
+        fixtureRows={fixtureRows}
+        reviewGw={reviewEventId}
+        isCaptain={Boolean(selectedCardPlayer && hasLinkedTeam && selectedCardPlayer.id === pitchLineup.captainId)}
+        isViceCaptain={Boolean(selectedCardPlayer && hasLinkedTeam && selectedCardPlayer.id === pitchLineup.viceId)}
+        onClose={() => setSelectedCardPlayer(null)}
+      />
     </div>
   );
 }

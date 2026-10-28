@@ -1,6 +1,7 @@
 import { enrichPlayers } from './analytics';
 import { withBase } from './baseUrl';
 import { numberValue } from './format';
+import type { RecentTeamEntry } from './recentTeamIds';
 import type { EntryData, LeagueData, Snapshot, VideosResponse } from './types';
 
 export class ApiRequestError extends Error {
@@ -211,3 +212,45 @@ export async function fetchVideos(signal?: AbortSignal): Promise<VideosResponse>
     return getJson<VideosResponse>(withBase('data/vortex-videos.json'), signal);
   }
 }
+
+export async function fetchSavedTeams(signal?: AbortSignal): Promise<RecentTeamEntry[]> {
+  try {
+    const res = await getJson<{ teams?: RecentTeamEntry[] }>(withBase('api/vortex/saved-teams'), signal);
+    return Array.isArray(res.teams) ? res.teams : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveTeamOnServer(entry: {
+  id: string;
+  teamName?: string;
+  managerName?: string;
+}): Promise<RecentTeamEntry[]> {
+  try {
+    const response = await fetch(withBase('api/vortex/saved-teams'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(entry),
+      cache: 'no-store',
+    });
+    if (!response.ok) return [];
+    const data = (await response.json()) as { teams?: RecentTeamEntry[] };
+    return Array.isArray(data.teams) ? data.teams : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteSavedTeamOnServer(id: string): Promise<void> {
+  try {
+    await fetch(withBase(`api/vortex/saved-teams/${encodeURIComponent(id)}`), {
+      method: 'DELETE',
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+    });
+  } catch {
+    // Ignore offline/static errors; client storage is updated synchronously.
+  }
+}
+

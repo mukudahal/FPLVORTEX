@@ -45,12 +45,13 @@ import {
 import { RULES_2026_27 } from '../src/lib/repoModel/seasonRules.ts';
 import { computePlayerXPts, computePositionPriors } from '../src/lib/repoModel/xpts.ts';
 
-// Import all 6 route components + Brand/Sidebar for full DOM & portrait verification
+// Import all 6 route components + Brand/Sidebar/PlayerGraphicModal for full DOM & portrait verification
 import { Brand } from '../src/components/Brand.tsx';
 import { CommandCenter } from '../src/components/CommandCenter.tsx';
 import { FixtureMatrix } from '../src/components/FixtureMatrix.tsx';
 import { LeagueIntel } from '../src/components/LeagueIntel.tsx';
 import { Methodology } from '../src/components/Methodology.tsx';
+import { PlayerGraphicModal } from '../src/components/PlayerGraphicModal.tsx';
 import { PlayerLab } from '../src/components/PlayerLab.tsx';
 import { Sidebar } from '../src/components/Sidebar.tsx';
 import { SquadBuilder } from '../src/components/SquadBuilder.tsx';
@@ -254,11 +255,15 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
   assert.match(htmlUnlinked, /vx-pitch-gate/);
   assert.doesNotMatch(htmlUnlinked, /class="vx-soccer-pitch"/);
+  // Exactly ONE FPL Team ID input on the Home Page (second input inside vx-pitch-gate removed)
+  assert.equal((htmlUnlinked.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
+  assert.doesNotMatch(htmlUnlinked, /vx-pitch-gate__form/);
+  assert.doesNotMatch(htmlUnlinked, /Load My Squad/);
   // Blank FPL Team ID inputs must not display placeholder text like "Enter FPL Team ID (e.g. ...)"
   assert.doesNotMatch(htmlUnlinked, /placeholder="Enter[^>]*FPL[^>]*ID/i);
   assert.doesNotMatch(htmlUnlinked, /placeholder="145784"/);
 
-  // Saved recent Team IDs start empty, store installed IDs, and match as the user types
+  // Saved recent Team IDs start empty, store ALL installed IDs (10+ supported), and match as the user types
   assert.deepEqual(filterRecentTeams([], '14'), []);
   let saved = upsertRecentTeam([], { id: '145784' });
   saved = upsertRecentTeam(saved, { id: '145784', teamName: 'FPLVORTEX', managerName: 'Muku Dahal' });
@@ -269,6 +274,14 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.deepEqual(filterRecentTeams(saved, '14').map((r) => r.id), ['145784']);
   assert.deepEqual(filterRecentTeams(saved, '').map((r) => r.id), ['987654', '145784']);
   assert.deepEqual(removeRecentTeam(saved, '987654').map((r) => r.id), ['145784']);
+
+  // Verify saving 12 distinct IDs keeps all 12 without dropping earlier IDs
+  let manySaved = saved;
+  for (let i = 1; i <= 11; i += 1) {
+    manySaved = upsertRecentTeam(manySaved, { id: String(145000 + i), teamName: `Team ${i}` });
+  }
+  assert.equal(manySaved.length, 13);
+  assert.equal(filterRecentTeams(manySaved, '145').length, 12);
 
   // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + scrollable videos
   const htmlCommand = renderToStaticMarkup(
@@ -317,6 +330,38 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /Latest FPL Videos · @FPLVORTEX/);
   assert.match(htmlCommand, /https:\/\/www\.youtube\.com\/@Fplvortex/);
   assert.doesNotMatch(htmlCommand, /fplcore/i);
+  // Home page is strictly Gameweek Review — zero transfer-out buttons/modals and only 1 top FPL ID input
+  assert.equal((htmlCommand.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
+  assert.doesNotMatch(htmlCommand, /Sync App Transfer/);
+  assert.doesNotMatch(htmlCommand, /vx-swap-modal/);
+
+  // Clicking any player opens the broadcast FPL VORTEX Player Graphic Card (Image 3 spec)
+  const vanDijk = players.find((p) => p.fullName.includes('Virgil van Dijk')) ?? players[0];
+  const htmlPlayerCard = renderToStaticMarkup(
+    React.createElement(PlayerGraphicModal, {
+      player: vanDijk,
+      teams: snapshot.teams,
+      fixtureRows,
+      reviewGw: 8,
+      onClose: noop,
+    }),
+  );
+  assert.match(htmlPlayerCard, /vx-pcard/);
+  assert.match(htmlPlayerCard, /DEFENDER/);
+  assert.match(htmlPlayerCard, /VIRGIL/);
+  assert.match(htmlPlayerCard, /VAN DIJK/);
+  assert.match(htmlPlayerCard, /LIVERPOOL/);
+  assert.match(htmlPlayerCard, /PRICE/);
+  assert.match(htmlPlayerCard, /OWNERSHIP/);
+  assert.match(htmlPlayerCard, /xG PER 90/);
+  assert.match(htmlPlayerCard, /xA PER 90/);
+  assert.match(htmlPlayerCard, /GOALS PER 90/);
+  assert.match(htmlPlayerCard, /ASSISTS PER 90/);
+  assert.match(htmlPlayerCard, /CLEAN SHEETS %/);
+  assert.match(htmlPlayerCard, /POINTS PER MATCH/);
+  assert.match(htmlPlayerCard, /NEXT 5 FIXTURES/);
+  assert.match(htmlPlayerCard, /FDR:/);
+  assert.equal((htmlPlayerCard.match(/class="vx-pcard__fix-item"/g) ?? []).length, 5);
 
   const htmlOptimizer = renderToStaticMarkup(
     React.createElement(SquadBuilder, {

@@ -14,12 +14,43 @@ import {
   PL_PHOTO_BASE_S3,
   normalizeNumericCode,
 } from '../src/lib/playerImages.ts';
+import {
+  removeRecentTeam,
+  upsertRecentTeam,
+  type RecentTeamEntry,
+} from '../src/lib/recentTeamIds.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const isProduction = process.env.NODE_ENV === 'production';
 const port = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 const imageCacheDir = path.join(root, '.cache', 'player-images');
+const savedTeamsFile = path.join(root, '.cache', 'saved-teams.json');
+
+let memorySavedTeams: RecentTeamEntry[] | null = null;
+
+async function readServerSavedTeams(): Promise<RecentTeamEntry[]> {
+  if (memorySavedTeams) return memorySavedTeams;
+  try {
+    const raw = await readFile(savedTeamsFile, 'utf8');
+    const parsed = JSON.parse(raw) as unknown;
+    memorySavedTeams = Array.isArray(parsed) ? (parsed as RecentTeamEntry[]) : [];
+  } catch {
+    memorySavedTeams = [];
+  }
+  return memorySavedTeams;
+}
+
+async function writeServerSavedTeams(next: RecentTeamEntry[]): Promise<RecentTeamEntry[]> {
+  memorySavedTeams = next;
+  try {
+    await mkdir(path.dirname(savedTeamsFile), { recursive: true });
+    await writeFile(savedTeamsFile, JSON.stringify(next, null, 2), 'utf8');
+  } catch {
+    // Keep in-memory list when filesystem is read-only.
+  }
+  return next;
+}
 
 export const app = express();
 
@@ -128,6 +159,45 @@ app.post('/api/vortex/refresh', rateLimit(12, 60_000), asyncRoute(async (_req, r
 }));
 
 app.get(
+  '/api/vortex/saved-teams',
+  asyncRoute(async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const teams = await readServerSavedTeams();
+    res.json({ teams });
+  }),
+);
+
+app.post(
+  '/api/vortex/saved-teams',
+  rateLimit(60, 60_000),
+  asyncRoute(async (req, res) => {
+    const id = String(req.body?.id ?? '').trim();
+    if (!isNumericId(id)) {
+      res.status(400).json({ error: 'Enter a valid numeric FPL team ID.' });
+      return;
+    }
+    const teamName = typeof req.body?.teamName === 'string' ? req.body.teamName : undefined;
+    const managerName = typeof req.body?.managerName === 'string' ? req.body.managerName : undefined;
+    const current = await readServerSavedTeams();
+    const updated = await writeServerSavedTeams(upsertRecentTeam(current, { id, teamName, managerName }));
+    res.set('Cache-Control', 'no-store');
+    res.json({ teams: updated });
+  }),
+);
+
+app.delete(
+  '/api/vortex/saved-teams/:id',
+  rateLimit(60, 60_000),
+  asyncRoute(async (req, res) => {
+    const id = String(req.params.id ?? '').trim();
+    const current = await readServerSavedTeams();
+    const updated = await writeServerSavedTeams(removeRecentTeam(current, id));
+    res.set('Cache-Control', 'no-store');
+    res.json({ teams: updated });
+  }),
+);
+
+app.get(
   '/api/vortex/entry/:id',
   rateLimit(45, 60_000),
   asyncRoute(async (req, res) => {
@@ -136,9 +206,20 @@ app.get(
       res.status(400).json({ error: 'Enter a valid numeric FPL team ID.' });
       return;
     }
+    // Save every submitted numeric FPL ID immediately so all entered IDs persist across reloads
+    const currentSaved = await readServerSavedTeams();
+    await writeServerSavedTeams(upsertRecentTeam(currentSaved, { id }));
     const force = req.query.refresh === '1' || req.query.force === '1';
     const gwParam = req.query.gw ? Number(req.query.gw) : undefined;
     const entry = await getEntry(id, { force, gameweek: gwParam });
+    const latestSaved = await readServerSavedTeams();
+    await writeServerSavedTeams(
+      upsertRecentTeam(latestSaved, {
+        id: String(entry.id || id),
+        teamName: entry.teamName,
+        managerName: entry.name,
+      }),
+    );
     res.set('Cache-Control', force ? 'no-store' : 'public, max-age=30');
     res.json(entry);
   }),

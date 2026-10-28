@@ -2,6 +2,7 @@
 **/.next/
 **/dist/
 **/__pycache__/
+.cache/
 coverage/
 *.log
 .DS_Store

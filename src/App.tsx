@@ -5,13 +5,21 @@ import type { RouteId } from './hooks/useHashRoute';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useVortexData } from './hooks/useVortexData';
-import { fetchEntry } from './lib/api';
+import {
+  deleteSavedTeamOnServer,
+  fetchEntry,
+  fetchSavedTeams,
+  saveTeamOnServer,
+} from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
 import { buildFixtureMatrix } from './lib/fixtures';
 import {
   RECENT_TEAM_IDS_KEY,
+  mergeRecentTeamLists,
+  readFallbackStoredTeams,
   removeRecentTeam,
   upsertRecentTeam,
+  writeFallbackStoredTeams,
   type RecentTeamEntry,
 } from './lib/recentTeamIds';
 import { CommandCenter } from './components/CommandCenter';
@@ -90,6 +98,28 @@ export default function App() {
     document.title = `${route.charAt(0).toUpperCase()}${route.slice(1)} · FPL VORTEX`;
   }, [route]);
 
+  // Hydrate saved FPL Team IDs from cookie/sessionStorage + server cache on mount so every ID ever entered persists
+  useEffect(() => {
+    const fallbackItems = readFallbackStoredTeams();
+    if (fallbackItems.length > 0) {
+      setRecentTeams((prev) => mergeRecentTeamLists(prev, fallbackItems));
+    }
+    const controller = new AbortController();
+    fetchSavedTeams(controller.signal)
+      .then((serverTeams) => {
+        if (!controller.signal.aborted && serverTeams.length > 0) {
+          setRecentTeams((prev) => mergeRecentTeamLists(prev, serverTeams));
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [setRecentTeams]);
+
+  // Mirror recentTeams into sessionStorage + cookie fallback whenever it changes
+  useEffect(() => {
+    writeFallbackStoredTeams(recentTeams);
+  }, [recentTeams]);
+
   useEffect(() => {
     const cleanId = (teamId || '').trim();
     if (!cleanId) {
@@ -112,13 +142,13 @@ export default function App() {
         if (!controller.signal.aborted) {
           setActiveEntry(data);
           setEntryError(null);
-          setRecentTeams((prev) =>
-            upsertRecentTeam(prev, {
-              id: String(data.id || cleanId),
-              teamName: data.teamName,
-              managerName: data.name,
-            }),
-          );
+          const payload = {
+            id: String(data.id || cleanId),
+            teamName: data.teamName,
+            managerName: data.name,
+          };
+          setRecentTeams((prev) => upsertRecentTeam(prev, payload));
+          void saveTeamOnServer(payload);
         }
       })
       .catch((err: unknown) => {
@@ -131,7 +161,7 @@ export default function App() {
         if (!controller.signal.aborted) setEntryLoading(false);
       });
     return () => controller.abort();
-  }, [teamId, entrySyncNonce, snapshot?.meta.servedAt]);
+  }, [teamId, entrySyncNonce, snapshot?.meta.servedAt, setRecentTeams]);
 
   const handleLoadTeam = useCallback(
     (nextId: string) => {
@@ -149,6 +179,7 @@ export default function App() {
       }
       setTeamId(cleaned);
       setRecentTeams((prev) => upsertRecentTeam(prev, { id: cleaned }));
+      void saveTeamOnServer({ id: cleaned });
       setEntrySyncNonce((n) => n + 1);
       showToast(`Syncing FPL Team #${cleaned} & Review Gameweek…`, 'info');
     },
@@ -158,6 +189,7 @@ export default function App() {
   const handleRemoveRecentTeam = useCallback(
     (idToRemove: string) => {
       setRecentTeams((prev) => removeRecentTeam(prev, idToRemove));
+      void deleteSavedTeamOnServer(idToRemove);
     },
     [setRecentTeams],
   );
