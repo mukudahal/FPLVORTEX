@@ -273,7 +273,7 @@ function buildOfflineSyntheticEntry(
   snapshot: Snapshot,
   enriched: ReturnType<typeof enrichPlayers>,
 ): EntryData {
-  const isRepoManager = numericId === CONFIGURED_REPO_ENTRY_ID;
+  const isRepoManager = CONFIGURED_REPO_ENTRY_ID !== null && numericId === CONFIGURED_REPO_ENTRY_ID;
   const profiles = ['balanced', 'safe', 'differential', 'upside'] as const;
   const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
   const optimized = optimizeSquad(enriched, { budget: 1000, profile });
@@ -468,7 +468,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const archived = fallbackFile.entries?.[id];
     const fallbackResult = archived
       ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null)
-      : buildOfflineSyntheticEntry(numberValue(id, CONFIGURED_REPO_ENTRY_ID), snapshot, enriched);
+      : buildOfflineSyntheticEntry(numberValue(id, 999999), snapshot, enriched);
     return writeCache(cacheKey, fallbackResult, 120_000);
   }
 }
@@ -517,7 +517,7 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     seasonRules: REPO_SEASON_RULES_2026_27,
     currentEventId: snapshot.meta.currentEventId,
     nextEventId: snapshot.meta.nextEventId,
-    defaultEntryId: CONFIGURED_REPO_ENTRY_ID,
+    defaultEntryId: null,
     players: snapshot.players.length,
     fixtures: snapshot.fixtures.length,
     repoData: snapshot.meta.repoData ?? null,

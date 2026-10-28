@@ -68,11 +68,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { YouTubeBrandLogo } from './SocialIcons';
 import { TeamIdInput } from './TeamIdInput';
-import {
-  YOUTUBE_CHANNEL_URL,
-  YouTubePlayerModal,
-  handleYouTubeChannelClick,
-} from './YouTubePlayerModal';
+import { YOUTUBE_CHANNEL_URL } from './YouTubePlayerModal';
 
 interface CommandCenterProps {
   snapshot: Snapshot;
@@ -222,7 +218,6 @@ export function CommandCenter({
   onOpenPalette,
   onRefresh,
   refreshing,
-  onPlayVideo,
 }: CommandCenterProps) {
   const now = useNow(1000);
   const videoTrackRef = useRef<HTMLDivElement | null>(null);
@@ -249,16 +244,6 @@ export function CommandCenter({
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
   const [transferPage, setTransferPage] = useState(0);
   const [injuryPage, setInjuryPage] = useState(0);
-  const [localYtOpen, setLocalYtOpen] = useState(false);
-  const [localYtVideo, setLocalYtVideo] = useState<VideoItem | null>(null);
-  const openVideoPlayer = (video?: VideoItem | null) => {
-    if (onPlayVideo) {
-      onPlayVideo(video);
-      return;
-    }
-    setLocalYtVideo(video ?? null);
-    setLocalYtOpen(true);
-  };
   const [selectedCardPlayer, rawSetSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
   const [selectedInjuryPlayer, rawSetSelectedInjuryPlayer] = useState<EnrichedPlayer | null>(null);
   const setSelectedCardPlayer = (p: EnrichedPlayer | null) => {
@@ -831,6 +816,7 @@ export function CommandCenter({
                 onChange={setTeamInput}
                 recentTeams={recentTeams}
                 onRemoveRecent={onRemoveRecentTeam}
+                maskWhenBlurred={hasLinkedTeam}
                 onSelectRecent={(selectedId) => {
                   setTeamInput(selectedId);
                   onTeamIdChange?.(selectedId);
@@ -856,11 +842,11 @@ export function CommandCenter({
           </form>
 
           {recentTeams.length > 0 && (
-            <div className="vx-saved-ids-strip" aria-label="Saved FPL Team IDs">
+            <div className="vx-saved-ids-strip" aria-label="Saved FPL Squads">
               <span className="vx-saved-ids-strip__label">
-                <Clock size={12} /> Saved IDs:
+                <Clock size={12} /> Saved Squads:
               </span>
-              {recentTeams.slice(0, 8).map((item) => {
+              {recentTeams.slice(0, 8).map((item, idx) => {
                 const isCurrent = teamId.trim() === item.id;
                 return (
                   <button
@@ -871,10 +857,9 @@ export function CommandCenter({
                       setTeamInput(item.id);
                       onTeamIdChange?.(item.id);
                     }}
-                    title={item.teamName ? `${item.id} · ${item.teamName}` : `Load Team #${item.id}`}
+                    title={item.teamName || `Saved Squad ${idx + 1}`}
                   >
-                    <strong>#{item.id}</strong>
-                    {item.teamName && <span>{item.teamName}</span>}
+                    <strong>{item.teamName || `Saved Squad ${idx + 1}`}</strong>
                   </button>
                 );
               })}
@@ -1991,7 +1976,18 @@ export function CommandCenter({
         <header className="vx-card__header vx-videos-strip__header">
           <div className="vx-card__title-icon">
             <YouTubeBrandLogo size={22} />
-            <h3>Latest FPL Videos · @FPLVORTEX</h3>
+            <h3>
+              Latest FPL Videos ·{' '}
+              <a
+                href={YOUTUBE_CHANNEL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="vx-videos-strip__handle-link"
+                title="Open @FPLVORTEX on YouTube"
+              >
+                @FPLVORTEX
+              </a>
+            </h3>
           </div>
 
           <div className="vx-videos-strip__actions">
@@ -2018,8 +2014,7 @@ export function CommandCenter({
               target="_blank"
               rel="noopener noreferrer"
               className="vx-yt-channel-btn"
-              title="Visit https://www.youtube.com/@Fplvortex"
-              onClick={(e) => handleYouTubeChannelClick(e, () => openVideoPlayer(null))}
+              title="Open @FPLVORTEX on YouTube"
             >
               <YouTubeBrandLogo size={18} />
               <span>@FPLVORTEX Channel</span>
@@ -2029,65 +2024,60 @@ export function CommandCenter({
         </header>
 
         <div className="vx-videos-scroll-row" ref={videoTrackRef}>
-          {videos.map((video) => (
-            <div key={video.id} className="vx-video-pill" role="group" aria-label={video.title}>
-              <button
-                type="button"
-                className="vx-video-pill__thumb vx-video-pill__play-btn"
-                onClick={() => openVideoPlayer(video)}
-                aria-label={`Play ${video.title}`}
-              >
-                <img
-                  src={`https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
-                  alt={video.title}
-                  loading="lazy"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (!img.dataset.fallback) {
-                      img.dataset.fallback = '1';
-                      img.src = BRAND_LION_SRC;
-                    }
-                  }}
-                />
-                <span className="vx-video-pill__badge">
-                  <Play size={10} fill="currentColor" /> Watch
-                </span>
-              </button>
-              <div className="vx-video-pill__copy">
-                <button
-                  type="button"
-                  className="vx-video-pill__title-btn"
-                  onClick={() => openVideoPlayer(video)}
-                >
-                  <strong>{video.title}</strong>
-                </button>
+          {videos.map((video) => {
+            const videoWatchUrl = video.url || `https://www.youtube.com/watch?v=${video.id}`;
+            return (
+              <div key={video.id} className="vx-video-pill" role="group" aria-label={video.title}>
                 <a
-                  href={YOUTUBE_CHANNEL_URL}
+                  href={videoWatchUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="vx-video-pill__channel-link"
-                  title="Visit https://www.youtube.com/@Fplvortex"
-                  onClick={(e) => handleYouTubeChannelClick(e, () => openVideoPlayer(null))}
+                  className="vx-video-pill__thumb vx-video-pill__play-btn"
+                  aria-label={`Watch ${video.title} on YouTube`}
                 >
-                  FPL VORTEX (@FPLVORTEX)
+                  <img
+                    src={`https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
+                    alt={video.title}
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (!img.dataset.fallback) {
+                        img.dataset.fallback = '1';
+                        img.src = BRAND_LION_SRC;
+                      }
+                    }}
+                  />
+                  <span className="vx-video-pill__badge">
+                    <Play size={10} fill="currentColor" /> Watch
+                  </span>
                 </a>
-                <small>
-                  <Clock size={11} /> {relativeTime(video.published)}
-                </small>
+                <div className="vx-video-pill__copy">
+                  <a
+                    href={videoWatchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="vx-video-pill__title-btn"
+                  >
+                    <strong>{video.title}</strong>
+                  </a>
+                  <a
+                    href={YOUTUBE_CHANNEL_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="vx-video-pill__channel-link"
+                    title="Open @FPLVORTEX on YouTube"
+                  >
+                    FPL VORTEX (@FPLVORTEX)
+                  </a>
+                  <small>
+                    <Clock size={11} /> {relativeTime(video.published)}
+                  </small>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
-
-      {!onPlayVideo && (
-        <YouTubePlayerModal
-          open={localYtOpen}
-          initialVideo={localYtVideo}
-          videos={videos}
-          onClose={() => setLocalYtOpen(false)}
-        />
-      )}
 
       {/* FPL VORTEX Broadcast Player Graphic Card Modal (Image 1 style — pure stats & fixtures, no transfer-out) */}
       <PlayerGraphicModal

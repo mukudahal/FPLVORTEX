@@ -36,7 +36,7 @@ const DATA_TIERS = [
   {
     icon: <Database size={18} />,
     title: 'Tier 1 — Primary GW7–GW16 Projections',
-    text: '667 Premier League players with multi-gameweek expected minutes & expected points, Team #145784 (FPLVORTEX), and @FPLVORTEX video briefings.',
+    text: '667 Premier League players with multi-gameweek expected minutes, expected points, and @FPLVORTEX video briefings.',
     endpoint: 'Primary projection feed',
   },
   {
@@ -268,7 +268,7 @@ export function Methodology({
             <Database size={17} />
           </div>
           <div className="player-modal__stats">
-            <div><span>Default Team ID</span><strong>#{snapshot.meta.exampleEntryId ?? 145784} (FPLVORTEX)</strong></div>
+            <div><span>Manager Privacy</span><strong>Private Per-Browser ID</strong></div>
             <div><span>Repo CSV Players</span><strong>{snapshot.meta.repoData?.benchmarkPlayers ?? 667}</strong></div>
             <div><span>Fixtures Indexed</span><strong>{snapshot.fixtures.length}</strong></div>
             <div><span>Season Rules</span><strong>{RULES_2026_27.season} (5 FT cap)</strong></div>
@@ -287,9 +287,9 @@ export function Methodology({
               <h3>@FPLVORTEX Video Briefings ({videos.length})</h3>
             </div>
             <a
-              href="https://www.youtube.com/channel/UCDU7nEIN72xoiR3NtxCT6CQ"
+              href="https://www.youtube.com/@Fplvortex"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-button"
             >
               Open YouTube channel <ExternalLink size={14} />

@@ -156,7 +156,7 @@ export interface RepoDataMeta {
   videosFile: string;
   videosCount: number;
   channelId: string;
-  configuredEntryId: number;
+  configuredEntryId: number | null;
   configuredEntryName: string;
   seasonRules: string;
   verifiedNotes?: VerifiedEvidenceNote[];

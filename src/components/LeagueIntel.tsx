@@ -37,8 +37,6 @@ interface LeagueIntelProps {
   onInspectInjury?: (player: EnrichedPlayer) => void;
 }
 
-const DEFAULT_REPO_ENTRY_ID = '145784';
-
 function isNumeric(value: string): boolean {
   return /^\d{1,12}$/.test(value.trim());
 }
@@ -66,7 +64,7 @@ export function LeagueIntel({
   const resolvedInitialTeamId = teamId === '5112705' ? '' : teamId;
   const [draftTeamId, setDraftTeamId] = useState(resolvedInitialTeamId);
   const [draftLeagueId, setDraftLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
-  const [activeTeamId, setActiveTeamId] = useState(resolvedInitialTeamId || DEFAULT_REPO_ENTRY_ID);
+  const [activeTeamId, setActiveTeamId] = useState(resolvedInitialTeamId);
   const [activeLeagueId, setActiveLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
   const [entry, setEntry] = useState<EntryData | null>(null);
   const [league, setLeague] = useState<LeagueData | null>(null);
@@ -123,7 +121,7 @@ export function LeagueIntel({
     const cleanTeam = draftTeamId.trim();
     const cleanLeague = draftLeagueId.trim();
     if (!isNumeric(cleanTeam)) {
-      onToast('Enter a numeric FPL team ID (e.g. 145784).', 'error');
+      onToast('Enter a valid numeric FPL team ID.', 'error');
       return;
     }
     if (!isNumeric(cleanLeague)) {
@@ -213,17 +211,6 @@ export function LeagueIntel({
               {entryLoading || leagueLoading ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
               Scan IDs
             </button>
-            <button
-              type="button"
-              className="button button--ghost"
-              onClick={() => {
-                setDraftTeamId(DEFAULT_REPO_ENTRY_ID);
-                setActiveTeamId(DEFAULT_REPO_ENTRY_ID);
-                onTeamIdChange(DEFAULT_REPO_ENTRY_ID);
-              }}
-            >
-              Reset #145784
-            </button>
           </div>
         </form>
       </section>
@@ -240,7 +227,7 @@ export function LeagueIntel({
       {entry && (
         <section className="stat-grid stat-grid--league">
           <StatCard
-            label={`${entry.teamName} (#${entry.id})`}
+            label={entry.teamName}
             value={entry.overallRank ? `OR ${formatNumber(entry.overallRank)}` : 'Connected'}
             detail={`${entry.name || 'Manager'} · ${entry.overallPoints ?? entry.history.totalPoints} total pts`}
             icon={<Trophy size={18} />}

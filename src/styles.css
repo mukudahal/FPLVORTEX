@@ -5016,21 +5016,21 @@ kbd {
   white-space: nowrap;
 }
 .vx-price-status-pill.is-rise {
-  background: linear-gradient(135deg, rgba(15, 112, 92, 0.9) 0%, rgba(32, 92, 138, 0.88) 100%);
-  color: #e6fff9;
-  border: 1px solid rgba(91, 245, 214, 0.34);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 4px 12px rgba(13, 96, 84, 0.24);
+  background: linear-gradient(135deg, #0d4a42 0%, #1b3b6f 100%);
+  color: #cff9ee;
+  border: 1px solid rgba(91, 245, 214, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 3px 10px rgba(9, 44, 48, 0.28);
 }
 .vx-price-status-pill.is-drop {
-  background: linear-gradient(135deg, rgba(132, 26, 62, 0.9) 0%, rgba(86, 34, 112, 0.88) 100%);
-  color: #ffeaf0;
-  border: 1px solid rgba(255, 111, 145, 0.35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(124, 24, 58, 0.25);
+  background: linear-gradient(135deg, #561834 0%, #331d5c 100%);
+  color: #f8dce6;
+  border: 1px solid rgba(255, 111, 145, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 3px 10px rgba(56, 14, 40, 0.28);
 }
 .vx-price-status-pill.is-neutral {
-  background: linear-gradient(135deg, rgba(30, 37, 70, 0.84) 0%, rgba(50, 42, 92, 0.78) 100%);
-  color: #ced7f4;
-  border: 1px solid rgba(151, 162, 221, 0.22);
+  background: linear-gradient(135deg, #181f3d 0%, #271f4a 100%);
+  color: #bec9ea;
+  border: 1px solid rgba(151, 162, 221, 0.18);
 }
 :root[data-theme="light"] .vx-price-status-pill.is-neutral {
   background: linear-gradient(135deg, rgba(71, 85, 105, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
@@ -5856,7 +5856,7 @@ kbd {
    + Clickable YouTube Channel & Embedded @FPLVORTEX Player Modal
    ========================================================================== */
 
-/* 1. Home Lower Grid: Top Players + Injuries paired; Price & Transfers full-width for 8 columns */
+/* 1. Home Lower Grid: Price & Transfers full-width at top for all 8 columns; Top Players + Injuries paired */
 @media (min-width: 961px) {
   .vx-hub-lower {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5866,7 +5866,7 @@ kbd {
   }
   .vx-hub-lower > .vx-card--transfers-wide {
     grid-column: 1 / -1;
-    order: 2;
+    order: -1;
   }
 }
 
@@ -5981,49 +5981,50 @@ kbd {
   font-weight: 600;
 }
 
-/* 2. Refined Two-Gradient Premium Color Fills (Jewel-toned satin, never harsh neon) */
-.vx-bar-fill {
-  background: linear-gradient(90deg, rgba(94, 86, 216, 0.88) 0%, rgba(36, 158, 146, 0.88) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+/* 2. Refined Two-Gradient Premium Color Fills (Home-scoped, low-glare jewel satin) */
+.vx-hub-upper .vx-bar-fill,
+.vx-hub-lower .vx-bar-fill {
+  background: linear-gradient(90deg, #3b358a 0%, #176c64 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .vx-price-status-pill.is-rise,
 .vx-price-pct-pill.is-rise-strong {
-  background: linear-gradient(135deg, rgba(15, 112, 92, 0.9) 0%, rgba(32, 92, 138, 0.88) 100%);
-  color: #e6fff9;
-  border: 1px solid rgba(91, 245, 214, 0.34);
+  background: linear-gradient(135deg, #0d4a42 0%, #1b3b6f 100%);
+  color: #cff9ee;
+  border: 1px solid rgba(91, 245, 214, 0.28);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 4px 12px rgba(13, 96, 84, 0.24);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 3px 10px rgba(9, 44, 48, 0.28);
 }
 
 .vx-price-pct-pill.is-rise-soft {
-  background: linear-gradient(135deg, rgba(16, 94, 80, 0.44) 0%, rgba(42, 58, 114, 0.44) 100%);
-  color: #98eedb;
-  border: 1px solid rgba(91, 245, 214, 0.25);
+  background: linear-gradient(135deg, rgba(13, 74, 66, 0.56) 0%, rgba(27, 59, 111, 0.54) 100%);
+  color: #92e6d3;
+  border: 1px solid rgba(91, 245, 214, 0.2);
 }
 
 .vx-price-status-pill.is-drop,
 .vx-price-pct-pill.is-drop-strong {
-  background: linear-gradient(135deg, rgba(132, 26, 62, 0.9) 0%, rgba(86, 34, 112, 0.88) 100%);
-  color: #ffeaf0;
-  border: 1px solid rgba(255, 111, 145, 0.35);
+  background: linear-gradient(135deg, #561834 0%, #331d5c 100%);
+  color: #f8dce6;
+  border: 1px solid rgba(255, 111, 145, 0.28);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 4px 12px rgba(124, 24, 58, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 3px 10px rgba(56, 14, 40, 0.28);
 }
 
 .vx-price-pct-pill.is-drop-soft {
-  background: linear-gradient(135deg, rgba(122, 28, 60, 0.44) 0%, rgba(58, 36, 98, 0.44) 100%);
-  color: #f9adc0;
-  border: 1px solid rgba(255, 111, 145, 0.25);
+  background: linear-gradient(135deg, rgba(86, 24, 52, 0.54) 0%, rgba(51, 29, 92, 0.54) 100%);
+  color: #efa7bb;
+  border: 1px solid rgba(255, 111, 145, 0.2);
 }
 
 .vx-price-status-pill.is-neutral,
 .vx-price-pct-pill.is-neutral {
-  background: linear-gradient(135deg, rgba(30, 37, 70, 0.84) 0%, rgba(50, 42, 92, 0.78) 100%);
-  color: #ced7f4;
-  border: 1px solid rgba(151, 162, 221, 0.22);
+  background: linear-gradient(135deg, #181f3d 0%, #271f4a 100%);
+  color: #bec9ea;
+  border: 1px solid rgba(151, 162, 221, 0.18);
 }
 
 :root[data-theme="light"] .vx-price-status-pill.is-rise,
@@ -6063,7 +6064,13 @@ kbd {
   pointer-events: auto;
 }
 
+.app-footer__brand-social {
+  gap: 12px;
+}
+
 .app-footer__social-link {
+  position: relative;
+  z-index: 12;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -6088,13 +6095,26 @@ kbd {
   color: var(--brand-mint);
 }
 
+.vx-videos-strip__handle-link {
+  color: var(--brand-mint);
+  text-decoration: none;
+  cursor: pointer;
+}
+.vx-videos-strip__handle-link:hover {
+  text-decoration: underline;
+}
+
 .vx-video-pill__play-btn {
+  display: block;
+  text-decoration: none;
   border: 0;
   padding: 0;
   cursor: pointer;
 }
 
 .vx-video-pill__title-btn {
+  display: block;
+  text-decoration: none;
   border: 0;
   padding: 0;
   background: transparent;

@@ -13,7 +13,7 @@ import type { RouteId } from '../hooks/useHashRoute';
 import { classNames, formatNumber } from '../lib/format';
 import { Brand } from './Brand';
 import { XBrandLogo, YouTubeBrandLogo } from './SocialIcons';
-import { YOUTUBE_CHANNEL_URL, handleYouTubeChannelClick } from './YouTubePlayerModal';
+import { YOUTUBE_CHANNEL_URL } from './YouTubePlayerModal';
 
 interface SidebarProps {
   route: RouteId;
@@ -22,7 +22,6 @@ interface SidebarProps {
   entry?: EntryData | null;
   open: boolean;
   onClose: () => void;
-  onOpenYouTubeChannel?: () => void;
 }
 
 export function Sidebar({
@@ -32,7 +31,6 @@ export function Sidebar({
   entry,
   open,
   onClose,
-  onOpenYouTubeChannel,
 }: SidebarProps) {
   const playerCount = snapshot?.players.length ?? 667;
   const navItems = [
@@ -74,8 +72,7 @@ export function Sidebar({
               target="_blank"
               rel="noopener noreferrer"
               className="sidebar__yt-pill"
-              title="Subscribe to @FPLVORTEX on YouTube"
-              onClick={(e) => handleYouTubeChannelClick(e, onOpenYouTubeChannel)}
+              title="Open @FPLVORTEX on YouTube"
             >
               <YouTubeBrandLogo size={18} />
               <strong>@FPLVORTEX</strong>
@@ -84,9 +81,9 @@ export function Sidebar({
             <a
               href="https://x.com/FplVortexM"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="sidebar__x-pill"
-              title="Follow @FplVortexM on X"
+              title="Open @FplVortexM on X"
             >
               <XBrandLogo size={13} />
               <span>@FplVortexM</span>
@@ -96,7 +93,7 @@ export function Sidebar({
             <span className="sidebar__season-label">SEASON {snapshot?.meta.season ?? '2026/27'}</span>
             {entry ? (
               <>
-                <strong>{entry.teamName} · #{entry.id}</strong>
+                <strong>{entry.teamName}</strong>
                 <span>
                   {entry.overallRank ? `OR ${formatNumber(entry.overallRank)} · ` : ''}
                   {entry.freeTransfers} FT · £{(entry.history.bank / 10).toFixed(1)}m ITB
@@ -160,7 +157,7 @@ export function Sidebar({
               target="_blank"
               rel="noopener noreferrer"
               className="sidebar__version-yt-link"
-              onClick={(e) => handleYouTubeChannelClick(e, onOpenYouTubeChannel)}
+              title="Open @FPLVORTEX on YouTube"
             >
               <YouTubeBrandLogo size={14} />
               <span>youtube.com/@Fplvortex</span>

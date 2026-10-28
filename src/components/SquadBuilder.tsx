@@ -54,7 +54,7 @@ interface SquadBuilderProps {
 type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
 type PoolSortKey = 'optaXP5Gw' | 'projection' | 'horizon5' | 'easeSum5' | 'price' | 'ownership' | 'totalPoints' | 'name';
 
-const DEFAULT_145784_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
+const DEFAULT_TEMPLATE_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
 
 const PROFILES: Array<{ id: RiskProfile; label: string; hint: string; icon: ReactNode }> = [
   { id: 'balanced', label: 'Balanced (1.0× Repo)', hint: 'Exact unmodified repository xPts', icon: <Gauge size={15} /> },
@@ -222,7 +222,7 @@ export function SquadBuilder({
     if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
       return entry.picks.map((p) => p.element);
     }
-    const valid = DEFAULT_145784_SQUAD.filter((id) => playerMap.has(id));
+    const valid = DEFAULT_TEMPLATE_SQUAD.filter((id) => playerMap.has(id));
     return valid.length === 15 ? valid : players.slice(0, 15).map((p) => p.id);
   }, [entry, playerMap, players]);
 
@@ -412,7 +412,7 @@ export function SquadBuilder({
   const copySquad = async () => {
     try {
       await navigator.clipboard.writeText(
-        buildSquadText(result, squadMode === 'mySquad' ? `Team #${entry?.id ?? 145784}` : 'Auto Optimal XV'),
+        buildSquadText(result, squadMode === 'mySquad' ? (entry?.teamName ?? 'My Squad') : 'Auto Optimal XV'),
       );
       onToast('Squad copied to clipboard.', 'success');
     } catch {
@@ -484,7 +484,7 @@ export function SquadBuilder({
               className={classNames('button', squadMode === 'mySquad' ? 'button--primary' : 'button--ghost')}
               onClick={() => setSquadMode('mySquad')}
             >
-              <Users size={15} /> {entry?.teamName ?? 'FPLVORTEX'} (#{entry?.id ?? 145784})
+              <Users size={15} /> {entry?.teamName ?? 'My Squad'}
             </button>
             <button
               type="button"
@@ -500,7 +500,7 @@ export function SquadBuilder({
                 onClick={() => {
                   setCustomSquadIds(baseEntrySquadIds);
                   setSelectedOutId(null);
-                  onToast('Reset to Entry #145784 GW squad.', 'info');
+                  onToast('Reset to base GW squad.', 'info');
                 }}
               >
                 <RotateCcw size={14} /> Reset ({transfersUsedCount} {transfersUsedCount === 1 ? 'move' : 'moves'})
@@ -812,7 +812,7 @@ export function SquadBuilder({
                   <span className="panel__eyebrow">
                     {squadMode === 'mySquad'
                       ? entry
-                        ? `TEAM #${entry.id} (${entry.teamName.toUpperCase()}) PITCH`
+                        ? `${entry.teamName.toUpperCase()} PITCH`
                         : 'TEMPLATE XV PITCH'
                       : 'OPTIMAL XV PITCH'}{' '}
                     · {result.formation}

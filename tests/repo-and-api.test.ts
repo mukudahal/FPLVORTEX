@@ -7,7 +7,6 @@ process.env.VORTEX_OFFLINE = '1';
 
 import { getEntry, getHealth, getLeague, getSnapshot } from '../server/fpl.ts';
 import {
-  CONFIGURED_REPO_ENTRY_ID,
   enrichSnapshotWithRepoData,
   getRepoBenchmarks,
   getRepoVideos,
@@ -26,9 +25,9 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   ) as Snapshot;
   const enrichedSnapshot = await enrichSnapshotWithRepoData(rawSnapshot);
   assert.equal(enrichedSnapshot.players.length, 667);
-  assert.equal(enrichedSnapshot.meta.exampleEntryId, CONFIGURED_REPO_ENTRY_ID);
+  assert.equal(enrichedSnapshot.meta.exampleEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.benchmarkPlayers, 667);
-  assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, 145784);
+  assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.seasonRules, REPO_SEASON_RULES_2026_27.season);
 
   const haaland = enrichedSnapshot.players.find((player) => player.id === 411);
@@ -46,31 +45,31 @@ test('loads @FPLVORTEX channel briefings from site/ui/videos.json', async () => 
   assert.match(videos.videos[0].url, /^https:\/\/www\.youtube\.com\/watch\?v=/);
 });
 
-test('serves repository Entry 145784 (FPLVORTEX) and classic league 314 cleanly offline', async () => {
+test('keeps manager Team ID secret by default and serves offline demo entry & classic league 314 cleanly', async () => {
   const health = await getHealth();
   assert.equal(health.ok, true);
   assert.equal(health.players, 667);
   assert.equal(health.fixtures, 380);
+  assert.equal(health.defaultEntryId, null);
 
   const snapshot = await getSnapshot();
   assert.equal(snapshot.players.length, 667);
-  assert.equal(snapshot.meta.exampleEntryId, 145784);
+  assert.equal(snapshot.meta.exampleEntryId, null);
   assert.ok(snapshot.meta.repoData);
 
-  const repoEntry = await getEntry('145784');
-  assert.equal(repoEntry.id, 145784);
-  assert.equal(repoEntry.teamName, 'FPLVORTEX');
-  assert.equal(repoEntry.freeTransfers, 2);
-  assert.equal(repoEntry.picks.length, 15);
-  assert.equal(repoEntry.players.length, 15);
-  assert.ok(repoEntry.picks.some((p) => p.element === 154 && p.isCaptain)); // Palmer [C]
-  assert.ok(repoEntry.picks.some((p) => p.element === 411 && p.isViceCaptain)); // Haaland [V]
+  const demoEntry = await getEntry('999999');
+  assert.equal(demoEntry.id, 999999);
+  assert.equal(demoEntry.teamName, 'Template XI');
+  assert.equal(demoEntry.freeTransfers, 2);
+  assert.equal(demoEntry.picks.length, 15);
+  assert.equal(demoEntry.players.length, 15);
+  assert.ok(demoEntry.picks.some((p) => p.element === 154 && p.isCaptain)); // Palmer [C]
+  assert.ok(demoEntry.picks.some((p) => p.element === 411 && p.isViceCaptain)); // Haaland [V]
 
   const league = await getLeague('314');
   assert.equal(league.id, 314);
   assert.equal(league.name, 'Overall');
   assert.ok(league.standings.length >= 50);
-  assert.ok(league.standings.some((row) => row.entry === 145784 && row.entryName === 'FPLVORTEX'));
 });
 
 test('preserves brand-kit font, tokens, repo assets, and default dark theme configuration', async () => {

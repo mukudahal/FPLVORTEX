@@ -12,6 +12,7 @@ interface TeamIdInputProps {
   recentTeams?: RecentTeamEntry[];
   ariaLabel?: string;
   className?: string;
+  maskWhenBlurred?: boolean;
 }
 
 function renderHighlightedId(idText: string, rawQuery: string) {
@@ -41,10 +42,12 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
     recentTeams = [],
     ariaLabel,
     className,
+    maskWhenBlurred = false,
   },
   forwardedRef,
 ) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const listboxId = useId();
@@ -127,7 +130,7 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
       <input
         ref={forwardedRef}
         id={id}
-        type="text"
+        type={maskWhenBlurred && !focused && value.trim().length > 0 ? 'password' : 'text'}
         inputMode="numeric"
         autoComplete="off"
         placeholder=""
@@ -137,10 +140,14 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         aria-controls={showDropdown ? listboxId : undefined}
         aria-autocomplete="list"
         onFocus={(e) => {
+          setFocused(true);
           if (value.trim().length > 0) {
             e.currentTarget.select();
           }
           if (recentTeams.length > 0) setOpen(true);
+        }}
+        onBlur={() => {
+          setFocused(false);
         }}
         onClick={() => {
           if (recentTeams.length > 0) setOpen(true);

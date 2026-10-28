@@ -124,7 +124,8 @@ export async function fetchEntry(
       fetchOfflineSnapshot(signal),
       getJson<RawLeagueFallback>(withBase('data/fpl-league-fallback.json'), signal),
     ]);
-    const archived = fallback.entries?.[id] ?? fallback.entries?.['145784'];
+    const firstArchivedKey = fallback.entries ? Object.keys(fallback.entries)[0] : undefined;
+    const archived = fallback.entries?.[id] ?? (firstArchivedKey ? fallback.entries?.[firstArchivedKey] : undefined);
     if (!archived) throw error;
     const enriched = enrichPlayers(snapshot, 'balanced');
     const playerIndex = new Map(enriched.map((player) => [player.id, player]));

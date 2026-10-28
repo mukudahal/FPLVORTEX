@@ -16,7 +16,9 @@ const BENCHMARK_REL_PATH =
   process.env.VORTEX_BENCHMARK_CSV_PATH ?? '3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv';
 const VIDEOS_REL_PATH = process.env.VORTEX_VIDEOS_JSON_PATH ?? 'site/ui/videos.json';
 const DEFAULT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID ?? 'UCDU7nEIN72xoiR3NtxCT6CQ';
-export const CONFIGURED_REPO_ENTRY_ID = Number.parseInt(process.env.VORTEX_DEFAULT_ENTRY_ID ?? '145784', 10) || 145784;
+export const CONFIGURED_REPO_ENTRY_ID: number | null = process.env.VORTEX_DEFAULT_ENTRY_ID
+  ? Number.parseInt(process.env.VORTEX_DEFAULT_ENTRY_ID, 10) || null
+  : null;
 export const CONFIGURED_REPO_ENTRY_NAME = 'FPLVORTEX';
 
 export const REPO_SEASON_RULES_2026_27 = Object.freeze({
@@ -388,7 +390,7 @@ export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Sn
     ...snapshot,
     meta: {
       ...snapshot.meta,
-      exampleEntryId: CONFIGURED_REPO_ENTRY_ID,
+      exampleEntryId: null,
       fallbackNotice:
         snapshot.meta.source === 'live'
           ? undefined

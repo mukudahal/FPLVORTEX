@@ -89,7 +89,7 @@ test('exact mathematical parity on 25 sample players against site/model/{xpts,mi
   const appPriors = computePositionPriors(repoElements);
   assert.deepEqual(appPriors, origPriors);
 
-  // Pick 25 distinct real players spanning GKP, DEF, MID, FWD + Team #145784 starters
+  // Pick 25 distinct real players spanning GKP, DEF, MID, FWD + template starters
   const priorityIds = [411, 154, 12, 1, 31, 40, 427, 165, 346, 332, 173, 124, 115, 112, 623];
   const extraIds = enriched
     .filter((p) => !priorityIds.includes(p.id) && p.minutes >= 180)
@@ -174,7 +174,7 @@ test('exact parity on 2026/27 scoring rules, FPLReview chip simulator, and paire
   assert.equal(pointsHit(3, 1, false), origPointsHit(3, 1, false));
 
   const snapshot = await getSnapshot();
-  const entry = await getEntry('145784');
+  const entry = await getEntry('999999');
   const players = enrichPlayers(snapshot, 'balanced');
   const squadIds = entry.picks.map((p) => p.element);
   const playerMap = new Map(players.map((p) => [p.id, p]));
@@ -216,7 +216,7 @@ test('exact parity on 2026/27 scoring rules, FPLReview chip simulator, and paire
 
 test('all 6 pages render cleanly with >= 15 real PL player portraits and club badges', async () => {
   const snapshot = await getSnapshot();
-  const entry = await getEntry('145784');
+  const entry = await getEntry('999999');
   const players = enrichPlayers(snapshot, 'balanced');
   const insights = buildInsights(players);
   const fixtureRows = buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, 5);
@@ -277,31 +277,30 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.equal((htmlUnlinked.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
   assert.doesNotMatch(htmlUnlinked, /vx-pitch-gate__form/);
   assert.doesNotMatch(htmlUnlinked, /Load My Squad/);
-  // Blank FPL Team ID inputs must not display placeholder text like "Enter FPL Team ID (e.g. ...)"
+  // Blank FPL Team ID inputs must not display placeholder text
   assert.doesNotMatch(htmlUnlinked, /placeholder="Enter[^>]*FPL[^>]*ID/i);
-  assert.doesNotMatch(htmlUnlinked, /placeholder="145784"/);
 
   // Saved recent Team IDs start empty, store ALL installed IDs (10+ supported), and match as the user types
-  assert.deepEqual(filterRecentTeams([], '14'), []);
-  let saved = upsertRecentTeam([], { id: '145784' });
-  saved = upsertRecentTeam(saved, { id: '145784', teamName: 'FPLVORTEX', managerName: 'Muku Dahal' });
+  assert.deepEqual(filterRecentTeams([], '99'), []);
+  let saved = upsertRecentTeam([], { id: '999999' });
+  saved = upsertRecentTeam(saved, { id: '999999', teamName: 'Template XI', managerName: 'Demo Manager' });
   saved = upsertRecentTeam(saved, { id: '987654', teamName: 'Second Squad' });
   assert.equal(saved.length, 2);
   assert.equal(saved[0].id, '987654');
-  assert.equal(saved[1].teamName, 'FPLVORTEX');
-  assert.deepEqual(filterRecentTeams(saved, '14').map((r) => r.id), ['145784']);
-  assert.deepEqual(filterRecentTeams(saved, '').map((r) => r.id), ['987654', '145784']);
-  assert.deepEqual(removeRecentTeam(saved, '987654').map((r) => r.id), ['145784']);
+  assert.equal(saved[1].teamName, 'Template XI');
+  assert.deepEqual(filterRecentTeams(saved, '99').map((r) => r.id), ['999999']);
+  assert.deepEqual(filterRecentTeams(saved, '').map((r) => r.id), ['987654', '999999']);
+  assert.deepEqual(removeRecentTeam(saved, '987654').map((r) => r.id), ['999999']);
 
   // Verify saving 12 distinct IDs keeps all 12 without dropping earlier IDs
   let manySaved = saved;
   for (let i = 1; i <= 11; i += 1) {
-    manySaved = upsertRecentTeam(manySaved, { id: String(145000 + i), teamName: `Team ${i}` });
+    manySaved = upsertRecentTeam(manySaved, { id: String(800000 + i), teamName: `Team ${i}` });
   }
   assert.equal(manySaved.length, 13);
-  assert.equal(filterRecentTeams(manySaved, '145').length, 12);
+  assert.equal(filterRecentTeams(manySaved, '800').length, 11);
 
-  // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + scrollable videos
+  // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + masks secret ID when blurred
   const htmlCommand = renderToStaticMarkup(
     React.createElement(CommandCenter, {
       snapshot,
@@ -311,7 +310,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       fixtureRows,
       initialVideos: videosPayload.videos,
       profile: 'balanced',
-      teamId: '145784',
+      teamId: '999999',
       recentTeams: saved,
       onTeamIdChange: noop,
       onSelectPlayer: noop,
@@ -321,15 +320,17 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       refreshing: false,
     }),
   );
-  // Tier 1: Compact Hero + Top FPL Team ID Bar + Vortex Orb + Captain & Fixture float cards
+  // Tier 1: Compact Hero + Top FPL Team ID Bar (masked password when blurred) + Vortex Orb + Captain & Fixture float cards
   assert.match(htmlCommand, /Every transfer, captain and fixture/);
   assert.match(htmlCommand, /id="fpl-team-id-top"/);
+  assert.match(htmlCommand, /type="password"/);
+  // Saved Squad chips never print raw numeric `#999999` on screen
+  assert.doesNotMatch(htmlCommand, /#999999/);
   assert.match(htmlCommand, /vortex-orb/);
   assert.match(htmlCommand, /#1 CAPTAIN/);
   assert.match(htmlCommand, /BEST 5-GW RUN/);
   // Tier 2: Review Gameweek strip + Soccer Pitch (15 players) + GW Fixtures + GW Projected Goals (20 clubs)
-  assert.match(htmlCommand, /FPLVORTEX/);
-  assert.match(htmlCommand, /145784/);
+  assert.match(htmlCommand, /Template XI/);
   assert.match(htmlCommand, /Review GW 8/);
   assert.match(htmlCommand, /vx-review-strip/);
   assert.match(htmlCommand, /vx-soccer-pitch/);
@@ -346,7 +347,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /Injuries &amp; Suspensions/);
   assert.match(htmlCommand, /vx-videos-scroll-row/);
   assert.match(htmlCommand, /vx-video-pill/);
-  assert.match(htmlCommand, /Latest FPL Videos · @FPLVORTEX/);
+  assert.match(htmlCommand, /Latest FPL Videos ·[\s\S]*?@FPLVORTEX/);
   assert.match(htmlCommand, /https:\/\/www\.youtube\.com\/@Fplvortex/);
   assert.doesNotMatch(htmlCommand, /fplcore/i);
   // Home page is strictly Gameweek Review — zero transfer-out buttons/modals and only 1 top FPL ID input
@@ -362,6 +363,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
     assert.ok(htmlCommand.includes(benchName), `Expected bench player ${benchName} on pitch`);
   }
   const stylesRaw = await readFile(path.join(process.cwd(), 'src/styles.css'), 'utf8');
+  const appRaw = await readFile(path.join(process.cwd(), 'src/App.tsx'), 'utf8');
   assert.match(stylesRaw, /\.vx-pitch-player\.vx-pitch-player--bench\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
 
   // Clicking any player opens the broadcast FPL VORTEX Player Graphic Card (Image 3 spec)
@@ -437,14 +439,14 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       snapshot,
       players,
       profile: 'balanced',
-      teamId: '145784',
+      teamId: '',
       leagueId: '314',
       onTeamIdChange: noop,
       onLeagueIdChange: noop,
       onToast: noop,
     }),
   );
-  assert.match(htmlLeague, /145784/);
+  assert.match(htmlLeague, /314/);
 
   // Price & Transfers renders dynamic Status, Progress & Predicted Progress pills
   assert.match(htmlCommand, /Status/);
@@ -518,10 +520,14 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   // Other tabs (e.g. SquadOptimizer) do NOT render the Home-only 8-column table
   assert.doesNotMatch(htmlOptimizer, /vx-transfer-table--home-full/);
 
-  // Two-gradient premium color fills (toned down from harsh neon)
-  assert.match(stylesRaw, /linear-gradient\(135deg,\s*rgba\(15,\s*112,\s*92/);
-  assert.match(stylesRaw, /linear-gradient\(135deg,\s*rgba\(132,\s*26,\s*62/);
+  // Two-gradient premium color fills (toned down from harsh neon) + secret Team ID protection + direct YouTube & X links
+  assert.match(stylesRaw, /linear-gradient\(135deg,\s*#0d4a42\s+0%,\s*#1b3b6f\s+100%\)/);
+  assert.match(stylesRaw, /linear-gradient\(135deg,\s*#561834\s+0%,\s*#331d5c\s+100%\)/);
   assert.doesNotMatch(stylesRaw, /#22c55e,\s*#10b981/);
+  assert.doesNotMatch(appRaw, /Team #\{effectiveEntry\.id\}/);
+  assert.match(appRaw, /href="https:\/\/x\.com\/FplVortexM"/);
+  assert.doesNotMatch(htmlSidebar, /#999999/);
+  assert.doesNotMatch(htmlOptimizer, /#999999/);
 
   const htmlYtModal = renderToStaticMarkup(
     React.createElement(YouTubePlayerModal, {
@@ -643,7 +649,7 @@ test('computes dynamic Free Transfers, Injury Return parsing & Price Change Stat
   assert.deepEqual(dropped, { purchasePrice: 5.0, sellingPrice: 4.7 });
 
   // Verify offline entry picks carry dynamic purchasePrice & sellingPrice
-  const offlineEntry = await getEntry('145784');
+  const offlineEntry = await getEntry('999999');
   assert.equal(offlineEntry.picks.length, 15);
   assert.ok(
     offlineEntry.picks.every(
