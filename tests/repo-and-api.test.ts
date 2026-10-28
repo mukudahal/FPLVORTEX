@@ -60,7 +60,7 @@ test('serves repository Entry 145784 (FPLVORTEX) and classic league 314 cleanly 
   const repoEntry = await getEntry('145784');
   assert.equal(repoEntry.id, 145784);
   assert.equal(repoEntry.teamName, 'FPLVORTEX');
-  assert.equal(repoEntry.freeTransfers, 4);
+  assert.equal(repoEntry.freeTransfers, 2);
   assert.equal(repoEntry.picks.length, 15);
   assert.equal(repoEntry.players.length, 15);
   assert.ok(repoEntry.picks.some((p) => p.element === 154 && p.isCaptain)); // Palmer [C]

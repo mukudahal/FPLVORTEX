@@ -11,6 +11,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
+import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames } from '../lib/format';
 import {
   buildJerseyFallbackSvgDataUri,
@@ -27,6 +28,7 @@ interface PlayerGraphicModalProps {
   isCaptain?: boolean;
   isViceCaptain?: boolean;
   onClose: () => void;
+  onOpenInjuryDetail?: (player: EnrichedPlayer) => void;
 }
 
 const POSITION_FULL_LABELS: Record<Position, string> = {
@@ -142,10 +144,10 @@ export function PlayerGraphicModal({
   player,
   teams,
   fixtureRows,
-  reviewGw,
   isCaptain = false,
   isViceCaptain = false,
   onClose,
+  onOpenInjuryDetail,
 }: PlayerGraphicModalProps) {
   useEffect(() => {
     if (!player) return undefined;
@@ -226,11 +228,11 @@ export function PlayerGraphicModal({
   const assistsPer90 = per90Value(player.assists, player.minutes).toFixed(2);
   const cleanSheetPct = computeCleanSheetPct(player);
   const pointsPerMatch = player.ppg.toFixed(1);
-  const gwDisplayPts = player.eventPoints * (isCaptain ? 2 : 1);
   const hasFitnessNote =
     player.status !== 'a' ||
     (player.chance !== null && player.chance < 100) ||
     Boolean(player.news && player.news.trim().length > 0);
+  const injuryInfo = hasFitnessNote ? parsePlayerInjuryDetails(player, nextFiveFixtures[0]?.label) : null;
 
   const statRows = [
     { label: 'xG PER 90', value: xgPer90, icon: <SoccerBallIcon /> },
@@ -299,13 +301,6 @@ export function PlayerGraphicModal({
                   setPhotoIdx((prev) => (prev < photoCandidates.length ? prev + 1 : prev));
                 }}
               />
-              { reviewGw !== undefined && (
-                <div className="vx-pcard__gw-chip">
-                  <span>GW {reviewGw} PTS</span>
-                  <strong>{gwDisplayPts}</strong>
-                  <small>Season {player.totalPoints} pts</small>
-                </div>
-              )}
             </div>
 
             {/* RIGHT CLUB IDENTITY + PRICE/OWNERSHIP + 6 STAT ROWS */}
@@ -351,11 +346,25 @@ export function PlayerGraphicModal({
                 ))}
               </ul>
 
-              {hasFitnessNote && player.news && (
-                <div className="vx-pcard__fitness-note">
-                  <AlertTriangle size={13} />
-                  <span>{player.news}</span>
-                </div>
+              {injuryInfo && (
+                <button
+                  type="button"
+                  className={classNames('vx-pcard__fitness-note', `is-${injuryInfo.severity}`)}
+                  onClick={() => {
+                    if (onOpenInjuryDetail) {
+                      onClose();
+                      onOpenInjuryDetail(player);
+                    }
+                  }}
+                >
+                  <span className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${injuryInfo.severity}`)}>
+                    <AlertTriangle size={11} />
+                    <span>{injuryInfo.badgeText}</span>
+                  </span>
+                  <span className="vx-pcard__fitness-text">
+                    {injuryInfo.injuryType} · {injuryInfo.expectedReturn}
+                  </span>
+                </button>
               )}
             </div>
           </div>

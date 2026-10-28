@@ -1,6 +1,7 @@
 import { enrichPlayers } from './analytics';
 import { withBase } from './baseUrl';
 import { numberValue } from './format';
+import { computeDynamicFreeTransfers, type RawEntryHistoryPayload } from './freeTransfers';
 import type { RecentTeamEntry } from './recentTeamIds';
 import type { EntryData, LeagueData, Snapshot, VideosResponse } from './types';
 
@@ -94,7 +95,7 @@ export async function forceRefresh(signal?: AbortSignal): Promise<void> {
 }
 
 interface RawLeagueFallback {
-  entries?: Record<string, { root: Record<string, any>; picks: Record<string, any> }>;
+  entries?: Record<string, { root: Record<string, any>; picks: Record<string, any>; history?: RawEntryHistoryPayload | null }>;
   leagues?: Record<string, Record<string, any>>;
 }
 
@@ -142,6 +143,15 @@ export async function fetchEntry(
     const history = archived.picks.entry_history ?? {};
     const targetGw = options?.gw ?? numberValue(history.event, snapshot.meta.currentEventId);
     const isExactArchive = Boolean(fallback.entries?.[id]);
+    const startedEvent = numberValue(archived.root.started_event, 1);
+    const activeChip = archived.picks.active_chip ?? null;
+    const freeTransfers = computeDynamicFreeTransfers({
+      startedEvent,
+      explicitFreeTransfers: (archived.root as Record<string, any>).free_transfers,
+      historyPayload: archived.history ?? null,
+      singleGwEventTransfers: numberValue(history.event_transfers),
+      singleGwActiveChip: activeChip,
+    });
     return {
       id: numberValue(id, numberValue(archived.root.id)),
       name: isExactArchive
@@ -149,13 +159,13 @@ export async function fetchEntry(
         : `Manager #${id}`,
       teamName: isExactArchive ? String(archived.root.name ?? 'FPLVORTEX') : `Squad #${id}`,
       region: String(archived.root.player_region_name ?? 'Worldwide'),
-      startedEvent: numberValue(archived.root.started_event, 1),
+      startedEvent,
       favouriteTeamId: archived.root.favourite_team ?? null,
       overallRank: archived.root.summary_overall_rank ?? null,
       overallPoints: archived.root.summary_overall_points ?? null,
       currentEvent: numberValue(history.event, snapshot.meta.currentEventId),
-      activeChip: archived.picks.active_chip ?? null,
-      freeTransfers: numberValue((archived.root as Record<string, any>).free_transfers, 4),
+      activeChip,
+      freeTransfers,
       history: {
         event: targetGw,
         points: numberValue(history.points),

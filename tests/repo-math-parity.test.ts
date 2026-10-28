@@ -9,9 +9,17 @@ process.env.VORTEX_OFFLINE = '1';
 
 import { getEntry, getSnapshot } from '../server/fpl.ts';
 import { getRepoVideos } from '../server/repoData.ts';
-import { buildInsights, enrichPlayers, toRepoElement } from '../src/lib/analytics.ts';
+import {
+  buildInsights,
+  computePriceChangePrediction,
+  enrichPlayers,
+  parsePlayerInjuryDetails,
+  toRepoElement,
+} from '../src/lib/analytics.ts';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
+import { computeDynamicFreeTransfers } from '../src/lib/freeTransfers.ts';
 import { getClubBadgeCandidates, getPlayerPhotoCandidates } from '../src/lib/playerImages.ts';
+import { InjuryDetailModal } from '../src/components/InjuryDetailModal.tsx';
 import { filterRecentTeams, removeRecentTeam, upsertRecentTeam } from '../src/lib/recentTeamIds.ts';
 import { runFplReviewSimulation } from '../src/lib/repoModel/fplReviewSimulator.ts';
 
@@ -430,6 +438,50 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   );
   assert.match(htmlLeague, /145784/);
 
+  // Price & Transfers renders dynamic Status, Progress & Predicted Progress pills
+  assert.match(htmlCommand, /Status/);
+  assert.match(htmlCommand, /Progress/);
+  assert.match(htmlCommand, /Predicted Progress/);
+  assert.match(htmlCommand, /vx-price-status-pill/);
+  assert.match(htmlCommand, /vx-price-pct-pill/);
+  assert.match(htmlCommand, /Likely to drop|Likely to rise|Unlikely to change/);
+  // Accurate Free Transfers (2 FT instead of old hardcoded 4 FT) + Rectangular Injury Sign
+  assert.match(htmlCommand, /2 FT/);
+  assert.doesNotMatch(htmlCommand, /4 FT/);
+  assert.match(htmlCommand, /vx-injury-rect/);
+  // Exact Graphics CSS tokens: 24px dot-grid + radial glow, .vx-btn, .vx-btn-primary, .easy/.medium/.hard
+  assert.match(stylesRaw, /24px 24px/);
+  assert.match(stylesRaw, /\.vx-btn-primary/);
+  assert.match(stylesRaw, /\.easy\s*\{/);
+  assert.match(stylesRaw, /\.medium\s*\{/);
+  assert.match(stylesRaw, /\.hard\s*\{/);
+
+  // Fix 1 verification: Official FPL player prices are never overwritten by stale GW7 CSV prices (e.g. Tavernier = £6.4m)
+  const tavernier = players.find((p) => p.id === 68 || p.name === 'Tavernier');
+  assert.ok(tavernier, 'Expected Tavernier in enriched players');
+  assert.equal(tavernier.price, 6.4);
+  assert.equal(tavernier.cost, 64);
+
+  // Fix 4 verification: Clicking rectangular injury sign renders full Injury & Return Report
+  const injuredSample =
+    players.find((p) => /expected back/i.test(p.news || '')) ??
+    players.find((p) => p.status === 'i' || p.status === 'd') ??
+    players[0];
+  const htmlInjuryModal = renderToStaticMarkup(
+    React.createElement(InjuryDetailModal, {
+      player: injuredSample,
+      nextFixtureLabel: 'ARS (A)',
+      nextEventId: 9,
+      onClose: noop,
+      onOpenPlayerCard: noop,
+    }),
+  );
+  assert.match(htmlInjuryModal, /WHAT INJURY \/ ISSUE/);
+  assert.match(htmlInjuryModal, /WHEN BACK \/ EXPECTED RETURN/);
+  assert.match(htmlInjuryModal, /Chance of Playing/);
+  assert.match(htmlInjuryModal, /Official Premier League Bulletin/);
+  assert.match(htmlInjuryModal, /View Player Stats Card/);
+
   const htmlMethod = renderToStaticMarkup(
     React.createElement(Methodology, {
       snapshot,
@@ -441,4 +493,68 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   );
   assert.match(htmlMethod, /DEFCON/);
   assert.match(htmlMethod, /SHRINK_90S|n90 \+ 4/);
+});
+
+test('computes dynamic Free Transfers, Injury Return parsing & Price Change Status/Progress without hardcoding', async () => {
+  // Replay GW1..GW8 history: rolls up to 3 FT, uses 2 in GW6 -> 2 FT, uses 1 in GW7 -> 2 FT, uses 1 in GW8 -> 2 FT!
+  const replayedTwoFt = computeDynamicFreeTransfers({
+    startedEvent: 1,
+    historyPayload: {
+      current: [
+        { event: 1, event_transfers: 0 },
+        { event: 2, event_transfers: 1 },
+        { event: 3, event_transfers: 1 },
+        { event: 4, event_transfers: 0 },
+        { event: 5, event_transfers: 1 },
+        { event: 6, event_transfers: 2 },
+        { event: 7, event_transfers: 0 },
+        { event: 8, event_transfers: 1 },
+      ],
+      chips: [],
+    },
+  });
+  assert.equal(replayedTwoFt, 2);
+
+  // Wildcard preserves banked FTs (e.g. 4 FTs banked entering GW5, WC played in GW5 -> still 4 FTs entering GW6!)
+  const preservedOnWc = computeDynamicFreeTransfers({
+    startedEvent: 1,
+    historyPayload: {
+      current: [
+        { event: 1, event_transfers: 0 },
+        { event: 2, event_transfers: 0 },
+        { event: 3, event_transfers: 0 },
+        { event: 4, event_transfers: 0 },
+        { event: 5, event_transfers: 9 },
+      ],
+      chips: [{ event: 5, name: 'wildcard' }],
+    },
+  });
+  assert.equal(preservedOnWc, 4);
+
+  // Injury details parser extracts issue + expected return dynamically
+  const expectedBackParsed = parsePlayerInjuryDetails(
+    { status: 'i', chance: 0, news: 'Hamstring injury - Expected back 8 Nov' },
+    'WHU (H)',
+  );
+  assert.equal(expectedBackParsed.statusLabel, 'Injured');
+  assert.equal(expectedBackParsed.injuryType, 'Hamstring injury');
+  assert.equal(expectedBackParsed.expectedReturn, 'Expected back 8 Nov');
+  assert.equal(expectedBackParsed.chancePercent, 0);
+
+  const suspendedParsed = parsePlayerInjuryDetails({
+    status: 's',
+    chance: 0,
+    news: 'Suspended until 8 Nov',
+  });
+  assert.equal(suspendedParsed.statusLabel, 'Suspended');
+  assert.equal(suspendedParsed.badgeText, 'SUSP');
+  assert.equal(suspendedParsed.expectedReturn, 'Eligible after 8 Nov');
+
+  // Price change predictor classifies Likely to rise, Likely to drop, and Unlikely to change dynamically
+  const snapshot = await getSnapshot();
+  const enriched = enrichPlayers(snapshot, 'balanced');
+  const predictions = enriched.map((p) => computePriceChangePrediction(p, snapshot.meta.totalPlayers));
+  assert.ok(predictions.some((pr) => pr.status === 'Likely to rise'), 'Expected at least 1 dynamic Likely to rise player');
+  assert.ok(predictions.some((pr) => pr.status === 'Likely to drop'), 'Expected at least 1 dynamic Likely to drop player');
+  assert.ok(predictions.some((pr) => pr.status === 'Unlikely to change'), 'Expected Unlikely to change players');
 });

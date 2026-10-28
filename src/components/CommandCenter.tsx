@@ -29,7 +29,13 @@ import type { RouteId } from '../hooks/useHashRoute';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { useNow } from '../hooks/useNow';
 import { fetchVideos } from '../lib/api';
-import { buildInsights, toRepoElement } from '../lib/analytics';
+import {
+  buildInsights,
+  computePriceChangePrediction,
+  parsePlayerInjuryDetails,
+  toRepoElement,
+  type PriceChangeStatus,
+} from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import {
   classNames,
@@ -52,6 +58,7 @@ import type {
 } from '../lib/types';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { ClubBadge } from './ClubBadge';
+import { InjuryDetailModal } from './InjuryDetailModal';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { TeamIdInput } from './TeamIdInput';
@@ -150,13 +157,30 @@ function fdrPillTone(difficulty: number, isBlank: boolean): 'easy' | 'medium' | 
   return 'medium';
 }
 
-function computePriceDeltaPct(player: EnrichedPlayer): number {
-  const net = player.transfersInEvent - player.transfersOutEvent;
-  const totalVol = player.transfersInEvent + player.transfersOutEvent;
-  if (totalVol === 0) return 0;
-  const threshold = Math.max(1800, player.ownership * 1450 + 900);
-  const raw = Math.tanh(net / threshold) * 99.4;
-  return Math.round(raw * 10) / 10;
+function statusSortRank(status: PriceChangeStatus): number {
+  if (status === 'Likely to rise') return 2;
+  if (status === 'Likely to drop') return 1;
+  return 0;
+}
+
+function statusPillToneClass(status: PriceChangeStatus): string {
+  if (status === 'Likely to rise') return 'is-rise';
+  if (status === 'Likely to drop') return 'is-drop';
+  return 'is-neutral';
+}
+
+function progressPillToneClass(pct: number): string {
+  if (pct >= 95) return 'is-rise-strong';
+  if (pct > 0) return 'is-rise-soft';
+  if (pct <= -95) return 'is-drop-strong';
+  if (pct < 0) return 'is-drop-soft';
+  return 'is-neutral';
+}
+
+function formatSignedPct(pct: number): string {
+  const rounded = Math.round(pct * 10) / 10;
+  if (rounded > 0) return `+${rounded.toFixed(1)}%`;
+  return `${rounded.toFixed(1)}%`;
 }
 
 function formatInjurySummary(player: EnrichedPlayer): string {
@@ -206,11 +230,12 @@ export function CommandCenter({
   const [projMetric, setProjMetric] = useState<'goals' | 'cs' | 'win'>('goals');
   const [oddsSourceMode, setOddsSourceMode] = useState<'auto' | 'model'>('auto');
   const [topMetric, setTopMetric] = useState<'season' | 'nextXp' | 'gwPts' | 'horizon5'>('season');
-  const [transferSort, setTransferSort] = useState<'delta' | 'name' | 'in' | 'out' | 'net'>('delta');
+  const [transferSort, setTransferSort] = useState<'progress' | 'predicted' | 'status' | 'name' | 'net'>('progress');
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
   const [transferPage, setTransferPage] = useState(0);
   const [injuryPage, setInjuryPage] = useState(0);
   const [selectedCardPlayer, setSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
+  const [selectedInjuryPlayer, setSelectedInjuryPlayer] = useState<EnrichedPlayer | null>(null);
 
   // Whenever an FPL ID finishes loading, jump cleanly to its Review Gameweek so the user sees their Review GW immediately
   useEffect(() => {
@@ -488,38 +513,64 @@ export function CommandCenter({
 
   const maxTopScore = Math.max(1, ...topPlayersList.map((r) => r.score));
 
-  // Price & Transfers
+  // Price & Transfers — Dynamic Status, Progress & Predicted Progress
   const sortedTransfers = useMemo(() => {
-    const rows = players.map((p) => ({
-      player: p,
-      deltaPct: computePriceDeltaPct(p),
-      net: p.transfersInEvent - p.transfersOutEvent,
-    }));
+    const totalManagers = snapshot.meta.totalPlayers || 11_000_000;
+    const rows = players.map((p) => {
+      const prediction = computePriceChangePrediction(p, totalManagers);
+      return {
+        player: p,
+        status: prediction.status,
+        progressPct: prediction.progressPct,
+        predictedProgressPct: prediction.predictedProgressPct,
+        net: prediction.netTransfers,
+      };
+    });
     const mul = transferDir === 'desc' ? -1 : 1;
     rows.sort((a, b) => {
       if (transferSort === 'name') return mul * a.player.name.localeCompare(b.player.name);
-      if (transferSort === 'in') return mul * (a.player.transfersInEvent - b.player.transfersInEvent);
-      if (transferSort === 'out') return mul * (a.player.transfersOutEvent - b.player.transfersOutEvent);
       if (transferSort === 'net') return mul * (a.net - b.net);
-      return mul * (Math.abs(a.deltaPct) - Math.abs(b.deltaPct)) || mul * (Math.abs(a.net) - Math.abs(b.net));
+      if (transferSort === 'status') {
+        const diff = statusSortRank(a.status) - statusSortRank(b.status);
+        if (diff !== 0) return mul * diff;
+        return mul * (Math.abs(a.predictedProgressPct) - Math.abs(b.predictedProgressPct));
+      }
+      if (transferSort === 'predicted') {
+        return (
+          mul * (Math.abs(a.predictedProgressPct) - Math.abs(b.predictedProgressPct)) ||
+          mul * (Math.abs(a.progressPct) - Math.abs(b.progressPct)) ||
+          mul * (Math.abs(a.net) - Math.abs(b.net))
+        );
+      }
+      return (
+        mul * (Math.abs(a.progressPct) - Math.abs(b.progressPct)) ||
+        mul * (Math.abs(a.predictedProgressPct) - Math.abs(b.predictedProgressPct)) ||
+        mul * (Math.abs(a.net) - Math.abs(b.net))
+      );
     });
     return rows;
-  }, [players, transferDir, transferSort]);
+  }, [players, snapshot.meta.totalPlayers, transferDir, transferSort]);
 
   const transferTotalPages = Math.max(1, Math.ceil(sortedTransfers.length / 10));
   const safeTransferPage = Math.min(transferPage, transferTotalPages - 1);
   const visibleTransfers = sortedTransfers.slice(safeTransferPage * 10, safeTransferPage * 10 + 10);
 
-  // Injuries & Suspensions
+  // Injuries & Suspensions — prioritize active Premier League injuries, doubts & suspensions sorted by ownership
   const flaggedPlayers = useMemo(() => {
-    const sevRank = (p: EnrichedPlayer) => (['d', 'i', 's'].includes(p.status) ? 0 : 1);
+    const isDeparted = (p: EnrichedPlayer) =>
+      p.status === 'u' && /joined .+ permanently|departed the club/i.test(p.news || '');
+    const sevRank = (p: EnrichedPlayer) => {
+      if (isDeparted(p)) return 2;
+      if (['d', 'i', 's'].includes(p.status)) return 0;
+      return 1;
+    };
     return players
       .filter((p) => p.status !== 'a' || (p.chance !== null && p.chance < 100))
       .sort(
         (a, b) =>
           sevRank(a) - sevRank(b) ||
-          (b.chance ?? 50) - (a.chance ?? 50) ||
-          b.ownership - a.ownership,
+          b.ownership - a.ownership ||
+          (a.chance ?? 50) - (b.chance ?? 50),
       );
   }, [players]);
 
@@ -557,7 +608,7 @@ export function CommandCenter({
     const isCap = !isBench && p.id === pitchLineup.captainId;
     const isVice = !isBench && p.id === pitchLineup.viceId;
     const hasFlag = p.status !== 'a' || (p.chance !== null && p.chance < 100);
-    const isSevere = p.status === 'i' || p.status === 's' || p.status === 'u' || p.chance === 0;
+    const injuryInfo = hasFlag ? parsePlayerInjuryDetails(p, fx.label) : null;
     const showReviewPts = isReviewMode && selectedGw <= snapshot.meta.currentEventId;
     const starterPts = p.eventPoints * (isCap ? 2 : 1);
     const benchOrderPrefix = benchSlotIdx === 0 ? 'GKP' : `${benchSlotIdx}. ${p.position}`;
@@ -574,7 +625,7 @@ export function CommandCenter({
         role="button"
         tabIndex={0}
         className={classNames('vx-pitch-player', isBench && 'vx-pitch-player--bench')}
-        title={`${p.fullName} (${p.team.shortName}) · ${fx.label} — Click to view player stats card`}
+        title={`${p.fullName} (${p.team.shortName}) · ${fx.label} — Click player image for FPL VORTEX graphic card`}
         onClick={() => setSelectedCardPlayer(p)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -589,18 +640,24 @@ export function CommandCenter({
           <span className="vx-pitch-xp">{starterTopText}</span>
         )}
         <div className="vx-pitch-avatar-box">
-          {hasFlag && (
+          {injuryInfo && (
             <button
               type="button"
-              className={classNames('vx-pitch-flag', isSevere && 'is-severe')}
+              className={classNames('vx-pitch-flag vx-injury-rect-sign', `is-${injuryInfo.severity}`)}
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedCardPlayer(p);
+                setSelectedInjuryPlayer(p);
               }}
-              aria-label={`${p.name} availability notice`}
-              title={formatInjurySummary(p)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                }
+              }}
+              aria-label={`${p.name} injury details: ${injuryInfo.injuryType}`}
+              title={`${injuryInfo.injuryType} · ${injuryInfo.expectedReturn} — Click for full injury details`}
             >
-              <AlertTriangle size={12} />
+              <AlertTriangle size={11} />
+              <span>!</span>
             </button>
           )}
           {isCap && <span className="vx-pitch-armband is-cap">C</span>}
@@ -617,7 +674,7 @@ export function CommandCenter({
           />
         </div>
         <strong className="vx-pitch-name">{p.name}</strong>
-        <span className={classNames('vx-pitch-fix', `is-${tone}`)}>{fx.label}</span>
+        <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)}>{fx.label}</span>
         {isBench && (
           <span className="vx-pitch-bench-meta">
             {p.team.shortName} · £{p.price.toFixed(1)}m
@@ -749,8 +806,8 @@ export function CommandCenter({
         </div>
 
         {/* PREMIUM RIGHT VISUAL ORB + HIGH-CONTRAST FLOAT CARDS */}
-        <div className="hero__visual hero__visual--compact" aria-hidden="true">
-          <div className="vortex-orb vortex-orb--compact">
+        <div className="hero__visual hero__visual--compact">
+          <div className="vortex-orb vortex-orb--compact" aria-hidden="true">
             <span className="vortex-orb__ring vortex-orb__ring--one" />
             <span className="vortex-orb__ring vortex-orb__ring--two" />
             <span className="vortex-orb__ring vortex-orb__ring--three" />
@@ -767,7 +824,12 @@ export function CommandCenter({
           </div>
 
           {captain && (
-            <div className="float-card float-card--captain float-card--premium">
+            <button
+              type="button"
+              className="float-card float-card--captain float-card--premium float-card--interactive"
+              onClick={() => setSelectedCardPlayer(captain)}
+              title={`Click to view ${captain.fullName} FPL VORTEX player card`}
+            >
               <div className="float-card__row">
                 <PlayerAvatar
                   code={captain.code}
@@ -788,7 +850,7 @@ export function CommandCenter({
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
           )}
 
           {bestFixture && (
@@ -1062,6 +1124,8 @@ export function CommandCenter({
                         const isBench = idx >= 11;
                         const isCap = p.id === pitchLineup.captainId;
                         const isVice = p.id === pitchLineup.viceId;
+                        const rowHasFlag = p.status !== 'a' || (p.chance !== null && p.chance < 100);
+                        const rowInjury = rowHasFlag ? parsePlayerInjuryDetails(p, fx.label) : null;
                         return (
                           <tr
                             key={p.id}
@@ -1080,9 +1144,25 @@ export function CommandCenter({
                                   size="sm"
                                 />
                                 <div>
-                                  <strong>
-                                    {p.name} {isCap ? '(C)' : isVice ? '(V)' : ''}
-                                  </strong>
+                                  <div className="vx-name-with-flag">
+                                    <strong>
+                                      {p.name} {isCap ? '(C)' : isVice ? '(V)' : ''}
+                                    </strong>
+                                    {rowInjury && (
+                                      <button
+                                        type="button"
+                                        className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${rowInjury.severity}`)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedInjuryPlayer(p);
+                                        }}
+                                        title={`${rowInjury.injuryType} · ${rowInjury.expectedReturn}`}
+                                      >
+                                        <AlertTriangle size={10} />
+                                        <span>{rowInjury.badgeText}</span>
+                                      </button>
+                                    )}
+                                  </div>
                                   <small className="block-sub">
                                     {p.team.shortName} · {formatPrice(p.price)}
                                   </small>
@@ -1093,7 +1173,7 @@ export function CommandCenter({
                               {isBench ? `B${idx - 10} · ${p.position}` : p.position}
                             </td>
                             <td>
-                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', `is-${tone}`)}>
+                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', tone, `is-${tone}`)}>
                                 {fx.label}
                               </span>
                             </td>
@@ -1344,12 +1424,23 @@ export function CommandCenter({
               const pct = Math.max(6, (score / maxTopScore) * 100);
               const formattedScore =
                 topMetric === 'season' || topMetric === 'gwPts' ? String(Math.round(score)) : score.toFixed(1);
+              const topFlag =
+                player.status !== 'a' || (player.chance !== null && player.chance < 100)
+                  ? parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label)
+                  : null;
               return (
-                <button
-                  type="button"
+                <div
                   key={player.id}
+                  role="button"
+                  tabIndex={0}
                   className="vx-top-player-row"
                   onClick={() => setSelectedCardPlayer(player)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedCardPlayer(player);
+                    }
+                  }}
                 >
                   <span className="vx-row-idx">{idx + 1}.</span>
                   <PlayerAvatar
@@ -1363,7 +1454,24 @@ export function CommandCenter({
                     className="vx-list-avatar"
                   />
                   <div className="vx-player-meta">
-                    <strong>{player.name}</strong>
+                    <div className="vx-name-with-flag">
+                      <strong>{player.name}</strong>
+                      {topFlag && (
+                        <button
+                          type="button"
+                          className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${topFlag.severity}`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInjuryPlayer(player);
+                          }}
+                          aria-label={`${player.name} injury details`}
+                          title={`${topFlag.injuryType} · ${topFlag.expectedReturn}`}
+                        >
+                          <AlertTriangle size={10} />
+                          <span>{topFlag.badgeText}</span>
+                        </button>
+                      )}
+                    </div>
                     <small>
                       <ClubBadge
                         teamCode={player.team.code}
@@ -1380,7 +1488,7 @@ export function CommandCenter({
                     <span className="vx-bar-fill" style={{ width: `${pct}%` }} />
                   </div>
                   <strong className="vx-top-score mono-num">{formattedScore}</strong>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -1394,7 +1502,7 @@ export function CommandCenter({
         </article>
 
         {/* CARD 2: PRICE & TRANSFERS */}
-        <article className="panel vx-card vx-card--lower">
+        <article className="panel vx-card vx-card--lower vx-card--transfers">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
               <ArrowLeftRight size={16} className="vx-icon-mint" />
@@ -1406,7 +1514,7 @@ export function CommandCenter({
           </header>
 
           <div className="vx-card__scroll">
-            <table className="vx-transfer-table">
+            <table className="vx-transfer-table vx-transfer-table--predictor">
               <thead>
                 <tr>
                   <th>
@@ -1414,70 +1522,97 @@ export function CommandCenter({
                       Player {transferSort === 'name' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
-                  <th className="is-right">
-                    <button type="button" onClick={() => toggleTransferSort('delta')}>
-                      Price Δ% {transferSort === 'delta' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                  <th className="is-center">
+                    <button type="button" onClick={() => toggleTransferSort('status')}>
+                      Status {transferSort === 'status' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
                   <th className="is-right">
-                    <button type="button" onClick={() => toggleTransferSort('in')}>
-                      In {transferSort === 'in' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                    <button type="button" onClick={() => toggleTransferSort('progress')}>
+                      Progress {transferSort === 'progress' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
                   <th className="is-right">
-                    <button type="button" onClick={() => toggleTransferSort('out')}>
-                      Out {transferSort === 'out' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
-                    </button>
-                  </th>
-                  <th className="is-right">
-                    <button type="button" onClick={() => toggleTransferSort('net')}>
-                      Net {transferSort === 'net' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
+                    <button type="button" onClick={() => toggleTransferSort('predicted')}>
+                      Predicted Progress {transferSort === 'predicted' ? (transferDir === 'desc' ? '↓' : '↑') : '↕'}
                     </button>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {visibleTransfers.map(({ player, deltaPct, net }) => (
-                  <tr key={player.id} onClick={() => setSelectedCardPlayer(player)} className="vx-clickable-row">
-                    <td>
-                      <div className="vx-mini-player">
-                        <PlayerAvatar
-                          code={player.code}
-                          teamCode={player.team.code}
-                          name={player.name}
-                          fullName={player.fullName}
-                          teamShort={player.team.shortName}
-                          position={player.position}
-                          size="md"
-                          className="vx-list-avatar"
-                        />
-                        <div className="vx-player-meta">
-                          <strong>{player.name}</strong>
-                          <small>
-                            <ClubBadge
-                              teamCode={player.team.code}
-                              shortName={player.team.shortName}
-                              teamName={player.team.name}
-                              size="sm"
-                            />
-                            <span>
-                              {player.position} · {formatPrice(player.price)}
-                            </span>
-                          </small>
+                {visibleTransfers.map(({ player, status, progressPct, predictedProgressPct, net }) => {
+                  const rowFlag =
+                    player.status !== 'a' || (player.chance !== null && player.chance < 100)
+                      ? parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label)
+                      : null;
+                  return (
+                    <tr key={player.id} onClick={() => setSelectedCardPlayer(player)} className="vx-clickable-row">
+                      <td>
+                        <div className="vx-mini-player">
+                          <PlayerAvatar
+                            code={player.code}
+                            teamCode={player.team.code}
+                            name={player.name}
+                            fullName={player.fullName}
+                            teamShort={player.team.shortName}
+                            position={player.position}
+                            size="md"
+                            className="vx-list-avatar"
+                          />
+                          <div className="vx-player-meta">
+                            <div className="vx-name-with-flag">
+                              <strong>{player.name}</strong>
+                              {rowFlag && (
+                                <button
+                                  type="button"
+                                  className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${rowFlag.severity}`)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedInjuryPlayer(player);
+                                  }}
+                                  aria-label={`${player.name} injury details`}
+                                  title={`${rowFlag.injuryType} · ${rowFlag.expectedReturn}`}
+                                >
+                                  <AlertTriangle size={10} />
+                                  <span>{rowFlag.badgeText}</span>
+                                </button>
+                              )}
+                            </div>
+                            <small>
+                              <ClubBadge
+                                teamCode={player.team.code}
+                                shortName={player.team.shortName}
+                                teamName={player.team.name}
+                                size="sm"
+                              />
+                              <span>
+                                {player.position} · {formatPrice(player.price)} ·{' '}
+                                <em className={classNames('vx-net-inline', net >= 0 ? 'is-pos' : 'is-neg')}>
+                                  {net > 0 ? `+${formatCompact(net)}` : formatCompact(net)}
+                                </em>
+                              </span>
+                            </small>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className={classNames('is-right mono-num', deltaPct >= 0 ? 'is-positive' : 'is-negative')}>
-                      {deltaPct > 0 ? '+' : ''}
-                      {deltaPct.toFixed(1)}%
-                    </td>
-                    <td className="is-right mono-num">{formatCompact(player.transfersInEvent)}</td>
-                    <td className="is-right mono-num">{formatCompact(player.transfersOutEvent)}</td>
-                    <td className={classNames('is-right mono-num', net >= 0 ? 'is-positive' : 'is-negative')}>
-                      {net > 0 ? `+${formatCompact(net)}` : formatCompact(net)}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="is-center">
+                        <span className={classNames('vx-price-status-pill', statusPillToneClass(status))}>
+                          {status}
+                        </span>
+                      </td>
+                      <td className="is-right mono-num">
+                        <span className={classNames('vx-price-pct-pill', progressPillToneClass(progressPct))}>
+                          {formatSignedPct(progressPct)}
+                        </span>
+                      </td>
+                      <td className="is-right mono-num">
+                        <span className={classNames('vx-price-pct-pill', progressPillToneClass(predictedProgressPct))}>
+                          {formatSignedPct(predictedProgressPct)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1522,42 +1657,64 @@ export function CommandCenter({
 
           <div className="vx-card__scroll vx-injuries-list">
             {visibleInjuries.map((player) => {
-              const isSevere =
-                player.status === 'i' || player.status === 's' || player.status === 'u' || player.chance === 0;
+              const info = parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label);
               return (
-                <button
-                  type="button"
+                <div
                   key={player.id}
                   className="vx-injury-row"
-                  onClick={() => setSelectedCardPlayer(player)}
+                  role="group"
+                  aria-label={`${player.name} availability row`}
                 >
-                  <PlayerAvatar
-                    code={player.code}
-                    teamCode={player.team.code}
-                    name={player.name}
-                    fullName={player.fullName}
-                    teamShort={player.team.shortName}
-                    position={player.position}
-                    size="md"
-                    className="vx-list-avatar"
-                  />
-                  <div className="vx-injury-copy">
-                    <div className="vx-injury-head">
-                      <strong>{player.name}</strong>
-                      <ClubBadge
-                        teamCode={player.team.code}
-                        shortName={player.team.shortName}
-                        teamName={player.team.name}
-                        size="sm"
-                      />
-                      <span>{player.position}</span>
+                  <button
+                    type="button"
+                    className="vx-injury-avatar-trigger"
+                    onClick={() => setSelectedCardPlayer(player)}
+                    title={`Click ${player.name} image for full FPL VORTEX player card`}
+                  >
+                    <PlayerAvatar
+                      code={player.code}
+                      teamCode={player.team.code}
+                      name={player.name}
+                      fullName={player.fullName}
+                      teamShort={player.team.shortName}
+                      position={player.position}
+                      size="md"
+                      className="vx-list-avatar"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="vx-injury-copy-trigger"
+                    onClick={() => setSelectedInjuryPlayer(player)}
+                    title="Click for full injury & expected return details"
+                  >
+                    <div className="vx-injury-copy">
+                      <div className="vx-injury-head">
+                        <strong>{player.name}</strong>
+                        <ClubBadge
+                          teamCode={player.team.code}
+                          shortName={player.team.shortName}
+                          teamName={player.team.name}
+                          size="sm"
+                        />
+                        <span>
+                          {player.position} · {formatPrice(player.price)}
+                        </span>
+                      </div>
+                      <small>{formatInjurySummary(player)}</small>
                     </div>
-                    <small>{formatInjurySummary(player)}</small>
-                  </div>
-                  <span className={classNames('vx-warn-icon', isSevere && 'is-severe')}>
-                    <AlertTriangle size={16} />
-                  </span>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    className={classNames('vx-warn-icon vx-injury-rect', `is-${info.severity}`)}
+                    onClick={() => setSelectedInjuryPlayer(player)}
+                    aria-label={`${player.name} injury detail: ${info.injuryType}`}
+                    title={`${info.injuryType} · ${info.expectedReturn}`}
+                  >
+                    <AlertTriangle size={13} />
+                    <span>{info.badgeText}</span>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -1666,7 +1823,7 @@ export function CommandCenter({
         </div>
       </section>
 
-      {/* FPL VORTEX Broadcast Player Graphic Card Modal (Image 3 style — pure stats & fixtures, no transfer-out) */}
+      {/* FPL VORTEX Broadcast Player Graphic Card Modal (Image 1 style — pure stats & fixtures, no transfer-out) */}
       <PlayerGraphicModal
         player={selectedCardPlayer}
         teams={snapshot.teams}
@@ -1675,6 +1832,16 @@ export function CommandCenter({
         isCaptain={Boolean(selectedCardPlayer && hasLinkedTeam && selectedCardPlayer.id === pitchLineup.captainId)}
         isViceCaptain={Boolean(selectedCardPlayer && hasLinkedTeam && selectedCardPlayer.id === pitchLineup.viceId)}
         onClose={() => setSelectedCardPlayer(null)}
+        onOpenInjuryDetail={(p) => setSelectedInjuryPlayer(p)}
+      />
+
+      {/* Rectangular Injury Sign Detail Modal (What Injury, Chance %, Expected Return Date & Bulletin) */}
+      <InjuryDetailModal
+        player={selectedInjuryPlayer}
+        nextFixtureLabel={selectedInjuryPlayer ? getPitchFixture(selectedInjuryPlayer.teamId).label : undefined}
+        nextEventId={nextEventId}
+        onClose={() => setSelectedInjuryPlayer(null)}
+        onOpenPlayerCard={(p) => setSelectedCardPlayer(p)}
       />
     </div>
   );

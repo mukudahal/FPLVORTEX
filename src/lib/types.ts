@@ -120,10 +120,13 @@ export interface Player {
   transfersOut: number;
   transfersInEvent: number;
   transfersOutEvent: number;
+  costChangeEvent?: number;
+  costChangeStart?: number;
   selectedByPercent: number;
   status: string;
   chance: number | null;
   news: string;
+  newsAdded?: string | null;
   epNext: number;
   epThis: number;
   dreamteamCount: number;

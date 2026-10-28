@@ -9,6 +9,7 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
+import { computeDynamicFreeTransfers, type RawEntryHistoryPayload } from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
 import { optimizeSquad } from '../src/lib/optimize.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
@@ -30,7 +31,7 @@ interface CacheEntry<T> {
 }
 
 interface OfflineLeagueFallback {
-  entries?: Record<string, { root: RawRecord; picks: RawRecord }>;
+  entries?: Record<string, { root: RawRecord; picks: RawRecord; history?: RawEntryHistoryPayload | null }>;
   leagues?: Record<string, RawRecord>;
 }
 
@@ -185,6 +186,8 @@ function normalizeEntry(
   snapshot: Snapshot,
   enriched: ReturnType<typeof enrichPlayers>,
   source: DataSource,
+  historyPayload?: RawEntryHistoryPayload | null,
+  postLockTransfersUsed = 0,
 ): EntryData {
   const history: EntryHistory = {
     event: numberValue(picks.entry_history?.event, snapshot.meta.currentEventId),
@@ -215,22 +218,28 @@ function normalizeEntry(
     const multiplier = pick.isCaptain ? 2 : pick.multiplier > 0 ? 1 : 0;
     return sum + player.projection * multiplier;
   }, 0);
-  const rawFreeTransfers = numberValue(
-    root.free_transfers,
-    numberValue(root.id) === CONFIGURED_REPO_ENTRY_ID ? 4 : history.eventTransfers === 0 ? 2 : 1,
-  );
+  const startedEvent = numberValue(root.started_event, 1);
+  const activeChip = picks.active_chip ? stringValue(picks.active_chip) : null;
+  const freeTransfers = computeDynamicFreeTransfers({
+    startedEvent,
+    explicitFreeTransfers: root.free_transfers,
+    historyPayload,
+    singleGwEventTransfers: history.eventTransfers,
+    singleGwActiveChip: activeChip,
+    postLockTransfersUsed,
+  });
   return {
     id: numberValue(root.id),
     name: `${stringValue(root.player_first_name)} ${stringValue(root.player_last_name)}`.trim(),
     teamName: stringValue(root.name, CONFIGURED_REPO_ENTRY_NAME),
     region: stringValue(root.player_region_name, 'Worldwide'),
-    startedEvent: numberValue(root.started_event, 1),
+    startedEvent,
     favouriteTeamId: root.favourite_team === null || root.favourite_team === undefined ? null : numberValue(root.favourite_team),
     overallRank: root.summary_overall_rank === null ? null : numberValue(root.summary_overall_rank),
     overallPoints: root.summary_overall_points === null ? null : numberValue(root.summary_overall_points),
-    freeTransfers: clamp(rawFreeTransfers, 1, 5),
+    freeTransfers,
     currentEvent: history.event,
-    activeChip: picks.active_chip ? stringValue(picks.active_chip) : null,
+    activeChip,
     history,
     picks: normalizedPicks,
     players,
@@ -276,7 +285,7 @@ function buildOfflineSyntheticEntry(
     favouriteTeamId: 1,
     overallRank,
     overallPoints: totalPoints,
-    freeTransfers: isRepoManager ? 4 : 1,
+    freeTransfers: computeDynamicFreeTransfers({ startedEvent: 1, singleGwEventTransfers: 0 }),
     currentEvent: snapshot.meta.currentEventId,
     activeChip: null,
     history: {
@@ -351,9 +360,10 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       38,
     );
     const targetGw = requestedGw ? Math.min(requestedGw, latestLockedGw) : latestLockedGw;
-    const [picks, rawTransfers] = await Promise.all([
+    const [picks, rawTransfers, entryHistory] = await Promise.all([
       fetchFplJson<RawRecord>(`/entry/${id}/event/${targetGw}/picks/`, { retries: 1 }),
       fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => [] as RawRecord[]),
+      fetchFplJson<RawEntryHistoryPayload>(`/entry/${id}/history/`, { retries: 1 }).catch(() => null),
     ]);
     const recentTransfers = Array.isArray(rawTransfers)
       ? rawTransfers.slice(0, 12).map((tr) => ({
@@ -366,8 +376,23 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
         }))
       : [];
 
+    const maxHistoryEvent = Array.isArray(entryHistory?.current)
+      ? entryHistory!.current!.reduce((maxEv, row) => Math.max(maxEv, numberValue(row?.event, 0)), 0)
+      : latestLockedGw;
+    const postLockTransfersUsed = Array.isArray(rawTransfers)
+      ? rawTransfers.filter((tr) => numberValue(tr.event, 0) > maxHistoryEvent).length
+      : 0;
+
     // Apply any published post-GW transfers when viewing upcoming GWs
-    const result = normalizeEntry(root, picks, snapshot, enriched, 'live');
+    const result = normalizeEntry(
+      root,
+      picks,
+      snapshot,
+      enriched,
+      'live',
+      entryHistory,
+      postLockTransfersUsed,
+    );
     result.recentTransfers = recentTransfers;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
@@ -394,7 +419,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const fallbackFile = await loadOfflineLeagueFallback();
     const archived = fallbackFile.entries?.[id];
     const fallbackResult = archived
-      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot')
+      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null)
       : buildOfflineSyntheticEntry(numberValue(id, CONFIGURED_REPO_ENTRY_ID), snapshot, enriched);
     return writeCache(cacheKey, fallbackResult, 120_000);
   }

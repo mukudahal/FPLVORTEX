@@ -67,7 +67,13 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 75% 0%, rgba(119, 114, 255, 0.18), transparent 36%),
+    radial-gradient(circle at 85% 85%, rgba(255, 91, 200, 0.10), transparent 34%),
+    radial-gradient(rgba(151, 162, 221, 0.08) 1px, transparent 1px),
+    var(--bg);
+  background-size: auto, auto, 24px 24px, auto;
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font);
   font-size: 14px;
@@ -76,42 +82,28 @@ body {
   text-rendering: optimizeLegibility;
   transition: background-color 220ms ease, color 220ms ease;
 }
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 75% 0%, rgba(119, 114, 255, 0.13), transparent 36%),
+    radial-gradient(circle at 85% 85%, rgba(255, 91, 200, 0.08), transparent 34%),
+    radial-gradient(rgba(64, 74, 121, 0.10) 1px, transparent 1px),
+    var(--bg);
+  background-size: auto, auto, 24px 24px, auto;
+  background-attachment: fixed;
+}
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 78% 4%, rgba(119, 114, 255, 0.22), transparent 36%),
-    radial-gradient(circle at 12% 38%, rgba(91, 245, 214, 0.11), transparent 32%),
-    radial-gradient(circle at 88% 84%, rgba(255, 91, 200, 0.11), transparent 35%),
-    radial-gradient(circle at 46% 14%, rgba(101, 184, 255, 0.07), transparent 28%);
+  background: radial-gradient(circle at 12% 38%, rgba(91, 245, 214, 0.08), transparent 32%);
 }
 :root[data-theme="light"] body::before {
-  background:
-    radial-gradient(circle at 78% 4%, rgba(119, 114, 255, 0.15), transparent 36%),
-    radial-gradient(circle at 12% 38%, rgba(91, 245, 214, 0.13), transparent 32%),
-    radial-gradient(circle at 88% 84%, rgba(255, 91, 200, 0.09), transparent 34%);
+  background: radial-gradient(circle at 12% 38%, rgba(91, 245, 214, 0.10), transparent 32%);
 }
-/* Subtle sci-fi telemetry coordinate grid overlay */
 body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(151, 162, 221, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(151, 162, 221, 0.055) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 92% 84% at 52% 28%, #000 32%, rgba(0, 0, 0, 0.45) 72%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 92% 84% at 52% 28%, #000 32%, rgba(0, 0, 0, 0.45) 72%, transparent 100%);
-}
-:root[data-theme="light"] body::after {
-  background-image:
-    linear-gradient(rgba(88, 96, 156, 0.065) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(88, 96, 156, 0.065) 1px, transparent 1px);
+  content: none;
 }
 button, input, select { font: inherit; }
 button { color: inherit; }
@@ -127,39 +119,71 @@ ul { margin: 0; padding: 0; }
 .skip-link:focus { top: 16px; }
 
 /* Shared primitives */
-.button {
-  border: 1px solid transparent;
+.button,
+.vx-btn,
+.secondary-btn {
+  border: 1px solid var(--border);
   border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 10px 15px;
+  gap: 8px;
+  padding: 9px 14px;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
+  background: rgba(27, 31, 59, 0.72);
+  color: var(--text-primary);
   cursor: pointer;
-  transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+  transition: transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
   white-space: nowrap;
 }
-.button:hover:not(:disabled) { transform: translateY(-1px); }
-.button:disabled { cursor: not-allowed; opacity: .55; }
-.button--primary {
-  background: linear-gradient(120deg, var(--brand-violet) 0%, #9668ff 52%, var(--brand-pink) 100%);
+:root[data-theme="light"] .vx-btn,
+:root[data-theme="light"] .secondary-btn {
+  background: rgba(239, 242, 255, 0.92);
+}
+.button:hover:not(:disabled),
+.vx-btn:hover:not(:disabled),
+.secondary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+.button:disabled,
+.vx-btn:disabled,
+.vx-btn-primary:disabled,
+.primary-btn:disabled,
+.secondary-btn:disabled { cursor: not-allowed; opacity: .55; }
+.button--primary,
+.vx-btn-primary,
+.primary-btn {
+  border-radius: 12px;
+  padding: 9px 15px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(120deg, #7772ff, #ff5bc8);
   color: #fff;
-  border-color: rgba(255, 255, 255, .18);
-  box-shadow: 0 12px 28px rgba(119, 114, 255, .32), inset 0 1px 0 rgba(255, 255, 255, .24);
+  border: none;
+  box-shadow: 0 10px 24px rgba(119, 114, 255, .28);
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease;
 }
-.button--primary:hover:not(:disabled) {
-  box-shadow: 0 16px 36px rgba(119, 114, 255, .44), 0 0 22px rgba(255, 91, 200, .24), inset 0 1px 0 rgba(255, 255, 255, .32);
+.button--primary:hover:not(:disabled),
+.vx-btn-primary:hover:not(:disabled),
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(119, 114, 255, .4), 0 0 20px rgba(255, 91, 200, .22);
 }
-.button--ghost { background: rgba(255, 255, 255, .04); border-color: var(--border); color: var(--text-primary); backdrop-filter: blur(12px); }
-:root[data-theme="light"] .button--ghost { background: rgba(119, 114, 255, .055); }
+.button--ghost { background: rgba(27, 31, 59, .72); border: 1px solid var(--border); color: var(--text-primary); backdrop-filter: blur(12px); }
+:root[data-theme="light"] .button--ghost { background: rgba(119, 114, 255, .065); }
 .button--ghost:hover:not(:disabled) { background: var(--panel-hover); border-color: var(--border-strong); }
 .button--soft { background: var(--accent-soft); color: var(--text-primary); border-color: rgba(140, 128, 255, .24); }
 .button--large { padding: 13px 20px; font-size: 14px; border-radius: 14px; }
 .button--small { padding: 8px 12px; font-size: 12px; }
 .button--full { width: 100%; }
-.icon-button { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; border: 1px solid var(--border); background: rgba(255, 255, 255, .035); cursor: pointer; transition: .18s ease; }
+.icon-button { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; border: 1px solid var(--border); background: rgba(27, 31, 59, .62); cursor: pointer; transition: .18s ease; }
 :root[data-theme="light"] .icon-button { background: rgba(119, 114, 255, .05); }
 .icon-button:hover:not(:disabled) { background: var(--panel-hover); border-color: var(--border-strong); }
 .icon-button:disabled { opacity: .55; cursor: not-allowed; }
@@ -168,15 +192,50 @@ ul { margin: 0; padding: 0; }
 :root[data-theme="light"] .text-button { color: var(--accent); }
 .text-button:hover { color: var(--text-primary); }
 .panel {
-  background: linear-gradient(155deg, rgba(20, 24, 48, .82), rgba(11, 14, 30, .66));
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), var(--shadow-md);
-  backdrop-filter: blur(20px) saturate(155%);
-  -webkit-backdrop-filter: blur(20px) saturate(155%);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 20px 50px rgba(0, 0, 0, .34);
+  backdrop-filter: blur(18px) saturate(155%);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
   position: relative;
   overflow: hidden;
   transition: border-color .22s ease, box-shadow .22s ease, background .22s ease;
+}
+:root[data-theme="light"] .panel {
+  box-shadow: 0 20px 46px rgba(39, 48, 91, 0.12);
+}
+
+/* Global Fixture Difficulty Badges */
+.easy {
+  background: rgba(91, 245, 214, 0.16);
+  color: #5bf5d6;
+  border: 1px solid rgba(91, 245, 214, 0.34);
+}
+.medium {
+  background: rgba(255, 198, 109, 0.16);
+  color: #ffc66d;
+  border: 1px solid rgba(255, 198, 109, 0.34);
+}
+.hard {
+  background: rgba(255, 111, 145, 0.16);
+  color: #ff6f91;
+  border: 1px solid rgba(255, 111, 145, 0.34);
+}
+:root[data-theme="light"] .easy {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.34);
+}
+:root[data-theme="light"] .medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.34);
+}
+:root[data-theme="light"] .hard {
+  background: rgba(225, 29, 72, 0.13);
+  color: #be123c;
+  border-color: rgba(225, 29, 72, 0.32);
 }
 .panel::before {
   content: "";
@@ -4821,3 +4880,485 @@ kbd {
   border-color: var(--brand-violet);
   background: rgba(119, 114, 255, 0.11);
 }
+
+/* ==========================================================================
+   Price & Transfers Predictor Pills + Rectangular Injury Signs + Injury Modal
+   ========================================================================== */
+@media (min-width: 1221px) {
+  .vx-hub-lower {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.42fr) minmax(0, 0.92fr);
+  }
+}
+
+.float-card--interactive {
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.float-card--interactive:hover {
+  transform: translateY(-2px) scale(1.015);
+  border-color: var(--brand-mint);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.44), 0 0 22px rgba(91, 245, 214, 0.18);
+}
+
+.vx-soccer-pitch .vx-pitch-fix.easy,
+.vx-soccer-pitch .vx-pitch-fix.is-easy {
+  background: linear-gradient(180deg, rgba(7, 9, 20, 0.86), rgba(7, 9, 20, 0.9)), rgba(91, 245, 214, 0.2);
+  color: #5bf5d6;
+  border: 1px solid rgba(91, 245, 214, 0.52);
+}
+.vx-soccer-pitch .vx-pitch-fix.medium,
+.vx-soccer-pitch .vx-pitch-fix.is-medium {
+  background: linear-gradient(180deg, rgba(7, 9, 20, 0.86), rgba(7, 9, 20, 0.9)), rgba(255, 198, 109, 0.2);
+  color: #ffc66d;
+  border: 1px solid rgba(255, 198, 109, 0.52);
+}
+.vx-soccer-pitch .vx-pitch-fix.hard,
+.vx-soccer-pitch .vx-pitch-fix.is-hard {
+  background: linear-gradient(180deg, rgba(7, 9, 20, 0.86), rgba(7, 9, 20, 0.9)), rgba(255, 111, 145, 0.2);
+  color: #ff6f91;
+  border: 1px solid rgba(255, 111, 145, 0.56);
+}
+
+/* Rectangular Injury Signs (Pitch, Tables, Top Players, Injuries List) */
+.vx-name-with-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.vx-injury-rect,
+.vx-pitch-flag.vx-injury-rect-sign {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+}
+.vx-pitch-flag.vx-injury-rect-sign {
+  position: absolute;
+  top: -3px;
+  left: -4px;
+  width: auto;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  z-index: 4;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+.vx-injury-rect--sm {
+  padding: 1px 5px;
+  font-size: 9.5px;
+  border-radius: 4px;
+}
+.vx-injury-rect.is-severe,
+.vx-pitch-flag.vx-injury-rect-sign.is-severe {
+  background: linear-gradient(135deg, #ef4444, #be123c);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.34);
+}
+.vx-injury-rect.is-doubt,
+.vx-pitch-flag.vx-injury-rect-sign.is-doubt {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #160f02;
+  border-color: rgba(255, 255, 255, 0.42);
+}
+.vx-injury-rect:hover,
+.vx-pitch-flag.vx-injury-rect-sign:hover {
+  transform: scale(1.08);
+  filter: brightness(1.08);
+}
+
+/* Price & Transfers Predictor Table (Status, Progress, Predicted Progress) */
+.vx-transfer-table--predictor th.is-center,
+.vx-transfer-table--predictor td.is-center {
+  text-align: center;
+}
+.vx-transfer-table--predictor th button {
+  white-space: nowrap;
+}
+.vx-net-inline {
+  font-style: normal;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.vx-net-inline.is-pos {
+  color: var(--brand-mint);
+}
+.vx-net-inline.is-neg {
+  color: var(--danger);
+}
+:root[data-theme="light"] .vx-net-inline.is-pos {
+  color: #059669;
+}
+:root[data-theme="light"] .vx-net-inline.is-neg {
+  color: #e11d48;
+}
+
+.vx-price-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.vx-price-status-pill.is-rise {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+  color: #041d11;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.32);
+}
+.vx-price-status-pill.is-drop {
+  background: linear-gradient(135deg, #fb3767, #e11d48);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.34);
+}
+.vx-price-status-pill.is-neutral {
+  background: rgba(151, 162, 221, 0.14);
+  color: var(--text-secondary);
+  border: 1px solid rgba(151, 162, 221, 0.18);
+}
+:root[data-theme="light"] .vx-price-status-pill.is-neutral {
+  background: rgba(64, 74, 121, 0.09);
+  color: #475569;
+  border-color: rgba(64, 74, 121, 0.18);
+}
+
+.vx-price-pct-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vx-price-pct-pill.is-rise-strong {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+  color: #041d11;
+}
+.vx-price-pct-pill.is-rise-soft {
+  background: rgba(91, 245, 214, 0.16);
+  color: #5bf5d6;
+  border: 1px solid rgba(91, 245, 214, 0.32);
+}
+.vx-price-pct-pill.is-drop-strong {
+  background: linear-gradient(135deg, #fb3767, #e11d48);
+  color: #ffffff;
+}
+.vx-price-pct-pill.is-drop-soft {
+  background: rgba(255, 111, 145, 0.17);
+  color: #ff6f91;
+  border: 1px solid rgba(255, 111, 145, 0.34);
+}
+.vx-price-pct-pill.is-neutral {
+  background: rgba(151, 162, 221, 0.12);
+  color: var(--text-secondary);
+}
+:root[data-theme="light"] .vx-price-pct-pill.is-rise-soft {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+:root[data-theme="light"] .vx-price-pct-pill.is-drop-soft {
+  background: rgba(225, 29, 72, 0.13);
+  color: #be123c;
+}
+
+/* Split Interactive Triggers inside Injuries & Suspensions Rows */
+.vx-top-player-row {
+  cursor: pointer;
+}
+.vx-injury-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+}
+.vx-injury-avatar-trigger {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 50%;
+  transition: transform 140ms ease;
+}
+.vx-injury-avatar-trigger:hover {
+  transform: scale(1.07);
+}
+.vx-injury-copy-trigger {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+  color: inherit;
+}
+.vx-warn-icon.vx-injury-rect {
+  width: auto;
+  min-width: 48px;
+  height: 24px;
+  border-radius: 6px;
+  padding: 0 7px;
+  flex-shrink: 0;
+}
+
+/* PlayerGraphicModal Heroic Portrait + Clickable Fitness Banner */
+.vx-pcard__portrait-img {
+  max-height: 330px;
+  width: 104%;
+  object-fit: contain;
+  object-position: bottom center;
+}
+.vx-pcard__fitness-note {
+  width: 100%;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.vx-pcard__fitness-note.is-severe {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(248, 113, 113, 0.46);
+  color: #fecaca;
+}
+.vx-pcard__fitness-text {
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+/* Dedicated Injury & Return Detail Modal */
+.vx-injury-modal-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 1300;
+}
+.vx-injury-modal {
+  width: min(500px, 100%);
+  border-radius: 22px;
+  padding: 20px 22px 18px;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(119, 114, 255, 0.24), transparent 45%),
+    radial-gradient(circle at 10% 100%, rgba(255, 111, 145, 0.14), transparent 45%),
+    #0d1024;
+  border: 1px solid rgba(151, 162, 221, 0.28);
+  box-shadow: 0 28px 75px rgba(0, 0, 0, 0.68);
+  color: #f3f6ff;
+  position: relative;
+}
+.vx-injury-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.vx-injury-modal__badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.vx-injury-modal__timestamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #a8b1d6;
+}
+.vx-injury-modal__close {
+  position: static;
+}
+.vx-injury-modal__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(151, 162, 221, 0.16);
+}
+.vx-injury-modal__avatar-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 150ms ease;
+}
+.vx-injury-modal__avatar-btn:hover {
+  transform: scale(1.05);
+}
+.vx-injury-modal__title-copy h3 {
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+.vx-injury-modal__sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #cbd5e1;
+}
+.vx-injury-modal__sub strong {
+  color: #ffc66d;
+}
+.vx-injury-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 520px) {
+  .vx-injury-modal__grid {
+    grid-template-columns: 1fr;
+  }
+}
+.vx-injury-modal__box {
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(151, 162, 221, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vx-injury-modal__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  color: #a8b1d6;
+}
+.vx-injury-modal__val {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.35;
+}
+.vx-injury-modal__chance-card {
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(151, 162, 221, 0.15);
+  margin-bottom: 12px;
+}
+.vx-injury-modal__chance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 750;
+  color: #cbd5e1;
+  margin-bottom: 7px;
+}
+.vx-injury-modal__chance-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vx-injury-modal__chance-head strong.is-severe {
+  color: #ff6f91;
+}
+.vx-injury-modal__chance-head strong.is-doubt {
+  color: #ffc66d;
+}
+.vx-injury-modal__bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.vx-injury-modal__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.vx-injury-modal__bar-fill.is-severe {
+  background: linear-gradient(90deg, #ef4444, #ff6f91);
+}
+.vx-injury-modal__bar-fill.is-doubt {
+  background: linear-gradient(90deg, #f59e0b, #ffc66d);
+}
+.vx-injury-modal__bar-fill.is-clear {
+  background: linear-gradient(90deg, #10b981, #5bf5d6);
+}
+.vx-injury-modal__chance-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #a8b1d6;
+}
+.vx-injury-modal__chance-meta strong {
+  color: #f3f6ff;
+}
+.vx-injury-modal__bulletin {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: rgba(119, 114, 255, 0.11);
+  border: 1px solid rgba(119, 114, 255, 0.28);
+  margin-bottom: 14px;
+  color: #e2e8f0;
+}
+.vx-injury-modal__bulletin svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #ffc66d;
+}
+.vx-injury-modal__bulletin small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a8b1d6;
+  margin-bottom: 2px;
+}
+.vx-injury-modal__bulletin p {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #ffffff;
+  line-height: 1.4;
+}
+.vx-injury-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
