@@ -2,6 +2,7 @@
   "name": "fpl-vortex",
   "version": "1.0.0",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "description": "An automated Fantasy Premier League intelligence and squad optimization platform.",
   "scripts": {
