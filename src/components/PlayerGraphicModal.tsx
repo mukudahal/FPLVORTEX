@@ -182,10 +182,16 @@ export function PlayerGraphicModal({
   const photoCandidates = useMemo(() => {
     if (!player) return [];
     const base = getPlayerPhotoCandidates(player.code, player.team.code, 'lg');
-    // Prefer 500x500 first when available for ultra-sharp hero portrait cutout
+    // On phones the portrait renders at ~150-200 CSS px inside the card. Pulling the 500x500
+    // cutout there costs 3-6x the bytes (often 200 KB+) and delays the card opening, so only
+    // large viewports prefer it. The other size stays in the list as a fallback.
+    const preferHighRes =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(min-width: 861px)').matches;
     const highRes = base.filter((u) => u.includes('/500x500/'));
     const rest = base.filter((u) => !u.includes('/500x500/'));
-    return [...highRes, ...rest];
+    return preferHighRes ? [...highRes, ...rest] : [...rest, ...highRes];
   }, [player]);
 
   const fallbackPortrait = useMemo(
@@ -317,6 +323,9 @@ export function PlayerGraphicModal({
                 src={portraitSrc}
                 alt={`${player.fullName} portrait`}
                 className="vx-pcard__portrait-img"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
                 onError={() => {
                   setPhotoIdx((prev) => (prev < photoCandidates.length ? prev + 1 : prev));
                 }}

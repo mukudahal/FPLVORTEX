@@ -368,6 +368,26 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   const appRaw = await readFile(path.join(process.cwd(), 'src/App.tsx'), 'utf8');
   assert.match(stylesRaw, /\.vx-pitch-player\.vx-pitch-player--bench\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
 
+  // Phone player card must never exceed the visible viewport: dynamic viewport units for the
+  // dock/sheet, internal scrolling on the card, and a pinned close button on small screens.
+  assert.match(
+    stylesRaw,
+    /\.vx-side-popup-dock[\s\S]{0,400}?max-height:\s*calc\(100dvh/,
+    'side dock should clamp to the dynamic viewport height',
+  );
+  assert.match(
+    stylesRaw,
+    /\.vx-side-popup-dock > \.vx-pcard,[\s\S]{0,300}?overflow-y:\s*auto/,
+    'the player card should scroll internally instead of overflowing the screen',
+  );
+  assert.match(stylesRaw, /@media \(max-width: 860px\)[\s\S]{0,600}?bottom: 0;/, 'mobile card should dock to the bottom edge');
+  assert.match(
+    stylesRaw,
+    /\.vx-side-popup-dock \.vx-pcard__close[\s\S]{0,200}?position: sticky/,
+    'the close button should stay reachable while the card scrolls',
+  );
+  assert.match(stylesRaw, /env\(safe-area-inset-bottom/, 'the sheet should respect the phone safe area');
+
   // Clicking any player opens the broadcast FPL VORTEX Player Graphic Card (Image 3 spec)
   const vanDijk = players.find((p) => p.fullName.includes('Virgil van Dijk')) ?? players[0];
   const htmlPlayerCard = renderToStaticMarkup(
