@@ -90,9 +90,32 @@ test('preserves brand-kit font, tokens, repo assets, and default dark theme conf
   assert.equal(manifestRaw.clubCount, 20);
 
   const tokensCss = await readFile(path.join(root, 'brand-kit/design-tokens.css'), 'utf8');
-  assert.match(tokensCss, /--brand-mint:\s*#5BF5D6/i);
-  assert.match(tokensCss, /--brand-violet:\s*#7772FF/i);
-  assert.match(tokensCss, /--brand-pink:\s*#FF5BC8/i);
+  assert.match(tokensCss, /--brand-mint:\s*#5bf5d6/i);
+  assert.match(tokensCss, /--brand-violet:\s*#7772ff/i);
+  assert.match(tokensCss, /--brand-pink:\s*#ff5bc8/i);
+  assert.match(tokensCss, /--brand-amber:\s*#ffc66d/i);
+  assert.match(tokensCss, /--brand-blue:\s*#65b8ff/i);
+  assert.match(tokensCss, /--bg:\s*#070914/i);
+  assert.match(tokensCss, /--bg:\s*#f4f6ff/i);
+  assert.match(tokensCss, /--font:\s*'Inter Variable',\s*Inter,\s*sans-serif/);
+
+  const appStylesCss = await readFile(path.join(root, 'src/styles.css'), 'utf8');
+  assert.match(appStylesCss, /--brand-mint:\s*#5bf5d6/i);
+  assert.match(appStylesCss, /--brand-violet:\s*#7772ff/i);
+  assert.match(appStylesCss, /--brand-pink:\s*#ff5bc8/i);
+  assert.match(appStylesCss, /--brand-amber:\s*#ffc66d/i);
+  assert.match(appStylesCss, /--brand-blue:\s*#65b8ff/i);
+  assert.match(appStylesCss, /--bg:\s*#070914/i);
+  assert.match(appStylesCss, /:root\[data-theme="light"\][\s\S]*?--bg:\s*#f4f6ff/i);
+  assert.match(appStylesCss, /--font:\s*'Inter Variable',\s*Inter,\s*sans-serif/);
+  assert.match(appStylesCss, /body::after/);
+  assert.match(appStylesCss, /\.vortex-theme-switch/);
+  assert.match(appStylesCss, /\.vortex-route-pills/);
+
+  const topbarTsx = await readFile(path.join(root, 'src/components/Topbar.tsx'), 'utf8');
+  assert.match(topbarTsx, /vortex-theme-switch/);
+  assert.match(topbarTsx, /<Moon\b/);
+  assert.match(topbarTsx, /<Sun\b/);
 
   const indexHtml = await readFile(path.join(root, 'index.html'), 'utf8');
   assert.match(indexHtml, /<html[^>]+data-theme="dark"/);

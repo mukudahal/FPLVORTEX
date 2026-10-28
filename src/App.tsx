@@ -37,6 +37,15 @@ export interface PendingSwap {
   inId: number;
 }
 
+const ROUTE_PILLS: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
+  { id: 'command', label: 'Command Center', icon: Gauge },
+  { id: 'optimizer', label: 'Squad Optimizer', icon: WandSparkles },
+  { id: 'players', label: 'Player Lab', icon: Users },
+  { id: 'fixtures', label: 'Fixture Matrix', icon: CalendarDays },
+  { id: 'league', label: 'League Intel', icon: Trophy },
+  { id: 'method', label: 'Model & Rules', icon: BrainCircuit },
+];
+
 const MOBILE_NAV: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
   { id: 'command', label: 'Home', icon: Gauge },
   { id: 'optimizer', label: 'Planner', icon: WandSparkles },
@@ -74,7 +83,7 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#070914' : '#F4F6FF');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#070914' : '#f4f6ff');
   }, [theme]);
 
   useEffect(() => {
@@ -390,6 +399,40 @@ export default function App() {
           onNavigate={navigate}
         />
         <main className="content" id="main-content">
+          <nav className="vortex-route-pills" aria-label="Module tabs">
+            {ROUTE_PILLS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = route === tab.id;
+              const chipText =
+                tab.id === 'command'
+                  ? `GW${snapshot.meta.nextEventId}`
+                  : tab.id === 'optimizer'
+                    ? '15 XI'
+                    : tab.id === 'players'
+                      ? String(players.length)
+                      : tab.id === 'fixtures'
+                        ? '5 GW'
+                        : tab.id === 'league'
+                          ? effectiveEntry
+                            ? `#${effectiveEntry.id}`
+                            : 'Scan'
+                          : 'Live';
+              return (
+                <button
+                  type="button"
+                  key={tab.id}
+                  className={`vortex-route-pill ${isActive ? 'is-active' : ''}`}
+                  onClick={() => navigate(tab.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <Icon size={15} className="vortex-route-pill__icon" />
+                  <span className="vortex-route-pill__label">{tab.label}</span>
+                  <span className="vortex-route-pill__chip">{chipText}</span>
+                </button>
+              );
+            })}
+          </nav>
+
           {error && (
             <div className="data-warning" role="status">
               <span className="pulse-dot is-stale" />
