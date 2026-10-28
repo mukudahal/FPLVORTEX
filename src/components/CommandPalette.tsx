@@ -35,11 +35,11 @@ interface CommandPaletteProps {
 }
 
 const PAGE_ITEMS: Array<{ id: RouteId; label: string; subLabel: string; icon: ReactNode }> = [
-  { id: 'command', label: 'Command center', subLabel: 'Team #145784 overview, engine verdict & @FPLVORTEX briefings', icon: <Gauge size={17} /> },
+  { id: 'command', label: 'Command center', subLabel: 'Gameweek overview, engine verdict & @FPLVORTEX briefings', icon: <Gauge size={17} /> },
   { id: 'optimizer', label: 'Squad optimizer', subLabel: 'Team planner, FPLReview chip EV matrix & 3,000-draw Monte Carlo', icon: <WandSparkles size={17} /> },
   { id: 'players', label: 'Player lab', subLabel: 'All 667 repo players with portraits, Opta xP, DEFCON & GW7–16 horizon', icon: <Users size={17} /> },
   { id: 'fixtures', label: 'Fixture matrix', subLabel: '5-GW Poisson expected goals, clean-sheet % & club badges', icon: <CalendarDays size={17} /> },
-  { id: 'league', label: 'League intel', subLabel: 'Scan FPLVORTEX (#145784), EO rank impact & classic leagues', icon: <Trophy size={17} /> },
+  { id: 'league', label: 'League intel', subLabel: 'Scan your FPL squad, EO rank impact & classic leagues', icon: <Trophy size={17} /> },
   { id: 'method', label: 'Model & automation', subLabel: '2026/27 DEFCON math, shrinkage priors, calibration & provenance', icon: <BrainCircuit size={17} /> },
 ];
 

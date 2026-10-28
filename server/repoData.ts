@@ -16,7 +16,9 @@ const BENCHMARK_REL_PATH =
   process.env.VORTEX_BENCHMARK_CSV_PATH ?? '3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv';
 const VIDEOS_REL_PATH = process.env.VORTEX_VIDEOS_JSON_PATH ?? 'site/ui/videos.json';
 const DEFAULT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID ?? 'UCDU7nEIN72xoiR3NtxCT6CQ';
-export const CONFIGURED_REPO_ENTRY_ID = Number.parseInt(process.env.VORTEX_DEFAULT_ENTRY_ID ?? '145784', 10) || 145784;
+export const CONFIGURED_REPO_ENTRY_ID: number | null = process.env.VORTEX_DEFAULT_ENTRY_ID
+  ? Number.parseInt(process.env.VORTEX_DEFAULT_ENTRY_ID, 10) || null
+  : null;
 export const CONFIGURED_REPO_ENTRY_NAME = 'FPLVORTEX';
 
 export const REPO_SEASON_RULES_2026_27 = Object.freeze({
@@ -344,8 +346,9 @@ export async function getRepoMeta(): Promise<RepoDataMeta> {
 
 /**
  * Tier-1 Authoritative Repository Data Adapter:
- * Overrides player identity (`name`, `teamId`, `position`, `price`, `cost`) and GW7-GW16
- * projections (`gwProjections`, `gwExpectedMinutes`) from `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`.
+ * Preserves live/current official FPL player identity, club, position, and prices (`price`, `cost`),
+ * while enriching GW7-GW16 model projections (`gwProjections`, `gwExpectedMinutes`) from
+ * `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`.
  * When `snapshot.meta.source !== 'live'`, restricts the pool strictly to the 667 repo CSV players.
  */
 export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Snapshot> {
@@ -363,14 +366,16 @@ export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Sn
   const players = sourcePlayers.map((player) => {
     const bench = benchmarks.get(player.id);
     if (!bench) return player;
-    const resolvedTeamId = teamIdByShort.get(bench.team.toUpperCase()) ?? player.teamId;
-    const resolvedPrice = bench.price > 0 ? bench.price : player.price;
-    const resolvedCost = Math.round(resolvedPrice * 10);
+    const resolvedCost = player.cost > 0 ? player.cost : Math.round(bench.price * 10);
+    const resolvedPrice = player.price > 0 ? player.price : resolvedCost / 10;
+    const resolvedTeamId =
+      player.teamId > 0 ? player.teamId : (teamIdByShort.get(bench.team.toUpperCase()) ?? player.teamId);
+    const resolvedPosition = player.position || bench.position;
     return {
       ...player,
-      name: bench.name || player.name,
+      name: player.name || bench.name,
       teamId: resolvedTeamId,
-      position: bench.position,
+      position: resolvedPosition,
       price: resolvedPrice,
       cost: resolvedCost,
       repoExpectedMinutes: resolveGwMetric(bench.xmins, targetGw),
@@ -385,7 +390,7 @@ export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Sn
     ...snapshot,
     meta: {
       ...snapshot.meta,
-      exampleEntryId: CONFIGURED_REPO_ENTRY_ID,
+      exampleEntryId: null,
       fallbackNotice:
         snapshot.meta.source === 'live'
           ? undefined

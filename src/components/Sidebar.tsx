@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ExternalLink,
   Gauge,
-  Play,
   Trophy,
   Users,
   WandSparkles,
@@ -13,6 +12,8 @@ import type { EntryData, Snapshot } from '../lib/types';
 import type { RouteId } from '../hooks/useHashRoute';
 import { classNames, formatNumber } from '../lib/format';
 import { Brand } from './Brand';
+import { XBrandLogo, YouTubeBrandLogo } from './SocialIcons';
+import { YOUTUBE_CHANNEL_URL } from './YouTubePlayerModal';
 
 interface SidebarProps {
   route: RouteId;
@@ -23,7 +24,14 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: SidebarProps) {
+export function Sidebar({
+  route,
+  onNavigate,
+  snapshot,
+  entry,
+  open,
+  onClose,
+}: SidebarProps) {
   const playerCount = snapshot?.players.length ?? 667;
   const navItems = [
     { id: 'command' as const, label: 'Command center', hint: 'Gameweek hub', icon: Gauge },
@@ -60,30 +68,32 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
         <div className="sidebar__season">
           <div className="sidebar__channel-links">
             <a
-              href="https://www.youtube.com/@Fplvortex"
+              href={YOUTUBE_CHANNEL_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="sidebar__yt-pill"
+              title="Open @FPLVORTEX on YouTube"
             >
-              <span className="sidebar__yt-icon"><Play size={10} fill="currentColor" /></span>
+              <YouTubeBrandLogo size={18} />
               <strong>@FPLVORTEX</strong>
               <ExternalLink size={11} />
             </a>
             <a
               href="https://x.com/FplVortexM"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="sidebar__x-pill"
-              title="Follow @FPLVORTEXM on X"
+              title="Open @FplVortexM on X"
             >
-              𝕏
+              <XBrandLogo size={13} />
+              <span>@FplVortexM</span>
             </a>
           </div>
           <div className="sidebar__team-summary">
             <span className="sidebar__season-label">SEASON {snapshot?.meta.season ?? '2026/27'}</span>
             {entry ? (
               <>
-                <strong>{entry.teamName} · #{entry.id}</strong>
+                <strong>{entry.teamName}</strong>
                 <span>
                   {entry.overallRank ? `OR ${formatNumber(entry.overallRank)} · ` : ''}
                   {entry.freeTransfers} FT · £{(entry.history.bank / 10).toFixed(1)}m ITB
@@ -142,7 +152,16 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
           </div>
           <div className="sidebar__version">
             <span>FPL VORTEX</span>
-            <span>youtube.com/@Fplvortex</span>
+            <a
+              href={YOUTUBE_CHANNEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sidebar__version-yt-link"
+              title="Open @FPLVORTEX on YouTube"
+            >
+              <YouTubeBrandLogo size={14} />
+              <span>youtube.com/@Fplvortex</span>
+            </a>
           </div>
         </div>
       </aside>

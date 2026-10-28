@@ -128,6 +128,38 @@ app.post('/api/vortex/refresh', rateLimit(12, 60_000), asyncRoute(async (_req, r
 }));
 
 app.get(
+  '/api/vortex/saved-teams',
+  asyncRoute(async (_req, res) => {
+    // Saved FPL Team IDs are kept strictly private per-browser (localStorage/cookie) — never shared across visitors.
+    res.set('Cache-Control', 'no-store');
+    res.json({ teams: [] });
+  }),
+);
+
+app.post(
+  '/api/vortex/saved-teams',
+  rateLimit(60, 60_000),
+  asyncRoute(async (req, res) => {
+    const id = String(req.body?.id ?? '').trim();
+    if (!isNumericId(id)) {
+      res.status(400).json({ error: 'Enter a valid numeric FPL team ID.' });
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json({ teams: [] });
+  }),
+);
+
+app.delete(
+  '/api/vortex/saved-teams/:id',
+  rateLimit(60, 60_000),
+  asyncRoute(async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ teams: [] });
+  }),
+);
+
+app.get(
   '/api/vortex/entry/:id',
   rateLimit(45, 60_000),
   asyncRoute(async (req, res) => {
@@ -169,6 +201,32 @@ app.get('/api/videos', asyncRoute(async (_req, res) => {
   const payload = await getRepoVideos();
   res.set('Cache-Control', 'public, max-age=300');
   res.json(payload.videos);
+}));
+
+app.get('/api/vortex/odds', asyncRoute(async (req, res) => {
+  const force = req.query.refresh === '1';
+  const snapshot = await getSnapshot(force);
+  const gwParam = Number.parseInt(String(req.query.gw ?? ''), 10);
+  const targetGw = Number.isInteger(gwParam) && gwParam >= 1 && gwParam <= 38 ? gwParam : snapshot.meta.nextEventId;
+  const teamMap = new Map(snapshot.teams.map((t) => [t.id, t]));
+  const fixtures = snapshot.fixtures
+    .filter((fx) => fx.event === targetGw)
+    .map((fx) => ({
+      fixtureId: fx.id,
+      event: fx.event,
+      kickoffTime: fx.kickoffTime,
+      homeTeam: teamMap.get(fx.teamH)?.name ?? String(fx.teamH),
+      awayTeam: teamMap.get(fx.teamA)?.name ?? String(fx.teamA),
+      marketOdds: fx.marketOdds ?? null,
+    }));
+  res.set('Cache-Control', force ? 'no-store' : 'public, max-age=120');
+  res.json({
+    gameweek: targetGw,
+    oddsMeta: snapshot.meta.oddsMeta ?? null,
+    matchedCount: fixtures.filter((f) => f.marketOdds !== null).length,
+    totalFixtures: fixtures.length,
+    fixtures,
+  });
 }));
 
 app.get('/api/vortex/benchmarks', asyncRoute(async (req, res) => {

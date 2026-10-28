@@ -13,25 +13,29 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import type { EntryData, EnrichedPlayer, LeagueData, RiskProfile, Snapshot } from '../lib/types';
+import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { fetchEntry, fetchLeague } from '../lib/api';
 import { recommendTransfers } from '../lib/optimize';
 import { classNames, formatNumber, formatPercent, formatPrice, formatSigned } from '../lib/format';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 import { StatCard } from './StatCard';
+import { TeamIdInput } from './TeamIdInput';
 
 interface LeagueIntelProps {
   snapshot: Snapshot;
   players: EnrichedPlayer[];
   teamId: string;
   leagueId: string;
+  recentTeams?: RecentTeamEntry[];
+  onRemoveRecentTeam?: (idToRemove: string) => void;
   onTeamIdChange: (value: string) => void;
   onLeagueIdChange: (value: string) => void;
   profile: RiskProfile;
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
+  onInspectPlayer?: (player: EnrichedPlayer) => void;
+  onInspectInjury?: (player: EnrichedPlayer) => void;
 }
-
-const DEFAULT_REPO_ENTRY_ID = '145784';
 
 function isNumeric(value: string): boolean {
   return /^\d{1,12}$/.test(value.trim());
@@ -49,12 +53,15 @@ export function LeagueIntel({
   players,
   teamId,
   leagueId,
+  recentTeams = [],
+  onRemoveRecentTeam,
   onTeamIdChange,
   onLeagueIdChange,
   profile,
   onToast,
+  onInspectPlayer,
 }: LeagueIntelProps) {
-  const resolvedInitialTeamId = !teamId || teamId === '5112705' ? DEFAULT_REPO_ENTRY_ID : teamId;
+  const resolvedInitialTeamId = teamId === '5112705' ? '' : teamId;
   const [draftTeamId, setDraftTeamId] = useState(resolvedInitialTeamId);
   const [draftLeagueId, setDraftLeagueId] = useState(leagueId || String(snapshot.meta.exampleLeagueId));
   const [activeTeamId, setActiveTeamId] = useState(resolvedInitialTeamId);
@@ -114,7 +121,7 @@ export function LeagueIntel({
     const cleanTeam = draftTeamId.trim();
     const cleanLeague = draftLeagueId.trim();
     if (!isNumeric(cleanTeam)) {
-      onToast('Enter a numeric FPL team ID (e.g. 145784).', 'error');
+      onToast('Enter a valid numeric FPL team ID.', 'error');
       return;
     }
     if (!isNumeric(cleanLeague)) {
@@ -176,12 +183,17 @@ export function LeagueIntel({
         <form className="connect-panel__form" onSubmit={handleSubmit}>
           <label className="filter-select">
             <span>FPL Team ID</span>
-            <input
-              type="text"
-              inputMode="numeric"
+            <TeamIdInput
               value={draftTeamId}
-              onChange={(e) => setDraftTeamId(e.target.value)}
-              placeholder="145784"
+              onChange={setDraftTeamId}
+              recentTeams={recentTeams}
+              onRemoveRecent={onRemoveRecentTeam}
+              onSelectRecent={(selectedId) => {
+                setDraftTeamId(selectedId);
+                setActiveTeamId(selectedId);
+                onTeamIdChange(selectedId);
+              }}
+              ariaLabel="FPL Team ID"
             />
           </label>
           <label className="filter-select">
@@ -191,24 +203,13 @@ export function LeagueIntel({
               inputMode="numeric"
               value={draftLeagueId}
               onChange={(e) => setDraftLeagueId(e.target.value)}
-              placeholder="314"
+              placeholder=""
             />
           </label>
           <div className="button-row">
             <button type="submit" className="button button--primary" disabled={entryLoading || leagueLoading}>
               {entryLoading || leagueLoading ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
               Scan IDs
-            </button>
-            <button
-              type="button"
-              className="button button--ghost"
-              onClick={() => {
-                setDraftTeamId(DEFAULT_REPO_ENTRY_ID);
-                setActiveTeamId(DEFAULT_REPO_ENTRY_ID);
-                onTeamIdChange(DEFAULT_REPO_ENTRY_ID);
-              }}
-            >
-              Reset #145784
             </button>
           </div>
         </form>
@@ -226,7 +227,7 @@ export function LeagueIntel({
       {entry && (
         <section className="stat-grid stat-grid--league">
           <StatCard
-            label={`${entry.teamName} (#${entry.id})`}
+            label={entry.teamName}
             value={entry.overallRank ? `OR ${formatNumber(entry.overallRank)}` : 'Connected'}
             detail={`${entry.name || 'Manager'} · ${entry.overallPoints ?? entry.history.totalPoints} total pts`}
             icon={<Trophy size={18} />}
@@ -272,7 +273,20 @@ export function LeagueIntel({
                 const p = playerMap.get(pick.element);
                 if (!p) return null;
                 return (
-                  <div key={pick.element} className={classNames('squad-scan-row', pick.position > 11 && 'is-bench')}>
+                  <div
+                    key={pick.element}
+                    role="button"
+                    tabIndex={0}
+                    data-player-card-trigger="1"
+                    className={classNames('squad-scan-row vx-clickable-row', pick.position > 11 && 'is-bench')}
+                    onClick={() => onInspectPlayer?.(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onInspectPlayer?.(p);
+                      }
+                    }}
+                  >
                     <span className="squad-scan-row__pos">{pick.position <= 11 ? pick.position : `B${pick.position - 11}`}</span>
                     <PlayerAvatar
                       code={p.code}
@@ -318,7 +332,12 @@ export function LeagueIntel({
               {transfers.map((move) => (
                 <div key={`${move.out.id}-${move.incoming.id}`} className="transfer-card">
                   <div className="transfer-card__swap">
-                    <div className="inline-player-tag">
+                    <button
+                      type="button"
+                      data-player-card-trigger="1"
+                      className="inline-player-tag vx-tag-btn"
+                      onClick={() => onInspectPlayer?.(move.out)}
+                    >
                       <PlayerAvatar
                         code={move.out.code}
                         teamCode={move.out.team.code}
@@ -328,9 +347,14 @@ export function LeagueIntel({
                         size="sm"
                       />
                       <span>{move.out.name}</span>
-                    </div>
+                    </button>
                     <ArrowRight size={14} />
-                    <div className="inline-player-tag">
+                    <button
+                      type="button"
+                      data-player-card-trigger="1"
+                      className="inline-player-tag vx-tag-btn"
+                      onClick={() => onInspectPlayer?.(move.incoming)}
+                    >
                       <PlayerAvatar
                         code={move.incoming.code}
                         teamCode={move.incoming.team.code}
@@ -340,7 +364,7 @@ export function LeagueIntel({
                         size="sm"
                       />
                       <strong>{move.incoming.name}</strong>
-                    </div>
+                    </button>
                     <span className="score-pill is-elite">+{move.gain.toFixed(2)}</span>
                   </div>
                   <p>{move.reason}</p>

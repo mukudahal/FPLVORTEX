@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowLeftRight,
   ArrowUpDown,
   Download,
@@ -9,10 +10,13 @@ import {
   X,
 } from 'lucide-react';
 import type { EnrichedPlayer, FixtureRow, FplTeam, Position } from '../lib/types';
+import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 import { fixtureTone } from '../lib/fixtures';
 import { ClubBadge } from './ClubBadge';
+import { InjuryDetailModal } from './InjuryDetailModal';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { Sparkline } from './Sparkline';
 
 interface PlayerLabProps {
@@ -106,6 +110,7 @@ export function PlayerLab({
   const [differentialsOnly, setDifferentialsOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(30);
   const [selected, setSelected] = useState<EnrichedPlayer | null>(null);
+  const [selectedInjury, setSelectedInjury] = useState<EnrichedPlayer | null>(null);
   const [compareIds, setCompareIds] = useState<number[]>([]);
 
   useEffect(() => {
@@ -419,7 +424,27 @@ export function PlayerLab({
                           size="md"
                         />
                         <div>
-                          <strong>{player.name}</strong>
+                          <div className="vx-name-with-flag">
+                            <strong>{player.name}</strong>
+                            {(player.status !== 'a' || (player.chance !== null && player.chance < 100)) && (() => {
+                              const flagInfo = parsePlayerInjuryDetails(player);
+                              return (
+                                <button
+                                  type="button"
+                                  className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${flagInfo.severity}`)}
+                                  data-injury-trigger="1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelected(null);
+                                    setSelectedInjury(player);
+                                  }}
+                                >
+                                  <AlertTriangle size={10} />
+                                  <span>{flagInfo.badgeText}</span>
+                                </button>
+                              );
+                            })()}
+                          </div>
                           <small>{player.position} · #{player.id}</small>
                         </div>
                       </div>
@@ -478,83 +503,32 @@ export function PlayerLab({
         )}
       </section>
 
-      {selected && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`${selected.fullName} profile`} onClick={() => setSelected(null)}>
-          <article className="player-modal" onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="icon-button player-modal__close" onClick={() => setSelected(null)} aria-label="Close player profile">
-              <X size={18} />
-            </button>
+      <PlayerGraphicModal
+        player={selected}
+        teams={teams}
+        fixtureRows={fixtureRows}
+        reviewGw={nextEventId}
+        onClose={() => setSelected(null)}
+        onOpenInjuryDetail={(p) => {
+          setSelected(null);
+          setSelectedInjury(p);
+        }}
+      />
 
-            <div className="player-modal__header">
-              <PlayerAvatar
-                code={selected.code}
-                teamCode={selected.team.code}
-                name={selected.name}
-                fullName={selected.fullName}
-                teamShort={selected.team.shortName}
-                position={selected.position}
-                size="lg"
-              />
-              <div>
-                <span className="panel__eyebrow">
-                  {selected.team.name} · {selected.position} · ID #{selected.id} · Photo Code {selected.code}
-                </span>
-                <h3>{selected.fullName}</h3>
-                <p>
-                  {formatPrice(selected.price)} · {formatPercent(selected.ownership)} EO · {selected.totalPoints} season pts ·{' '}
-                  {selected.modelBreakdown.expectedMinutes.toFixed(0)} xMins
-                </p>
-              </div>
-              <div className="player-modal__projection">
-                <span>GW{nextEventId} Repo xPts</span>
-                <strong>{selected.projection.toFixed(2)}</strong>
-              </div>
-            </div>
-
-            {selected.gwProjections && Object.keys(selected.gwProjections).length > 0 && (
-              <div className="gw-horizon-strip">
-                <h4>GW7–GW16 Gameweek Horizon Projections</h4>
-                <div className="gw-horizon-cells">
-                  {Object.keys(selected.gwProjections)
-                    .map(Number)
-                    .sort((a, b) => a - b)
-                    .map((gw) => (
-                      <div key={gw} className={classNames('gw-horizon-cell', gw === nextEventId && 'is-current')}>
-                        <span>GW{gw}</span>
-                        <strong>{(selected.gwProjections?.[gw] ?? 0).toFixed(2)}</strong>
-                        <small>{(selected.gwExpectedMinutes?.[gw] ?? 0).toFixed(0)}′</small>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            <div className="player-modal__columns">
-              <div>
-                <h4>Why VORTEX rates {selected.name}</h4>
-                <ul className="reason-list">
-                  {selected.reasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h4>2026/27 Expected Points Breakdown</h4>
-                <div className="player-modal__stats">
-                  <div><span>Model xPts</span><strong>{selected.modelBreakdown.modelXPts.toFixed(2)}</strong></div>
-                  <div><span>Opta 5GW xP</span><strong>{selected.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
-                  <div><span>Appearance</span><strong>+{selected.modelBreakdown.appearance.toFixed(2)}</strong></div>
-                  <div><span>Attacking (G+A)</span><strong>+{selected.modelBreakdown.attacking.toFixed(2)}</strong></div>
-                  <div><span>Clean Sheet</span><strong>+{selected.modelBreakdown.cleanSheet.toFixed(2)}</strong></div>
-                  <div><span>DEFCON (+2 rule)</span><strong>+{selected.modelBreakdown.defcon.toFixed(2)}</strong></div>
-                  <div><span>Saves / Bonus</span><strong>+{(selected.modelBreakdown.saves + selected.modelBreakdown.bonus).toFixed(2)}</strong></div>
-                  <div><span>P(60+ mins)</span><strong>{(selected.modelBreakdown.p60Plus * 100).toFixed(0)}%</strong></div>
-                </div>
-              </div>
-            </div>
-          </article>
-        </div>
-      )}
+      <InjuryDetailModal
+        player={selectedInjury}
+        nextFixtureLabel={
+          selectedInjury
+            ? fixtureByTeam.get(selectedInjury.teamId)?.cells[0]?.label
+            : undefined
+        }
+        nextEventId={nextEventId}
+        onClose={() => setSelectedInjury(null)}
+        onOpenPlayerCard={(p) => {
+          setSelectedInjury(null);
+          setSelected(p);
+        }}
+      />
     </div>
   );
 }

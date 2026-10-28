@@ -39,6 +39,35 @@ export interface Gameweek {
   rankedCount: number;
 }
 
+export interface FixtureMarketOdds {
+  provider: 'the-odds-api' | 'football-data' | 'espn';
+  bookmaker: string;
+  updatedAt: string;
+  oddsHome: number;
+  oddsDraw: number;
+  oddsAway: number;
+  totalLine?: number | null;
+  oddsOver?: number | null;
+  oddsUnder?: number | null;
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  homeXg: number;
+  awayXg: number;
+  homeCs: number;
+  awayCs: number;
+  overround1x2: number;
+}
+
+export interface MarketOddsMeta {
+  status: 'live' | 'partial' | 'fallback';
+  provider: string;
+  matchedFixtures: number;
+  upcomingFixtures: number;
+  apiKeyConfigured: boolean;
+  updatedAt: string;
+}
+
 export interface Fixture {
   id: number;
   event: number;
@@ -52,6 +81,7 @@ export interface Fixture {
   teamAScore: number | null;
   teamHDifficulty: number;
   teamADifficulty: number;
+  marketOdds?: FixtureMarketOdds | null;
 }
 
 export interface Player {
@@ -90,10 +120,13 @@ export interface Player {
   transfersOut: number;
   transfersInEvent: number;
   transfersOutEvent: number;
+  costChangeEvent?: number;
+  costChangeStart?: number;
   selectedByPercent: number;
   status: string;
   chance: number | null;
   news: string;
+  newsAdded?: string | null;
   epNext: number;
   epThis: number;
   dreamteamCount: number;
@@ -123,7 +156,7 @@ export interface RepoDataMeta {
   videosFile: string;
   videosCount: number;
   channelId: string;
-  configuredEntryId: number;
+  configuredEntryId: number | null;
   configuredEntryName: string;
   seasonRules: string;
   verifiedNotes?: VerifiedEvidenceNote[];
@@ -147,6 +180,7 @@ export interface SnapshotMeta {
   exampleLeagueId: number;
   fallbackNotice?: string;
   repoData?: RepoDataMeta;
+  oddsMeta?: MarketOddsMeta;
 }
 
 export interface Snapshot {
@@ -266,6 +300,8 @@ export interface EntryPick {
   multiplier: number;
   isCaptain: boolean;
   isViceCaptain: boolean;
+  purchasePrice?: number;
+  sellingPrice?: number;
 }
 
 export interface EntryHistory {

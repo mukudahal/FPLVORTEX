@@ -9,10 +9,16 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
+import {
+  computeDynamicFreeTransfers,
+  resolveSquadPurchaseAndSellingPrices,
+  type RawEntryHistoryPayload,
+} from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
 import { optimizeSquad } from '../src/lib/optimize.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
+import { enrichFixturesWithLiveOdds } from './odds.ts';
 import {
   CONFIGURED_REPO_ENTRY_ID,
   CONFIGURED_REPO_ENTRY_NAME,
@@ -29,7 +35,7 @@ interface CacheEntry<T> {
 }
 
 interface OfflineLeagueFallback {
-  entries?: Record<string, { root: RawRecord; picks: RawRecord }>;
+  entries?: Record<string, { root: RawRecord; picks: RawRecord; history?: RawEntryHistoryPayload | null }>;
   leagues?: Record<string, RawRecord>;
 }
 
@@ -73,7 +79,21 @@ async function loadOfflineSnapshot(): Promise<Snapshot> {
       refreshSeconds: 120,
     },
   };
-  return enrichSnapshotWithRepoData(markedOffline);
+  const enrichedRepo = await enrichSnapshotWithRepoData(markedOffline);
+  const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
+    enrichedRepo.teams,
+    enrichedRepo.fixtures,
+    enrichedRepo.meta.nextEventId,
+    false,
+  );
+  return {
+    ...enrichedRepo,
+    fixtures: oddsFixtures,
+    meta: {
+      ...enrichedRepo.meta,
+      oddsMeta,
+    },
+  };
 }
 
 async function loadOfflineLeagueFallback(): Promise<OfflineLeagueFallback> {
@@ -133,7 +153,21 @@ export async function getSnapshot(force = false): Promise<Snapshot> {
     try {
       const raw = await fetchRawSnapshot();
       const normalized = normalizeSnapshot(raw, { source: 'live', upstreamOk: true, stale: false });
-      const fresh = await enrichSnapshotWithRepoData(normalized);
+      const repoEnriched = await enrichSnapshotWithRepoData(normalized);
+      const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
+        repoEnriched.teams,
+        repoEnriched.fixtures,
+        repoEnriched.meta.nextEventId,
+        force,
+      );
+      const fresh: Snapshot = {
+        ...repoEnriched,
+        fixtures: oddsFixtures,
+        meta: {
+          ...repoEnriched.meta,
+          oddsMeta,
+        },
+      };
       lastGoodSnapshot = fresh;
       const ttl = fresh.meta.isLive ? LIVE_TTL : STATIC_TTL;
       writeCache(cacheKey, fresh, ttl);
@@ -156,6 +190,9 @@ function normalizeEntry(
   snapshot: Snapshot,
   enriched: ReturnType<typeof enrichPlayers>,
   source: DataSource,
+  historyPayload?: RawEntryHistoryPayload | null,
+  postLockTransfersUsed = 0,
+  latestTransferInCostByElement?: Map<number, number>,
 ): EntryData {
   const history: EntryHistory = {
     event: numberValue(picks.entry_history?.event, snapshot.meta.currentEventId),
@@ -169,14 +206,27 @@ function normalizeEntry(
     eventTransfersCost: numberValue(picks.entry_history?.event_transfers_cost),
     pointsOnBench: numberValue(picks.entry_history?.points_on_bench),
   };
-  const normalizedPicks: EntryPick[] = (Array.isArray(picks.picks) ? picks.picks : []).map((pick: RawRecord) => ({
-    element: numberValue(pick.element),
-    position: numberValue(pick.position),
-    multiplier: numberValue(pick.multiplier),
-    isCaptain: Boolean(pick.is_captain),
-    isViceCaptain: Boolean(pick.is_vice_captain),
-  }));
   const playerIndex = new Map(enriched.map((player) => [player.id, player]));
+  const normalizedPicks: EntryPick[] = (Array.isArray(picks.picks) ? picks.picks : []).map((pick: RawRecord) => {
+    const element = numberValue(pick.element);
+    const matchedPlayer = playerIndex.get(element);
+    const prices = matchedPlayer
+      ? resolveSquadPurchaseAndSellingPrices(
+          matchedPlayer,
+          pick.purchase_price,
+          pick.selling_price,
+          latestTransferInCostByElement?.get(element),
+        )
+      : undefined;
+    return {
+      element,
+      position: numberValue(pick.position),
+      multiplier: numberValue(pick.multiplier),
+      isCaptain: Boolean(pick.is_captain),
+      isViceCaptain: Boolean(pick.is_vice_captain),
+      ...(prices ?? {}),
+    };
+  });
   const players = normalizedPicks
     .map((pick) => playerIndex.get(pick.element))
     .filter((player): player is (typeof enriched)[number] => Boolean(player));
@@ -186,22 +236,28 @@ function normalizeEntry(
     const multiplier = pick.isCaptain ? 2 : pick.multiplier > 0 ? 1 : 0;
     return sum + player.projection * multiplier;
   }, 0);
-  const rawFreeTransfers = numberValue(
-    root.free_transfers,
-    numberValue(root.id) === CONFIGURED_REPO_ENTRY_ID ? 4 : history.eventTransfers === 0 ? 2 : 1,
-  );
+  const startedEvent = numberValue(root.started_event, 1);
+  const activeChip = picks.active_chip ? stringValue(picks.active_chip) : null;
+  const freeTransfers = computeDynamicFreeTransfers({
+    startedEvent,
+    explicitFreeTransfers: root.free_transfers,
+    historyPayload,
+    singleGwEventTransfers: history.eventTransfers,
+    singleGwActiveChip: activeChip,
+    postLockTransfersUsed,
+  });
   return {
     id: numberValue(root.id),
     name: `${stringValue(root.player_first_name)} ${stringValue(root.player_last_name)}`.trim(),
     teamName: stringValue(root.name, CONFIGURED_REPO_ENTRY_NAME),
     region: stringValue(root.player_region_name, 'Worldwide'),
-    startedEvent: numberValue(root.started_event, 1),
+    startedEvent,
     favouriteTeamId: root.favourite_team === null || root.favourite_team === undefined ? null : numberValue(root.favourite_team),
     overallRank: root.summary_overall_rank === null ? null : numberValue(root.summary_overall_rank),
     overallPoints: root.summary_overall_points === null ? null : numberValue(root.summary_overall_points),
-    freeTransfers: clamp(rawFreeTransfers, 1, 5),
+    freeTransfers,
     currentEvent: history.event,
-    activeChip: picks.active_chip ? stringValue(picks.active_chip) : null,
+    activeChip,
     history,
     picks: normalizedPicks,
     players,
@@ -217,18 +273,23 @@ function buildOfflineSyntheticEntry(
   snapshot: Snapshot,
   enriched: ReturnType<typeof enrichPlayers>,
 ): EntryData {
-  const isRepoManager = numericId === CONFIGURED_REPO_ENTRY_ID;
+  const isRepoManager = CONFIGURED_REPO_ENTRY_ID !== null && numericId === CONFIGURED_REPO_ENTRY_ID;
   const profiles = ['balanced', 'safe', 'differential', 'upside'] as const;
   const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
   const optimized = optimizeSquad(enriched, { budget: 1000, profile });
   const ordered = [...optimized.starters, ...optimized.bench];
-  const picks: EntryPick[] = ordered.map((player, index) => ({
-    element: player.id,
-    position: index + 1,
-    multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
-    isCaptain: player.isCaptain,
-    isViceCaptain: player.isViceCaptain,
-  }));
+  const picks: EntryPick[] = ordered.map((player, index) => {
+    const prices = resolveSquadPurchaseAndSellingPrices(player);
+    return {
+      element: player.id,
+      position: index + 1,
+      multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
+      isCaptain: player.isCaptain,
+      isViceCaptain: player.isViceCaptain,
+      purchasePrice: prices.purchasePrice,
+      sellingPrice: prices.sellingPrice,
+    };
+  });
   const eventPoints = ordered.reduce((sum, player, index) => {
     const mult = player.isCaptain ? 2 : index < 11 ? 1 : 0;
     return sum + player.eventPoints * mult;
@@ -247,7 +308,7 @@ function buildOfflineSyntheticEntry(
     favouriteTeamId: 1,
     overallRank,
     overallPoints: totalPoints,
-    freeTransfers: isRepoManager ? 4 : 1,
+    freeTransfers: computeDynamicFreeTransfers({ startedEvent: 1, singleGwEventTransfers: 0 }),
     currentEvent: snapshot.meta.currentEventId,
     activeChip: null,
     history: {
@@ -322,9 +383,10 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       38,
     );
     const targetGw = requestedGw ? Math.min(requestedGw, latestLockedGw) : latestLockedGw;
-    const [picks, rawTransfers] = await Promise.all([
+    const [picks, rawTransfers, entryHistory] = await Promise.all([
       fetchFplJson<RawRecord>(`/entry/${id}/event/${targetGw}/picks/`, { retries: 1 }),
       fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => [] as RawRecord[]),
+      fetchFplJson<RawEntryHistoryPayload>(`/entry/${id}/history/`, { retries: 1 }).catch(() => null),
     ]);
     const recentTransfers = Array.isArray(rawTransfers)
       ? rawTransfers.slice(0, 12).map((tr) => ({
@@ -337,8 +399,39 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
         }))
       : [];
 
+    const maxHistoryEvent = Array.isArray(entryHistory?.current)
+      ? entryHistory!.current!.reduce((maxEv, row) => Math.max(maxEv, numberValue(row?.event, 0)), 0)
+      : latestLockedGw;
+    const postLockTransfersUsed = Array.isArray(rawTransfers)
+      ? rawTransfers.filter((tr) => numberValue(tr.event, 0) > maxHistoryEvent).length
+      : 0;
+
+    const latestTransferInCostByElement = new Map<number, number>();
+    if (Array.isArray(rawTransfers)) {
+      // Official FPL returns transfers sorted newest-first; keep the most recent transfer-in cost per element
+      const sortedNewestFirst = [...rawTransfers].sort(
+        (a, b) => numberValue(b?.event, 0) - numberValue(a?.event, 0),
+      );
+      for (const tr of sortedNewestFirst) {
+        const elIn = numberValue(tr?.element_in, 0);
+        const inCost = numberValue(tr?.element_in_cost, 0);
+        if (elIn > 0 && inCost >= 35 && !latestTransferInCostByElement.has(elIn)) {
+          latestTransferInCostByElement.set(elIn, inCost);
+        }
+      }
+    }
+
     // Apply any published post-GW transfers when viewing upcoming GWs
-    const result = normalizeEntry(root, picks, snapshot, enriched, 'live');
+    const result = normalizeEntry(
+      root,
+      picks,
+      snapshot,
+      enriched,
+      'live',
+      entryHistory,
+      postLockTransfersUsed,
+      latestTransferInCostByElement,
+    );
     result.recentTransfers = recentTransfers;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
@@ -350,6 +443,15 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
         const slot = updatedPicks.find((pk) => pk.element === tr.elementOut);
         if (slot && playerIndex.has(tr.elementIn)) {
           slot.element = tr.elementIn;
+          const incomingPlayer = playerIndex.get(tr.elementIn)!;
+          const prices = resolveSquadPurchaseAndSellingPrices(
+            incomingPlayer,
+            undefined,
+            undefined,
+            tr.elementInCost > 0 ? tr.elementInCost : latestTransferInCostByElement.get(tr.elementIn),
+          );
+          slot.purchasePrice = prices.purchasePrice;
+          slot.sellingPrice = prices.sellingPrice;
         }
       }
       result.picks = updatedPicks;
@@ -365,8 +467,8 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const fallbackFile = await loadOfflineLeagueFallback();
     const archived = fallbackFile.entries?.[id];
     const fallbackResult = archived
-      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot')
-      : buildOfflineSyntheticEntry(numberValue(id, CONFIGURED_REPO_ENTRY_ID), snapshot, enriched);
+      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null)
+      : buildOfflineSyntheticEntry(numberValue(id, 999999), snapshot, enriched);
     return writeCache(cacheKey, fallbackResult, 120_000);
   }
 }
@@ -415,10 +517,11 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     seasonRules: REPO_SEASON_RULES_2026_27,
     currentEventId: snapshot.meta.currentEventId,
     nextEventId: snapshot.meta.nextEventId,
-    defaultEntryId: CONFIGURED_REPO_ENTRY_ID,
+    defaultEntryId: null,
     players: snapshot.players.length,
     fixtures: snapshot.fixtures.length,
     repoData: snapshot.meta.repoData ?? null,
+    oddsMeta: snapshot.meta.oddsMeta ?? null,
     cacheEntries: cache.size,
     node: process.version,
   };

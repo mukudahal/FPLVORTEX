@@ -8,8 +8,8 @@ export function Brand({ compact = false }: { compact?: boolean }) {
           src={BRAND_LION_SRC}
           alt=""
           className="brand__lion-img"
-          width={44}
-          height={44}
+          width={56}
+          height={56}
         />
       </span>
       <span className="brand__text">

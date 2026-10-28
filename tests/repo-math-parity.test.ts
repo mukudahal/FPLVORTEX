@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -7,9 +9,26 @@ process.env.VORTEX_OFFLINE = '1';
 
 import { getEntry, getSnapshot } from '../server/fpl.ts';
 import { getRepoVideos } from '../server/repoData.ts';
-import { buildInsights, enrichPlayers, toRepoElement } from '../src/lib/analytics.ts';
+import {
+  buildInsights,
+  computePriceChangePrediction,
+  enrichPlayers,
+  parsePlayerInjuryDetails,
+  toRepoElement,
+} from '../src/lib/analytics.ts';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
+import {
+  computeDynamicFreeTransfers,
+  resolveSquadPurchaseAndSellingPrices,
+} from '../src/lib/freeTransfers.ts';
 import { getClubBadgeCandidates, getPlayerPhotoCandidates } from '../src/lib/playerImages.ts';
+import { InjuryDetailModal } from '../src/components/InjuryDetailModal.tsx';
+import { Topbar } from '../src/components/Topbar.tsx';
+import {
+  YOUTUBE_CHANNEL_URL,
+  YouTubePlayerModal,
+} from '../src/components/YouTubePlayerModal.tsx';
+import { filterRecentTeams, removeRecentTeam, upsertRecentTeam } from '../src/lib/recentTeamIds.ts';
 import { runFplReviewSimulation } from '../src/lib/repoModel/fplReviewSimulator.ts';
 
 // Import ORIGINAL repository modules directly from `site/model/*` to prove 100% mathematical parity
@@ -44,12 +63,13 @@ import {
 import { RULES_2026_27 } from '../src/lib/repoModel/seasonRules.ts';
 import { computePlayerXPts, computePositionPriors } from '../src/lib/repoModel/xpts.ts';
 
-// Import all 6 route components + Brand/Sidebar for full DOM & portrait verification
+// Import all 6 route components + Brand/Sidebar/PlayerGraphicModal for full DOM & portrait verification
 import { Brand } from '../src/components/Brand.tsx';
 import { CommandCenter } from '../src/components/CommandCenter.tsx';
 import { FixtureMatrix } from '../src/components/FixtureMatrix.tsx';
 import { LeagueIntel } from '../src/components/LeagueIntel.tsx';
 import { Methodology } from '../src/components/Methodology.tsx';
+import { PlayerGraphicModal } from '../src/components/PlayerGraphicModal.tsx';
 import { PlayerLab } from '../src/components/PlayerLab.tsx';
 import { Sidebar } from '../src/components/Sidebar.tsx';
 import { SquadBuilder } from '../src/components/SquadBuilder.tsx';
@@ -69,7 +89,7 @@ test('exact mathematical parity on 25 sample players against site/model/{xpts,mi
   const appPriors = computePositionPriors(repoElements);
   assert.deepEqual(appPriors, origPriors);
 
-  // Pick 25 distinct real players spanning GKP, DEF, MID, FWD + Team #145784 starters
+  // Pick 25 distinct real players spanning GKP, DEF, MID, FWD + template starters
   const priorityIds = [411, 154, 12, 1, 31, 40, 427, 165, 346, 332, 173, 124, 115, 112, 623];
   const extraIds = enriched
     .filter((p) => !priorityIds.includes(p.id) && p.minutes >= 180)
@@ -154,7 +174,7 @@ test('exact parity on 2026/27 scoring rules, FPLReview chip simulator, and paire
   assert.equal(pointsHit(3, 1, false), origPointsHit(3, 1, false));
 
   const snapshot = await getSnapshot();
-  const entry = await getEntry('145784');
+  const entry = await getEntry('999999');
   const players = enrichPlayers(snapshot, 'balanced');
   const squadIds = entry.picks.map((p) => p.element);
   const playerMap = new Map(players.map((p) => [p.id, p]));
@@ -196,7 +216,7 @@ test('exact parity on 2026/27 scoring rules, FPLReview chip simulator, and paire
 
 test('all 6 pages render cleanly with >= 15 real PL player portraits and club badges', async () => {
   const snapshot = await getSnapshot();
-  const entry = await getEntry('145784');
+  const entry = await getEntry('999999');
   const players = enrichPlayers(snapshot, 'balanced');
   const insights = buildInsights(players);
   const fixtureRows = buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, 5);
@@ -253,8 +273,34 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
   assert.match(htmlUnlinked, /vx-pitch-gate/);
   assert.doesNotMatch(htmlUnlinked, /class="vx-soccer-pitch"/);
+  // Exactly ONE FPL Team ID input on the Home Page (second input inside vx-pitch-gate removed)
+  assert.equal((htmlUnlinked.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
+  assert.doesNotMatch(htmlUnlinked, /vx-pitch-gate__form/);
+  assert.doesNotMatch(htmlUnlinked, /Load My Squad/);
+  // Blank FPL Team ID inputs must not display placeholder text
+  assert.doesNotMatch(htmlUnlinked, /placeholder="Enter[^>]*FPL[^>]*ID/i);
 
-  // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + scrollable videos
+  // Saved recent Team IDs start empty, store ALL installed IDs (10+ supported), and match as the user types
+  assert.deepEqual(filterRecentTeams([], '99'), []);
+  let saved = upsertRecentTeam([], { id: '999999' });
+  saved = upsertRecentTeam(saved, { id: '999999', teamName: 'Template XI', managerName: 'Demo Manager' });
+  saved = upsertRecentTeam(saved, { id: '987654', teamName: 'Second Squad' });
+  assert.equal(saved.length, 2);
+  assert.equal(saved[0].id, '987654');
+  assert.equal(saved[1].teamName, 'Template XI');
+  assert.deepEqual(filterRecentTeams(saved, '99').map((r) => r.id), ['999999']);
+  assert.deepEqual(filterRecentTeams(saved, '').map((r) => r.id), ['987654', '999999']);
+  assert.deepEqual(removeRecentTeam(saved, '987654').map((r) => r.id), ['999999']);
+
+  // Verify saving 12 distinct IDs keeps all 12 without dropping earlier IDs
+  let manySaved = saved;
+  for (let i = 1; i <= 11; i += 1) {
+    manySaved = upsertRecentTeam(manySaved, { id: String(800000 + i), teamName: `Team ${i}` });
+  }
+  assert.equal(manySaved.length, 13);
+  assert.equal(filterRecentTeams(manySaved, '800').length, 11);
+
+  // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + masks secret ID when blurred
   const htmlCommand = renderToStaticMarkup(
     React.createElement(CommandCenter, {
       snapshot,
@@ -264,7 +310,8 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       fixtureRows,
       initialVideos: videosPayload.videos,
       profile: 'balanced',
-      teamId: '145784',
+      teamId: '999999',
+      recentTeams: saved,
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
@@ -273,15 +320,17 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       refreshing: false,
     }),
   );
-  // Tier 1: Compact Hero + Top FPL Team ID Bar + Vortex Orb + Captain & Fixture float cards
+  // Tier 1: Compact Hero + Top FPL Team ID Bar (masked password when blurred) + Vortex Orb + Captain & Fixture float cards
   assert.match(htmlCommand, /Every transfer, captain and fixture/);
   assert.match(htmlCommand, /id="fpl-team-id-top"/);
+  assert.match(htmlCommand, /type="password"/);
+  // Saved Squad chips never print raw numeric `#999999` on screen
+  assert.doesNotMatch(htmlCommand, /#999999/);
   assert.match(htmlCommand, /vortex-orb/);
   assert.match(htmlCommand, /#1 CAPTAIN/);
   assert.match(htmlCommand, /BEST 5-GW RUN/);
   // Tier 2: Review Gameweek strip + Soccer Pitch (15 players) + GW Fixtures + GW Projected Goals (20 clubs)
-  assert.match(htmlCommand, /FPLVORTEX/);
-  assert.match(htmlCommand, /145784/);
+  assert.match(htmlCommand, /Template XI/);
   assert.match(htmlCommand, /Review GW 8/);
   assert.match(htmlCommand, /vx-review-strip/);
   assert.match(htmlCommand, /vx-soccer-pitch/);
@@ -298,9 +347,52 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /Injuries &amp; Suspensions/);
   assert.match(htmlCommand, /vx-videos-scroll-row/);
   assert.match(htmlCommand, /vx-video-pill/);
-  assert.match(htmlCommand, /Latest FPL Videos · @FPLVORTEX/);
+  assert.match(htmlCommand, /Latest FPL Videos ·[\s\S]*?@FPLVORTEX/);
   assert.match(htmlCommand, /https:\/\/www\.youtube\.com\/@Fplvortex/);
   assert.doesNotMatch(htmlCommand, /fplcore/i);
+  // Home page is strictly Gameweek Review — zero transfer-out buttons/modals and only 1 top FPL ID input
+  assert.equal((htmlCommand.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
+  assert.doesNotMatch(htmlCommand, /Sync App Transfer/);
+  assert.doesNotMatch(htmlCommand, /vx-swap-modal/);
+  // Saved IDs quick-switch strip + all 4 bench players' names, points, and club/price visibly rendered
+  assert.match(htmlCommand, /vx-saved-ids-strip/);
+  assert.match(htmlCommand, /BENCH · SUBSTITUTES/);
+  assert.equal((htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length, 4);
+  assert.equal((htmlCommand.match(/class="vx-pitch-bench-meta"/g) ?? []).length, 4);
+  for (const benchName of ['Bentley', 'De Cuyper', 'Van Hecke', 'Crooks']) {
+    assert.ok(htmlCommand.includes(benchName), `Expected bench player ${benchName} on pitch`);
+  }
+  const stylesRaw = await readFile(path.join(process.cwd(), 'src/styles.css'), 'utf8');
+  const appRaw = await readFile(path.join(process.cwd(), 'src/App.tsx'), 'utf8');
+  assert.match(stylesRaw, /\.vx-pitch-player\.vx-pitch-player--bench\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
+
+  // Clicking any player opens the broadcast FPL VORTEX Player Graphic Card (Image 3 spec)
+  const vanDijk = players.find((p) => p.fullName.includes('Virgil van Dijk')) ?? players[0];
+  const htmlPlayerCard = renderToStaticMarkup(
+    React.createElement(PlayerGraphicModal, {
+      player: vanDijk,
+      teams: snapshot.teams,
+      fixtureRows,
+      reviewGw: 8,
+      onClose: noop,
+    }),
+  );
+  assert.match(htmlPlayerCard, /vx-pcard/);
+  assert.match(htmlPlayerCard, /DEFENDER/);
+  assert.match(htmlPlayerCard, /VIRGIL/);
+  assert.match(htmlPlayerCard, /VAN DIJK/);
+  assert.match(htmlPlayerCard, /LIVERPOOL/);
+  assert.match(htmlPlayerCard, /PRICE/);
+  assert.match(htmlPlayerCard, /OWNERSHIP/);
+  assert.match(htmlPlayerCard, /xG PER 90/);
+  assert.match(htmlPlayerCard, /xA PER 90/);
+  assert.match(htmlPlayerCard, /GOALS PER 90/);
+  assert.match(htmlPlayerCard, /ASSISTS PER 90/);
+  assert.match(htmlPlayerCard, /CLEAN SHEETS %/);
+  assert.match(htmlPlayerCard, /POINTS PER MATCH/);
+  assert.match(htmlPlayerCard, /NEXT 5 FIXTURES/);
+  assert.match(htmlPlayerCard, /FDR:/);
+  assert.equal((htmlPlayerCard.match(/class="vx-pcard__fix-item"/g) ?? []).length, 5);
 
   const htmlOptimizer = renderToStaticMarkup(
     React.createElement(SquadBuilder, {
@@ -347,14 +439,121 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       snapshot,
       players,
       profile: 'balanced',
-      teamId: '145784',
+      teamId: '',
       leagueId: '314',
       onTeamIdChange: noop,
       onLeagueIdChange: noop,
       onToast: noop,
     }),
   );
-  assert.match(htmlLeague, /145784/);
+  assert.match(htmlLeague, /314/);
+
+  // Price & Transfers renders dynamic Status, Progress & Predicted Progress pills
+  assert.match(htmlCommand, /Status/);
+  assert.match(htmlCommand, /Progress/);
+  assert.match(htmlCommand, /Predicted Progress/);
+  assert.match(htmlCommand, /vx-price-status-pill/);
+  assert.match(htmlCommand, /vx-price-pct-pill/);
+  assert.match(htmlCommand, /Likely to drop|Likely to rise|Unlikely to change/);
+  // Accurate Free Transfers (2 FT instead of old hardcoded 4 FT) + Rectangular Injury Sign
+  assert.match(htmlCommand, /2 FT/);
+  assert.doesNotMatch(htmlCommand, /4 FT/);
+  assert.match(htmlCommand, /vx-injury-rect/);
+  // Exact Graphics CSS tokens: 24px dot-grid + radial glow, .vx-btn, .vx-btn-primary, .easy/.medium/.hard
+  assert.match(stylesRaw, /24px 24px/);
+  assert.match(stylesRaw, /\.vx-btn-primary/);
+  assert.match(stylesRaw, /\.easy\s*\{/);
+  assert.match(stylesRaw, /\.medium\s*\{/);
+  assert.match(stylesRaw, /\.hard\s*\{/);
+
+  // Fix 1 verification: Official FPL player prices are never overwritten by stale GW7 CSV prices (e.g. Tavernier = £6.4m)
+  const tavernier = players.find((p) => p.id === 68 || p.name === 'Tavernier');
+  assert.ok(tavernier, 'Expected Tavernier in enriched players');
+  assert.equal(tavernier.price, 6.4);
+  assert.equal(tavernier.cost, 64);
+
+  // Fix 4 verification: Clicking rectangular injury sign renders full Injury & Return Report
+  const injuredSample =
+    players.find((p) => /expected back/i.test(p.news || '')) ??
+    players.find((p) => p.status === 'i' || p.status === 'd') ??
+    players[0];
+  const htmlInjuryModal = renderToStaticMarkup(
+    React.createElement(InjuryDetailModal, {
+      player: injuredSample,
+      nextFixtureLabel: 'ARS (A)',
+      nextEventId: 9,
+      onClose: noop,
+      onOpenPlayerCard: noop,
+    }),
+  );
+  assert.match(htmlInjuryModal, /vx-side-popup-dock/);
+  assert.match(htmlInjuryModal, /WHAT INJURY \/ ISSUE/);
+  assert.match(htmlInjuryModal, /WHEN BACK \/ EXPECTED RETURN/);
+  assert.match(htmlInjuryModal, /Chance of Playing/);
+  assert.match(htmlInjuryModal, /Official Premier League Bulletin/);
+  assert.match(htmlInjuryModal, /View Player Stats Card/);
+
+  // Side-screen popup dock + zero transform trap on .page + unified pitch triggers + artistic hero + real social logos + bigger top-left brand
+  assert.match(htmlPlayerCard, /vx-side-popup-dock/);
+  assert.doesNotMatch(stylesRaw, /@keyframes page-in\s*\{[^}]*transform:/);
+  assert.match(htmlCommand, /vortex-orb--artistic/);
+  assert.match(htmlCommand, /float-card--artistic/);
+  assert.match(htmlCommand, /float-card__fdr-strip/);
+  assert.match(htmlCommand, /vx-social-svg--yt/);
+  assert.match(htmlOptimizer, /pitch-player__avatar-btn/);
+  assert.match(htmlOptimizer, /data-player-card-trigger="1"/);
+
+  assert.match(htmlBrand, /width="56"/);
+  assert.match(htmlSidebar, /vx-social-svg--yt/);
+  assert.match(htmlSidebar, /vx-social-svg--x/);
+  assert.match(htmlSidebar, /sidebar__version-yt-link/);
+
+  // Home-only 8-column Price & Transfers table + Two-Gradient Premium CSS + Clickable YouTube Channel & Video Modal
+  assert.match(htmlCommand, /vx-transfer-table--home-full/);
+  assert.match(htmlCommand, /Ownership Trend/);
+  assert.match(htmlCommand, /Current Price/);
+  assert.match(htmlCommand, /Purchase Price/);
+  assert.match(htmlCommand, /Selling Price/);
+  assert.match(htmlCommand, /vx-ownership-trend/);
+  assert.match(htmlCommand, /vx-video-pill__channel-link/);
+  assert.match(htmlCommand, new RegExp(YOUTUBE_CHANNEL_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  // Other tabs (e.g. SquadOptimizer) do NOT render the Home-only 8-column table
+  assert.doesNotMatch(htmlOptimizer, /vx-transfer-table--home-full/);
+
+  // Two-gradient premium color fills (toned down from harsh neon) + secret Team ID protection + direct YouTube & X links
+  assert.match(stylesRaw, /linear-gradient\(135deg,\s*#0d4a42\s+0%,\s*#1b3b6f\s+100%\)/);
+  assert.match(stylesRaw, /linear-gradient\(135deg,\s*#561834\s+0%,\s*#331d5c\s+100%\)/);
+  assert.doesNotMatch(stylesRaw, /#22c55e,\s*#10b981/);
+  assert.doesNotMatch(appRaw, /Team #\{effectiveEntry\.id\}/);
+  assert.match(appRaw, /href="https:\/\/x\.com\/FplVortexM"/);
+  assert.doesNotMatch(htmlSidebar, /#999999/);
+  assert.doesNotMatch(htmlOptimizer, /#999999/);
+
+  const htmlYtModal = renderToStaticMarkup(
+    React.createElement(YouTubePlayerModal, {
+      open: true,
+      videos: videosPayload.videos,
+      onClose: noop,
+    }),
+  );
+  assert.match(htmlYtModal, /vx-yt-player-iframe/);
+  assert.match(htmlYtModal, /youtube\.com\/embed\//);
+  assert.match(htmlYtModal, /@FPLVORTEX Channel/);
+  const htmlTopbar = renderToStaticMarkup(
+    React.createElement(Topbar, {
+      route: 'command',
+      snapshot,
+      refreshing: false,
+      lastSuccessAt: snapshot.meta.servedAt,
+      theme: 'dark',
+      onToggleTheme: noop,
+      onMenu: noop,
+      onOpenPalette: noop,
+      onRefresh: noop,
+      onNavigate: noop,
+    }),
+  );
+  assert.match(htmlTopbar, /topbar__brand-lion/);
 
   const htmlMethod = renderToStaticMarkup(
     React.createElement(Methodology, {
@@ -367,4 +566,99 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   );
   assert.match(htmlMethod, /DEFCON/);
   assert.match(htmlMethod, /SHRINK_90S|n90 \+ 4/);
+});
+
+test('computes dynamic Free Transfers, Injury Return parsing & Price Change Status/Progress without hardcoding', async () => {
+  // Replay GW1..GW8 history: rolls up to 3 FT, uses 2 in GW6 -> 2 FT, uses 1 in GW7 -> 2 FT, uses 1 in GW8 -> 2 FT!
+  const replayedTwoFt = computeDynamicFreeTransfers({
+    startedEvent: 1,
+    historyPayload: {
+      current: [
+        { event: 1, event_transfers: 0 },
+        { event: 2, event_transfers: 1 },
+        { event: 3, event_transfers: 1 },
+        { event: 4, event_transfers: 0 },
+        { event: 5, event_transfers: 1 },
+        { event: 6, event_transfers: 2 },
+        { event: 7, event_transfers: 0 },
+        { event: 8, event_transfers: 1 },
+      ],
+      chips: [],
+    },
+  });
+  assert.equal(replayedTwoFt, 2);
+
+  // Wildcard preserves banked FTs (e.g. 4 FTs banked entering GW5, WC played in GW5 -> still 4 FTs entering GW6!)
+  const preservedOnWc = computeDynamicFreeTransfers({
+    startedEvent: 1,
+    historyPayload: {
+      current: [
+        { event: 1, event_transfers: 0 },
+        { event: 2, event_transfers: 0 },
+        { event: 3, event_transfers: 0 },
+        { event: 4, event_transfers: 0 },
+        { event: 5, event_transfers: 9 },
+      ],
+      chips: [{ event: 5, name: 'wildcard' }],
+    },
+  });
+  assert.equal(preservedOnWc, 4);
+
+  // Injury details parser extracts issue + expected return dynamically
+  const expectedBackParsed = parsePlayerInjuryDetails(
+    { status: 'i', chance: 0, news: 'Hamstring injury - Expected back 8 Nov' },
+    'WHU (H)',
+  );
+  assert.equal(expectedBackParsed.statusLabel, 'Injured');
+  assert.equal(expectedBackParsed.injuryType, 'Hamstring injury');
+  assert.equal(expectedBackParsed.expectedReturn, 'Expected back 8 Nov');
+  assert.equal(expectedBackParsed.chancePercent, 0);
+
+  const suspendedParsed = parsePlayerInjuryDetails({
+    status: 's',
+    chance: 0,
+    news: 'Suspended until 8 Nov',
+  });
+  assert.equal(suspendedParsed.statusLabel, 'Suspended');
+  assert.equal(suspendedParsed.badgeText, 'SUSP');
+  assert.equal(suspendedParsed.expectedReturn, 'Eligible after 8 Nov');
+
+  // Price change predictor classifies Likely to rise, Likely to drop, and Unlikely to change dynamically
+  const snapshot = await getSnapshot();
+  const enriched = enrichPlayers(snapshot, 'balanced');
+  const predictions = enriched.map((p) => computePriceChangePrediction(p, snapshot.meta.totalPlayers));
+  assert.ok(predictions.some((pr) => pr.status === 'Likely to rise'), 'Expected at least 1 dynamic Likely to rise player');
+  assert.ok(predictions.some((pr) => pr.status === 'Likely to drop'), 'Expected at least 1 dynamic Likely to drop player');
+  assert.ok(predictions.some((pr) => pr.status === 'Unlikely to change'), 'Expected Unlikely to change players');
+
+  // Dynamic Purchase Price & Selling Price math (official FPL 50%-profit-rounded-down rule)
+  // Case 1: Bought at £6.6m (66), now £6.8m (68) -> profit 2 tenths -> Selling Price = £6.7m (67)
+  const plusTwo = resolveSquadPurchaseAndSellingPrices({ cost: 68, price: 6.8 }, undefined, undefined, 66);
+  assert.deepEqual(plusTwo, { purchasePrice: 6.6, sellingPrice: 6.7 });
+
+  // Case 2: Bought at £6.3m (63), now £6.4m (64) -> profit 1 tenth -> floor(1/2)=0 -> Selling Price = £6.3m (63)
+  const plusOne = resolveSquadPurchaseAndSellingPrices({ cost: 64, price: 6.4 }, undefined, undefined, 63);
+  assert.deepEqual(plusOne, { purchasePrice: 6.3, sellingPrice: 6.3 });
+
+  // Case 3: Held since GW1 with costChangeStart = +5 (started £7.5m, now £8.0m) -> Selling Price = £7.7m
+  const heldFromGw1 = resolveSquadPurchaseAndSellingPrices({ cost: 80, price: 8.0, costChangeStart: 5 });
+  assert.deepEqual(heldFromGw1, { purchasePrice: 7.5, sellingPrice: 7.7 });
+
+  // Case 4: Dropped after purchase (bought £5.0m, now £4.7m) -> Selling Price = full current £4.7m
+  const dropped = resolveSquadPurchaseAndSellingPrices({ cost: 47, price: 4.7 }, undefined, undefined, 50);
+  assert.deepEqual(dropped, { purchasePrice: 5.0, sellingPrice: 4.7 });
+
+  // Verify offline entry picks carry dynamic purchasePrice & sellingPrice
+  const offlineEntry = await getEntry('999999');
+  assert.equal(offlineEntry.picks.length, 15);
+  assert.ok(
+    offlineEntry.picks.every(
+      (pk) =>
+        typeof pk.purchasePrice === 'number' &&
+        pk.purchasePrice >= 3.5 &&
+        typeof pk.sellingPrice === 'number' &&
+        pk.sellingPrice >= 3.5,
+    ),
+    'Expected all 15 EntryPicks to include dynamic purchasePrice & sellingPrice',
+  );
 });

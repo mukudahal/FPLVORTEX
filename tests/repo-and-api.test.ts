@@ -7,7 +7,6 @@ process.env.VORTEX_OFFLINE = '1';
 
 import { getEntry, getHealth, getLeague, getSnapshot } from '../server/fpl.ts';
 import {
-  CONFIGURED_REPO_ENTRY_ID,
   enrichSnapshotWithRepoData,
   getRepoBenchmarks,
   getRepoVideos,
@@ -26,9 +25,9 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   ) as Snapshot;
   const enrichedSnapshot = await enrichSnapshotWithRepoData(rawSnapshot);
   assert.equal(enrichedSnapshot.players.length, 667);
-  assert.equal(enrichedSnapshot.meta.exampleEntryId, CONFIGURED_REPO_ENTRY_ID);
+  assert.equal(enrichedSnapshot.meta.exampleEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.benchmarkPlayers, 667);
-  assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, 145784);
+  assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.seasonRules, REPO_SEASON_RULES_2026_27.season);
 
   const haaland = enrichedSnapshot.players.find((player) => player.id === 411);
@@ -46,31 +45,31 @@ test('loads @FPLVORTEX channel briefings from site/ui/videos.json', async () => 
   assert.match(videos.videos[0].url, /^https:\/\/www\.youtube\.com\/watch\?v=/);
 });
 
-test('serves repository Entry 145784 (FPLVORTEX) and classic league 314 cleanly offline', async () => {
+test('keeps manager Team ID secret by default and serves offline demo entry & classic league 314 cleanly', async () => {
   const health = await getHealth();
   assert.equal(health.ok, true);
   assert.equal(health.players, 667);
   assert.equal(health.fixtures, 380);
+  assert.equal(health.defaultEntryId, null);
 
   const snapshot = await getSnapshot();
   assert.equal(snapshot.players.length, 667);
-  assert.equal(snapshot.meta.exampleEntryId, 145784);
+  assert.equal(snapshot.meta.exampleEntryId, null);
   assert.ok(snapshot.meta.repoData);
 
-  const repoEntry = await getEntry('145784');
-  assert.equal(repoEntry.id, 145784);
-  assert.equal(repoEntry.teamName, 'FPLVORTEX');
-  assert.equal(repoEntry.freeTransfers, 4);
-  assert.equal(repoEntry.picks.length, 15);
-  assert.equal(repoEntry.players.length, 15);
-  assert.ok(repoEntry.picks.some((p) => p.element === 154 && p.isCaptain)); // Palmer [C]
-  assert.ok(repoEntry.picks.some((p) => p.element === 411 && p.isViceCaptain)); // Haaland [V]
+  const demoEntry = await getEntry('999999');
+  assert.equal(demoEntry.id, 999999);
+  assert.equal(demoEntry.teamName, 'Template XI');
+  assert.equal(demoEntry.freeTransfers, 2);
+  assert.equal(demoEntry.picks.length, 15);
+  assert.equal(demoEntry.players.length, 15);
+  assert.ok(demoEntry.picks.some((p) => p.element === 154 && p.isCaptain)); // Palmer [C]
+  assert.ok(demoEntry.picks.some((p) => p.element === 411 && p.isViceCaptain)); // Haaland [V]
 
   const league = await getLeague('314');
   assert.equal(league.id, 314);
   assert.equal(league.name, 'Overall');
   assert.ok(league.standings.length >= 50);
-  assert.ok(league.standings.some((row) => row.entry === 145784 && row.entryName === 'FPLVORTEX'));
 });
 
 test('preserves brand-kit font, tokens, repo assets, and default dark theme configuration', async () => {
@@ -90,9 +89,32 @@ test('preserves brand-kit font, tokens, repo assets, and default dark theme conf
   assert.equal(manifestRaw.clubCount, 20);
 
   const tokensCss = await readFile(path.join(root, 'brand-kit/design-tokens.css'), 'utf8');
-  assert.match(tokensCss, /--brand-mint:\s*#5BF5D6/i);
-  assert.match(tokensCss, /--brand-violet:\s*#7772FF/i);
-  assert.match(tokensCss, /--brand-pink:\s*#FF5BC8/i);
+  assert.match(tokensCss, /--brand-mint:\s*#5bf5d6/i);
+  assert.match(tokensCss, /--brand-violet:\s*#7772ff/i);
+  assert.match(tokensCss, /--brand-pink:\s*#ff5bc8/i);
+  assert.match(tokensCss, /--brand-amber:\s*#ffc66d/i);
+  assert.match(tokensCss, /--brand-blue:\s*#65b8ff/i);
+  assert.match(tokensCss, /--bg:\s*#070914/i);
+  assert.match(tokensCss, /--bg:\s*#f4f6ff/i);
+  assert.match(tokensCss, /--font:\s*'Inter Variable',\s*Inter,\s*sans-serif/);
+
+  const appStylesCss = await readFile(path.join(root, 'src/styles.css'), 'utf8');
+  assert.match(appStylesCss, /--brand-mint:\s*#5bf5d6/i);
+  assert.match(appStylesCss, /--brand-violet:\s*#7772ff/i);
+  assert.match(appStylesCss, /--brand-pink:\s*#ff5bc8/i);
+  assert.match(appStylesCss, /--brand-amber:\s*#ffc66d/i);
+  assert.match(appStylesCss, /--brand-blue:\s*#65b8ff/i);
+  assert.match(appStylesCss, /--bg:\s*#070914/i);
+  assert.match(appStylesCss, /:root\[data-theme="light"\][\s\S]*?--bg:\s*#f4f6ff/i);
+  assert.match(appStylesCss, /--font:\s*'Inter Variable',\s*Inter,\s*sans-serif/);
+  assert.match(appStylesCss, /body::after/);
+  assert.match(appStylesCss, /\.vortex-theme-switch/);
+  assert.match(appStylesCss, /\.vortex-route-pills/);
+
+  const topbarTsx = await readFile(path.join(root, 'src/components/Topbar.tsx'), 'utf8');
+  assert.match(topbarTsx, /vortex-theme-switch/);
+  assert.match(topbarTsx, /<Moon\b/);
+  assert.match(topbarTsx, /<Sun\b/);
 
   const indexHtml = await readFile(path.join(root, 'index.html'), 'utf8');
   assert.match(indexHtml, /<html[^>]+data-theme="dark"/);

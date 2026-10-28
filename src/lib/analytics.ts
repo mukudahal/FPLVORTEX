@@ -395,3 +395,243 @@ export function buildInsights(players: EnrichedPlayer[]) {
     watchlist,
   };
 }
+
+export type PriceChangeStatus = 'Likely to rise' | 'Likely to drop' | 'Unlikely to change';
+
+export interface PriceChangePrediction {
+  status: PriceChangeStatus;
+  progressPct: number;
+  predictedProgressPct: number;
+  netTransfers: number;
+  stepThreshold: number;
+}
+
+/**
+ * Dynamically computes current price-change `Progress %`, `Predicted Progress %` at tonight's
+ * 01:30 UTC cutoff, and `Status` (`Likely to rise` | `Likely to drop` | `Unlikely to change`)
+ * strictly from live/snapshot official FPL transfer volume, ownership, availability lockouts,
+ * and current-GW price steps — zero hardcoded player overrides.
+ */
+export function computePriceChangePrediction(
+  player: Pick<
+    EnrichedPlayer,
+    | 'transfersInEvent'
+    | 'transfersOutEvent'
+    | 'ownership'
+    | 'status'
+    | 'chance'
+    | 'form'
+    | 'costChangeEvent'
+  >,
+  totalManagers = 11_000_000,
+): PriceChangePrediction {
+  const net = player.transfersInEvent - player.transfersOutEvent;
+  const volume = player.transfersInEvent + player.transfersOutEvent;
+  const safeTotal = Math.max(4_000_000, Number.isFinite(totalManagers) && totalManagers > 0 ? totalManagers : 11_000_000);
+  // Active non-dead manager pool driving FPL market thresholds (~46% of total registered managers)
+  const activePool = safeTotal * 0.46;
+
+  // Permanently departed / loaned-out-abroad players ('u' / 'n') are price-locked in official FPL
+  if (player.status === 'u' || player.status === 'n' || volume === 0 || net === 0) {
+    return {
+      status: 'Unlikely to change',
+      progressPct: 0,
+      predictedProgressPct: 0,
+      netTransfers: net,
+      stepThreshold: Math.round(activePool * 0.04),
+    };
+  }
+
+  const ownPct = Math.max(0.1, Number.isFinite(player.ownership) ? player.ownership : 0.1);
+  const ownFrac = ownPct / 100;
+
+  if (net > 0) {
+    const riseStep = Math.max(25_000, Math.round(activePool * (0.0375 + ownFrac * 0.054)));
+    const completedRises =
+      typeof player.costChangeEvent === 'number'
+        ? Math.max(0, player.costChangeEvent)
+        : Math.min(2, Math.floor(net / riseStep));
+
+    if (completedRises >= 3) {
+      return {
+        status: 'Unlikely to change',
+        progressPct: 0,
+        predictedProgressPct: 0,
+        netTransfers: net,
+        stepThreshold: riseStep,
+      };
+    }
+
+    const remainingNet = Math.max(0, net - completedRises * riseStep);
+    const progressPct = Math.min(99.9, Math.round((remainingNet / riseStep) * 1000) / 10);
+    const inShare = player.transfersInEvent / Math.max(1, volume);
+    const velocity = 0.965 + inShare * 0.105 + Math.min(0.05, Math.max(0, player.form || 0) * 0.006);
+    const predictedProgressPct = Math.min(104.5, Math.round(progressPct * velocity * 10) / 10);
+    const status: PriceChangeStatus =
+      progressPct >= 95.0 || predictedProgressPct >= 95.0 ? 'Likely to rise' : 'Unlikely to change';
+
+    return {
+      status,
+      progressPct,
+      predictedProgressPct,
+      netTransfers: net,
+      stepThreshold: riseStep,
+    };
+  }
+
+  const absNet = Math.abs(net);
+  const activeOwners = Math.max(12_000, ownFrac * activePool);
+  const flagDampener = (player.status === 'i' || player.status === 's') && player.chance === 0 ? 1.46 : 1.0;
+  const dropStep = Math.max(4_800, Math.round((activeOwners * 0.104 + activePool * 0.00072) * flagDampener));
+  const completedDrops =
+    typeof player.costChangeEvent === 'number'
+      ? Math.max(0, -player.costChangeEvent)
+      : Math.min(2, Math.floor(absNet / dropStep));
+
+  if (completedDrops >= 3) {
+    return {
+      status: 'Unlikely to change',
+      progressPct: 0,
+      predictedProgressPct: 0,
+      netTransfers: net,
+      stepThreshold: dropStep,
+    };
+  }
+
+  const remainingDropNet = Math.max(0, absNet - completedDrops * dropStep);
+  const progressPct = -Math.min(99.9, Math.round((remainingDropNet / dropStep) * 1000) / 10);
+  const outShare = player.transfersOutEvent / Math.max(1, volume);
+  const velocity = (player.status !== 'a' ? 1.035 : 0.945) + (outShare - 0.5) * 0.175;
+  const predictedProgressPct = -Math.min(104.5, Math.round(Math.abs(progressPct) * velocity * 10) / 10);
+  const status: PriceChangeStatus =
+    progressPct <= -95.0 || predictedProgressPct <= -95.0 ? 'Likely to drop' : 'Unlikely to change';
+
+  return {
+    status,
+    progressPct,
+    predictedProgressPct,
+    netTransfers: net,
+    stepThreshold: dropStep,
+  };
+}
+
+export interface ParsedInjuryDetails {
+  statusLabel: 'Injured' | 'Doubtful' | 'Suspended' | 'Unavailable' | 'Available';
+  badgeText: string;
+  severity: 'severe' | 'doubt' | 'clear';
+  injuryType: string;
+  expectedReturn: string;
+  chancePercent: number;
+  officialBulletin: string;
+  nextFixtureLabel?: string;
+}
+
+/**
+ * Dynamically extracts structured medical/disciplinary details (`injuryType`, `expectedReturn`,
+ * `chancePercent`, `statusLabel`, `badgeText`) from official FPL `status`, `chance`, and `news`.
+ */
+export function parsePlayerInjuryDetails(
+  player: Pick<EnrichedPlayer, 'status' | 'chance' | 'news'>,
+  nextFixtureLabel?: string,
+): ParsedInjuryDetails {
+  const rawNews = (player.news || '').trim();
+  const status = (player.status || 'a').toLowerCase();
+
+  let statusLabel: ParsedInjuryDetails['statusLabel'] = 'Available';
+  if (status === 'i') statusLabel = 'Injured';
+  else if (status === 'd') statusLabel = 'Doubtful';
+  else if (status === 's') statusLabel = 'Suspended';
+  else if (status === 'u' || status === 'n') statusLabel = 'Unavailable';
+  else if (player.chance !== null && player.chance < 100) statusLabel = 'Doubtful';
+
+  const chancePercent =
+    player.chance !== null && Number.isFinite(player.chance)
+      ? Math.max(0, Math.min(100, player.chance))
+      : status === 'i' || status === 's' || status === 'u' || status === 'n'
+        ? 0
+        : status === 'd'
+          ? 75
+          : 100;
+
+  const severity: ParsedInjuryDetails['severity'] =
+    status === 'i' || status === 's' || status === 'u' || status === 'n' || chancePercent <= 25
+      ? 'severe'
+      : status === 'd' || chancePercent < 100
+        ? 'doubt'
+        : 'clear';
+
+  const badgeText =
+    status === 's'
+      ? 'SUSP'
+      : status === 'u' || status === 'n'
+        ? 'OUT'
+        : chancePercent === 0
+          ? 'INJ'
+          : chancePercent < 100
+            ? `${chancePercent}%`
+            : 'FIT';
+
+  let injuryType =
+    status === 's'
+      ? 'Disciplinary Suspension'
+      : status === 'u' || status === 'n'
+        ? 'Squad Unavailable'
+        : status === 'i'
+          ? 'Injury Sideline'
+          : status === 'd'
+            ? 'Fitness Assessment'
+            : 'Match Fit';
+
+  let expectedReturn =
+    chancePercent === 0
+      ? 'Unknown return date (awaiting club medical update)'
+      : chancePercent < 100
+        ? `Assessed ahead of next Gameweek (${chancePercent}% chance of playing)`
+        : 'Available for next Gameweek';
+
+  if (rawNews) {
+    const dashParts = rawNews.split(/\s+-\s+/);
+    if (dashParts.length >= 2) {
+      injuryType = dashParts[0].trim();
+      const tail = dashParts.slice(1).join(' - ').trim();
+      const backMatch = tail.match(/expected back\s+(.+)/i);
+      if (backMatch?.[1]) {
+        expectedReturn = `Expected back ${backMatch[1].trim()}`;
+      } else if (/unknown return date/i.test(tail)) {
+        expectedReturn = 'Unknown return date (awaiting club medical update)';
+      } else if (/\d+%\s*chance/i.test(tail)) {
+        expectedReturn = `In contention for next Gameweek (${tail})`;
+      } else {
+        expectedReturn = tail;
+      }
+    } else if (/^suspended until\s+(.+)/i.test(rawNews)) {
+      const m = rawNews.match(/^suspended until\s+(.+)/i);
+      injuryType = 'Suspension';
+      expectedReturn = m?.[1] ? `Eligible after ${m[1].trim()}` : rawNews;
+    } else if (/on loan until\s+(.+)/i.test(rawNews)) {
+      const m = rawNews.match(/on loan until\s+(.+)/i);
+      injuryType = 'Out on Loan';
+      expectedReturn = m?.[1] ? `Loaned until ${m[1].trim()}` : rawNews;
+    } else if (/on loan/i.test(rawNews)) {
+      injuryType = 'Out on Loan';
+      expectedReturn = 'On loan for the remainder of the spell';
+    } else if (/joined .+ permanently|departed the club/i.test(rawNews)) {
+      injuryType = 'Transferred / Departed Club';
+      expectedReturn = 'Not returning (left club)';
+    } else {
+      injuryType = rawNews;
+    }
+  }
+
+  return {
+    statusLabel,
+    badgeText,
+    severity,
+    injuryType,
+    expectedReturn,
+    chancePercent,
+    officialBulletin: rawNews || `${statusLabel} (${chancePercent}% chance of playing)`,
+    nextFixtureLabel,
+  };
+}
+

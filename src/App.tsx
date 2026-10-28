@@ -1,24 +1,43 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
-import type { EntryData, RiskProfile } from './lib/types';
+import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
+import { BRAND_LION_SRC } from './lib/baseUrl';
 import type { RouteId } from './hooks/useHashRoute';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useVortexData } from './hooks/useVortexData';
-import { fetchEntry } from './lib/api';
+import {
+  deleteSavedTeamOnServer,
+  fetchEntry,
+  fetchSavedTeams,
+  saveTeamOnServer,
+} from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
 import { buildFixtureMatrix } from './lib/fixtures';
+import {
+  RECENT_TEAM_IDS_KEY,
+  mergeRecentTeamLists,
+  readFallbackStoredTeams,
+  removeRecentTeam,
+  upsertRecentTeam,
+  writeFallbackStoredTeams,
+  type RecentTeamEntry,
+} from './lib/recentTeamIds';
 import { CommandCenter } from './components/CommandCenter';
 import { CommandPalette } from './components/CommandPalette';
 import { FixtureMatrix } from './components/FixtureMatrix';
+import { InjuryDetailModal } from './components/InjuryDetailModal';
 import { LeagueIntel } from './components/LeagueIntel';
 import { LoadingScreen } from './components/LoadingScreen';
 import { Methodology } from './components/Methodology';
+import { PlayerGraphicModal } from './components/PlayerGraphicModal';
 import { PlayerLab } from './components/PlayerLab';
 import { Sidebar } from './components/Sidebar';
+import { XBrandLogo, YouTubeBrandLogo } from './components/SocialIcons';
 import { SquadBuilder } from './components/SquadBuilder';
 import { Toast } from './components/Toast';
 import { Topbar } from './components/Topbar';
+import { YOUTUBE_CHANNEL_URL } from './components/YouTubePlayerModal';
 
 type ToastTone = 'success' | 'error' | 'info';
 interface ToastState {
@@ -30,6 +49,15 @@ export interface PendingSwap {
   outId: number;
   inId: number;
 }
+
+const ROUTE_PILLS: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
+  { id: 'command', label: 'Command Center', icon: Gauge },
+  { id: 'optimizer', label: 'Squad Optimizer', icon: WandSparkles },
+  { id: 'players', label: 'Player Lab', icon: Users },
+  { id: 'fixtures', label: 'Fixture Matrix', icon: CalendarDays },
+  { id: 'league', label: 'League Intel', icon: Trophy },
+  { id: 'method', label: 'Model & Rules', icon: BrainCircuit },
+];
 
 const MOBILE_NAV: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
   { id: 'command', label: 'Home', icon: Gauge },
@@ -47,6 +75,7 @@ export default function App() {
   const [profile, setProfile] = useLocalStorage<RiskProfile>('vortex:profile', 'balanced');
   // Starts empty ('') until the user explicitly inputs their FPL Team ID at the top!
   const [teamId, setTeamId] = useLocalStorage<string>('vortex:linkedManagerId', '');
+  const [recentTeams, setRecentTeams] = useLocalStorage<RecentTeamEntry[]>(RECENT_TEAM_IDS_KEY, []);
   const [leagueId, setLeagueId] = useLocalStorage('vortex:leagueId', '314');
   const [pendingSwapsByTeam, setPendingSwapsByTeam] = useLocalStorage<Record<string, PendingSwap[]>>(
     'vortex:pendingSwapsByTeam',
@@ -60,6 +89,23 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [playerQuery, setPlayerQuery] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [globalCardPlayer, setGlobalCardPlayer] = useState<EnrichedPlayer | null>(null);
+  const [globalInjuryPlayer, setGlobalInjuryPlayer] = useState<EnrichedPlayer | null>(null);
+
+  const handleInspectPlayer = useCallback((player: EnrichedPlayer) => {
+    setGlobalInjuryPlayer(null);
+    setGlobalCardPlayer(player);
+  }, []);
+
+  const handleInspectInjury = useCallback((player: EnrichedPlayer) => {
+    setGlobalCardPlayer(null);
+    setGlobalInjuryPlayer(player);
+  }, []);
+
+  useEffect(() => {
+    setGlobalCardPlayer(null);
+    setGlobalInjuryPlayer(null);
+  }, [route]);
 
   const showToast = useCallback((message: string, tone: ToastTone = 'success') => setToast({ message, tone }), []);
   const closeToast = useCallback(() => setToast(null), []);
@@ -67,12 +113,34 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#070914' : '#F4F6FF');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#070914' : '#f4f6ff');
   }, [theme]);
 
   useEffect(() => {
     document.title = `${route.charAt(0).toUpperCase()}${route.slice(1)} · FPL VORTEX`;
   }, [route]);
+
+  // Hydrate saved FPL Team IDs from cookie/sessionStorage + server cache on mount so every ID ever entered persists
+  useEffect(() => {
+    const fallbackItems = readFallbackStoredTeams();
+    if (fallbackItems.length > 0) {
+      setRecentTeams((prev) => mergeRecentTeamLists(prev, fallbackItems));
+    }
+    const controller = new AbortController();
+    fetchSavedTeams(controller.signal)
+      .then((serverTeams) => {
+        if (!controller.signal.aborted && serverTeams.length > 0) {
+          setRecentTeams((prev) => mergeRecentTeamLists(prev, serverTeams));
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [setRecentTeams]);
+
+  // Mirror recentTeams into sessionStorage + cookie fallback whenever it changes
+  useEffect(() => {
+    writeFallbackStoredTeams(recentTeams);
+  }, [recentTeams]);
 
   useEffect(() => {
     const cleanId = (teamId || '').trim();
@@ -96,6 +164,13 @@ export default function App() {
         if (!controller.signal.aborted) {
           setActiveEntry(data);
           setEntryError(null);
+          const payload = {
+            id: cleanId,
+            teamName: data.teamName,
+            managerName: data.name,
+          };
+          setRecentTeams((prev) => upsertRecentTeam(prev, payload));
+          void saveTeamOnServer(payload);
         }
       })
       .catch((err: unknown) => {
@@ -108,7 +183,7 @@ export default function App() {
         if (!controller.signal.aborted) setEntryLoading(false);
       });
     return () => controller.abort();
-  }, [teamId, entrySyncNonce, snapshot?.meta.servedAt]);
+  }, [teamId, entrySyncNonce, snapshot?.meta.servedAt, setRecentTeams]);
 
   const handleLoadTeam = useCallback(
     (nextId: string) => {
@@ -125,10 +200,20 @@ export default function App() {
         return;
       }
       setTeamId(cleaned);
+      setRecentTeams((prev) => upsertRecentTeam(prev, { id: cleaned }));
+      void saveTeamOnServer({ id: cleaned });
       setEntrySyncNonce((n) => n + 1);
       showToast(`Syncing FPL Team #${cleaned} & Review Gameweek…`, 'info');
     },
-    [setTeamId, showToast],
+    [setRecentTeams, setTeamId, showToast],
+  );
+
+  const handleRemoveRecentTeam = useCallback(
+    (idToRemove: string) => {
+      setRecentTeams((prev) => removeRecentTeam(prev, idToRemove));
+      void deleteSavedTeamOnServer(idToRemove);
+    },
+    [setRecentTeams],
   );
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
@@ -275,6 +360,8 @@ export default function App() {
           profile={profile}
           onProfileChange={setProfile}
           onToast={showToast}
+          onInspectPlayer={handleInspectPlayer}
+          onInspectInjury={handleInspectInjury}
         />
       );
       break;
@@ -292,19 +379,31 @@ export default function App() {
       );
       break;
     case 'fixtures':
-      page = <FixtureMatrix snapshot={snapshot} fixtureRows={fixtureRows} players={players} onToast={showToast} />;
+      page = (
+        <FixtureMatrix
+          snapshot={snapshot}
+          fixtureRows={fixtureRows}
+          players={players}
+          onToast={showToast}
+          onInspectPlayer={handleInspectPlayer}
+        />
+      );
       break;
     case 'league':
       page = (
         <LeagueIntel
           snapshot={snapshot}
           players={players}
-          teamId={teamId || '145784'}
+          teamId={teamId}
           leagueId={leagueId}
+          recentTeams={recentTeams}
+          onRemoveRecentTeam={handleRemoveRecentTeam}
           onTeamIdChange={handleLoadTeam}
           onLeagueIdChange={setLeagueId}
           profile={profile}
           onToast={showToast}
+          onInspectPlayer={handleInspectPlayer}
+          onInspectInjury={handleInspectInjury}
         />
       );
       break;
@@ -334,6 +433,8 @@ export default function App() {
           fixtureRows={fixtureRows}
           profile={profile}
           teamId={teamId}
+          recentTeams={recentTeams}
+          onRemoveRecentTeam={handleRemoveRecentTeam}
           onTeamIdChange={handleLoadTeam}
           onSelectPlayer={(q) => {
             selectPlayer(q);
@@ -349,7 +450,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar route={route} onNavigate={navigate} snapshot={snapshot} entry={effectiveEntry} open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar
+        route={route}
+        onNavigate={navigate}
+        snapshot={snapshot}
+        entry={effectiveEntry}
+        open={sidebarOpen}
+        onClose={closeSidebar}
+      />
       <div className="app-main">
         <Topbar
           route={route}
@@ -364,6 +472,40 @@ export default function App() {
           onNavigate={navigate}
         />
         <main className="content" id="main-content">
+          <nav className="vortex-route-pills" aria-label="Module tabs">
+            {ROUTE_PILLS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = route === tab.id;
+              const chipText =
+                tab.id === 'command'
+                  ? `GW${snapshot.meta.nextEventId}`
+                  : tab.id === 'optimizer'
+                    ? '15 XI'
+                    : tab.id === 'players'
+                      ? String(players.length)
+                      : tab.id === 'fixtures'
+                        ? '5 GW'
+                        : tab.id === 'league'
+                          ? effectiveEntry
+                            ? 'Linked'
+                            : 'Scan'
+                          : 'Live';
+              return (
+                <button
+                  type="button"
+                  key={tab.id}
+                  className={`vortex-route-pill ${isActive ? 'is-active' : ''}`}
+                  onClick={() => navigate(tab.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <Icon size={15} className="vortex-route-pill__icon" />
+                  <span className="vortex-route-pill__label">{tab.label}</span>
+                  <span className="vortex-route-pill__chip">{chipText}</span>
+                </button>
+              );
+            })}
+          </nav>
+
           {error && (
             <div className="data-warning" role="status">
               <span className="pulse-dot is-stale" />
@@ -373,11 +515,31 @@ export default function App() {
           )}
           {page}
           <footer className="app-footer">
-            <span>
-              FPL VORTEX · <a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer">@FPLVORTEX YouTube</a>
-              {effectiveEntry ? ` · Team #${effectiveEntry.id} (${effectiveEntry.teamName})` : ''}
-            </span>
-            <span>Season {snapshot.meta.season} · Plan smarter. Play your game.</span>
+            <div className="app-footer__brand-social">
+              <img src={BRAND_LION_SRC} alt="" className="app-footer__lion" width={26} height={26} />
+              <strong className="app-footer__title">FPL VORTEX</strong>
+              <a
+                href={YOUTUBE_CHANNEL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="app-footer__social-link is-yt"
+                title="Open @FPLVORTEX on YouTube"
+              >
+                <YouTubeBrandLogo size={20} />
+                <span>@FPLVORTEX</span>
+              </a>
+              <a
+                href="https://x.com/FplVortexM"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="app-footer__social-link is-x"
+                title="Open @FplVortexM on X"
+              >
+                <XBrandLogo size={14} />
+                <span>@FplVortexM</span>
+              </a>
+            </div>
+            <span className="app-footer__tagline">Season {snapshot.meta.season} · Plan smarter. Play your game.</span>
           </footer>
         </main>
       </div>
@@ -399,6 +561,35 @@ export default function App() {
           );
         })}
       </nav>
+
+      <PlayerGraphicModal
+        player={globalCardPlayer}
+        teams={snapshot.teams}
+        fixtureRows={fixtureRows}
+        reviewGw={effectiveEntry?.currentEvent ?? snapshot.meta.currentEventId}
+        isCaptain={Boolean(
+          globalCardPlayer &&
+            effectiveEntry?.picks.some((pk) => pk.element === globalCardPlayer.id && pk.isCaptain),
+        )}
+        isViceCaptain={Boolean(
+          globalCardPlayer &&
+            effectiveEntry?.picks.some((pk) => pk.element === globalCardPlayer.id && pk.isViceCaptain),
+        )}
+        onClose={() => setGlobalCardPlayer(null)}
+        onOpenInjuryDetail={handleInspectInjury}
+      />
+
+      <InjuryDetailModal
+        player={globalInjuryPlayer}
+        nextFixtureLabel={
+          globalInjuryPlayer
+            ? fixtureRows.find((r) => r.team.id === globalInjuryPlayer.teamId)?.cells[0]?.label
+            : undefined
+        }
+        nextEventId={snapshot.meta.nextEventId}
+        onClose={() => setGlobalInjuryPlayer(null)}
+        onOpenPlayerCard={handleInspectPlayer}
+      />
 
       <CommandPalette
         open={paletteOpen}

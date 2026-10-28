@@ -1,6 +1,12 @@
 import { enrichPlayers } from './analytics';
 import { withBase } from './baseUrl';
 import { numberValue } from './format';
+import {
+  computeDynamicFreeTransfers,
+  resolveSquadPurchaseAndSellingPrices,
+  type RawEntryHistoryPayload,
+} from './freeTransfers';
+import type { RecentTeamEntry } from './recentTeamIds';
 import type { EntryData, LeagueData, Snapshot, VideosResponse } from './types';
 
 export class ApiRequestError extends Error {
@@ -93,7 +99,7 @@ export async function forceRefresh(signal?: AbortSignal): Promise<void> {
 }
 
 interface RawLeagueFallback {
-  entries?: Record<string, { root: Record<string, any>; picks: Record<string, any> }>;
+  entries?: Record<string, { root: Record<string, any>; picks: Record<string, any>; history?: RawEntryHistoryPayload | null }>;
   leagues?: Record<string, Record<string, any>>;
 }
 
@@ -118,17 +124,26 @@ export async function fetchEntry(
       fetchOfflineSnapshot(signal),
       getJson<RawLeagueFallback>(withBase('data/fpl-league-fallback.json'), signal),
     ]);
-    const archived = fallback.entries?.[id] ?? fallback.entries?.['145784'];
+    const firstArchivedKey = fallback.entries ? Object.keys(fallback.entries)[0] : undefined;
+    const archived = fallback.entries?.[id] ?? (firstArchivedKey ? fallback.entries?.[firstArchivedKey] : undefined);
     if (!archived) throw error;
     const enriched = enrichPlayers(snapshot, 'balanced');
     const playerIndex = new Map(enriched.map((player) => [player.id, player]));
-    const picks = (Array.isArray(archived.picks.picks) ? archived.picks.picks : []).map((pick: Record<string, any>) => ({
-      element: numberValue(pick.element),
-      position: numberValue(pick.position),
-      multiplier: numberValue(pick.multiplier),
-      isCaptain: Boolean(pick.is_captain),
-      isViceCaptain: Boolean(pick.is_vice_captain),
-    }));
+    const picks = (Array.isArray(archived.picks.picks) ? archived.picks.picks : []).map((pick: Record<string, any>) => {
+      const element = numberValue(pick.element);
+      const matched = playerIndex.get(element);
+      const prices = matched
+        ? resolveSquadPurchaseAndSellingPrices(matched, pick.purchase_price, pick.selling_price)
+        : undefined;
+      return {
+        element,
+        position: numberValue(pick.position),
+        multiplier: numberValue(pick.multiplier),
+        isCaptain: Boolean(pick.is_captain),
+        isViceCaptain: Boolean(pick.is_vice_captain),
+        ...(prices ?? {}),
+      };
+    });
     const players = picks
       .map((pick) => playerIndex.get(pick.element))
       .filter((player): player is (typeof enriched)[number] => Boolean(player));
@@ -140,18 +155,30 @@ export async function fetchEntry(
     }, 0);
     const history = archived.picks.entry_history ?? {};
     const targetGw = options?.gw ?? numberValue(history.event, snapshot.meta.currentEventId);
+    const isExactArchive = Boolean(fallback.entries?.[id]);
+    const startedEvent = numberValue(archived.root.started_event, 1);
+    const activeChip = archived.picks.active_chip ?? null;
+    const freeTransfers = computeDynamicFreeTransfers({
+      startedEvent,
+      explicitFreeTransfers: (archived.root as Record<string, any>).free_transfers,
+      historyPayload: archived.history ?? null,
+      singleGwEventTransfers: numberValue(history.event_transfers),
+      singleGwActiveChip: activeChip,
+    });
     return {
-      id: numberValue(archived.root.id, numberValue(id)),
-      name: `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim(),
-      teamName: String(archived.root.name ?? 'FPLVORTEX'),
+      id: numberValue(id, numberValue(archived.root.id)),
+      name: isExactArchive
+        ? `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim()
+        : `Manager #${id}`,
+      teamName: isExactArchive ? String(archived.root.name ?? 'FPLVORTEX') : `Squad #${id}`,
       region: String(archived.root.player_region_name ?? 'Worldwide'),
-      startedEvent: numberValue(archived.root.started_event, 1),
+      startedEvent,
       favouriteTeamId: archived.root.favourite_team ?? null,
       overallRank: archived.root.summary_overall_rank ?? null,
       overallPoints: archived.root.summary_overall_points ?? null,
       currentEvent: numberValue(history.event, snapshot.meta.currentEventId),
-      activeChip: archived.picks.active_chip ?? null,
-      freeTransfers: numberValue((archived.root as Record<string, any>).free_transfers, 4),
+      activeChip,
+      freeTransfers,
       history: {
         event: targetGw,
         points: numberValue(history.points),
@@ -211,3 +238,45 @@ export async function fetchVideos(signal?: AbortSignal): Promise<VideosResponse>
     return getJson<VideosResponse>(withBase('data/vortex-videos.json'), signal);
   }
 }
+
+export async function fetchSavedTeams(signal?: AbortSignal): Promise<RecentTeamEntry[]> {
+  try {
+    const res = await getJson<{ teams?: RecentTeamEntry[] }>(withBase('api/vortex/saved-teams'), signal);
+    return Array.isArray(res.teams) ? res.teams : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveTeamOnServer(entry: {
+  id: string;
+  teamName?: string;
+  managerName?: string;
+}): Promise<RecentTeamEntry[]> {
+  try {
+    const response = await fetch(withBase('api/vortex/saved-teams'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(entry),
+      cache: 'no-store',
+    });
+    if (!response.ok) return [];
+    const data = (await response.json()) as { teams?: RecentTeamEntry[] };
+    return Array.isArray(data.teams) ? data.teams : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteSavedTeamOnServer(id: string): Promise<void> {
+  try {
+    await fetch(withBase(`api/vortex/saved-teams/${encodeURIComponent(id)}`), {
+      method: 'DELETE',
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+    });
+  } catch {
+    // Ignore offline/static errors; client storage is updated synchronously.
+  }
+}
+

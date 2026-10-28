@@ -46,13 +46,21 @@ export function Topbar({
         <button type="button" className="icon-button topbar__menu" onClick={onMenu} aria-label="Open navigation">
           <Menu size={20} />
         </button>
-        <img
-          src={BRAND_LION_SRC}
-          alt="FPL VORTEX"
-          className="topbar__mobile-lion"
-          width={34}
-          height={34}
-        />
+        <button
+          type="button"
+          className="topbar__brand-lion"
+          onClick={() => onNavigate('command')}
+          aria-label="FPL VORTEX home"
+          title="FPL VORTEX — Command Center"
+        >
+          <img
+            src={BRAND_LION_SRC}
+            alt="FPL VORTEX"
+            className="topbar__mobile-lion"
+            width={44}
+            height={44}
+          />
+        </button>
         <div className="topbar__heading">
           <span className="topbar__breadcrumb">FPL VORTEX / {heading.title}</span>
           <h1>{heading.title}</h1>
@@ -94,12 +102,19 @@ export function Topbar({
 
         <button
           type="button"
-          className="icon-button"
+          className={`vortex-theme-switch ${theme === 'light' ? 'is-light' : 'is-dark'}`}
           onClick={onToggleTheme}
+          role="switch"
+          aria-checked={theme === 'dark'}
           aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          title="Toggle theme"
+          title={theme === 'dark' ? 'Dark theme (#070914) active — click for Light (#f4f6ff)' : 'Light theme (#f4f6ff) active — click for Dark (#070914)'}
         >
-          {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          <span className={`vortex-theme-switch__opt ${theme === 'dark' ? 'is-active' : ''}`} aria-hidden="true">
+            <Moon size={14} />
+          </span>
+          <span className={`vortex-theme-switch__opt ${theme === 'light' ? 'is-active' : ''}`} aria-hidden="true">
+            <Sun size={14} />
+          </span>
         </button>
 
         <button type="button" className="button button--primary topbar__connect" onClick={() => onNavigate('league')}>
