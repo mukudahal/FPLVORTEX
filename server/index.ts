@@ -171,6 +171,32 @@ app.get('/api/videos', asyncRoute(async (_req, res) => {
   res.json(payload.videos);
 }));
 
+app.get('/api/vortex/odds', asyncRoute(async (req, res) => {
+  const force = req.query.refresh === '1';
+  const snapshot = await getSnapshot(force);
+  const gwParam = Number.parseInt(String(req.query.gw ?? ''), 10);
+  const targetGw = Number.isInteger(gwParam) && gwParam >= 1 && gwParam <= 38 ? gwParam : snapshot.meta.nextEventId;
+  const teamMap = new Map(snapshot.teams.map((t) => [t.id, t]));
+  const fixtures = snapshot.fixtures
+    .filter((fx) => fx.event === targetGw)
+    .map((fx) => ({
+      fixtureId: fx.id,
+      event: fx.event,
+      kickoffTime: fx.kickoffTime,
+      homeTeam: teamMap.get(fx.teamH)?.name ?? String(fx.teamH),
+      awayTeam: teamMap.get(fx.teamA)?.name ?? String(fx.teamA),
+      marketOdds: fx.marketOdds ?? null,
+    }));
+  res.set('Cache-Control', force ? 'no-store' : 'public, max-age=120');
+  res.json({
+    gameweek: targetGw,
+    oddsMeta: snapshot.meta.oddsMeta ?? null,
+    matchedCount: fixtures.filter((f) => f.marketOdds !== null).length,
+    totalFixtures: fixtures.length,
+    fixtures,
+  });
+}));
+
 app.get('/api/vortex/benchmarks', asyncRoute(async (req, res) => {
   const snapshot = await getSnapshot();
   const gwParam = Number.parseInt(String(req.query.gw ?? ''), 10);

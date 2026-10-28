@@ -13,6 +13,7 @@ import { enrichPlayers } from '../src/lib/analytics.ts';
 import { optimizeSquad } from '../src/lib/optimize.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
+import { enrichFixturesWithLiveOdds } from './odds.ts';
 import {
   CONFIGURED_REPO_ENTRY_ID,
   CONFIGURED_REPO_ENTRY_NAME,
@@ -73,7 +74,21 @@ async function loadOfflineSnapshot(): Promise<Snapshot> {
       refreshSeconds: 120,
     },
   };
-  return enrichSnapshotWithRepoData(markedOffline);
+  const enrichedRepo = await enrichSnapshotWithRepoData(markedOffline);
+  const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
+    enrichedRepo.teams,
+    enrichedRepo.fixtures,
+    enrichedRepo.meta.nextEventId,
+    false,
+  );
+  return {
+    ...enrichedRepo,
+    fixtures: oddsFixtures,
+    meta: {
+      ...enrichedRepo.meta,
+      oddsMeta,
+    },
+  };
 }
 
 async function loadOfflineLeagueFallback(): Promise<OfflineLeagueFallback> {
@@ -133,7 +148,21 @@ export async function getSnapshot(force = false): Promise<Snapshot> {
     try {
       const raw = await fetchRawSnapshot();
       const normalized = normalizeSnapshot(raw, { source: 'live', upstreamOk: true, stale: false });
-      const fresh = await enrichSnapshotWithRepoData(normalized);
+      const repoEnriched = await enrichSnapshotWithRepoData(normalized);
+      const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
+        repoEnriched.teams,
+        repoEnriched.fixtures,
+        repoEnriched.meta.nextEventId,
+        force,
+      );
+      const fresh: Snapshot = {
+        ...repoEnriched,
+        fixtures: oddsFixtures,
+        meta: {
+          ...repoEnriched.meta,
+          oddsMeta,
+        },
+      };
       lastGoodSnapshot = fresh;
       const ttl = fresh.meta.isLive ? LIVE_TTL : STATIC_TTL;
       writeCache(cacheKey, fresh, ttl);
@@ -419,6 +448,7 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     players: snapshot.players.length,
     fixtures: snapshot.fixtures.length,
     repoData: snapshot.meta.repoData ?? null,
+    oddsMeta: snapshot.meta.oddsMeta ?? null,
     cacheEntries: cache.size,
     node: process.version,
   };

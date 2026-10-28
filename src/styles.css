@@ -3713,3 +3713,40 @@ kbd {
   background: rgba(255, 111, 145, 0.16);
   color: var(--danger);
 }
+
+/* ==========================================================================
+   Live Betting Market Odds Source Badge & Match Odds Breakdown
+   ========================================================================== */
+.vx-odds-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.vx-odds-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-amber);
+  flex: 0 0 auto;
+}
+.vx-odds-dot.is-live {
+  background: var(--brand-mint);
+  box-shadow: 0 0 9px rgba(91, 245, 214, 0.72);
+}
+.vx-seg-pills--xs button {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+.vx-match-probs__odds {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-mint);
+}
+:root[data-theme="light"] .vx-match-probs__odds {
+  color: var(--accent);
+}

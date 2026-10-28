@@ -79,8 +79,9 @@ Tier 3 (Last-Resort Offline Fallback):
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/health` | Service health, cache source, 2026/27 season rules, and repository metadata |
-| `GET` | `/api/vortex/snapshot` | Normalized FPL universe enriched with repository `xMins` / `xPts` benchmarks |
-| `POST` | `/api/vortex/refresh` | Rate-limited manual upstream refresh |
+| `GET` | `/api/vortex/snapshot` | Normalized FPL universe enriched with repository `xMins` / `xPts` benchmarks & live betting odds |
+| `POST` | `/api/vortex/refresh` | Rate-limited manual upstream refresh (FPL + live bookmaker odds) |
+| `GET` | `/api/vortex/odds` | Live bookmaker-implied Goals (`homeXg`/`awayXg`), Clean Sheet %, and de-vigged `1X2` Win % (`?gw=9&refresh=1`) |
 | `GET` | `/api/vortex/entry/:id` | Manager entry, Review/Forecast GW picks (`?refresh=1&gw=`), transfer reconciliation & offline fallback |
 | `GET` | `/api/vortex/league/:id` | Classic league standings and rank movement |
 | `GET` | `/api/vortex/videos` | `@FPLVORTEX` channel video briefings (live YouTube RSS merged with `site/ui/videos.json`) |

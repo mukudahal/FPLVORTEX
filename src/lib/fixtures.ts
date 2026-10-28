@@ -137,7 +137,7 @@ export function buildFixtureMatrix(
       for (const fx of relevant) {
         const homeStrength = strengths.get(fx.teamH) ?? defaultStrength;
         const awayStrength = strengths.get(fx.teamA) ?? defaultStrength;
-        const proj = projectMatch(homeStrength, awayStrength);
+        const proj = fx.marketOdds ?? projectMatch(homeStrength, awayStrength);
         const isHome = fx.teamH === team.id;
         const lf = isHome ? proj.homeXg : proj.awayXg;
         const la = isHome ? proj.awayXg : proj.homeXg;

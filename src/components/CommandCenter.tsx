@@ -209,6 +209,7 @@ export function CommandCenter({
   const [teamInput, setTeamInput] = useState(teamId);
   const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
   const [projMetric, setProjMetric] = useState<'goals' | 'cs' | 'win'>('goals');
+  const [oddsSourceMode, setOddsSourceMode] = useState<'auto' | 'model'>('auto');
   const [topMetric, setTopMetric] = useState<'season' | 'nextXp' | 'gwPts' | 'horizon5'>('season');
   const [transferSort, setTransferSort] = useState<'delta' | 'name' | 'in' | 'out' | 'net'>('delta');
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
@@ -325,7 +326,7 @@ export function CommandCenter({
   const captain = insights.captainCandidates[0];
   const bestFixture = fixtureRows[0];
 
-  // Match-level Poisson projections for selectedGw (`site/model/dashboardMath.ts`)
+  // Match-level Live Bookmaker Implied Goals/CS%/Win% (falling back per-fixture to `site/model/dashboardMath.ts`)
   const gwMatchesAndClubs = useMemo(() => {
     const repoTeams = toRepoTeams(snapshot.teams);
     const repoElements = snapshot.players.map(toRepoElement);
@@ -333,20 +334,31 @@ export function CommandCenter({
     const strengths = buildStrengths(repoTeams, repoElements, repoFixtures);
     const fallbackStrength = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
 
+    let availableOddsCount = 0;
+    const bookmakersUsed = new Set<string>();
+
     const matches = snapshot.fixtures
       .filter((fx) => fx.event === selectedGw)
       .sort((a, b) => (a.kickoffTime ?? '9999').localeCompare(b.kickoffTime ?? '9999'))
       .map((fx) => {
         const homeTeam = teamMap.get(fx.teamH);
         const awayTeam = teamMap.get(fx.teamA);
-        const proj = projectMatch(
-          strengths.get(fx.teamH) ?? fallbackStrength,
-          strengths.get(fx.teamA) ?? fallbackStrength,
-        );
+        if (fx.marketOdds) {
+          availableOddsCount += 1;
+          bookmakersUsed.add(fx.marketOdds.bookmaker);
+        }
+        const activeMarket = oddsSourceMode === 'auto' ? fx.marketOdds ?? null : null;
+        const proj =
+          activeMarket ??
+          projectMatch(
+            strengths.get(fx.teamH) ?? fallbackStrength,
+            strengths.get(fx.teamA) ?? fallbackStrength,
+          );
         return {
           fixture: fx,
           homeTeam,
           awayTeam,
+          marketOdds: activeMarket,
           homeXg: proj.homeXg,
           awayXg: proj.awayXg,
           homeCs: proj.homeCs,
@@ -414,8 +426,13 @@ export function CommandCenter({
       }
     }
 
-    return { matches, clubs: [...clubMap.values()] };
-  }, [selectedGw, snapshot.fixtures, snapshot.players, snapshot.teams, teamMap]);
+    return {
+      matches,
+      clubs: [...clubMap.values()],
+      availableOddsCount,
+      bookmakerLabel: [...bookmakersUsed].slice(0, 2).join(' · ') || snapshot.meta.oddsMeta?.provider || 'Market Odds',
+    };
+  }, [oddsSourceMode, selectedGw, snapshot.fixtures, snapshot.meta.oddsMeta?.provider, snapshot.players, snapshot.teams, teamMap]);
 
   const groupedMatches = useMemo(() => {
     const groups: Array<{ dateLabel: string; items: typeof gwMatchesAndClubs.matches }> = [];
@@ -1108,11 +1125,13 @@ export function CommandCenter({
           <header className="vx-card__header">
             <div>
               <h3>GW {selectedGw} Fixtures</h3>
-              {finishedMatchesCount > 0 && (
-                <small className="vx-card__sub">
-                  {finishedMatchesCount} of {gwMatchesAndClubs.matches.length} played
-                </small>
-              )}
+              <small className="vx-card__sub">
+                {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
+                  ? `Live Betting Odds (${gwMatchesAndClubs.bookmakerLabel}) · ${gwMatchesAndClubs.availableOddsCount}/${gwMatchesAndClubs.matches.length}`
+                  : finishedMatchesCount > 0
+                    ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
+                    : 'Poisson Model (auto-switches to live market odds online)'}
+              </small>
             </div>
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
               All matches <ArrowRight size={14} />
@@ -1181,7 +1200,7 @@ export function CommandCenter({
                       </div>
                       <div className="vx-xg-labels">
                         <strong>{m.homeXg.toFixed(2)}</strong>
-                        <span>Projected xG</span>
+                        <span>{m.marketOdds ? `Implied Goals · ${m.marketOdds.bookmaker}` : 'Projected xG'}</span>
                         <strong>{m.awayXg.toFixed(2)}</strong>
                       </div>
 
@@ -1193,6 +1212,15 @@ export function CommandCenter({
                           <span>
                             CS {(m.homeCs * 100).toFixed(0)}% / {(m.awayCs * 100).toFixed(0)}%
                           </span>
+                          {m.marketOdds && (
+                            <span className="vx-match-probs__odds">
+                              1X2 {m.marketOdds.oddsHome.toFixed(2)} / {m.marketOdds.oddsDraw.toFixed(2)} /{' '}
+                              {m.marketOdds.oddsAway.toFixed(2)}
+                              {m.marketOdds.totalLine && m.marketOdds.oddsOver && m.marketOdds.oddsUnder
+                                ? ` · O/U ${m.marketOdds.totalLine}: ${m.marketOdds.oddsOver.toFixed(2)} / ${m.marketOdds.oddsUnder.toFixed(2)}`
+                                : ''}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1258,6 +1286,40 @@ export function CommandCenter({
               );
             })}
           </div>
+
+          <footer className="vx-card__footer vx-card__footer--spread">
+            <span className="vx-odds-source-badge">
+              <span
+                className={classNames(
+                  'vx-odds-dot',
+                  gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto' && 'is-live',
+                )}
+              />
+              {gwMatchesAndClubs.availableOddsCount > 0
+                ? oddsSourceMode === 'auto'
+                  ? `Live Betting Odds (${gwMatchesAndClubs.bookmakerLabel})`
+                  : 'Repo Poisson Model (Live odds paused)'
+                : 'Poisson Model · Live odds auto-sync online'}
+            </span>
+            {gwMatchesAndClubs.availableOddsCount > 0 && (
+              <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
+                <button
+                  type="button"
+                  className={classNames(oddsSourceMode === 'auto' && 'is-active')}
+                  onClick={() => setOddsSourceMode('auto')}
+                >
+                  Live Odds
+                </button>
+                <button
+                  type="button"
+                  className={classNames(oddsSourceMode === 'model' && 'is-active')}
+                  onClick={() => setOddsSourceMode('model')}
+                >
+                  Model
+                </button>
+              </div>
+            )}
+          </footer>
         </article>
       </section>
 

@@ -39,6 +39,35 @@ export interface Gameweek {
   rankedCount: number;
 }
 
+export interface FixtureMarketOdds {
+  provider: 'the-odds-api' | 'football-data' | 'espn';
+  bookmaker: string;
+  updatedAt: string;
+  oddsHome: number;
+  oddsDraw: number;
+  oddsAway: number;
+  totalLine?: number | null;
+  oddsOver?: number | null;
+  oddsUnder?: number | null;
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  homeXg: number;
+  awayXg: number;
+  homeCs: number;
+  awayCs: number;
+  overround1x2: number;
+}
+
+export interface MarketOddsMeta {
+  status: 'live' | 'partial' | 'fallback';
+  provider: string;
+  matchedFixtures: number;
+  upcomingFixtures: number;
+  apiKeyConfigured: boolean;
+  updatedAt: string;
+}
+
 export interface Fixture {
   id: number;
   event: number;
@@ -52,6 +81,7 @@ export interface Fixture {
   teamAScore: number | null;
   teamHDifficulty: number;
   teamADifficulty: number;
+  marketOdds?: FixtureMarketOdds | null;
 }
 
 export interface Player {
@@ -147,6 +177,7 @@ export interface SnapshotMeta {
   exampleLeagueId: number;
   fallbackNotice?: string;
   repoData?: RepoDataMeta;
+  oddsMeta?: MarketOddsMeta;
 }
 
 export interface Snapshot {
