@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
-import type { EntryData, RiskProfile } from './lib/types';
+import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
+import { BRAND_LION_SRC } from './lib/baseUrl';
 import type { RouteId } from './hooks/useHashRoute';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -25,11 +26,14 @@ import {
 import { CommandCenter } from './components/CommandCenter';
 import { CommandPalette } from './components/CommandPalette';
 import { FixtureMatrix } from './components/FixtureMatrix';
+import { InjuryDetailModal } from './components/InjuryDetailModal';
 import { LeagueIntel } from './components/LeagueIntel';
 import { LoadingScreen } from './components/LoadingScreen';
 import { Methodology } from './components/Methodology';
+import { PlayerGraphicModal } from './components/PlayerGraphicModal';
 import { PlayerLab } from './components/PlayerLab';
 import { Sidebar } from './components/Sidebar';
+import { XBrandLogo, YouTubeBrandLogo } from './components/SocialIcons';
 import { SquadBuilder } from './components/SquadBuilder';
 import { Toast } from './components/Toast';
 import { Topbar } from './components/Topbar';
@@ -84,6 +88,23 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [playerQuery, setPlayerQuery] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [globalCardPlayer, setGlobalCardPlayer] = useState<EnrichedPlayer | null>(null);
+  const [globalInjuryPlayer, setGlobalInjuryPlayer] = useState<EnrichedPlayer | null>(null);
+
+  const handleInspectPlayer = useCallback((player: EnrichedPlayer) => {
+    setGlobalInjuryPlayer(null);
+    setGlobalCardPlayer(player);
+  }, []);
+
+  const handleInspectInjury = useCallback((player: EnrichedPlayer) => {
+    setGlobalCardPlayer(null);
+    setGlobalInjuryPlayer(player);
+  }, []);
+
+  useEffect(() => {
+    setGlobalCardPlayer(null);
+    setGlobalInjuryPlayer(null);
+  }, [route]);
 
   const showToast = useCallback((message: string, tone: ToastTone = 'success') => setToast({ message, tone }), []);
   const closeToast = useCallback(() => setToast(null), []);
@@ -338,6 +359,8 @@ export default function App() {
           profile={profile}
           onProfileChange={setProfile}
           onToast={showToast}
+          onInspectPlayer={handleInspectPlayer}
+          onInspectInjury={handleInspectInjury}
         />
       );
       break;
@@ -355,7 +378,15 @@ export default function App() {
       );
       break;
     case 'fixtures':
-      page = <FixtureMatrix snapshot={snapshot} fixtureRows={fixtureRows} players={players} onToast={showToast} />;
+      page = (
+        <FixtureMatrix
+          snapshot={snapshot}
+          fixtureRows={fixtureRows}
+          players={players}
+          onToast={showToast}
+          onInspectPlayer={handleInspectPlayer}
+        />
+      );
       break;
     case 'league':
       page = (
@@ -370,6 +401,8 @@ export default function App() {
           onLeagueIdChange={setLeagueId}
           profile={profile}
           onToast={showToast}
+          onInspectPlayer={handleInspectPlayer}
+          onInspectInjury={handleInspectInjury}
         />
       );
       break;
@@ -474,11 +507,36 @@ export default function App() {
           )}
           {page}
           <footer className="app-footer">
-            <span>
-              FPL VORTEX · <a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer">@FPLVORTEX YouTube</a>
-              {effectiveEntry ? ` · Team #${effectiveEntry.id} (${effectiveEntry.teamName})` : ''}
-            </span>
-            <span>Season {snapshot.meta.season} · Plan smarter. Play your game.</span>
+            <div className="app-footer__brand-social">
+              <img src={BRAND_LION_SRC} alt="" className="app-footer__lion" width={26} height={26} />
+              <strong className="app-footer__title">FPL VORTEX</strong>
+              <a
+                href="https://www.youtube.com/@Fplvortex"
+                target="_blank"
+                rel="noreferrer"
+                className="app-footer__social-link is-yt"
+                title="Subscribe to @FPLVORTEX on YouTube"
+              >
+                <YouTubeBrandLogo size={20} />
+                <span>@FPLVORTEX</span>
+              </a>
+              <a
+                href="https://x.com/FplVortexM"
+                target="_blank"
+                rel="noreferrer"
+                className="app-footer__social-link is-x"
+                title="Follow @FplVortexM on X"
+              >
+                <XBrandLogo size={14} />
+                <span>@FplVortexM</span>
+              </a>
+              {effectiveEntry && (
+                <span className="app-footer__team">
+                  · Team #{effectiveEntry.id} ({effectiveEntry.teamName})
+                </span>
+              )}
+            </div>
+            <span className="app-footer__tagline">Season {snapshot.meta.season} · Plan smarter. Play your game.</span>
           </footer>
         </main>
       </div>
@@ -500,6 +558,35 @@ export default function App() {
           );
         })}
       </nav>
+
+      <PlayerGraphicModal
+        player={globalCardPlayer}
+        teams={snapshot.teams}
+        fixtureRows={fixtureRows}
+        reviewGw={effectiveEntry?.currentEvent ?? snapshot.meta.currentEventId}
+        isCaptain={Boolean(
+          globalCardPlayer &&
+            effectiveEntry?.picks.some((pk) => pk.element === globalCardPlayer.id && pk.isCaptain),
+        )}
+        isViceCaptain={Boolean(
+          globalCardPlayer &&
+            effectiveEntry?.picks.some((pk) => pk.element === globalCardPlayer.id && pk.isViceCaptain),
+        )}
+        onClose={() => setGlobalCardPlayer(null)}
+        onOpenInjuryDetail={handleInspectInjury}
+      />
+
+      <InjuryDetailModal
+        player={globalInjuryPlayer}
+        nextFixtureLabel={
+          globalInjuryPlayer
+            ? fixtureRows.find((r) => r.team.id === globalInjuryPlayer.teamId)?.cells[0]?.label
+            : undefined
+        }
+        nextEventId={snapshot.meta.nextEventId}
+        onClose={() => setGlobalInjuryPlayer(null)}
+        onOpenPlayerCard={handleInspectPlayer}
+      />
 
       <CommandPalette
         open={paletteOpen}

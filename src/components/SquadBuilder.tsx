@@ -30,7 +30,7 @@ import type {
   SquadPlayer,
   SquadResult,
 } from '../lib/types';
-import { toRepoElement } from '../lib/analytics';
+import { parsePlayerInjuryDetails, toRepoElement } from '../lib/analytics';
 import { fixtureTone, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, MAX_PLAYERS_PER_CLUB, optimizeSquad } from '../lib/optimize';
@@ -47,6 +47,8 @@ interface SquadBuilderProps {
   profile: RiskProfile;
   onProfileChange: (profile: RiskProfile) => void;
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
+  onInspectPlayer?: (player: EnrichedPlayer) => void;
+  onInspectInjury?: (player: EnrichedPlayer) => void;
 }
 
 type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
@@ -97,6 +99,8 @@ interface PitchPlayerCardProps {
   selectedForSwap: boolean;
   onToggleLock: (id: number) => void;
   onSelectForSwap: (id: number) => void;
+  onInspectPlayer?: (player: EnrichedPlayer) => void;
+  onInspectInjury?: (player: EnrichedPlayer) => void;
   compact?: boolean;
 }
 
@@ -106,8 +110,13 @@ function PitchPlayerCard({
   selectedForSwap,
   onToggleLock,
   onSelectForSwap,
+  onInspectPlayer,
+  onInspectInjury,
   compact = false,
 }: PitchPlayerCardProps) {
+  const hasFlag = player.status !== 'a' || (player.chance !== null && player.chance < 100);
+  const injuryInfo = hasFlag ? parsePlayerInjuryDetails(player) : null;
+
   return (
     <article
       className={classNames(
@@ -130,17 +139,44 @@ function PitchPlayerCard({
       >
         {locked ? <Lock size={11} /> : <LockOpen size={11} />}
       </button>
+      {injuryInfo && (
+        <button
+          type="button"
+          className={classNames('vx-pitch-flag vx-injury-rect-sign pitch-player__injury-flag', `is-${injuryInfo.severity}`)}
+          data-injury-trigger="1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInspectInjury?.(player);
+          }}
+          aria-label={`${player.name} injury details: ${injuryInfo.injuryType}`}
+          title={`${injuryInfo.injuryType} · ${injuryInfo.expectedReturn} — Click for full injury report`}
+        >
+          <AlertTriangle size={10} />
+          <span>!</span>
+        </button>
+      )}
       {player.isCaptain && <span className="pitch-player__badge is-captain" title="Captain"><Crown size={10} /> C</span>}
       {player.isViceCaptain && <span className="pitch-player__badge is-vice" title="Vice-captain">V</span>}
-      <PlayerAvatar
-        code={player.code}
-        teamCode={player.team.code}
-        name={player.name}
-        fullName={player.fullName}
-        teamShort={player.team.shortName}
-        position={player.position}
-        size={compact ? 'sm' : 'md'}
-      />
+      <button
+        type="button"
+        className="pitch-player__avatar-btn"
+        data-player-card-trigger="1"
+        onClick={(e) => {
+          e.stopPropagation();
+          onInspectPlayer?.(player);
+        }}
+        title={`Click ${player.name} image for FPL VORTEX player card`}
+      >
+        <PlayerAvatar
+          code={player.code}
+          teamCode={player.team.code}
+          name={player.name}
+          fullName={player.fullName}
+          teamShort={player.team.shortName}
+          position={player.position}
+          size={compact ? 'sm' : 'md'}
+        />
+      </button>
       <div className="pitch-player__info">
         <strong>{player.name}</strong>
         <small>{player.team.shortName} · {formatPrice(player.price)}</small>
@@ -160,11 +196,13 @@ export function SquadBuilder({
   profile,
   onProfileChange,
   onToast,
+  onInspectPlayer,
+  onInspectInjury,
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
   const [squadMode, setSquadMode] = useState<'mySquad' | 'autoOptimal'>('mySquad');
   const [budget, setBudget] = useState(100);
-  const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 4);
+  const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [lockedIds, setLockedIds] = useState<number[]>([]);
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
   const [selectedOutId, setSelectedOutId] = useState<number | null>(null);
@@ -685,8 +723,17 @@ export function SquadBuilder({
                   <tbody>
                     {sortedPool.slice(0, 35).map((player) => {
                       const fxRow = fixtureByTeam.get(player.teamId);
+                      const poolFlag =
+                        player.status !== 'a' || (player.chance !== null && player.chance < 100)
+                          ? parsePlayerInjuryDetails(player)
+                          : null;
                       return (
-                        <tr key={player.id}>
+                        <tr
+                          key={player.id}
+                          className="vx-clickable-row"
+                          data-player-card-trigger="1"
+                          onClick={() => onInspectPlayer?.(player)}
+                        >
                           <td>
                             <div className="player-cell player-cell--avatar">
                               <PlayerAvatar
@@ -699,7 +746,23 @@ export function SquadBuilder({
                                 size="sm"
                               />
                               <div>
-                                <strong>{player.name}</strong>
+                                <div className="vx-name-with-flag">
+                                  <strong>{player.name}</strong>
+                                  {poolFlag && (
+                                    <button
+                                      type="button"
+                                      className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${poolFlag.severity}`)}
+                                      data-injury-trigger="1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onInspectInjury?.(player);
+                                      }}
+                                    >
+                                      <AlertTriangle size={10} />
+                                      <span>{poolFlag.badgeText}</span>
+                                    </button>
+                                  )}
+                                </div>
                                 <small>{player.team.shortName} · {player.position}</small>
                               </div>
                             </div>
@@ -726,7 +789,10 @@ export function SquadBuilder({
                             <button
                               type="button"
                               className="button button--subtle button--xs"
-                              onClick={() => swapInPlayer(player)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                swapInPlayer(player);
+                              }}
                             >
                               Swap in
                             </button>
@@ -774,6 +840,8 @@ export function SquadBuilder({
                       selectedForSwap={selectedOutId === player.id}
                       onToggleLock={toggleLock}
                       onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                      onInspectPlayer={onInspectPlayer}
+                      onInspectInjury={onInspectInjury}
                     />
                   ))}
                 </div>
@@ -786,6 +854,8 @@ export function SquadBuilder({
                       selectedForSwap={selectedOutId === player.id}
                       onToggleLock={toggleLock}
                       onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                      onInspectPlayer={onInspectPlayer}
+                      onInspectInjury={onInspectInjury}
                     />
                   ))}
                 </div>
@@ -798,6 +868,8 @@ export function SquadBuilder({
                       selectedForSwap={selectedOutId === player.id}
                       onToggleLock={toggleLock}
                       onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                      onInspectPlayer={onInspectPlayer}
+                      onInspectInjury={onInspectInjury}
                     />
                   ))}
                 </div>
@@ -810,6 +882,8 @@ export function SquadBuilder({
                       selectedForSwap={selectedOutId === player.id}
                       onToggleLock={toggleLock}
                       onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                      onInspectPlayer={onInspectPlayer}
+                      onInspectInjury={onInspectInjury}
                     />
                   ))}
                 </div>
@@ -818,7 +892,7 @@ export function SquadBuilder({
               <div className="bench">
                 <div className="bench__header">
                   <span>BENCH ORDER</span>
-                  <small>Auto-sub priority · click to swap</small>
+                  <small>Auto-sub priority · click image for card or card to swap</small>
                 </div>
                 <div className="bench__players">
                   {result.bench.map((player) => (
@@ -829,6 +903,8 @@ export function SquadBuilder({
                       selectedForSwap={selectedOutId === player.id}
                       onToggleLock={toggleLock}
                       onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
+                      onInspectPlayer={onInspectPlayer}
+                      onInspectInjury={onInspectInjury}
                       compact
                     />
                   ))}
@@ -967,7 +1043,20 @@ export function SquadBuilder({
                     if (!p) return null;
                     const isCap = id === activeChipSim.bestPitch?.captainId;
                     return (
-                      <div key={id} className="squad-mini-card">
+                      <div
+                        key={id}
+                        role="button"
+                        tabIndex={0}
+                        data-player-card-trigger="1"
+                        className="squad-mini-card vx-clickable-row"
+                        onClick={() => onInspectPlayer?.(p)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onInspectPlayer?.(p);
+                          }
+                        }}
+                      >
                         {isCap && <span className="squad-mini-card__cap is-cap">{activeChipSim.chip === '3xc' ? '3×' : 'C'}</span>}
                         <PlayerAvatar
                           code={p.code}

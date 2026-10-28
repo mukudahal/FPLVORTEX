@@ -20,6 +20,7 @@ interface FixtureMatrixProps {
   fixtureRows: FixtureRow[];
   players: EnrichedPlayer[];
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
+  onInspectPlayer?: (player: EnrichedPlayer) => void;
 }
 
 function exportMatrix(rows: FixtureRow[], startEvent: number): void {
@@ -54,7 +55,7 @@ function exportMatrix(rows: FixtureRow[], startEvent: number): void {
   URL.revokeObjectURL(url);
 }
 
-export function FixtureMatrix({ snapshot, fixtureRows, players, onToast }: FixtureMatrixProps) {
+export function FixtureMatrix({ snapshot, fixtureRows, players, onToast, onInspectPlayer }: FixtureMatrixProps) {
   const [sortBy, setSortBy] = useState<'difficulty' | 'attack' | 'cleanSheet' | 'swing' | 'name'>('difficulty');
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(fixtureRows[0]?.team.id ?? null);
   const startEvent = snapshot.meta.nextEventId;
@@ -254,7 +255,20 @@ export function FixtureMatrix({ snapshot, fixtureRows, players, onToast }: Fixtu
               <h4 className="subheading">Top {selectedRow.team.shortName} assets</h4>
               <div className="team-targets">
                 {teamPlayers.map((player) => (
-                  <div className="team-target-row team-target-row--avatar" key={player.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    data-player-card-trigger="1"
+                    className="team-target-row team-target-row--avatar vx-clickable-row"
+                    key={player.id}
+                    onClick={() => onInspectPlayer?.(player)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onInspectPlayer?.(player);
+                      }
+                    }}
+                  >
                     <PlayerAvatar
                       code={player.code}
                       teamCode={player.team.code}

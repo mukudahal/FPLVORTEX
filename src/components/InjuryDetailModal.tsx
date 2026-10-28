@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Activity,
   AlertTriangle,
@@ -30,13 +31,28 @@ export function InjuryDetailModal({
   onClose,
   onOpenPlayerCard,
 }: InjuryDetailModalProps) {
+  const cardRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!player) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target || !cardRef.current) return;
+      if (cardRef.current.contains(target)) return;
+      if (target.closest('.vx-injury-rect, .vx-injury-rect-sign, .vx-injury-copy-trigger, [data-injury-trigger]')) {
+        return;
+      }
+      onClose();
+    };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onPointerDown);
+    };
   }, [onClose, player]);
 
   if (!player) return null;
@@ -50,18 +66,17 @@ export function InjuryDetailModal({
       }).format(new Date(player.newsAdded))
     : null;
 
-  return (
-    <div
-      className="palette-overlay vx-injury-modal-overlay"
-      role="presentation"
-      onMouseDown={onClose}
+  const content = (
+    <aside
+      className="vx-side-popup-dock vx-injury-modal-overlay"
+      aria-label={`${player.fullName} injury side panel`}
     >
       <section
-        className="vx-injury-modal"
+        ref={cardRef}
+        className="vx-injury-modal vx-injury-modal--side"
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-label={`${player.fullName} injury and return report`}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="vx-injury-modal__header">
           <div className="vx-injury-modal__badge-row">
@@ -196,6 +211,8 @@ export function InjuryDetailModal({
           )}
         </footer>
       </section>
-    </div>
+    </aside>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

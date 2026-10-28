@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   Calendar,
@@ -149,13 +150,33 @@ export function PlayerGraphicModal({
   onClose,
   onOpenInjuryDetail,
 }: PlayerGraphicModalProps) {
+  const cardRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!player) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target || !cardRef.current) return;
+      if (cardRef.current.contains(target)) return;
+      // Let clicks on another player trigger switch the card cleanly instead of closing first
+      if (
+        target.closest(
+          '.vx-pitch-player, .pitch-player, .vx-clickable-row, .vx-top-player-row, .vx-injury-avatar-trigger, .float-card--interactive, [data-player-card-trigger]',
+        )
+      ) {
+        return;
+      }
+      onClose();
+    };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onPointerDown);
+    };
   }, [onClose, player]);
 
   const photoCandidates = useMemo(() => {
@@ -243,18 +264,17 @@ export function PlayerGraphicModal({
     { label: 'POINTS PER MATCH', value: pointsPerMatch, icon: <Star size={15} /> },
   ];
 
-  return (
-    <div
-      className="palette-overlay vx-pcard-overlay"
-      role="presentation"
-      onMouseDown={onClose}
+  const content = (
+    <aside
+      className="vx-side-popup-dock vx-pcard-overlay"
+      aria-label={`${player.fullName} side player card`}
     >
       <section
-        className="vx-pcard"
+        ref={cardRef}
+        className="vx-pcard vx-pcard--side"
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-label={`${player.fullName} FPL VORTEX player card`}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <button
           type="button"
@@ -418,6 +438,8 @@ export function PlayerGraphicModal({
           </footer>
         </div>
       </section>
-    </div>
+    </aside>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

@@ -3,7 +3,6 @@ import {
   CalendarDays,
   ExternalLink,
   Gauge,
-  Play,
   Trophy,
   Users,
   WandSparkles,
@@ -13,6 +12,7 @@ import type { EntryData, Snapshot } from '../lib/types';
 import type { RouteId } from '../hooks/useHashRoute';
 import { classNames, formatNumber } from '../lib/format';
 import { Brand } from './Brand';
+import { XBrandLogo, YouTubeBrandLogo } from './SocialIcons';
 
 interface SidebarProps {
   route: RouteId;
@@ -64,8 +64,9 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
               target="_blank"
               rel="noreferrer"
               className="sidebar__yt-pill"
+              title="Subscribe to @FPLVORTEX on YouTube"
             >
-              <span className="sidebar__yt-icon"><Play size={10} fill="currentColor" /></span>
+              <YouTubeBrandLogo size={18} />
               <strong>@FPLVORTEX</strong>
               <ExternalLink size={11} />
             </a>
@@ -74,9 +75,10 @@ export function Sidebar({ route, onNavigate, snapshot, entry, open, onClose }: S
               target="_blank"
               rel="noreferrer"
               className="sidebar__x-pill"
-              title="Follow @FPLVORTEXM on X"
+              title="Follow @FplVortexM on X"
             >
-              𝕏
+              <XBrandLogo size={13} />
+              <span>@FplVortexM</span>
             </a>
           </div>
           <div className="sidebar__team-summary">

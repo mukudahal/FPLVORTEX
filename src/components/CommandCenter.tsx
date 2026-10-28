@@ -61,6 +61,7 @@ import { ClubBadge } from './ClubBadge';
 import { InjuryDetailModal } from './InjuryDetailModal';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerGraphicModal } from './PlayerGraphicModal';
+import { YouTubeBrandLogo } from './SocialIcons';
 import { TeamIdInput } from './TeamIdInput';
 
 interface CommandCenterProps {
@@ -234,8 +235,16 @@ export function CommandCenter({
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
   const [transferPage, setTransferPage] = useState(0);
   const [injuryPage, setInjuryPage] = useState(0);
-  const [selectedCardPlayer, setSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
-  const [selectedInjuryPlayer, setSelectedInjuryPlayer] = useState<EnrichedPlayer | null>(null);
+  const [selectedCardPlayer, rawSetSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
+  const [selectedInjuryPlayer, rawSetSelectedInjuryPlayer] = useState<EnrichedPlayer | null>(null);
+  const setSelectedCardPlayer = (p: EnrichedPlayer | null) => {
+    if (p) rawSetSelectedInjuryPlayer(null);
+    rawSetSelectedCardPlayer(p);
+  };
+  const setSelectedInjuryPlayer = (p: EnrichedPlayer | null) => {
+    if (p) rawSetSelectedCardPlayer(null);
+    rawSetSelectedInjuryPlayer(p);
+  };
 
   // Whenever an FPL ID finishes loading, jump cleanly to its Review Gameweek so the user sees their Review GW immediately
   useEffect(() => {
@@ -805,18 +814,23 @@ export function CommandCenter({
           </div>
         </div>
 
-        {/* PREMIUM RIGHT VISUAL ORB + HIGH-CONTRAST FLOAT CARDS */}
-        <div className="hero__visual hero__visual--compact">
-          <div className="vortex-orb vortex-orb--compact" aria-hidden="true">
+        {/* PREMIUM RIGHT VISUAL ORB + COLORFUL ARTISTIC HERO SHOWCASE CARDS */}
+        <div className="hero__visual hero__visual--compact hero__visual--artistic">
+          <div className="vortex-orb vortex-orb--compact vortex-orb--artistic" aria-hidden="true">
+            <span className="vortex-orb__aurora" />
             <span className="vortex-orb__ring vortex-orb__ring--one" />
             <span className="vortex-orb__ring vortex-orb__ring--two" />
             <span className="vortex-orb__ring vortex-orb__ring--three" />
-            <div className="vortex-orb__core vortex-orb__core--premium">
-              <img
-                src={BRAND_LION_SRC}
-                alt=""
-                className="vortex-orb__crest"
-              />
+            <div className="vortex-orb__core vortex-orb__core--premium vortex-orb__core--artistic">
+              <div className="vortex-orb__crest-halo">
+                <img
+                  src={BRAND_LION_SRC}
+                  alt=""
+                  className="vortex-orb__crest"
+                  width={68}
+                  height={68}
+                />
+              </div>
               <span className="vortex-orb__gw">GW{nextEventId}</span>
               <strong className="vortex-orb__pts">{heroOrbXp.toFixed(1)}</strong>
               <small className="vortex-orb__caption">Projected XI pts</small>
@@ -826,27 +840,41 @@ export function CommandCenter({
           {captain && (
             <button
               type="button"
-              className="float-card float-card--captain float-card--premium float-card--interactive"
-              onClick={() => setSelectedCardPlayer(captain)}
+              className="float-card float-card--captain float-card--premium float-card--artistic float-card--interactive"
+              onClick={() => {
+                setSelectedInjuryPlayer(null);
+                setSelectedCardPlayer(captain);
+              }}
               title={`Click to view ${captain.fullName} FPL VORTEX player card`}
             >
               <div className="float-card__row">
-                <PlayerAvatar
-                  code={captain.code}
-                  teamCode={captain.team.code}
-                  name={captain.name}
-                  fullName={captain.fullName}
-                  teamShort={captain.team.shortName}
-                  position={captain.position}
-                  size="md"
-                />
+                <div className="float-card__portrait-halo">
+                  <PlayerAvatar
+                    code={captain.code}
+                    teamCode={captain.team.code}
+                    name={captain.name}
+                    fullName={captain.fullName}
+                    teamShort={captain.team.shortName}
+                    position={captain.position}
+                    size="lg"
+                  />
+                </div>
                 <div className="float-card__copy">
-                  <span className="float-card__label">
-                    <Crown size={13} /> #1 CAPTAIN
+                  <span className="float-card__label float-card__label--captain">
+                    <Crown size={14} /> #1 CAPTAIN
                   </span>
-                  <div className="float-card__title">{captain.name}</div>
-                  <div className="float-card__meta">
-                    {captain.team.shortName} · {(captain.projection * 2).toFixed(1)} 2× xPts
+                  <div className="float-card__title-row">
+                    <div className="float-card__title">{captain.name}</div>
+                    <ClubBadge
+                      teamCode={captain.team.code}
+                      shortName={captain.team.shortName}
+                      teamName={captain.team.name}
+                      size="sm"
+                    />
+                  </div>
+                  <div className="float-card__meta-pills">
+                    <span className="float-card__xp-pill">{(captain.projection * 2).toFixed(1)} 2× xPts</span>
+                    <span className="float-card__sub-pill">£{captain.price.toFixed(1)}m</span>
                   </div>
                 </div>
               </div>
@@ -854,25 +882,43 @@ export function CommandCenter({
           )}
 
           {bestFixture && (
-            <div className="float-card float-card--fixture float-card--premium">
+            <button
+              type="button"
+              className="float-card float-card--fixture float-card--premium float-card--artistic float-card--interactive"
+              onClick={() => onNavigate('fixtures')}
+              title={`Explore ${bestFixture.team.name} 5-GW fixture run`}
+            >
               <div className="float-card__row">
-                <ClubBadge
-                  teamCode={bestFixture.team.code}
-                  shortName={bestFixture.team.shortName}
-                  teamName={bestFixture.team.name}
-                  size="lg"
-                />
+                <div className="float-card__crest-halo">
+                  <ClubBadge
+                    teamCode={bestFixture.team.code}
+                    shortName={bestFixture.team.shortName}
+                    teamName={bestFixture.team.name}
+                    size="lg"
+                  />
+                </div>
                 <div className="float-card__copy">
-                  <span className="float-card__label">
-                    <Flame size={13} /> BEST 5-GW RUN
+                  <span className="float-card__label float-card__label--fixture">
+                    <Flame size={14} /> BEST 5-GW RUN
                   </span>
                   <div className="float-card__title">{bestFixture.team.name}</div>
-                  <div className="float-card__meta">
-                    Ease +{bestFixture.easeSum5} · {bestFixture.next5.toFixed(2)} FDR
+                  <div className="float-card__meta-pills">
+                    <span className="float-card__ease-pill">Ease +{bestFixture.easeSum5}</span>
+                    <span className="float-card__fdr-avg">{bestFixture.next5.toFixed(2)} FDR</span>
+                  </div>
+                  <div className="float-card__fdr-strip" aria-hidden="true">
+                    {bestFixture.cells.slice(0, 5).map((cell) => {
+                      const tone = fdrPillTone(cell.difficulty, cell.isBlank);
+                      return (
+                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)}>
+                          {cell.isBlank ? '—' : cell.label.split(' ')[0]}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
           )}
         </div>
       </section>
@@ -1747,9 +1793,7 @@ export function CommandCenter({
       <section className="panel vx-videos-strip" aria-label="Latest FPL VORTEX YouTube videos">
         <header className="vx-card__header vx-videos-strip__header">
           <div className="vx-card__title-icon">
-            <span className="vx-yt-badge">
-              <Play size={12} fill="currentColor" />
-            </span>
+            <YouTubeBrandLogo size={22} />
             <h3>Latest FPL Videos · @FPLVORTEX</h3>
           </div>
 
@@ -1778,7 +1822,7 @@ export function CommandCenter({
               rel="noreferrer"
               className="vx-yt-channel-btn"
             >
-              <img src={BRAND_LION_SRC} alt="" width={20} height={20} />
+              <YouTubeBrandLogo size={18} />
               <span>@FPLVORTEX Channel</span>
               <ExternalLink size={13} />
             </a>

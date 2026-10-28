@@ -20,6 +20,7 @@ import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../src/lib/fixt
 import { computeDynamicFreeTransfers } from '../src/lib/freeTransfers.ts';
 import { getClubBadgeCandidates, getPlayerPhotoCandidates } from '../src/lib/playerImages.ts';
 import { InjuryDetailModal } from '../src/components/InjuryDetailModal.tsx';
+import { Topbar } from '../src/components/Topbar.tsx';
 import { filterRecentTeams, removeRecentTeam, upsertRecentTeam } from '../src/lib/recentTeamIds.ts';
 import { runFplReviewSimulation } from '../src/lib/repoModel/fplReviewSimulator.ts';
 
@@ -476,11 +477,41 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onOpenPlayerCard: noop,
     }),
   );
+  assert.match(htmlInjuryModal, /vx-side-popup-dock/);
   assert.match(htmlInjuryModal, /WHAT INJURY \/ ISSUE/);
   assert.match(htmlInjuryModal, /WHEN BACK \/ EXPECTED RETURN/);
   assert.match(htmlInjuryModal, /Chance of Playing/);
   assert.match(htmlInjuryModal, /Official Premier League Bulletin/);
   assert.match(htmlInjuryModal, /View Player Stats Card/);
+
+  // Side-screen popup dock + zero transform trap on .page + unified pitch triggers + artistic hero + real social logos + bigger top-left brand
+  assert.match(htmlPlayerCard, /vx-side-popup-dock/);
+  assert.doesNotMatch(stylesRaw, /@keyframes page-in\s*\{[^}]*transform:/);
+  assert.match(htmlCommand, /vortex-orb--artistic/);
+  assert.match(htmlCommand, /float-card--artistic/);
+  assert.match(htmlCommand, /float-card__fdr-strip/);
+  assert.match(htmlCommand, /vx-social-svg--yt/);
+  assert.match(htmlOptimizer, /pitch-player__avatar-btn/);
+  assert.match(htmlOptimizer, /data-player-card-trigger="1"/);
+
+  assert.match(htmlBrand, /width="56"/);
+  assert.match(htmlSidebar, /vx-social-svg--yt/);
+  assert.match(htmlSidebar, /vx-social-svg--x/);
+  const htmlTopbar = renderToStaticMarkup(
+    React.createElement(Topbar, {
+      route: 'command',
+      snapshot,
+      refreshing: false,
+      lastSuccessAt: snapshot.meta.servedAt,
+      theme: 'dark',
+      onToggleTheme: noop,
+      onMenu: noop,
+      onOpenPalette: noop,
+      onRefresh: noop,
+      onNavigate: noop,
+    }),
+  );
+  assert.match(htmlTopbar, /topbar__brand-lion/);
 
   const htmlMethod = renderToStaticMarkup(
     React.createElement(Methodology, {

@@ -46,13 +46,21 @@ export function Topbar({
         <button type="button" className="icon-button topbar__menu" onClick={onMenu} aria-label="Open navigation">
           <Menu size={20} />
         </button>
-        <img
-          src={BRAND_LION_SRC}
-          alt="FPL VORTEX"
-          className="topbar__mobile-lion"
-          width={34}
-          height={34}
-        />
+        <button
+          type="button"
+          className="topbar__brand-lion"
+          onClick={() => onNavigate('command')}
+          aria-label="FPL VORTEX home"
+          title="FPL VORTEX — Command Center"
+        >
+          <img
+            src={BRAND_LION_SRC}
+            alt="FPL VORTEX"
+            className="topbar__mobile-lion"
+            width={44}
+            height={44}
+          />
+        </button>
         <div className="topbar__heading">
           <span className="topbar__breadcrumb">FPL VORTEX / {heading.title}</span>
           <h1>{heading.title}</h1>
