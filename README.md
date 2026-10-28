@@ -49,6 +49,32 @@ npm run build        # Builds dist/ client bundle + dist/data/ static repo snaps
 npm run preview      # Builds and runs the production Express server on 0.0.0.0:3000
 ```
 
+### Mirroring the Published Deployment Snapshot
+
+When the machine running the preview cannot reach `fantasy.premierleague.com` (sandboxes, locked-down
+networks), mirror the already-enriched snapshot from the published deployment instead:
+
+```bash
+VORTEX_UPSTREAM_BASE=https://fplvortex.onrender.com npm run data:mirror
+```
+
+That writes `public/data/fpl-snapshot.json` with the deployment's live payload — official FPL data
+**plus** bookmaker odds (`marketOdds`, `meta.oddsMeta`) — and records `meta.mirroredFrom` /
+`meta.mirroredAt`. A mirrored snapshot inside `VORTEX_MIRROR_FRESH_MINUTES` (default `180`) is served
+as healthy cached data (`source: "cache"`, `stale: false`) and its odds enrichment is reused as-is
+instead of being re-fetched locally.
+
+To refresh it from CI, bump the request marker — the `Mirror deployment snapshot` workflow runs on
+any branch, pulls the deployment snapshot and commits it:
+
+```bash
+date -u +%Y-%m-%dT%H:%M:%SZ > .github/mirror-request.txt
+git commit -am "chore(data): request deployment mirror" && git push
+```
+
+The scheduled `Refresh FPL snapshot` workflow also accepts a manual `source: deployment` input on
+the default branch.
+
 ### Private Preview Options (Without Making the Repo Public)
 
 1. **Local / Same-Wi-Fi Mobile Testing**: Run `npm run preview` on your laptop/desktop and open `http://<local-ip>:3000` on your phone.
