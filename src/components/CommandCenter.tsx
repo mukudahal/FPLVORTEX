@@ -558,12 +558,15 @@ export function CommandCenter({
     const isVice = !isBench && p.id === pitchLineup.viceId;
     const hasFlag = p.status !== 'a' || (p.chance !== null && p.chance < 100);
     const isSevere = p.status === 'i' || p.status === 's' || p.status === 'u' || p.chance === 0;
-
-    // In Review Gameweek mode, display actual GW points when matches were played; otherwise opponent + difficulty
-    const bottomText =
-      isReviewMode && selectedGw === snapshot.meta.currentEventId
-        ? `${p.eventPoints * (isCap ? 2 : 1)} pts · ${fx.label}`
-        : fx.label;
+    const showReviewPts = isReviewMode && selectedGw <= snapshot.meta.currentEventId;
+    const starterPts = p.eventPoints * (isCap ? 2 : 1);
+    const benchOrderPrefix = benchSlotIdx === 0 ? 'GKP' : `${benchSlotIdx}. ${p.position}`;
+    const benchTopText = showReviewPts
+      ? `${benchOrderPrefix} · ${p.eventPoints} pts`
+      : `${benchOrderPrefix} · ${xp.toFixed(1)} xP`;
+    const starterTopText = showReviewPts
+      ? `${starterPts} pts`
+      : `${(xp * (isCap ? 2 : 1)).toFixed(1)} xP`;
 
     return (
       <div
@@ -581,9 +584,9 @@ export function CommandCenter({
         }}
       >
         {isBench ? (
-          <span className="vx-pitch-pos-label">{benchSlotIdx === 0 ? 'GKP' : p.position}</span>
+          <span className="vx-pitch-pos-label">{benchTopText}</span>
         ) : (
-          <span className="vx-pitch-xp">{(xp * (isCap ? 2 : 1)).toFixed(1)} xP</span>
+          <span className="vx-pitch-xp">{starterTopText}</span>
         )}
         <div className="vx-pitch-avatar-box">
           {hasFlag && (
@@ -614,10 +617,24 @@ export function CommandCenter({
           />
         </div>
         <strong className="vx-pitch-name">{p.name}</strong>
-        <span className={classNames('vx-pitch-fix', `is-${tone}`)}>{bottomText}</span>
+        <span className={classNames('vx-pitch-fix', `is-${tone}`)}>{fx.label}</span>
+        {isBench && (
+          <span className="vx-pitch-bench-meta">
+            {p.team.shortName} · £{p.price.toFixed(1)}m
+          </span>
+        )}
       </div>
     );
   };
+
+  const benchSummaryPts = useMemo(
+    () => pitchLineup.bench.reduce((sum, id) => sum + (playerMap.get(id)?.eventPoints ?? 0), 0),
+    [pitchLineup.bench, playerMap],
+  );
+  const benchSummaryXp = useMemo(
+    () => pitchLineup.bench.reduce((sum, id) => sum + (playerGwXp.get(id) ?? 0), 0),
+    [pitchLineup.bench, playerGwXp],
+  );
 
   const startersByPos = (pos: Position) =>
     pitchLineup.starters.filter((id) => playerMap.get(id)?.position === pos);
@@ -672,6 +689,32 @@ export function CommandCenter({
               </button>
             )}
           </form>
+
+          {recentTeams.length > 0 && (
+            <div className="vx-saved-ids-strip" aria-label="Saved FPL Team IDs">
+              <span className="vx-saved-ids-strip__label">
+                <Clock size={12} /> Saved IDs:
+              </span>
+              {recentTeams.slice(0, 8).map((item) => {
+                const isCurrent = teamId.trim() === item.id;
+                return (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={classNames('vx-saved-id-chip', isCurrent && 'is-active')}
+                    onClick={() => {
+                      setTeamInput(item.id);
+                      onTeamIdChange?.(item.id);
+                    }}
+                    title={item.teamName ? `${item.id} · ${item.teamName}` : `Load Team #${item.id}`}
+                  >
+                    <strong>#{item.id}</strong>
+                    {item.teamName && <span>{item.teamName}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {entryError && (
             <p className="vx-top-id-error" role="alert">
@@ -983,8 +1026,18 @@ export function CommandCenter({
                       <div className="vx-pitch-row">{startersByPos('FWD').map((id) => renderPitchCard(id, false))}</div>
                     </div>
 
-                    <div className="vx-pitch-bench">
-                      {pitchLineup.bench.map((id, idx) => renderPitchCard(id, true, idx))}
+                    <div className="vx-pitch-bench-wrap" aria-label="Substitutes bench">
+                      <div className="vx-pitch-bench-head">
+                        <span>BENCH · SUBSTITUTES</span>
+                        <strong>
+                          {isReviewMode && selectedGw <= snapshot.meta.currentEventId
+                            ? `Bench: ${entry?.history?.pointsOnBench ?? benchSummaryPts} pts`
+                            : `Bench: ${benchSummaryXp.toFixed(1)} xP`}
+                        </strong>
+                      </div>
+                      <div className="vx-pitch-bench">
+                        {pitchLineup.bench.map((id, idx) => renderPitchCard(id, true, idx))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1036,7 +1089,9 @@ export function CommandCenter({
                                 </div>
                               </div>
                             </td>
-                            <td>{p.position}</td>
+                            <td>
+                              {isBench ? `B${idx - 10} · ${p.position}` : p.position}
+                            </td>
                             <td>
                               <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', `is-${tone}`)}>
                                 {fx.label}

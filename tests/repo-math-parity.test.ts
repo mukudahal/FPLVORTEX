@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -294,6 +296,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       initialVideos: videosPayload.videos,
       profile: 'balanced',
       teamId: '145784',
+      recentTeams: saved,
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
@@ -334,6 +337,16 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.equal((htmlCommand.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
   assert.doesNotMatch(htmlCommand, /Sync App Transfer/);
   assert.doesNotMatch(htmlCommand, /vx-swap-modal/);
+  // Saved IDs quick-switch strip + all 4 bench players' names, points, and club/price visibly rendered
+  assert.match(htmlCommand, /vx-saved-ids-strip/);
+  assert.match(htmlCommand, /BENCH · SUBSTITUTES/);
+  assert.equal((htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length, 4);
+  assert.equal((htmlCommand.match(/class="vx-pitch-bench-meta"/g) ?? []).length, 4);
+  for (const benchName of ['Bentley', 'De Cuyper', 'Van Hecke', 'Crooks']) {
+    assert.ok(htmlCommand.includes(benchName), `Expected bench player ${benchName} on pitch`);
+  }
+  const stylesRaw = await readFile(path.join(process.cwd(), 'src/styles.css'), 'utf8');
+  assert.match(stylesRaw, /\.vx-pitch-player\.vx-pitch-player--bench\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
 
   // Clicking any player opens the broadcast FPL VORTEX Player Graphic Card (Image 3 spec)
   const vanDijk = players.find((p) => p.fullName.includes('Virgil van Dijk')) ?? players[0];

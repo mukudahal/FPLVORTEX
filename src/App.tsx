@@ -143,7 +143,7 @@ export default function App() {
           setActiveEntry(data);
           setEntryError(null);
           const payload = {
-            id: String(data.id || cleanId),
+            id: cleanId,
             teamName: data.teamName,
             managerName: data.name,
           };

@@ -141,10 +141,13 @@ export async function fetchEntry(
     }, 0);
     const history = archived.picks.entry_history ?? {};
     const targetGw = options?.gw ?? numberValue(history.event, snapshot.meta.currentEventId);
+    const isExactArchive = Boolean(fallback.entries?.[id]);
     return {
-      id: numberValue(archived.root.id, numberValue(id)),
-      name: `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim(),
-      teamName: String(archived.root.name ?? 'FPLVORTEX'),
+      id: numberValue(id, numberValue(archived.root.id)),
+      name: isExactArchive
+        ? `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim()
+        : `Manager #${id}`,
+      teamName: isExactArchive ? String(archived.root.name ?? 'FPLVORTEX') : `Squad #${id}`,
       region: String(archived.root.player_region_name ?? 'Worldwide'),
       startedEvent: numberValue(archived.root.started_event, 1),
       favouriteTeamId: archived.root.favourite_team ?? null,

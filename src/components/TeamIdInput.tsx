@@ -136,7 +136,10 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         aria-expanded={showDropdown}
         aria-controls={showDropdown ? listboxId : undefined}
         aria-autocomplete="list"
-        onFocus={() => {
+        onFocus={(e) => {
+          if (value.trim().length > 0) {
+            e.currentTarget.select();
+          }
           if (recentTeams.length > 0) setOpen(true);
         }}
         onClick={() => {
@@ -170,6 +173,23 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
           }
         }}
       />
+
+      {value.trim().length > 0 && (
+        <button
+          type="button"
+          className={classNames('vx-team-id-clear', recentTeams.length > 0 && 'has-chevron')}
+          tabIndex={-1}
+          aria-label="Clear typed FPL Team ID"
+          title="Clear and pick another saved ID"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onChange('');
+            if (recentTeams.length > 0) setOpen(true);
+          }}
+        >
+          <X size={12} />
+        </button>
+      )}
 
       {recentTeams.length > 0 && (
         <button
