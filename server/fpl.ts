@@ -77,7 +77,7 @@ function mirroredSnapshotState(raw: Snapshot): { source: DataSource; upstreamOk:
   return fresh ? { source: 'cache', upstreamOk: true, stale: false } : { source: 'snapshot', upstreamOk: false, stale: true };
 }
 
-async function loadOfflineSnapshot(): Promise<Snapshot> {
+async function loadOfflineSnapshot(options: { skipOdds?: boolean } = {}): Promise<Snapshot> {
   const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
   const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
   const mirroredState = mirroredSnapshotState(raw);
@@ -94,8 +94,9 @@ async function loadOfflineSnapshot(): Promise<Snapshot> {
   };
   const enrichedRepo = await enrichSnapshotWithRepoData(markedOffline);
   // A mirrored snapshot already carries the deployment's odds enrichment; never replace it
-  // with a local (usually blocked) fetch.
-  if (raw.meta.mirroredFrom) return enrichedRepo;
+  // with a local (usually blocked) fetch. `skipOdds` powers the cold-start fast path: first
+  // paint must never wait on market feeds.
+  if (raw.meta.mirroredFrom || options.skipOdds) return enrichedRepo;
   const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
     enrichedRepo.teams,
     enrichedRepo.fixtures,
@@ -198,6 +199,35 @@ export async function getSnapshot(force = false): Promise<Snapshot> {
     }
   })();
   return snapshotInFlight;
+}
+
+/**
+ * First-paint snapshot used by `GET /api/vortex/snapshot`.
+ *
+ * `getSnapshot` waits for the live FPL payload (bootstrap + fixtures + live points) and the
+ * bookmaker feeds before answering. On a cold instance that is several seconds of blank
+ * screen. This variant returns the committed snapshot straight away and refreshes behind the
+ * request, so the dashboard paints immediately and still upgrades itself to live data.
+ */
+export async function getSnapshotFast(force = false): Promise<Snapshot> {
+  if (force) return getSnapshot(true);
+
+  const cacheKey = 'snapshot';
+  const cached = readCache<Snapshot>(cacheKey);
+  if (cached) {
+    return markSnapshot(cached, cached.meta.source === 'snapshot' ? 'snapshot' : 'cache', cached.meta.stale, cached.meta.upstreamOk);
+  }
+
+  // Already have a live copy but its TTL lapsed: serve it, refresh in the background.
+  if (lastGoodSnapshot) {
+    void getSnapshot(true).catch(() => undefined);
+    return markSnapshot(lastGoodSnapshot, 'cache', true, false);
+  }
+
+  const fast = await loadOfflineSnapshot({ skipOdds: true });
+  writeCache(cacheKey, fast, 20_000);
+  void getSnapshot(true).catch(() => undefined);
+  return fast;
 }
 
 function normalizeEntry(

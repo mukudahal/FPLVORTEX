@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getEntry, getHealth, getLeague, getSnapshot } from './fpl.ts';
+import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './fpl.ts';
 import { isNumericId, UpstreamHttpError } from './http.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import {
@@ -116,7 +116,9 @@ app.get('/api/status', asyncRoute(async (_req, res) => {
 
 app.get('/api/vortex/snapshot', asyncRoute(async (req, res) => {
   const force = req.query.refresh === '1';
-  const snapshot = await getSnapshot(force);
+  // Fast path: answer from the committed snapshot and revalidate behind the request, so a cold
+  // instance paints immediately instead of waiting on the upstream FPL + odds fetches.
+  const snapshot = await getSnapshotFast(force);
   res.set('Cache-Control', snapshot.meta.isLive ? 'public, max-age=15' : 'public, max-age=60');
   res.json(snapshot);
 }));
@@ -449,6 +451,10 @@ async function configureFrontend(): Promise<void> {
         maxAge: '1h',
         setHeaders(res, filePath) {
           if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+          // Vite emits content-hashed asset names, so they can be cached forever.
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
           if (filePath.endsWith('.json')) res.setHeader('Cache-Control', 'public, max-age=300');
         },
       }),
