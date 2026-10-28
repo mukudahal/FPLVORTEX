@@ -6717,3 +6717,39 @@ kbd {
     margin-top: 5px;
   }
 }
+
+/* Planner overview: the same pitch as the home page, with a compact fixture ticker. */
+.vx-planner-overview { display: grid; gap: 14px; }
+.vx-planner-controls { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; padding: 16px; }
+.vx-planner-controls label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.vx-planner-controls select { min-width: 108px; padding: 10px; border: 1px solid rgba(91,245,214,.4); border-radius: 10px; background: #122436; color: #f4ffff; font: inherit; font-size: 14px; }
+.vx-planner-score { margin-left: auto; display: flex; gap: 24px; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; }
+.vx-planner-score strong { color: #5bf5d6; font-size: 20px; margin-left: 6px; }
+.vx-planner-gws { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 3px; }
+.vx-planner-gws button { flex: 1 0 70px; padding: 9px 8px; border: 1px solid rgba(91,245,214,.2); border-radius: 10px; color: #aec1cb; background: #122436; cursor: pointer; }
+.vx-planner-gws button strong { display: block; margin-top: 3px; color: #fff; font-size: 12px; }
+.vx-planner-gws button.is-active { background: #0f4d43; border-color: #5bf5d6; color: #5bf5d6; }
+.vx-planner-columns { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(0, 1.2fr); gap: 14px; align-items: start; }
+.vx-planner-fixtures { padding: 14px; min-width: 0; }
+.vx-planner-fixture-head { display:flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 12px; }
+.vx-planner-fixture-head small, .vx-planner-source { color: var(--text-secondary); font-size: 10px; }
+.vx-planner-table-scroll { overflow-x: auto; }
+.vx-planner-fixtures table { width: 100%; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 10px; }
+.vx-planner-fixtures th:first-child { width: 70px; }
+.vx-planner-fixtures th { color: #b2c9d3; text-align: center; }
+.vx-planner-fixtures th button { border: 0; padding: 6px 0; background: transparent; color: inherit; cursor: pointer; font-weight: 800; white-space: nowrap; }
+.vx-planner-fixtures tbody th { text-align: left; white-space: nowrap; background: #1d3044; border-radius: 4px; padding: 5px 3px; }
+.vx-planner-fixtures tbody th .club-badge { vertical-align: middle; }
+.vx-planner-fdr { text-align: center; padding: 5px 1px; border-radius: 4px; font-weight: 800; color: #10242d; overflow-wrap: anywhere; }
+.vx-planner-fdr span, .vx-planner-fdr b { display: block; }
+.vx-planner-fdr.fdr-1, .vx-planner-fdr.fdr-2 { background: #12dba0; }
+.vx-planner-fdr.fdr-3 { background: #b7d1d3; }
+.vx-planner-fdr.fdr-4 { background: #e58079; }
+.vx-planner-fdr.fdr-5 { background: #d32850; color: white; }
+.vx-planner-fdr.fdr-blank { background: #334154; color: #d4e0e7; }
+.vx-planner-source { display: block; margin-top: 10px; }
+.vx-planner-legacy { margin-top: 16px; }
+.vx-planner-legacy > summary { cursor: pointer; padding: 14px 16px; border: 1px solid rgba(91,245,214,.25); border-radius: 12px; color: #5bf5d6; font-weight: 800; }
+.vx-planner-legacy[open] > summary { margin-bottom: 14px; }
+@media (max-width: 850px) { .vx-planner-columns { grid-template-columns: minmax(0,1fr); } .vx-planner-score { margin-left: 0; } }
+@media (max-width: 600px) { .vx-planner-fixtures table { min-width: 550px; } .vx-planner-fixture-head { align-items: start; flex-direction: column; } }

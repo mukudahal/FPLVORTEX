@@ -1,6 +1,7 @@
 // Pure planning logic for the /plan dashboard. No React, no I/O — unit-testable.
 
 import { MAX_FREE_TRANSFERS, MAX_PLAYERS_PER_CLUB, TRANSFER_HIT_COST, nextFreeTransfers, pointsHit, projectedTotal, selectOptimalXI } from "./scoring";
+import { futureGwScore } from "./decay";
 
 import type {
   PlanFixture,
@@ -292,11 +293,12 @@ export function horizonXP(
   squad: number[],
   fromIdx: number,
   horizon: number,
+  decay = 1,
 ): number {
-  let total = 0;
   const end = Math.min(ctx.gws.length, fromIdx + horizon);
-  for (let i = fromIdx; i < end; i++) total += lineupAt(ctx, squad, i).total;
-  return total;
+  const points: number[] = [];
+  for (let i = fromIdx; i < end; i++) points.push(lineupAt(ctx, squad, i).total);
+  return futureGwScore(points, decay);
 }
 
 export interface Ranked {
@@ -345,6 +347,8 @@ export interface AutoOptions {
   minGainFree?: number;
   minGainHit?: number;
   chips?: ChipMap;
+  /** Optional future planning multiplier. Defaults to no discount for existing callers. */
+  decay?: number;
 }
 
 /**
@@ -377,7 +381,7 @@ export function autoPlan(
       const isHit = chip === "wc" ? false : nowN + 1 > row.ftBefore;
       if (isHit && !opts.allowHits) break;
 
-      const base = horizonXP(ctx, state.squad, idx, opts.horizon);
+      const base = horizonXP(ctx, state.squad, idx, opts.horizon, opts.decay);
       // shortlist: top candidates per position by horizon xP
       const pool = new Map<number, number[]>();
       for (const t of [1, 2, 3, 4]) {
@@ -385,7 +389,7 @@ export function autoPlan(
           .filter((p) => p.type === t && !state.squad.includes(p.id))
           .map((p) => ({
             id: p.id,
-            s: p.xp.slice(idx, idx + opts.horizon).reduce((a, b) => a + b, 0),
+            s: futureGwScore(p.xp.slice(idx, idx + opts.horizon), opts.decay ?? 1),
           }))
           .sort((a, b) => b.s - a.s)
           .slice(0, 25)
@@ -401,7 +405,7 @@ export function autoPlan(
           if (validateTransfer(ctx, state, outId, cId) !== null) continue;
           const next = [...state.squad];
           next[at] = cId;
-          const gain = horizonXP(ctx, next, idx, opts.horizon) - base;
+          const gain = horizonXP(ctx, next, idx, opts.horizon, opts.decay) - base;
           if (!best || gain > best.gain) best = { out: outId, inn: cId, gain };
         }
       }

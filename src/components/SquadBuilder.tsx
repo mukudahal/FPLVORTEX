@@ -37,6 +37,7 @@ import { evaluateSquad, formationRisk, MAX_PLAYERS_PER_CLUB, optimizeSquad } fro
 import { runFplReviewSimulation } from '../lib/repoModel/fplReviewSimulator';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlannerOverview } from './PlannerOverview';
 import { StatCard } from './StatCard';
 
 interface SquadBuilderProps {
@@ -442,6 +443,9 @@ export function SquadBuilder({
 
   return (
     <div className="page page--optimizer">
+      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} />
+      <details className="vx-planner-legacy">
+        <summary>Advanced tools · transfers & chips</summary>
       {/* Sub-navigation bar: Team Planner | Chip Strategy (FPLReview style) | Monte Carlo (3,000 Draws) */}
       <section className="panel optimizer-header-panel">
         <div className="optimizer-top-row">
@@ -1231,6 +1235,7 @@ export function SquadBuilder({
           </div>
         </div>
       )}
+      </details>
     </div>
   );
 }
