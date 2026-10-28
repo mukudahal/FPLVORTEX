@@ -93,6 +93,9 @@ async function loadOfflineSnapshot(): Promise<Snapshot> {
     },
   };
   const enrichedRepo = await enrichSnapshotWithRepoData(markedOffline);
+  // A mirrored snapshot already carries the deployment's odds enrichment; never replace it
+  // with a local (usually blocked) fetch.
+  if (raw.meta.mirroredFrom) return enrichedRepo;
   const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
     enrichedRepo.teams,
     enrichedRepo.fixtures,

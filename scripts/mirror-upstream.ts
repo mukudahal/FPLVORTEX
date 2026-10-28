@@ -89,7 +89,7 @@ async function main(): Promise<void> {
     ...upstream,
     meta: {
       ...upstream.meta,
-      source: upstream.meta.source === 'live' ? 'live' : 'cache',
+      source: 'snapshot',
       upstreamOk: true,
       stale: false,
       mirroredFrom: UPSTREAM_BASE,
