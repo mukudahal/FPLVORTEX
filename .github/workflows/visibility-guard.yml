@@ -1,0 +1,61 @@
+name: Visibility guard
+
+# Protects the proprietary parts of this repository from an accidental public flip.
+# If the repository is ever made public, this job fails and lists what would become downloadable.
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Refuse to be public with private assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Inspect visibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PRIVATE=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.private')
+          echo "Repository private flag: ${PRIVATE}"
+
+          if [ "$PRIVATE" = "true" ]; then
+            echo "Repository is private - proprietary assets are not exposed."
+            exit 0
+          fi
+
+          # The repository is public. Report anything that would now be downloadable.
+          FOUND=0
+          for path in 2_notebooks 3_data_third_party server/solver.py public/data; do
+            if [ -e "$path" ]; then
+              COUNT=$(git ls-files "$path" | wc -l | tr -d ' ')
+              echo "::error file=${path}::'${path}' is tracked (${COUNT} files) and is now publicly downloadable"
+              FOUND=1
+            fi
+          done
+
+          if git ls-files | grep -E '^\.env($|\.)' | grep -v '\.example$' | grep -q .; then
+            echo "::error::A real .env file is tracked - remove it from history before publishing"
+            FOUND=1
+          fi
+
+          if [ "$FOUND" = "1" ]; then
+            echo ""
+            echo "This repository is PUBLIC and contains proprietary assets."
+            echo "Either restore private visibility, or follow docs/PUBLIC_RELEASE_PLAN.md"
+            echo "to move these paths into a private repository before publishing."
+            exit 1
+          fi
+
+          echo "Repository is public but contains no proprietary assets - OK."
