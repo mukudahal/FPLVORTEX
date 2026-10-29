@@ -1,5 +1,5 @@
 import { toBlob } from 'html-to-image';
-import { choosePngDestination, savePngBlob } from './savePng';
+import { savePngBlob } from './savePng';
 
 /** Try the exact displayed image first, then the app's same-origin photo proxy. */
 export function pitchPhotoSources(src: string, code?: string, teamCode?: string): string[] {
@@ -29,7 +29,6 @@ async function imageDataUrl(img: HTMLImageElement): Promise<string> {
 
 /** Capture the actual visible pitch, including all players and the bench, without site controls. */
 export async function downloadPitchPng(pitch: HTMLElement, filename: string): Promise<void> {
-  const destination = await choosePngDestination(filename);
   const width = pitch.offsetWidth, height = pitch.offsetHeight;
   if (!width || !height || !pitch.parentElement) throw new Error('The pitch is not ready to save.');
   const clone = pitch.cloneNode(true) as HTMLElement;
@@ -47,7 +46,7 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     })));
     const blob = await toBlob(clone, { pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)), cacheBust: false });
     if (!blob) throw new Error('PNG creation failed in this browser.');
-    await savePngBlob(blob, filename, destination);
+    await savePngBlob(blob, filename);
   } finally {
     clone.remove();
   }
