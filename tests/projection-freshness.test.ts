@@ -37,7 +37,7 @@ test('absence of import rows suppresses the import warning', () => {
   assert.equal(importedProjectionsNotice(undefined, onOct29), null);
 });
 test('cached and offline FPL data never masquerade as direct live data', () => {
-  const m = { source: 'live', upstreamOk: true, stale: false } as SnapshotMeta;
+  const m = { source: 'live', upstreamOk: true, stale: false, generatedAt: new Date().toISOString(), refreshSeconds: 600 } as SnapshotMeta;
   assert.equal(snapshotSourceLabel(m), 'FPL LIVE');
   assert.equal(snapshotSourceLabel({ ...m, source: 'cache' }), 'FPL CACHE');
   assert.equal(snapshotSourceLabel({ ...m, source: 'cache', stale: true }), 'STALE CACHE');

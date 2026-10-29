@@ -9,6 +9,7 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
+import { mirroredSnapshotState } from '../src/lib/snapshotFreshness.ts';
 import {
   computeDynamicFreeTransfers,
   resolveSquadPurchaseAndSellingPrices,
@@ -67,21 +68,10 @@ function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
-/**
- * A snapshot mirrored from a published deployment (`scripts/mirror-upstream.ts`) is already
- * upstream-enriched (official FPL payload + bookmaker odds). While it is still inside the
- * freshness window we serve it as healthy cached data instead of flagging an offline fallback.
- */
-function mirroredSnapshotState(raw: Snapshot): { source: DataSource; upstreamOk: boolean; stale: boolean } {
-  const generatedAt = Date.parse(raw.meta.generatedAt ?? '');
-  const fresh = Boolean(raw.meta.mirroredFrom) && Number.isFinite(generatedAt) && Date.now() - generatedAt < MIRROR_FRESH_MS;
-  return fresh ? { source: 'cache', upstreamOk: true, stale: false } : { source: 'snapshot', upstreamOk: false, stale: true };
-}
-
 async function loadOfflineSnapshot(options: { skipOdds?: boolean } = {}): Promise<Snapshot> {
   const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
   const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
-  const mirroredState = mirroredSnapshotState(raw);
+  const mirroredState = mirroredSnapshotState(raw.meta, MIRROR_FRESH_MS);
   const markedOffline: Snapshot = {
     ...raw,
     meta: {

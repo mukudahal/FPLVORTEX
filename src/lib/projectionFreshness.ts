@@ -1,4 +1,5 @@
 import type { RepoDataMeta, SnapshotMeta } from './types';
+import { getSnapshotFreshness } from './snapshotFreshness';
 
 export type ImportedProjectionFreshness = 'recent' | 'stale' | 'unknown';
 
@@ -49,8 +50,11 @@ export function importedProjectionsNotice(meta: RepoDataMeta | undefined, now: D
 
 export function snapshotSourceLabel(meta: SnapshotMeta | undefined): string {
   if (!meta) return 'OFFLINE';
-  if (meta.source === 'live' && meta.upstreamOk && !meta.stale) return 'FPL LIVE';
-  if (meta.source === 'cache' && meta.upstreamOk && !meta.stale) return 'FPL CACHE';
-  if (meta.source === 'cache') return 'STALE CACHE';
+  const status = getSnapshotFreshness(meta).status;
+  if (meta.mirroredFrom) return status === 'recent' ? 'FPL MIRROR' :
+    status === 'unknown' ? 'UNKNOWN MIRROR' : 'STALE MIRROR';
+  if (meta.source === 'live' && meta.upstreamOk && status === 'recent') return 'FPL LIVE';
+  if (meta.source === 'cache' && meta.upstreamOk && status === 'recent') return 'FPL CACHE';
+  if (meta.source === 'cache') return status === 'unknown' ? 'UNKNOWN CACHE' : 'STALE CACHE';
   return meta.source === 'snapshot' ? 'SNAPSHOT' : 'OFFLINE';
 }
