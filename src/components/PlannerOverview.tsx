@@ -5,7 +5,7 @@ import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../lib/fixtures
 import { futureGwScore } from '../lib/repoModel/decay';
 import { computePlayerXPts, computePositionPriors } from '../lib/repoModel/xpts';
 import { evaluateSquad } from '../lib/optimize';
-import { plannerDifficulty, averagePlannerDifficulty } from '../lib/plannerDifficulty';
+import { makeFixtureForecasts, overallDifficulty, difficultyColor } from '../lib/fixtureForecast';
 import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
@@ -36,21 +36,26 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   const lineup = projected[gws.indexOf(selected)];
   const totals = projected.map(result => result ? result.starters.reduce((sum, p) => sum + p.projection * (p.isCaptain ? 2 : 1), 0) : 0);
   const rows = useMemo(() => buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, horizon, snapshot.players.map(toRepoElement), snapshot.historicalTeamModel?.strengths), [snapshot, horizon]);
-  const sortIndex = sort.gw === 'avg' ? -1 : Math.max(0, gws.indexOf(sort.gw));
+  const sharedForecasts = useMemo(() => makeFixtureForecasts(snapshot, 'vortex', gws), [snapshot, horizon]);
+  const fixtureValues = (teamId: number, gw: number) => sharedForecasts.get(`${teamId}:${gw}`) ?? [];
+  const sharedDifficulty = (teamId: number, gw: number | 'avg'): number | null => {
+    const items = gw === 'avg' ? gws.flatMap(event => fixtureValues(teamId, event)) : fixtureValues(teamId, gw);
+    return items.length ? items.reduce((sum, item) => sum + overallDifficulty(item), 0) / items.length : null;
+  };
   const sorted = [...rows].sort((a, b) => {
-    const av = sortIndex < 0 ? averagePlannerDifficulty(a.cells) : plannerDifficulty(a.cells[sortIndex]);
-    const bv = sortIndex < 0 ? averagePlannerDifficulty(b.cells) : plannerDifficulty(b.cells[sortIndex]);
+    const av = sharedDifficulty(a.team.id, sort.gw);
+    const bv = sharedDifficulty(b.team.id, sort.gw);
     if (av === null || bv === null) return av === bv ? a.team.shortName.localeCompare(b.team.shortName) : av === null ? 1 : -1;
     return (av - bv) * (sort.ascending ? 1 : -1) || a.team.shortName.localeCompare(b.team.shortName);
   });
   const card = (p: NonNullable<typeof lineup>['squad'][number], bench = false) => {
     const cell = rows.find(row => row.team.id === p.teamId)?.cells[gws.indexOf(selected)];
-    const difficulty = cell ? plannerDifficulty(cell) : null;
+    const difficulty = sharedDifficulty(p.teamId, selected);
     const tone = difficulty === null ? 'blank' : difficulty <= 2.5 ? 'easy' : difficulty >= 3.5 ? 'hard' : 'medium';
     return <div key={p.id} role="button" tabIndex={0} className={`vx-pitch-player${bench ? ' vx-pitch-player--bench' : ''}`} onClick={() => onInspectPlayer?.(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onInspectPlayer?.(p); } }} aria-label={`Open ${p.name} player card`}>
       <span className={bench ? 'vx-pitch-pos-label' : 'vx-pitch-xp'}>{(p.projection * (p.isCaptain ? 2 : 1)).toFixed(1)} xP</span>
       <div className="vx-pitch-avatar-box">{p.isCaptain && <span className="vx-pitch-armband is-cap">C</span>}{p.isViceCaptain && <span className="vx-pitch-armband is-vice">V</span>}<PlayerAvatar code={p.code} teamCode={p.team.code} name={p.name} fullName={p.fullName} teamShort={p.team.shortName} position={p.position} size="md" className="vx-pitch-portrait" /></div>
-      <strong className="vx-pitch-name">{p.name}</strong><span className={`vx-pitch-fix ${tone} is-${tone}`}>{cell?.label ?? '—'}</span>
+      <strong className="vx-pitch-name">{p.name}</strong><span className={`vx-pitch-fix ${tone} is-${tone}`} style={difficulty === null ? undefined : { background: difficultyColor(difficulty), color: "#071a1b" }}>{cell?.label ?? '—'}</span>
     </div>;
   };
   return <section className="vx-planner-overview" aria-label="Team planner">
@@ -72,14 +77,14 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
         <div className="vx-planner-fixture-head"><strong>Fixtures · VORTEX difficulty</strong><small>Click a GW or AVG to sort</small></div>
         <div className="vx-planner-table-scroll"><table><thead><tr><th>TEAM</th>{gws.map(gw => <th key={gw}><button type="button" onClick={() => setSort(prev => ({ gw, ascending: prev.gw === gw ? !prev.ascending : true }))}>GW{gw}{sort.gw === gw ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th>)}<th><button type="button" onClick={() => setSort(prev => ({ gw: 'avg', ascending: prev.gw === 'avg' ? !prev.ascending : true }))}>AVG{sort.gw === 'avg' ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th></tr></thead>
           <tbody>{sorted.map(row => {
-            const average = averagePlannerDifficulty(row.cells);
+            const average = sharedDifficulty(row.team.id, 'avg');
             return <tr key={row.team.id}><th><ClubBadge teamCode={row.team.code} shortName={row.team.shortName} teamName={row.team.name} size="sm" /> {row.team.shortName}</th>{row.cells.map(cell => {
-              const value = plannerDifficulty(cell);
-              const source = cell.fixtures.length && cell.fixtures.every(f => f.marketOdds) ? 'Market odds' : cell.fixtures.some(f => f.marketOdds) ? 'Market odds and model' : 'VORTEX model';
-              return <td key={cell.event} className={`vx-planner-fdr fdr-${value === null ? 'blank' : Math.min(5, Math.max(1, Math.round(value)))}`} title={`${cell.label} · ${source} · win chance ${((cell.winProb ?? 0) * 100).toFixed(0)}% · official FDR ${cell.isBlank ? '—' : cell.difficulty}`}><span>{cell.isBlank ? '—' : cell.label.replaceAll(' (', '(')}</span><b>{value === null ? '' : value.toFixed(1)}</b></td>;
-            })}<td className={`vx-planner-fdr fdr-${average === null ? 'blank' : Math.min(5, Math.max(1, Math.round(average)))}`} title="Average of rated gameweeks; blanks excluded">{average === null ? '—' : average.toFixed(1)}</td></tr>;
+              const value = sharedDifficulty(row.team.id, cell.event);
+              const source = 'VORTEX model';
+              return <td key={cell.event} className={`vx-planner-fdr fdr-${value === null ? 'blank' : Math.min(5, Math.max(1, Math.round(value)))}`} style={value === null ? undefined : { background: difficultyColor(value), color: "#071a1b" }} title={`${cell.label} · ${source} · average of attack and defence indices`}><span>{cell.isBlank ? '—' : cell.label.replaceAll(' (', '(')}</span><b>{value === null ? '' : value.toFixed(1)}</b></td>;
+            })}<td className={`vx-planner-fdr fdr-${average === null ? 'blank' : Math.min(5, Math.max(1, Math.round(average)))}`} style={average === null ? undefined : { background: difficultyColor(average), color: "#071a1b" }} title="Average of individual fixtures; blanks excluded">{average === null ? '—' : average.toFixed(1)}</td></tr>;
           })}</tbody></table></div>
-        <small className="vx-planner-source">Provisional 1–5 index: 1 + 4 × (1 − win probability). Odds where available, otherwise VORTEX model. Doubles averaged; blanks excluded from AVG. Not official FDR or a validated player-points forecast.</small>
+        <small className="vx-planner-source">Provisional VORTEX index: mean of attack and defence ratings, as in the Fixture Matrix. Doubles are averaged per fixture and blanks excluded. Not calibrated FDR.</small>
       </div>
     </div>
   </section>;

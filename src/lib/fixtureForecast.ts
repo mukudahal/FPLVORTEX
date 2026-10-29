@@ -75,3 +75,21 @@ export function meanForecast(items: readonly FixtureForecast[], metric: 'attackI
   if (!items.length) return null;
   return items.reduce((sum, item) => sum + item[metric], 0) / items.length;
 }
+
+/** Shared colour scale; low is easier, high is harder. */
+export function difficultyColor(value: number): string {
+  const stops = [[16, 201, 133], [37, 174, 206], [232, 198, 75], [229, 75, 96]];
+  const n = Math.max(0, Math.min(3, (value - 1) * .75));
+  const i = Math.min(2, Math.floor(n));
+  const t = n - i;
+  return `rgb(${stops[i].map((c, index) => Math.round(c + (stops[i + 1][index] - c) * t)).join(',')})`;
+}
+/** Overall display index, equally weighted attack and defence; not official FDR. */
+export function overallDifficulty(item: Pick<FixtureForecast, 'attackIndex' | 'defenceIndex'>): number {
+  return (item.attackIndex + item.defenceIndex) / 2;
+}
+
+export function fixtureCellIndex(forecasts: ReadonlyMap<string, FixtureForecast[]>, teamId: number, event: number): number | null {
+  const items = forecasts.get(`${teamId}:${event}`) ?? [];
+  return items.length ? items.reduce((sum, item) => sum + overallDifficulty(item), 0) / items.length : null;
+}

@@ -393,6 +393,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   const htmlPlayerCard = renderToStaticMarkup(
     React.createElement(PlayerGraphicModal, {
       player: vanDijk,
+      snapshot,
       teams: snapshot.teams,
       fixtureRows,
       reviewGw: 8,
@@ -413,7 +414,8 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlPlayerCard, /CLEAN SHEETS %/);
   assert.match(htmlPlayerCard, /POINTS PER MATCH/);
   assert.match(htmlPlayerCard, /NEXT 5 FIXTURES/);
-  assert.match(htmlPlayerCard, /FDR:/);
+  assert.match(htmlPlayerCard, /FDR: VORTEX \(PROVISIONAL\)/);
+  assert.match(htmlPlayerCard, /VORTEX average attack and defence index/);
   assert.equal((htmlPlayerCard.match(/class="vx-pcard__fix-item"/g) ?? []).length, 5);
 
   const htmlOptimizer = renderToStaticMarkup(

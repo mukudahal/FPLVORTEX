@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { makeFixtureForecasts, meanForecast, provisionalOpportunityIndices } from '../src/lib/fixtureForecast.ts';
+import { makeFixtureForecasts, meanForecast, provisionalOpportunityIndices, overallDifficulty, difficultyColor } from '../src/lib/fixtureForecast.ts';
 import type { Snapshot, FixtureMarketOdds } from '../src/lib/types.ts';
 
 async function sample() {
@@ -41,4 +41,11 @@ test('averages count each forecast once and exclude blanks', async () => {
   assert.equal(meanForecast([], 'goals'), null);
   assert.equal(meanForecast([forecasts[0]], 'goals'), forecasts[0].goals);
   assert.ok(Math.abs(meanForecast([forecasts[0], { ...forecasts[0], goals: 3 }], 'goals')! - (forecasts[0].goals + 3) / 2) < 1e-10);
+});
+
+test('overall rating and shared colour agree across sources', () => {
+  const a = { attackIndex: 2, defenceIndex: 4 };
+  assert.equal(overallDifficulty(a), 3);
+  assert.equal(difficultyColor(overallDifficulty(a)), difficultyColor(3));
+  assert.notEqual(difficultyColor(1), difficultyColor(5));
 });

@@ -56,14 +56,11 @@ export function Topbar({
             height={44}
           />
         </button>
-        <div className="topbar__heading">
-          <span className="topbar__breadcrumb">FPL VORTEX / {heading.title}</span>
-          <h1>{heading.title}</h1>
-          <p>{heading.subtitle}</p>
-        </div>
+        <div className="topbar__identity"><div className="topbar__channel"><span>FPL</span> <strong>VORTEX</strong></div><p>Better transfers. Smarter captain picks.<br />Fixture ratings, goal projections &amp; clean-sheet probabilities.<br />Follow @FplVortexM for your next Gameweek edge.</p></div>
       </div>
 
       <div className="topbar__right">
+        <div className="topbar__heading topbar__page-label"><h1>{heading.title}</h1><p>{heading.subtitle}</p></div>
         <button type="button" className="search-trigger" onClick={onOpenPalette}>
           <Search size={17} />
           <span>Search players, teams, pages…</span>

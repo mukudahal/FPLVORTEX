@@ -1,3 +1,4 @@
+import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -31,7 +32,7 @@ import type {
   SquadResult,
 } from '../lib/types';
 import { parsePlayerInjuryDetails, toRepoElement } from '../lib/analytics';
-import { fixtureTone, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
+import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, MAX_PLAYERS_PER_CLUB, optimizeSquad } from '../lib/optimize';
 import { runFplReviewSimulation } from '../lib/repoModel/fplReviewSimulator';
@@ -218,6 +219,7 @@ export function SquadBuilder({
   const deferredQuery = useDeferredValue(poolQuery);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const fixtureByTeam = useMemo(() => new Map(fixtureRows.map((r) => [r.team.id, r])), [fixtureRows]);
+  const sharedFixtureForecasts = useMemo(() => makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []), [snapshot, fixtureRows]);
 
   const baseEntrySquadIds = useMemo(() => {
     if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
@@ -776,7 +778,7 @@ export function SquadBuilder({
                               {(fxRow?.cells ?? []).map((cell) => (
                                 <span
                                   key={cell.event}
-                                  className={`fixchip fdr-chip--${fixtureTone(cell.difficulty, cell.isBlank)}`}
+                                  className="fixchip" style={(() => { const value = fixtureCellIndex(sharedFixtureForecasts, player.teamId, cell.event); return value === null ? undefined : { background: difficultyColor(value), color: "#071a1b" }; })()}
                                   title={`GW${cell.event}: ${cell.label}`}
                                 >
                                   {cell.isBlank ? '—' : cell.label.split(' ')[0]}
