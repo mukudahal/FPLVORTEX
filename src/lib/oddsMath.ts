@@ -199,6 +199,7 @@ export function solveImpliedMatchFromOdds(quote: RawMarketQuote): FixtureMarketO
     Number.isFinite(quote.totalLine) &&
     (quote.totalLine as number) >= 1.25 &&
     (quote.totalLine as number) <= 5.5 &&
+    Math.abs((quote.totalLine as number) % 1 - 0.5) < 1e-9 &&
     Number.isFinite(quote.oddsOver) &&
     Number.isFinite(quote.oddsUnder) &&
     (quote.oddsOver as number) > 1.02 &&

@@ -15,7 +15,8 @@
     "test:watch": "node --import tsx --test --watch tests/*.test.ts",
     "data:refresh": "tsx scripts/refresh-snapshot.ts",
     "data:mirror": "tsx scripts/mirror-upstream.ts",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "data:archive-matches": "tsx scripts/archive-fpl-matches.ts"
   },
   "dependencies": {
     "compression": "^1.8.2",

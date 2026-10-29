@@ -5,6 +5,7 @@ import {
   type RawMarketQuote,
 } from '../src/lib/oddsMath.ts';
 import type { Fixture, FixtureMarketOdds, FplTeam, MarketOddsMeta } from '../src/lib/types.ts';
+import { createOddsApiFetcher } from './oddsApiKeys.ts';
 
 const ODDS_CACHE_TTL_MS = (Number.parseInt(process.env.FPL_CACHE_ODDS_SECONDS ?? '300', 10) || 300) * 1000;
 const ODDS_TIMEOUT_MS = Number.parseInt(process.env.ODDS_REQUEST_TIMEOUT_MS ?? '4500', 10) || 4500;
@@ -17,6 +18,7 @@ interface CachedQuotes {
 }
 
 let cachedQuotes: CachedQuotes | null = null;
+const fetchOddsApi = createOddsApiFetcher();
 
 function parsePositiveFloat(val: unknown): number | null {
   if (val === null || val === undefined || val === '') return null;
@@ -140,8 +142,9 @@ export function parseFootballDataCsv(csvText: string, fetchedAt = new Date().toI
     if (!chosen || !chosen.h || !chosen.d || !chosen.a) continue;
 
     // Supplement totals from Market Avg / Bet365 if Pinnacle 1X2 was present without totals
-    const fallbackOver = chosen.over ?? tiers[1].over ?? tiers[2].over;
-    const fallbackUnder = chosen.under ?? tiers[1].under ?? tiers[2].under;
+    const totalsSource = [chosen, ...tiers].find(tier => tier.over && tier.under);
+    const fallbackOver = totalsSource?.over ?? null;
+    const fallbackUnder = totalsSource?.under ?? null;
 
     quotes.push({
       provider: 'football-data',
@@ -425,11 +428,11 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
   const allQuotes: RawMarketQuote[] = [];
   const activeProviders: string[] = [];
   const oddsApiKey = (process.env.ODDS_API_KEY ?? '').trim();
+  const oddsApiBackup = (process.env.ODDS_API_KEY_BACKUP ?? '').trim();
 
   // 1) Optional Tier-1 Real-Time Sharp Feed (The Odds API v4 — soccer_epl)
-  if (oddsApiKey) {
-    const url = `https://api.the-odds-api.com/v4/sports/soccer_epl/odds/?apiKey=${encodeURIComponent(oddsApiKey)}&regions=uk,eu&markets=h2h,totals&oddsFormat=decimal`;
-    const body = await fetchTextSafe(url);
+  if (oddsApiKey || oddsApiBackup) {
+    const body = await fetchOddsApi(oddsApiKey, oddsApiBackup, ODDS_TIMEOUT_MS);
     if (body) {
       try {
         const parsed = parseTheOddsApiEvents(JSON.parse(body), nowIso);
@@ -491,13 +494,19 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
  * Enriches FPL fixtures with live bookmaker implied Goals (`homeXg`, `awayXg`),
  * Clean Sheet % (`homeCs`, `awayCs`), and Fair 1X2 Win/Draw % whenever live market quotes are available.
  */
+export function oddsCoverage(fixtures: Fixture[], nextEventId: number): { matched: number; upcoming: number; status: MarketOddsMeta['status'] } {
+  const next = fixtures.filter(fixture => fixture.event === nextEventId);
+  const matched = next.filter(fixture => Boolean(fixture.marketOdds)).length;
+  return { matched, upcoming: next.length, status: next.length > 0 && matched === next.length ? 'live' : matched > 0 ? 'partial' : 'fallback' };
+}
+
 export async function enrichFixturesWithLiveOdds(
   teams: FplTeam[],
   fixtures: Fixture[],
   nextEventId: number,
   force = false,
 ): Promise<{ fixtures: Fixture[]; oddsMeta: MarketOddsMeta }> {
-  const apiKeyConfigured = Boolean((process.env.ODDS_API_KEY ?? '').trim());
+  const apiKeyConfigured = Boolean((process.env.ODDS_API_KEY ?? '').trim() || (process.env.ODDS_API_KEY_BACKUP ?? '').trim());
   const nextGwFixtures = fixtures.filter((fx) => fx.event === nextEventId);
 
   if (process.env.VORTEX_OFFLINE === '1') {
@@ -507,6 +516,7 @@ export async function enrichFixturesWithLiveOdds(
         status: 'fallback',
         provider: 'Repo Poisson Model (Offline)',
         matchedFixtures: 0,
+        matchedUpcomingFixtures: 0,
         upcomingFixtures: nextGwFixtures.length,
         apiKeyConfigured,
         updatedAt: new Date().toISOString(),
@@ -522,6 +532,7 @@ export async function enrichFixturesWithLiveOdds(
         status: 'fallback',
         provider: 'Repo Poisson Model (Offline)',
         matchedFixtures: 0,
+        matchedUpcomingFixtures: 0,
         upcomingFixtures: nextGwFixtures.length,
         apiKeyConfigured,
         updatedAt: loaded.updatedAt,
@@ -535,20 +546,15 @@ export async function enrichFixturesWithLiveOdds(
     return marketOdds ? { ...fx, marketOdds } : fx;
   });
 
-  const nextGwMatched = enrichedFixtures.filter((fx) => fx.event === nextEventId && fx.marketOdds).length;
-  const status: MarketOddsMeta['status'] =
-    nextGwMatched > 0 && nextGwMatched >= nextGwFixtures.length
-      ? 'live'
-      : matchedMap.size > 0
-        ? 'partial'
-        : 'fallback';
+  const { matched: nextGwMatched, status } = oddsCoverage(enrichedFixtures, nextEventId);
 
   return {
     fixtures: enrichedFixtures,
     oddsMeta: {
       status,
-      provider: status === 'fallback' ? 'Repo Poisson Model' : loaded.providerSummary,
+      provider: matchedMap.size > 0 ? loaded.providerSummary : 'Repo Poisson Model',
       matchedFixtures: matchedMap.size,
+      matchedUpcomingFixtures: nextGwMatched,
       upcomingFixtures: nextGwFixtures.length,
       apiKeyConfigured,
       updatedAt: loaded.updatedAt,
