@@ -10,7 +10,7 @@ import type {
   VideoItem,
   VideosResponse,
 } from '../src/lib/types.ts';
-import { clamp, numberValue, round } from '../src/lib/format.ts';
+import { numberValue, round } from '../src/lib/format.ts';
 import { filenameProjectionDate } from '../src/lib/projectionFreshness.ts';
 
 const BENCHMARK_REL_PATH =
