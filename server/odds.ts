@@ -6,6 +6,7 @@ import {
 } from '../src/lib/oddsMath.ts';
 import type { Fixture, FixtureMarketOdds, FplTeam, MarketOddsMeta } from '../src/lib/types.ts';
 import { createOddsApiFetcher } from './oddsApiKeys.ts';
+import { marketCoverage } from '../src/lib/marketCoverage.ts';
 
 const ODDS_CACHE_TTL_MS = (Number.parseInt(process.env.FPL_CACHE_ODDS_SECONDS ?? '300', 10) || 300) * 1000;
 const ODDS_TIMEOUT_MS = Number.parseInt(process.env.ODDS_REQUEST_TIMEOUT_MS ?? '4500', 10) || 4500;
@@ -15,6 +16,7 @@ interface CachedQuotes {
   providerSummary: string;
   updatedAt: string;
   expiresAt: number;
+  feedDiagnostics: NonNullable<MarketOddsMeta['feedDiagnostics']>;
 }
 
 let cachedQuotes: CachedQuotes | null = null;
@@ -158,7 +160,9 @@ export function parseFootballDataCsv(csvText: string, fetchedAt = new Date().toI
       totalLine: fallbackOver && fallbackUnder ? 2.5 : null,
       oddsOver: fallbackOver,
       oddsUnder: fallbackUnder,
-      updatedAt: fetchedAt,
+      updatedAt: '',
+      quoteTimeSource: 'unknown',
+      retrievedAt: fetchedAt,
     });
   }
 
@@ -229,7 +233,8 @@ export function parseTheOddsApiEvents(events: unknown, fetchedAt = new Date().to
 
       return {
         bookTitle: String(book.title || book.key || 'Bookmaker'),
-        updatedAt: typeof book.last_update === 'string' ? book.last_update : fetchedAt,
+        updatedAt: typeof book.last_update === 'string' && Number.isFinite(Date.parse(book.last_update)) ? book.last_update : '',
+        quoteTimeSource: typeof book.last_update === 'string' && Number.isFinite(Date.parse(book.last_update)) ? 'bookmaker' as const : 'unknown' as const,
         h,
         d,
         a,
@@ -255,7 +260,11 @@ export function parseTheOddsApiEvents(events: unknown, fetchedAt = new Date().to
       const with25 = parsedAll.filter((b) => b.totalLine === 2.5 && b.oddsOver && b.oddsUnder);
       selected = {
         bookTitle: parsedAll.length > 1 ? `Consensus (${parsedAll.length} books)` : parsedAll[0].bookTitle,
-        updatedAt: parsedAll[0].updatedAt,
+        // A blended price has no single bookmaker timestamp. Only claim provenance
+        // when every contributing book reports a source quote time.
+        updatedAt: parsedAll.every(b => b.quoteTimeSource === 'bookmaker')
+          ? parsedAll.map(b => b.updatedAt).sort()[0] : '',
+        quoteTimeSource: parsedAll.every(b => b.quoteTimeSource === 'bookmaker') ? 'bookmaker' as const : 'unknown' as const,
         h: avg(parsedAll.map((b) => b.h)),
         d: avg(parsedAll.map((b) => b.d)),
         a: avg(parsedAll.map((b) => b.a)),
@@ -278,6 +287,8 @@ export function parseTheOddsApiEvents(events: unknown, fetchedAt = new Date().to
       oddsOver: selected.oddsOver,
       oddsUnder: selected.oddsUnder,
       updatedAt: selected.updatedAt,
+      quoteTimeSource: selected.quoteTimeSource,
+      retrievedAt: fetchedAt,
     });
   }
 
@@ -333,7 +344,9 @@ export function parseEspnScoreboardOdds(payload: unknown, fetchedAt = new Date()
         totalLine: Number.isFinite(overUnderLine) && overDec && underDec ? overUnderLine : null,
         oddsOver: overDec,
         oddsUnder: underDec,
-        updatedAt: fetchedAt,
+        updatedAt: '',
+        quoteTimeSource: 'unknown',
+        retrievedAt: fetchedAt,
       });
       break;
     }
@@ -389,7 +402,12 @@ export function matchQuotesToFixtures(
 
     if (bestQuote) {
       const solved = solveImpliedMatchFromOdds(bestQuote);
-      if (solved) matched.set(fx.id, solved);
+      if (solved) matched.set(fx.id, {
+        ...solved,
+        updatedAt: bestQuote.quoteTimeSource === 'bookmaker' ? bestQuote.updatedAt ?? '' : '',
+        quoteTimeSource: bestQuote.quoteTimeSource ?? 'unknown',
+        retrievedAt: bestQuote.retrievedAt ?? '',
+      });
     }
   }
 
@@ -427,15 +445,19 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
   const nowIso = new Date().toISOString();
   const allQuotes: RawMarketQuote[] = [];
   const activeProviders: string[] = [];
+  const feedDiagnostics: NonNullable<MarketOddsMeta['feedDiagnostics']> = [];
   const oddsApiKey = (process.env.ODDS_API_KEY ?? '').trim();
   const oddsApiBackup = (process.env.ODDS_API_KEY_BACKUP ?? '').trim();
 
   // 1) Optional Tier-1 Real-Time Sharp Feed (The Odds API v4 — soccer_epl)
+  let oddsApiBody: string | null = null;
+  let oddsApiRows = 0;
   if (oddsApiKey || oddsApiBackup) {
-    const body = await fetchOddsApi(oddsApiKey, oddsApiBackup, ODDS_TIMEOUT_MS);
-    if (body) {
+    oddsApiBody = await fetchOddsApi(oddsApiKey, oddsApiBackup, ODDS_TIMEOUT_MS);
+    if (oddsApiBody) {
       try {
-        const parsed = parseTheOddsApiEvents(JSON.parse(body), nowIso);
+        const parsed = parseTheOddsApiEvents(JSON.parse(oddsApiBody), nowIso);
+        oddsApiRows = parsed.length;
         if (parsed.length > 0) {
           allQuotes.push(...parsed);
           activeProviders.push('The Odds API (Pinnacle/UK-EU)');
@@ -445,6 +467,12 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
       }
     }
   }
+  feedDiagnostics.push({
+    provider: 'The Odds API',
+    access: oddsApiKey || oddsApiBackup ? 'configured' : 'not-configured',
+    fetched: oddsApiBody !== null,
+    parsedRows: oddsApiRows,
+  });
 
   // 2) Keyless Free Live Feeds (Football-Data.co.uk upcoming fixtures.csv + season E0.csv + ESPN EPL Scoreboard)
   const startWindow = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
@@ -459,18 +487,23 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
   ]);
 
   let fdCount = 0;
-  for (const csv of [fixturesCsv, season2627Csv, season2526Csv]) {
-    if (csv) {
-      const parsed = parseFootballDataCsv(csv, nowIso);
-      fdCount += parsed.length;
-      allQuotes.push(...parsed);
-    }
+  for (const [name, csv] of [
+    ['Football-Data upcoming fixtures', fixturesCsv],
+    ['Football-Data 2026/27', season2627Csv],
+    ['Football-Data 2025/26 archive', season2526Csv],
+  ] as const) {
+    const parsed = csv ? parseFootballDataCsv(csv, nowIso) : [];
+    fdCount += parsed.length;
+    allQuotes.push(...parsed);
+    feedDiagnostics.push({ provider: name, access: 'public', fetched: csv !== null, parsedRows: parsed.length });
   }
   if (fdCount > 0) activeProviders.push('Football-Data (Pinnacle/Market Avg)');
 
+  let espnCount = 0;
   if (espnBody) {
     try {
       const espnQuotes = parseEspnScoreboardOdds(JSON.parse(espnBody), nowIso);
+      espnCount = espnQuotes.length;
       if (espnQuotes.length > 0) {
         allQuotes.push(...espnQuotes);
         activeProviders.push('ESPN Sportsbook');
@@ -480,10 +513,12 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
     }
   }
 
+  feedDiagnostics.push({ provider: 'ESPN EPL scoreboard', access: 'public', fetched: espnBody !== null, parsedRows: espnCount });
   const result: CachedQuotes = {
     quotes: allQuotes,
     providerSummary: activeProviders.length > 0 ? activeProviders.join(' + ') : 'Repo Poisson Model (Offline)',
     updatedAt: nowIso,
+    feedDiagnostics,
     expiresAt: Date.now() + (allQuotes.length > 0 ? ODDS_CACHE_TTL_MS : 60_000),
   };
   cachedQuotes = result;
@@ -497,7 +532,8 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
 export function oddsCoverage(fixtures: Fixture[], nextEventId: number): { matched: number; upcoming: number; status: MarketOddsMeta['status'] } {
   const next = fixtures.filter(fixture => fixture.event === nextEventId);
   const matched = next.filter(fixture => Boolean(fixture.marketOdds)).length;
-  return { matched, upcoming: next.length, status: next.length > 0 && matched === next.length ? 'live' : matched > 0 ? 'partial' : 'fallback' };
+  const coverage = marketCoverage(next, nextEventId, 1);
+  return { matched, upcoming: next.length, status: coverage.completeMarketData ? 'live' : matched > 0 ? 'partial' : 'fallback' };
 }
 
 export async function enrichFixturesWithLiveOdds(
@@ -520,6 +556,8 @@ export async function enrichFixturesWithLiveOdds(
         upcomingFixtures: nextGwFixtures.length,
         apiKeyConfigured,
         updatedAt: new Date().toISOString(),
+        next3Coverage: marketCoverage(fixtures, nextEventId),
+        feedDiagnostics: [],
       },
     };
   }
@@ -536,6 +574,8 @@ export async function enrichFixturesWithLiveOdds(
         upcomingFixtures: nextGwFixtures.length,
         apiKeyConfigured,
         updatedAt: loaded.updatedAt,
+        next3Coverage: marketCoverage(fixtures, nextEventId),
+        feedDiagnostics: loaded.feedDiagnostics,
       },
     };
   }
@@ -546,7 +586,10 @@ export async function enrichFixturesWithLiveOdds(
     return marketOdds ? { ...fx, marketOdds } : fx;
   });
 
-  const { matched: nextGwMatched, status } = oddsCoverage(enrichedFixtures, nextEventId);
+  const { matched: nextGwMatched } = oddsCoverage(enrichedFixtures, nextEventId);
+  const next3Coverage = marketCoverage(enrichedFixtures, nextEventId);
+  const status: MarketOddsMeta['status'] = next3Coverage.completeMarketData
+    ? 'live' : next3Coverage.pricedFixtures > 0 ? 'partial' : 'fallback';
 
   return {
     fixtures: enrichedFixtures,
@@ -558,6 +601,8 @@ export async function enrichFixturesWithLiveOdds(
       upcomingFixtures: nextGwFixtures.length,
       apiKeyConfigured,
       updatedAt: loaded.updatedAt,
+      next3Coverage,
+      feedDiagnostics: loaded.feedDiagnostics,
     },
   };
 }

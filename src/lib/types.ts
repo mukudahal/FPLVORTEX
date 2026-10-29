@@ -43,6 +43,10 @@ export interface FixtureMarketOdds {
   provider: 'the-odds-api' | 'football-data' | 'espn';
   bookmaker: string;
   updatedAt: string;
+  /** A genuine bookmaker quote time, or unknown when the feed exposes only retrieval time. */
+  quoteTimeSource?: 'bookmaker' | 'unknown';
+  /** When FPL VORTEX fetched the quote feed; never presented as a bookmaker quote time. */
+  retrievedAt?: string;
   oddsHome: number;
   oddsDraw: number;
   oddsAway: number;
@@ -60,6 +64,10 @@ export interface FixtureMarketOdds {
 }
 
 export interface MarketOddsMeta {
+  /** All current, unsettled fixtures in the next three GWs, not the entire season. */
+  next3Coverage?: import('./marketCoverage').MarketCoverageReport;
+  /** Provider fetch diagnostics contain no API keys and do not prove bookmaker quotes are current. */
+  feedDiagnostics?: Array<{ provider: string; access: 'configured' | 'not-configured' | 'public'; fetched: boolean; parsedRows: number }>;
   status: 'live' | 'partial' | 'fallback';
   provider: string;
   matchedFixtures: number;
