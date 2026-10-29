@@ -2,9 +2,10 @@
  * Fixture & Match Strength Adapter — powered by `site/model/dashboardMath.ts` (`buildStrengths`, `projectMatch`)
  * and `7_skills/fpl-team-planner.skill` (`computeFiveGwFixtureEaseSum`) from `mukudahal/FPLVORTEX`.
  */
-import type { Fixture, FixtureCell, FixtureRow, FplTeam, Player, ProjectionContext } from './types';
+import type { Fixture, FixtureCell, FixtureRow, FplTeam, Player, ProjectionContext, HistoricalTeamStrength } from './types';
 import { clamp, round } from './format';
 import { buildStrengths, projectMatch } from './repoModel/dashboardMath';
+import { forecastFromGoalRates } from './repoModel/scoreDistribution';
 import { computeFiveGwFixtureEaseSum } from './repoModel/optaXp';
 import type { Fixture as RepoFixture, SlimElement, SlimTeam } from './repoModel/types';
 
@@ -102,17 +103,32 @@ export function averageFixtureDifficulty(
   return weightSum > 0 ? total / weightSum : 3;
 }
 
+/** Use the same validated server-calculated historical strengths wherever fixtures are projected. */
+export function applyHistoricalStrengths(
+  strengths: Map<number, HistoricalTeamStrength>,
+  teams: FplTeam[],
+  historical?: Record<string, HistoricalTeamStrength>,
+): void {
+  if (!historical) return;
+  for (const team of teams) {
+    const value = historical[String(team.id)];
+    if (value && [value.atkH, value.atkA, value.defWeakH, value.defWeakA].every(n => Number.isFinite(n) && n >= 0.55 && n <= 1.8)) strengths.set(team.id, value);
+  }
+}
+
 export function buildFixtureMatrix(
   teams: FplTeam[],
   fixtures: Fixture[],
   startEvent: number,
   horizon = 5,
   repoElements: SlimElement[] = [],
+  historicalStrengths?: Record<string, HistoricalTeamStrength>,
 ): FixtureRow[] {
   const teamIndex = new Map(teams.map((team) => [team.id, team]));
   const repoTeams = toRepoTeams(teams);
   const repoFixtures = toRepoFixtures(fixtures);
   const strengths = buildStrengths(repoTeams, repoElements, repoFixtures);
+  applyHistoricalStrengths(strengths, teams, historicalStrengths);
   const defaultStrength = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
 
   const rows = teams.map((team) => {
@@ -137,7 +153,9 @@ export function buildFixtureMatrix(
       for (const fx of relevant) {
         const homeStrength = strengths.get(fx.teamH) ?? defaultStrength;
         const awayStrength = strengths.get(fx.teamA) ?? defaultStrength;
-        const proj = fx.marketOdds ?? projectMatch(homeStrength, awayStrength);
+        const proj = fx.marketOdds
+          ? forecastFromGoalRates(fx.marketOdds.homeXg, fx.marketOdds.awayXg)
+          : projectMatch(homeStrength, awayStrength);
         const isHome = fx.teamH === team.id;
         const lf = isHome ? proj.homeXg : proj.awayXg;
         const la = isHome ? proj.awayXg : proj.homeXg;

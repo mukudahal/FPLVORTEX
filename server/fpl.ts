@@ -19,6 +19,7 @@ import { optimizeSquad } from '../src/lib/optimize.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
 import { enrichFixturesWithLiveOdds } from './odds.ts';
+import { enrichWithMatchHistory } from './matchHistory.ts';
 import {
   CONFIGURED_REPO_ENTRY_ID,
   CONFIGURED_REPO_ENTRY_NAME,
@@ -92,7 +93,7 @@ async function loadOfflineSnapshot(options: { skipOdds?: boolean } = {}): Promis
       refreshSeconds: 120,
     },
   };
-  const enrichedRepo = await enrichSnapshotWithRepoData(markedOffline);
+  const enrichedRepo = await enrichWithMatchHistory(await enrichSnapshotWithRepoData(markedOffline));
   // A mirrored snapshot already carries the deployment's odds enrichment; never replace it
   // with a local (usually blocked) fetch. `skipOdds` powers the cold-start fast path: first
   // paint must never wait on market feeds.
@@ -170,7 +171,7 @@ export async function getSnapshot(force = false): Promise<Snapshot> {
     try {
       const raw = await fetchRawSnapshot();
       const normalized = normalizeSnapshot(raw, { source: 'live', upstreamOk: true, stale: false });
-      const repoEnriched = await enrichSnapshotWithRepoData(normalized);
+      const repoEnriched = await enrichWithMatchHistory(await enrichSnapshotWithRepoData(normalized));
       const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
         repoEnriched.teams,
         repoEnriched.fixtures,

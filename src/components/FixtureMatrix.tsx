@@ -1,19 +1,8 @@
-import { useMemo, useState } from 'react';
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  CalendarDays,
-  Download,
-  ShieldCheck,
-  Target,
-  TrendingUp,
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BarChart3, CalendarDays, ChevronRight, Settings2, ShieldCheck, Sparkles, Target, X } from 'lucide-react';
 import type { EnrichedPlayer, FixtureRow, Snapshot } from '../lib/types';
-import { fixtureTone, positionFixtureRows } from '../lib/fixtures';
-import { classNames, formatPrice, formatSigned } from '../lib/format';
+import { makeFixtureForecasts, meanForecast, type FixtureForecast, type ForecastSource } from '../lib/fixtureForecast';
 import { ClubBadge } from './ClubBadge';
-import { PlayerAvatar } from './PlayerAvatar';
-import { StatCard } from './StatCard';
 
 interface FixtureMatrixProps {
   snapshot: Snapshot;
@@ -22,299 +11,104 @@ interface FixtureMatrixProps {
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
   onInspectPlayer?: (player: EnrichedPlayer) => void;
 }
+type Metric = 'difficulty' | 'goals' | 'cleanSheet' | 'win';
+type SortMetric = 'attackIndex' | 'defenceIndex' | 'goals' | 'cleanSheet' | 'win';
+const num = (n: number) => n.toFixed(2);
+const percent = (n: number) => `${Math.round(n * 100)}%`;
+const average = (xs: readonly FixtureForecast[], metric: SortMetric) => meanForecast(xs, metric);
+const metricLabel: Record<SortMetric, string> = { attackIndex: 'Attack', defenceIndex: 'Defence', goals: 'Goals', cleanSheet: 'Clean sheet', win: 'Win' };
 
-function exportMatrix(rows: FixtureRow[], startEvent: number): void {
-  const headers = [
-    'Team',
-    'Ease_5GW',
-    'Avg_Lambda_Goals',
-    'Avg_CS_Pct',
-    'Next_3_FDR',
-    'Next_5_FDR',
-    'Swing',
-    ...Array.from({ length: 5 }, (_, index) => `GW${startEvent + index}`),
-  ];
-  const data = rows.map((row) => [
-    row.team.name,
-    String(row.easeSum5),
-    row.avgLambdaFor.toFixed(2),
-    `${(row.avgCsProb * 100).toFixed(1)}%`,
-    row.next3.toFixed(2),
-    row.next5.toFixed(2),
-    row.swing.toFixed(2),
-    ...row.cells.map((cell) => `${cell.difficulty.toFixed(1)} ${cell.label}`),
-  ]);
-  const csv = [headers, ...data]
-    .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-    .join('\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `fpl-vortex-fixtures-gw${startEvent}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+/** Green → cyan → amber → red, fixed independently of the displayed teams. */
+function difficultyColor(value: number): string {
+  const stops = [[16, 201, 133], [37, 174, 206], [232, 198, 75], [229, 75, 96]];
+  const n = Math.max(0, Math.min(3, (value - 1) * .75));
+  const i = Math.min(2, Math.floor(n));
+  const t = n - i;
+  return `rgb(${stops[i].map((c, index) => Math.round(c + (stops[i + 1][index] - c) * t)).join(',')})`;
 }
+function badge(value: number, prefix: string) {
+  return <span className="fm-score" style={{ backgroundColor: difficultyColor(value) }}>{prefix} {value.toFixed(2)}</span>;
+}
+function fair(probability: number) { return probability > 0 ? (1 / probability).toFixed(2) : '—'; }
 
-export function FixtureMatrix({ snapshot, fixtureRows, players, onToast, onInspectPlayer }: FixtureMatrixProps) {
-  const [sortBy, setSortBy] = useState<'difficulty' | 'attack' | 'cleanSheet' | 'swing' | 'name'>('difficulty');
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(fixtureRows[0]?.team.id ?? null);
-  const startEvent = snapshot.meta.nextEventId;
-  const rows = useMemo(() => positionFixtureRows(fixtureRows, sortBy), [fixtureRows, sortBy]);
-  const selectedRow = fixtureRows.find((row) => row.team.id === selectedTeamId) ?? fixtureRows[0];
-  const teamPlayers = players
-    .filter((player) => player.teamId === selectedRow?.team.id)
-    .sort((a, b) => b.projection - a.projection)
-    .slice(0, 6);
+export function FixtureMatrix({ snapshot }: FixtureMatrixProps) {
+  const first = Math.max(1, Math.min(38, snapshot.meta.nextEventId));
+  const [source, setSource] = useState<ForecastSource>('vortex');
+  const [metric, setMetric] = useState<Metric>('difficulty');
+  const [start, setStart] = useState(first);
+  const [end, setEnd] = useState(Math.min(38, first + 9));
+  const [settings, setSettings] = useState(false);
+  const [selected, setSelected] = useState<FixtureForecast | null>(null);
+  const [sort, setSort] = useState<{ gw: number | 'avg'; metric: SortMetric; ascending: boolean }>({ gw: 'avg', metric: 'attackIndex', ascending: true });
+  const safeStart = Math.max(first, Math.min(38, start));
+  const safeEnd = Math.max(safeStart, Math.min(38, end, safeStart + 14));
+  const gws = source === 'market' ? Array.from({ length: Math.min(3, 39 - first) }, (_, i) => first + i) : Array.from({ length: safeEnd - safeStart + 1 }, (_, i) => safeStart + i);
+  const forecasts = useMemo(() => makeFixtureForecasts(snapshot, source, gws), [snapshot, source, safeStart, safeEnd, first]);
+  const byCell = (team: number, gw: number) => forecasts.get(`${team}:${gw}`) ?? [];
+  const allFor = (team: number) => gws.flatMap(gw => byCell(team, gw));
+  const sorted = [...snapshot.teams].sort((a, b) => {
+    const metricForSort = source === 'market' && (sort.metric === 'attackIndex' || sort.metric === 'defenceIndex') ? 'goals' : sort.metric;
+    const av = average(sort.gw === 'avg' ? allFor(a.id) : byCell(a.id, sort.gw), metricForSort);
+    const bv = average(sort.gw === 'avg' ? allFor(b.id) : byCell(b.id, sort.gw), metricForSort);
+    if (av === null || bv === null) return av === bv ? a.name.localeCompare(b.name) : av === null ? 1 : -1;
+    return (av - bv) * (sort.ascending ? 1 : -1) || a.name.localeCompare(b.name);
+  });
+  const marketCount = source === 'market' ? snapshot.fixtures.filter(f => gws.includes(f.event) && f.marketOdds).length : 0;
+  const fixtureCount = snapshot.fixtures.filter(f => gws.includes(f.event)).length;
+  const setSortMetric = (gw: number | 'avg', kind: SortMetric) => setSort(prev => ({ gw, metric: kind, ascending: prev.gw === gw && prev.metric === kind ? !prev.ascending : kind === 'attackIndex' || kind === 'defenceIndex' }));
+  const chooseMetric = (next: Metric) => {
+    setMetric(next);
+    setSort({ gw: 'avg', metric: next === 'difficulty' ? 'attackIndex' : next, ascending: next === 'difficulty' });
+  };
+  const chooseSource = (next: ForecastSource) => {
+    setSource(next); setSelected(null); setSettings(false);
+    chooseMetric(next === 'vortex' ? 'difficulty' : 'goals');
+  };
+  useEffect(() => {
+    if (!selected && !settings) return;
+    const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') { setSelected(null); setSettings(false); } };
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, [selected, settings]);
+  const metricKeys: SortMetric[] = metric === 'difficulty' ? ['attackIndex', 'defenceIndex'] : [metric];
+  const formatMetric = (v: number, key: SortMetric) => key === 'cleanSheet' || key === 'win' ? percent(v) : num(v);
 
-  const best = fixtureRows[0];
-  const bestAttack = [...fixtureRows].sort((a, b) => b.avgLambdaFor - a.avgLambdaFor)[0];
-  const bestDefence = [...fixtureRows].sort((a, b) => b.avgCsProb - a.avgCsProb)[0];
-  const improving = [...fixtureRows].sort((a, b) => a.swing - b.swing)[0];
-
-  return (
-    <div className="page page--fixtures">
-      <section className="fixture-hero panel">
-        <div>
-          <span className="panel__eyebrow">POISSON SCHEDULE INTELLIGENCE</span>
-          <h3>Find the run before the market does.</h3>
-          <p>
-            Every club is modeled with expected goals, clean-sheet odds, and 5-gameweek fixture difficulty swings so you
-            can target attacking and defensive runs ahead of the template.
-          </p>
-          <div className="fixture-hero__legend">
-            <span><i className="legend-dot legend-dot--easy" /> Easy 1.5–2.5</span>
-            <span><i className="legend-dot legend-dot--medium" /> Medium 2.6–3.6</span>
-            <span><i className="legend-dot legend-dot--hard" /> Hard 3.7–5.0</span>
-            <span><i className="legend-dot legend-dot--blank" /> Blank</span>
-          </div>
+  return <div className="page page--fixtures fm-page">
+    <section className="fm-hero">
+      <div className="fm-hero__copy"><span className="fm-kicker"><Sparkles size={13} /> VORTEX INTELLIGENCE</span><h1>Fixture <span>Matrix</span></h1><p>Find the fixtures. See the opportunity.</p></div>
+      <div className="fm-hero__orb" aria-hidden="true"><span><CalendarDays size={34} /></span></div>
+    </section>
+    <section className="fm-panel" aria-label="Fixture forecast matrix">
+      <div className="fm-topline">
+        <div className="fm-model-tabs" role="group" aria-label="Forecast source">
+          <button type="button" className={source === 'vortex' ? 'is-active' : ''} onClick={() => chooseSource('vortex')} aria-pressed={source === 'vortex'}><span className="fm-tab-icon"><Sparkles size={16} /></span><span><strong>VORTEX Model</strong><small>Team projections</small></span></button>
+          <button type="button" className={source === 'market' ? 'is-active is-market' : ''} onClick={() => chooseSource('market')} aria-pressed={source === 'market'}><span className="fm-tab-icon"><BarChart3 size={16} /></span><span><strong>Market Model</strong><small>Odds-derived</small></span></button>
         </div>
-        <div className="fixture-hero__actions">
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={() => {
-              exportMatrix(fixtureRows, startEvent);
-              onToast('Fixture matrix exported as CSV.', 'success');
-            }}
-          >
-            <Download size={15} /> Export matrix
-          </button>
-        </div>
-      </section>
-
-      <section className="stat-grid stat-grid--fixtures">
-        <StatCard
-          label="Easiest 5-GW Run"
-          value={best?.team.name ?? '—'}
-          detail={best ? `Ease +${best.easeSum5} · ${best.next5.toFixed(2)} avg FDR` : ''}
-          icon={<ArrowDownRight size={18} />}
-          tone="mint"
-        />
-        <StatCard
-          label="Highest Poisson Attack"
-          value={bestAttack?.team.name ?? '—'}
-          detail={bestAttack ? `${bestAttack.avgLambdaFor.toFixed(2)} expected goals / GW` : ''}
-          icon={<Target size={18} />}
-          tone="violet"
-        />
-        <StatCard
-          label="Highest Clean Sheet %"
-          value={bestDefence?.team.name ?? '—'}
-          detail={bestDefence ? `${(bestDefence.avgCsProb * 100).toFixed(1)}% avg CS probability` : ''}
-          icon={<ShieldCheck size={18} />}
-          tone="blue"
-        />
-        <StatCard
-          label="Sharpest Turnaround"
-          value={improving?.team.name ?? '—'}
-          detail={improving ? `${formatSigned(improving.swing, 2)} late-window swing` : ''}
-          icon={<TrendingUp size={18} />}
-          tone="amber"
-        />
-      </section>
-
-      <div className="fixture-layout">
-        <section className="panel matrix-panel" aria-label="Five-gameweek fixture matrix">
-          <div className="matrix-panel__header">
-            <div>
-              <span className="panel__eyebrow">GW{startEvent}–GW{startEvent + 4} TICKER</span>
-              <h3>All 20 Premier League clubs</h3>
-            </div>
-            <div className="pos-pills">
-              {([
-                ['difficulty', 'Ease score'],
-                ['attack', 'Attack λ'],
-                ['cleanSheet', 'CS %'],
-                ['swing', 'Swing'],
-                ['name', 'A–Z'],
-              ] as const).map(([key, label]) => (
-                <button
-                  type="button"
-                  key={key}
-                  className={classNames('pos-pill', sortBy === key && 'is-active')}
-                  onClick={() => setSortBy(key)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="matrix-table-wrap">
-            <table className="matrix-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Club</th>
-                  {Array.from({ length: 5 }, (_, index) => (
-                    <th key={index}>GW{startEvent + index}</th>
-                  ))}
-                  <th>λ Goals</th>
-                  <th>CS%</th>
-                  <th>Ease</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.team.id}
-                    className={classNames(selectedRow?.team.id === row.team.id && 'is-selected')}
-                    onClick={() => setSelectedTeamId(row.team.id)}
-                  >
-                    <td>{row.rank}</td>
-                    <td>
-                      <div className="matrix-team matrix-team--badge">
-                        <ClubBadge teamCode={row.team.code} shortName={row.team.shortName} teamName={row.team.name} size="sm" />
-                        <div>
-                          <strong>{row.team.name}</strong>
-                          <small>{row.team.shortName} · FDR {row.next5.toFixed(2)}</small>
-                        </div>
-                      </div>
-                    </td>
-                    {row.cells.map((cell) => (
-                      <td key={cell.event}>
-                        <div className={classNames('matrix-cell', `matrix-cell--${fixtureTone(cell.difficulty, cell.isBlank)}`)}>
-                          <strong>{cell.isBlank ? 'BLANK' : cell.label}</strong>
-                          <span>
-                            {cell.isBlank
-                              ? 'No match'
-                              : `λ ${(cell.lambdaFor ?? 0).toFixed(2)} · CS ${((cell.csProb ?? 0) * 100).toFixed(0)}%`}
-                          </span>
-                        </div>
-                      </td>
-                    ))}
-                    <td className="mono-num"><strong>{row.avgLambdaFor.toFixed(2)}</strong></td>
-                    <td className="mono-num">{(row.avgCsProb * 100).toFixed(0)}%</td>
-                    <td>
-                      <span className="score-pill is-elite">+{row.easeSum5}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <aside className="fixture-side">
-          {selectedRow && (
-            <section className="panel">
-              <div className="panel__header">
-                <div className="inline-player-tag">
-                  <ClubBadge teamCode={selectedRow.team.code} shortName={selectedRow.team.shortName} teamName={selectedRow.team.name} size="lg" />
-                  <div>
-                    <span className="panel__eyebrow">CLUB SPOTLIGHT</span>
-                    <h3>{selectedRow.team.name}</h3>
-                  </div>
-                </div>
-                <CalendarDays size={17} />
-              </div>
-              <p className="muted-copy">
-                Ease score +{selectedRow.easeSum5} · Avg Poisson goals {selectedRow.avgLambdaFor.toFixed(2)} · Avg CS{' '}
-                {(selectedRow.avgCsProb * 100).toFixed(1)}% · Next 5 FDR {selectedRow.next5.toFixed(2)}.
-              </p>
-
-              <div className="club-schedule-list">
-                {selectedRow.cells.map((cell) => (
-                  <div className="club-schedule-row" key={cell.event}>
-                    <span>GW{cell.event}</span>
-                    <div>
-                      <strong>{cell.label}</strong>
-                      {!cell.isBlank && (
-                        <small className="block-sub">
-                          xG {(cell.lambdaFor ?? 0).toFixed(2)} vs {(cell.lambdaAgainst ?? 0).toFixed(2)} · Win {((cell.winProb ?? 0) * 100).toFixed(0)}%
-                        </small>
-                      )}
-                    </div>
-                    <em className={`fdr-chip fdr-chip--${fixtureTone(cell.difficulty, cell.isBlank)}`}>
-                      {cell.isBlank ? '—' : cell.difficulty.toFixed(1)}
-                    </em>
-                  </div>
-                ))}
-              </div>
-
-              <h4 className="subheading">Top {selectedRow.team.shortName} assets</h4>
-              <div className="team-targets">
-                {teamPlayers.map((player) => (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    data-player-card-trigger="1"
-                    className="team-target-row team-target-row--avatar vx-clickable-row"
-                    key={player.id}
-                    onClick={() => onInspectPlayer?.(player)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onInspectPlayer?.(player);
-                      }
-                    }}
-                  >
-                    <PlayerAvatar
-                      code={player.code}
-                      teamCode={player.team.code}
-                      name={player.name}
-                      fullName={player.fullName}
-                      teamShort={player.team.shortName}
-                      position={player.position}
-                      size="sm"
-                    />
-                    <div>
-                      <strong>{player.name}</strong>
-                      <small>{player.position} · {formatPrice(player.price)} · 5GW {player.horizon5Projection.toFixed(1)}</small>
-                    </div>
-                    <strong className="score-pill is-strong">{player.projection.toFixed(2)}</strong>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section className="panel">
-            <div className="panel__header">
-              <div>
-                <span className="panel__eyebrow">SWING WATCH</span>
-                <h3>Clubs turning easier</h3>
-              </div>
-              <ArrowUpRight size={17} />
-            </div>
-            <div className="swing-list">
-              {[...fixtureRows]
-                .sort((a, b) => a.swing - b.swing)
-                .slice(0, 6)
-                .map((row) => (
-                  <div className="swing-row" key={row.team.id}>
-                    <ClubBadge teamCode={row.team.code} shortName={row.team.shortName} size="sm" />
-                    <strong>{row.team.shortName}</strong>
-                    <small>{row.next3.toFixed(2)} → {row.next5.toFixed(2)}</small>
-                    <span className={row.swing <= 0 ? 'is-positive' : 'is-negative'}>
-                      {formatSigned(row.swing, 2)}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </section>
-        </aside>
+        <div className="fm-actions">{source === 'vortex' && <button type="button" className="fm-settings-button" onClick={() => setSettings(true)}><Settings2 size={17} /> Settings</button>}</div>
       </div>
-    </div>
-  );
+      <div className="fm-section-head"><div><span className="fm-kicker">{source === 'vortex' ? 'THE FULL PICTURE' : 'NEAR-TERM MARKET'}</span><h2>{source === 'vortex' ? 'Fixture difficulty' : 'Market projections'}</h2><p>{source === 'vortex' ? `GW${safeStart} – GW${safeEnd} · ${gws.length} gameweeks` : `Next ${gws.length} gameweeks · ${marketCount}/${fixtureCount} fixtures matched`}</p></div>
+        <div className="fm-metric-tabs" role="group" aria-label="Projection metric">
+          {(source === 'vortex' ? [['difficulty', 'Difficulty', Target], ['goals', 'Projected goals', Sparkles], ['cleanSheet', 'Clean sheet %', ShieldCheck]] : [['goals', 'Projected goals', Sparkles], ['cleanSheet', 'Clean sheet %', ShieldCheck], ['win', 'Win %', BarChart3]] as const).map(([key, label, Icon]) => <button type="button" key={key as string} className={metric === key ? 'is-active' : ''} onClick={() => chooseMetric(key as Metric)} aria-pressed={metric === key}><Icon size={14} />{label as string}</button>)}
+        </div>
+      </div>
+      <div className="fm-legend">{metric === 'difficulty' ? <><span>Easy</span><div className="fm-gradient" /><span>Hard</span></> : <span>Per-fixture projections</span>}<small>{source === 'vortex' && metric === 'difficulty' ? 'A = Attack · D = Defence · H / A = venue' : source === 'market' ? 'Market-implied projections · prices may be unavailable' : 'H / A = venue · click a fixture for details'}</small></div>
+      <div className="fm-table-scroll"><table className="fm-table"><thead><tr><th className="fm-team-col">CLUB</th><th className="fm-avg-col"><span>AVG</span><div className="fm-sort-pair">{metricKeys.map(key => <button key={key} type="button" onClick={() => setSortMetric('avg', key)} aria-label={`Sort average ${metricLabel[key]}`}>{metric === 'difficulty' ? (key === 'attackIndex' ? 'A' : 'D') : metricLabel[key]}{sort.gw === 'avg' && sort.metric === key ? (sort.ascending ? ' ↑' : ' ↓') : ' ↕'}</button>)}</div></th>{gws.map(gw => <th key={gw}><span>GW{gw}</span><div className="fm-sort-pair">{metricKeys.map(key => <button key={key} type="button" onClick={() => setSortMetric(gw, key)} aria-label={`Sort GW${gw} ${metricLabel[key]}`}>{metric === 'difficulty' ? (key === 'attackIndex' ? 'A' : 'D') : 'Sort'}{sort.gw === gw && sort.metric === key ? (sort.ascending ? ' ↑' : ' ↓') : ' ↕'}</button>)}</div></th>)}</tr></thead>
+        <tbody>{sorted.map(team => {
+          const all = allFor(team.id);
+          return <tr key={team.id}><th className="fm-team-col"><div className="fm-club"><ClubBadge teamCode={team.code} shortName={team.shortName} teamName={team.name} size="md" /><span><strong>{team.name}</strong><small>{team.shortName}</small></span></div></th><td className="fm-avg-col"><div className="fm-average">{metricKeys.map(key => { const v = average(all, key); return v === null ? <span className="fm-empty-value" key={key}>—</span> : metric === 'difficulty' ? <span key={key}>{badge(v, key === 'attackIndex' ? 'A' : 'D')}</span> : <strong key={key}>{formatMetric(v, key)}</strong>; })}</div></td>
+            {gws.map(gw => {
+              const items = byCell(team.id, gw);
+              const fixtures = snapshot.fixtures.filter(f => f.event === gw && (f.teamH === team.id || f.teamA === team.id));
+              return <td key={gw}><div className="fm-cell-stack">{!fixtures.length ? <span className="fm-blank">BLANK</span> : fixtures.map(f => {
+                const item = items.find(i => i.fixture.id === f.id);
+                if (!item) return <span key={f.id} className="fm-unavailable">No market price</span>;
+                return <button type="button" key={f.id} className="fm-match" onClick={() => setSelected(item)} aria-label={`Open ${team.name} vs ${item.opponent.name}, GW${gw}`}><span className="fm-opponent"><ClubBadge teamCode={item.opponent.code} shortName={item.opponent.shortName} teamName={item.opponent.name} size="sm" /><strong>{item.opponent.shortName}</strong><small>({item.home ? 'H' : 'A'})</small></span><span className="fm-match-values">{metric === 'difficulty' ? <>{badge(item.attackIndex, 'A')}{badge(item.defenceIndex, 'D')}</> : <strong>{formatMetric(item[metric], metric)}</strong>}<ChevronRight size={12} /></span></button>;
+              })}</div></td>;
+            })}</tr>;
+        })}</tbody></table></div>
+      <div className="fm-footnote">{source === 'vortex' ? <><strong>Provisional A / D ratings.</strong> Fixed illustrative 1–5 mappings from model goals and clean-sheet chance; not calibrated FDR. Each fixture counts once in averages; blanks excluded.</> : <><strong>Market only.</strong> Missing odds are not replaced with model estimates. Probabilities are derived from implied goal rates; price freshness is not verified.</>}</div>
+    </section>
+    {settings && <div className="fm-modal-backdrop" onClick={() => setSettings(false)}><section className="fm-dialog fm-settings" role="dialog" aria-modal="true" aria-labelledby="fm-settings-title" onClick={e => e.stopPropagation()}><div className="fm-dialog-head"><div><span className="fm-kicker">MAKE IT YOURS</span><h2 id="fm-settings-title">Matrix settings</h2></div><button type="button" className="fm-close" aria-label="Close settings" onClick={() => setSettings(false)} autoFocus><X size={20} /></button></div><h3>Gameweeks</h3><p>Choose up to 15 gameweeks to display.</p><div className="fm-range"><label>From<select value={safeStart} onChange={e => { const n = Number(e.target.value); setStart(n); setEnd(Math.max(n, Math.min(safeEnd, n + 14))); }}>{Array.from({ length: 39 - first }, (_, i) => first + i).map(gw => <option key={gw} value={gw}>GW{gw}</option>)}</select></label><span>→</span><label>To<select value={safeEnd} onChange={e => setEnd(Number(e.target.value))}>{Array.from({ length: Math.min(15, 39 - safeStart) }, (_, i) => safeStart + i).map(gw => <option key={gw} value={gw}>GW{gw}</option>)}</select></label></div><div className="fm-range-line"><span style={{ width: `${(safeEnd - safeStart + 1) / 15 * 100}%` }} /></div><p className="fm-settings-count">{safeEnd - safeStart + 1} of 15 gameweeks selected</p><button type="button" className="fm-done" onClick={() => setSettings(false)}>Done</button></section></div>}
+    {selected && <div className="fm-modal-backdrop" onClick={() => setSelected(null)}><section className="fm-dialog fm-detail" role="dialog" aria-modal="true" aria-labelledby="fm-detail-title" onClick={e => e.stopPropagation()}><div className="fm-dialog-head"><span className="fm-kicker">MATCH FORECAST · GW{selected.fixture.event}</span><button type="button" className="fm-close" aria-label="Close match details" onClick={() => setSelected(null)} autoFocus><X size={20} /></button></div><div className="fm-detail-match"><ClubBadge teamCode={selected.team.code} shortName={selected.team.shortName} teamName={selected.team.name} size="lg" /><h2 id="fm-detail-title">{selected.team.name} <span>vs</span> {selected.opponent.name}</h2><ClubBadge teamCode={selected.opponent.code} shortName={selected.opponent.shortName} teamName={selected.opponent.name} size="lg" /></div><div className="fm-detail-meta"><span>{selected.home ? 'Home' : 'Away'} · {selected.fixture.kickoffTime ? new Date(selected.fixture.kickoffTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Kickoff TBC'}</span><span className={`fm-source-pill ${selected.source === 'market' ? 'is-market' : ''}`}>{selected.source === 'market' ? 'Market-implied' : 'VORTEX model'}</span></div><div className="fm-detail-grid">{selected.source === 'vortex' && <div><small>Attack / Defence</small><div className="fm-detail-badges">{badge(selected.attackIndex, 'A')}{badge(selected.defenceIndex, 'D')}</div><em>Provisional 1–5 index</em></div>}<div><small>Projected goals</small><strong>{num(selected.goals)}</strong><em>Against {num(selected.goalsAgainst)}</em></div><div><small>Clean-sheet probability</small><strong>{percent(selected.cleanSheet)}</strong><em>Derived fair odds {fair(selected.cleanSheet)}</em></div><div><small>Win probability</small><strong>{percent(selected.win)}</strong><em>Derived fair odds {fair(selected.win)}</em></div><div><small>Scores 2+ goals</small><strong>{percent(selected.score2Plus)}</strong><em>Same score model</em></div></div><p className="fm-detail-note">{selected.source === 'market' ? `From ${selected.fixture.marketOdds?.bookmaker ?? 'market odds'} · quote freshness not verified. Model-derived probabilities may differ from raw bookmaker odds.` : 'VORTEX estimates, not bookmaker prices. Attack and defence indices are illustrative and not yet calibrated.'}</p></section></div>}
+  </div>;
 }

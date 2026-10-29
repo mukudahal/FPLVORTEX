@@ -63,6 +63,8 @@ export interface MarketOddsMeta {
   status: 'live' | 'partial' | 'fallback';
   provider: string;
   matchedFixtures: number;
+  /** Matches with odds in the next gameweek, unlike matchedFixtures (all gameweeks). */
+  matchedUpcomingFixtures?: number;
   upcomingFixtures: number;
   apiKeyConfigured: boolean;
   updatedAt: string;
@@ -186,7 +188,16 @@ export interface SnapshotMeta {
   mirroredAt?: string;
 }
 
+/** Provisional goal-based strengths, computed server-side from completed matches. */
+export interface HistoricalTeamStrength {
+  atkH: number;
+  atkA: number;
+  defWeakH: number;
+  defWeakA: number;
+}
+
 export interface Snapshot {
+  historicalTeamModel?: { method: 'historical-goals-v1'; asOf: string; matches: number; strengths: Record<string, HistoricalTeamStrength> };
   meta: SnapshotMeta;
   teams: FplTeam[];
   gameweeks: Gameweek[];

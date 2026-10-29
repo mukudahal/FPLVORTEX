@@ -42,6 +42,10 @@ jobs:
         if: ${{ github.event.inputs.source != 'deployment' }}
         run: npm run data:refresh
 
+      - name: Archive completed official FPL matches
+        if: ${{ github.event.inputs.source != 'deployment' }}
+        run: npm run data:archive-matches
+
       - name: Mirror the published deployment snapshot
         if: ${{ github.event.inputs.source == 'deployment' }}
         env:
@@ -50,12 +54,12 @@ jobs:
 
       - name: Commit changed snapshot
         run: |
-          if git diff --quiet -- public/data/fpl-snapshot.json; then
+          if git diff --quiet -- public/data/fpl-snapshot.json data/fpl-match-history && [ -z "$(git ls-files --others --exclude-standard -- data/fpl-match-history)" ]; then
             echo "Snapshot is already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/fpl-snapshot.json
+          git add public/data/fpl-snapshot.json data/fpl-match-history
           git commit -m "chore(data): refresh FPL snapshot [skip ci]"
           git push

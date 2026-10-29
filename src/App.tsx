@@ -252,7 +252,7 @@ export default function App() {
   const players = useMemo(() => (snapshot ? enrichPlayers(snapshot, profile) : []), [profile, snapshot]);
   const insights = useMemo(() => buildInsights(players), [players]);
   const fixtureRows = useMemo(
-    () => (snapshot ? buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, 5) : []),
+    () => (snapshot ? buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, 5, [], snapshot.historicalTeamModel?.strengths) : []),
     [snapshot],
   );
 

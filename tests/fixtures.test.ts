@@ -36,3 +36,18 @@ test('projection context counts completed events and starts at the selected hori
   assert.equal(context.maxEventId, 38);
   assert.equal(context.fixtureIndex.get(9)?.length, 1);
 });
+
+test('market fixture outcomes are derived from the same implied goal distribution', async () => {
+  const { forecastFromGoalRates } = await import('../src/lib/repoModel/scoreDistribution.ts');
+  const fixture = makeFixture(1, 9, 1, 2);
+  fixture.marketOdds = {
+    provider: 'football-data', bookmaker: 'Example', updatedAt: '2026-10-28T12:00:00Z',
+    oddsHome: 2, oddsDraw: 3, oddsAway: 4, homeWin: .6, draw: .25, awayWin: .15,
+    homeXg: 1.85, awayXg: .95, homeCs: .123, awayCs: .456, overround1x2: 1.08,
+  };
+  const home = buildFixtureMatrix([makeTeam(1), makeTeam(2)], [fixture], 9, 1).find(row => row.team.id === 1)!;
+  const expected = forecastFromGoalRates(1.85, .95);
+  assert.equal(home.cells[0].winProb, Math.round(expected.homeWin * 1000) / 1000);
+  assert.equal(home.cells[0].csProb, Math.round(expected.homeCs * 1000) / 1000);
+  assert.notEqual(home.cells[0].winProb, fixture.marketOdds.homeWin);
+});

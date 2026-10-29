@@ -1,0 +1,86 @@
+{
+  "source": "https://github.com/vaastav/Fantasy-Premier-League",
+  "source_commit": "d7b05b51d137bfefef4b692386d18c610975b9b9",
+  "files": [
+    {
+      "path": "data/2019-20/fixtures.csv",
+      "git_blob_sha": "abb476dbe9bb60d3c7713f572bcb9e866f3d10f5",
+      "size": 668794
+    },
+    {
+      "path": "data/2019-20/teams.csv",
+      "git_blob_sha": "3d4d11c52cd8b231df97c67052313f037ea36c0e",
+      "size": 1704
+    },
+    {
+      "path": "data/2020-21/fixtures.csv",
+      "git_blob_sha": "abb0fc6790e8a449d9d7be6d3657cd473ccbb316",
+      "size": 660303
+    },
+    {
+      "path": "data/2020-21/teams.csv",
+      "git_blob_sha": "875ceb1cd7382069b26cf3f1507e390181196cca",
+      "size": 1705
+    },
+    {
+      "path": "data/2021-22/fixtures.csv",
+      "git_blob_sha": "5cd6a4bc881f17c5d01b67a5c6915c5dbe8866a6",
+      "size": 668973
+    },
+    {
+      "path": "data/2021-22/teams.csv",
+      "git_blob_sha": "08a5b88f945e8371436cdd6ec73c9c533dd26ece",
+      "size": 1701
+    },
+    {
+      "path": "data/2022-23/fixtures.csv",
+      "git_blob_sha": "3f0764fccf3895fcd286938d94de2d27ab39e0bb",
+      "size": 696260
+    },
+    {
+      "path": "data/2022-23/teams.csv",
+      "git_blob_sha": "8e089000bac21a5c34b4d772cdf20bbd14272ef8",
+      "size": 1711
+    },
+    {
+      "path": "data/2023-24/fixtures.csv",
+      "git_blob_sha": "6c5be4a2b0a588d81610e0ea8aac857910210220",
+      "size": 712532
+    },
+    {
+      "path": "data/2023-24/teams.csv",
+      "git_blob_sha": "6a41ed14fb47f9f689fd636155e8233f610016ad",
+      "size": 1715
+    },
+    {
+      "path": "data/2024-25/fixtures.csv",
+      "git_blob_sha": "d7d3dd975379862642c317768751d65a693a4da4",
+      "size": 751413
+    },
+    {
+      "path": "data/2024-25/teams.csv",
+      "git_blob_sha": "3296fd232935ab91e4ef2c8f76dfa0ce2caae67b",
+      "size": 1717
+    },
+    {
+      "path": "data/2025-26/fixtures.csv",
+      "git_blob_sha": "2d69be73aa81092d6d8c1dfcb2254674735e959d",
+      "size": 1014129
+    },
+    {
+      "path": "data/2025-26/teams.csv",
+      "git_blob_sha": "0b73c63064030d944b54fba35971652cd82f2c41",
+      "size": 1744
+    },
+    {
+      "path": "data/2018-19/fixtures.csv",
+      "git_blob_sha": "d76f2895f203380e684343270ed4da0164bee06b",
+      "size": 636313
+    },
+    {
+      "path": "data/2018-19/raw.json",
+      "git_blob_sha": "a6b984ed2cf362020ee6a646906cea413744832e",
+      "size": 777296
+    }
+  ]
+}

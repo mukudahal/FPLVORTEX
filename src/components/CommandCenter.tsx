@@ -40,7 +40,7 @@ import {
   toRepoElement,
   type PriceChangeStatus,
 } from '../lib/analytics';
-import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
+import { applyHistoricalStrengths, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import {
   classNames,
   countdown,
@@ -50,6 +50,7 @@ import {
   relativeTime,
 } from '../lib/format';
 import { buildStrengths, projectMatch } from '../lib/repoModel/dashboardMath';
+import { forecastFromGoalRates } from '../lib/repoModel/scoreDistribution';
 import { resolveSquadPurchaseAndSellingPrices } from '../lib/freeTransfers';
 import { selectOptimalXI } from '../lib/repoModel/scoring';
 import type {
@@ -368,6 +369,7 @@ export function CommandCenter({
     const repoElements = snapshot.players.map(toRepoElement);
     const repoFixtures = toRepoFixtures(snapshot.fixtures);
     const strengths = buildStrengths(repoTeams, repoElements, repoFixtures);
+    applyHistoricalStrengths(strengths, snapshot.teams, snapshot.historicalTeamModel?.strengths);
     const fallbackStrength = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
 
     let availableOddsCount = 0;
@@ -384,9 +386,9 @@ export function CommandCenter({
           bookmakersUsed.add(fx.marketOdds.bookmaker);
         }
         const activeMarket = oddsSourceMode === 'auto' ? fx.marketOdds ?? null : null;
-        const proj =
-          activeMarket ??
-          projectMatch(
+        const proj = activeMarket
+          ? forecastFromGoalRates(activeMarket.homeXg, activeMarket.awayXg)
+          : projectMatch(
             strengths.get(fx.teamH) ?? fallbackStrength,
             strengths.get(fx.teamA) ?? fallbackStrength,
           );
@@ -1331,7 +1333,7 @@ export function CommandCenter({
               <h3>GW {selectedGw} Fixtures</h3>
               <small className="vx-card__sub">
                 {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
-                  ? `Live Betting Odds (${gwMatchesAndClubs.bookmakerLabel}) · ${gwMatchesAndClubs.availableOddsCount}/${gwMatchesAndClubs.matches.length}`
+                  ? `Market odds (${gwMatchesAndClubs.bookmakerLabel}) · ${gwMatchesAndClubs.availableOddsCount}/${gwMatchesAndClubs.matches.length}`
                   : finishedMatchesCount > 0
                     ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
                     : 'Poisson Model (auto-switches to live market odds online)'}
@@ -1410,6 +1412,7 @@ export function CommandCenter({
 
                       {isExpanded && (
                         <div className="vx-match-probs">
+                          <span>Poisson-derived probabilities</span>
                           <span>Home {(m.homeWin * 100).toFixed(0)}%</span>
                           <span>Draw {(m.draw * 100).toFixed(0)}%</span>
                           <span>Away {(m.awayWin * 100).toFixed(0)}%</span>
@@ -1501,9 +1504,9 @@ export function CommandCenter({
               />
               {gwMatchesAndClubs.availableOddsCount > 0
                 ? oddsSourceMode === 'auto'
-                  ? `Live Betting Odds (${gwMatchesAndClubs.bookmakerLabel})`
-                  : 'Repo Poisson Model (Live odds paused)'
-                : 'Poisson Model · Live odds auto-sync online'}
+                  ? `Market odds (${gwMatchesAndClubs.bookmakerLabel})`
+                  : 'Repo Poisson Model (market odds paused)'
+                : 'Poisson model · no matched market odds'}
             </span>
             {gwMatchesAndClubs.availableOddsCount > 0 && (
               <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
@@ -1512,7 +1515,7 @@ export function CommandCenter({
                   className={classNames(oddsSourceMode === 'auto' && 'is-active')}
                   onClick={() => setOddsSourceMode('auto')}
                 >
-                  Live Odds
+                  Market Odds
                 </button>
                 <button
                   type="button"

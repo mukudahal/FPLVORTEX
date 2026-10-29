@@ -211,6 +211,32 @@ test('parses Football-Data CSV, The Odds API v4, and ESPN EPL odds and renders L
     }),
   );
 
-  assert.match(html, /Live Betting Odds/);
+  assert.match(html, /Market odds/);
   assert.match(html, /Implied Goals · Pinnacle/);
+});
+
+test('coverage reports upcoming fixtures separately from past market prices', async () => {
+  const { oddsCoverage } = await import('../server/odds.ts');
+  const { makeFixture } = await import('./helpers.ts');
+  const past = makeFixture(1, 8, 1, 2);
+  const next1 = makeFixture(2, 9, 1, 2);
+  const next2 = makeFixture(3, 9, 1, 2);
+  const quote = solveImpliedMatchFromOdds({ provider: 'football-data', bookmaker: 'example', homeTeam: 'A', awayTeam: 'B', oddsHome: 2, oddsDraw: 3.5, oddsAway: 4 })!;
+  past.marketOdds = quote;
+  assert.deepEqual(oddsCoverage([past, next1, next2], 9), { matched: 0, upcoming: 2, status: 'fallback' });
+  next1.marketOdds = quote;
+  assert.equal(oddsCoverage([past, next1, next2], 9).status, 'partial');
+  next2.marketOdds = quote;
+  assert.equal(oddsCoverage([past, next1, next2], 9).status, 'live');
+  assert.equal(oddsCoverage([past], 9).status, 'fallback');
+});
+
+test('football-data fallback totals use a complete pair from one source', () => {
+  const csv = [
+    'Div,Date,Time,HomeTeam,AwayTeam,PSH,PSD,PSA,P>2.5,P<2.5,Avg>2.5,Avg<2.5',
+    'E0,31/10/2026,15:00,Arsenal,Chelsea,2.1,3.4,3.7,1.6,,1.85,2.00',
+  ].join('\n');
+  const result = parseFootballDataCsv(csv);
+  assert.equal(result[0].oddsOver, 1.85);
+  assert.equal(result[0].oddsUnder, 2);
 });

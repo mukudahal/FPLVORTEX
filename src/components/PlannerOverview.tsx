@@ -35,7 +35,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   }), [squad, model, snapshot.meta.nextEventId, horizon]);
   const lineup = projected[gws.indexOf(selected)];
   const totals = projected.map(result => result ? result.starters.reduce((sum, p) => sum + p.projection * (p.isCaptain ? 2 : 1), 0) : 0);
-  const rows = useMemo(() => buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, horizon, snapshot.players.map(toRepoElement)), [snapshot, horizon]);
+  const rows = useMemo(() => buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, horizon, snapshot.players.map(toRepoElement), snapshot.historicalTeamModel?.strengths), [snapshot, horizon]);
   const sortIndex = sort.gw === 'avg' ? -1 : Math.max(0, gws.indexOf(sort.gw));
   const sorted = [...rows].sort((a, b) => {
     const av = sortIndex < 0 ? averagePlannerDifficulty(a.cells) : plannerDifficulty(a.cells[sortIndex]);
