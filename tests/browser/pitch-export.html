@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- Browser regression: build this HTML as a Vite input and click Run. Tests the real capture/export pipeline. -->
+<html lang="en"><meta charset="utf-8"><title>Pitch export regression</title>
+<style>
+body { font: 16px Arial, sans-serif; margin: 24px; background: #ddd; }
+#pitch { position: relative; width: 320px; height: 480px; background: #087f33; color: white; padding: 12px; box-sizing: border-box; }
+.mark { position: absolute; width: 60px; height: 80px; background: #fff; color: #000; text-align: center; padding-top: 24px; }
+.top { left: 125px; top: 60px; } .left { left: 25px; top: 200px; } .right { right: 25px; top: 200px; } .bench { left: 125px; bottom: 12px; background: #fee000; }
+</style>
+<button id="run">Run pitch export regression</button><output id="result" role="status">Ready</output>
+<div id="pitch"><h2>Pitch capture</h2><div class="mark top">GK</div><div class="mark left">DEF</div><div class="mark right">FWD</div><div class="mark bench">BENCH</div></div>
+<script type="module">
+import { downloadPitchPng } from '../../src/lib/pitchPng.ts';
+const result = document.querySelector('#result');
+document.querySelector('#run').onclick = async () => {
+  result.textContent = 'Capturing…';
+  const observer = new MutationObserver(async () => {
+    const image = document.querySelector('.png-save-dialog img');
+    if (!image) return;
+    observer.disconnect();
+    await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = 3840; canvas.height = 2160;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
+    const pixels = ctx.getImageData(0, 0, 3840, 2160).data;
+    let green = 0, bench = 0;
+    for (let i = 0; i < pixels.length; i += 4 * 17) {
+      if (pixels[i] < 30 && pixels[i+1] > 100 && pixels[i+2] < 80) green++;
+      if (pixels[i] > 230 && pixels[i+1] > 180 && pixels[i+2] < 30) bench++;
+    }
+    result.textContent = image.naturalWidth === 3840 && image.naturalHeight === 2160 && green > 1000 && bench > 100
+      ? 'PASS: 3840 × 2160; pitch and bench pixels retained' : `FAIL: ${image.naturalWidth} × ${image.naturalHeight}; green=${green}; bench=${bench}`;
+  });
+  observer.observe(document.body, { childList: true });
+  try { await downloadPitchPng(document.querySelector('#pitch'), 'pitch-regression.png'); }
+  catch (error) { observer.disconnect(); result.textContent = 'FAIL: ' + error.message; }
+};
+</script></html>

@@ -47,7 +47,9 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     })));
     await document.fonts?.ready;
     const frame = fit4kFrame(width, height);
-    const blob = await toBlob(clone, { pixelRatio: frame.scale, cacheBust: false });
+    // The staging clone lives off-screen; anchor its serialized SVG copy inside the export.
+    const blob = await toBlob(clone, { pixelRatio: frame.scale, cacheBust: false,
+      style: { position: 'relative', inset: 'auto', insetBlock: 'auto', insetInline: 'auto', transform: 'none' } });
     if (!blob) throw new Error('PNG creation failed in this browser.');
     const bitmap = await createImageBitmap(blob);
     try {
