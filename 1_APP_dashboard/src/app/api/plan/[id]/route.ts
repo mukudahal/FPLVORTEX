@@ -28,7 +28,13 @@ export const dynamic = "force-dynamic";
 
 const MAX_GWS = 10;
 
-// Convert FPL Gameweek values to valid numbers.
+interface FplCalendarEvent {
+  id: number;
+  is_current?: boolean;
+  is_next?: boolean;
+  deadline_time: string;
+}
+
 const validGameweek = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -43,7 +49,6 @@ const validGameweek = (value: unknown): number | null => {
     : null;
 };
 
-// Safely convert set-piece order values.
 const order = (value: unknown): number | null => {
   const number = Number(value);
 
@@ -59,7 +64,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-
   const entryId = Number(id);
 
   if (!Number.isInteger(entryId) || entryId < 1) {
@@ -100,22 +104,25 @@ export async function GET(
       loadTransfers(entryId),
     ]);
 
-    // FIX: Ensure currentGw is always a number.
+    // Normalize the raw FPL API types.
+    const events =
+      rawBs.events as unknown as FplCalendarEvent[];
+
+    const teams =
+      rawBs.teams as unknown as SlimTeam[];
+
+    // Determine the current Gameweek.
     const currentGw: number =
       validGameweek(entry.current_event) ??
       validGameweek(
-        rawBs.events.find(
-          (e) => e.is_current,
-        )?.id,
+        events.find((e) => e.is_current)?.id,
       ) ??
       1;
 
-    // FIX: Ensure nextGw is always a number.
+    // Determine the next Gameweek.
     const nextGw: number =
       validGameweek(
-        rawBs.events.find(
-          (e) => e.is_next,
-        )?.id,
+        events.find((e) => e.is_next)?.id,
       ) ??
       Math.min(38, currentGw + 1);
 
@@ -124,6 +131,7 @@ export async function GET(
       currentGw,
     );
 
+    // Normalize player data.
     const elements = rawBs.elements.map(
       normalizePlayer,
     );
@@ -134,22 +142,28 @@ export async function GET(
     >();
 
     elements.forEach((e) => {
-      elementsMap.set(e.id, e);
+      elementsMap.set(Number(e.id), e);
     });
 
+    // FIX: Ensure team IDs are numbers.
     const teamsMap = new Map<
       number,
       SlimTeam
     >();
 
-    rawBs.teams.forEach((t) => {
-      teamsMap.set(t.id, t);
+    teams.forEach((team) => {
+      const teamId = Number(team.id);
+
+      if (Number.isInteger(teamId) && teamId > 0) {
+        teamsMap.set(teamId, team);
+      }
     });
 
+    // Build the planning Gameweek window.
     const gws = Array.from(
       { length: horizon },
       (_, i) => nextGw + i,
-    ).filter((g) => g <= 38);
+    ).filter((gw) => gw <= 38);
 
     if (gws.length === 0) {
       gws.push(Math.min(38, nextGw));
@@ -166,15 +180,21 @@ export async function GET(
       elements,
     );
 
+    // Preserve raw player attributes.
     const rawById = new Map<
       number,
       Record<string, unknown>
     >();
 
     rawBs.elements.forEach((r) => {
-      rawById.set(Number(r.id), r);
+      const playerId = Number(r.id);
+
+      if (Number.isInteger(playerId) && playerId > 0) {
+        rawById.set(playerId, r);
+      }
     });
 
+    // Calculate player projections.
     const players: PlanPlayer[] = elements
       .filter((e) => e.element_type <= 4)
       .map((el) => ({
@@ -189,34 +209,40 @@ export async function GET(
         chance: el.chance_of_playing_next_round,
         owned:
           Number(el.selected_by_percent) || 0,
-        form: Number(el.form) || 0,
+        form:
+          Number(el.form) || 0,
         net:
           el.transfers_in_event -
           el.transfers_out_event,
+
         pen: order(
           rawById.get(el.id)?.penalties_order,
         ),
+
         fk: order(
           rawById.get(el.id)?.direct_freekicks_order,
         ),
+
         ck: order(
           rawById.get(el.id)
             ?.corners_and_indirect_freekicks_order,
         ),
-        xp: gws.map(
-          (gw) =>
-            Math.round(
-              computePlayerXPts(
-                el,
-                gw,
-                fixtures,
-                teamsMap,
-                teamGamesPlayed,
-                Math.max(0, gw - nextGw),
-                priors,
-              ).xPts * 10,
-            ) / 10,
-        ),
+
+        xp: gws.map((gw) => {
+          const projection = computePlayerXPts(
+            el,
+            gw,
+            fixtures,
+            teamsMap,
+            teamGamesPlayed,
+            Math.max(0, gw - nextGw),
+            priors,
+          );
+
+          return (
+            Math.round(projection.xPts * 10) / 10
+          );
+        }),
       }));
 
     // Include fixtures for the planning window
@@ -236,71 +262,22 @@ export async function GET(
         ad: f.team_a_difficulty,
       }));
 
-    const deadlines: Record<
-      number,
-      string
-    > = {};
+    // FIX: Use typed event IDs and deadlines.
+    const deadlines: Record<number, string> = {};
 
-    for (const ev of rawBs.events) {
-      deadlines[ev.id] = ev.deadline_time;
+    for (const event of events) {
+      const eventId = validGameweek(event.id);
+
+      if (
+        eventId !== null &&
+        typeof event.deadline_time === "string"
+      ) {
+        deadlines[eventId] = event.deadline_time;
+      }
     }
 
+    // Calculate selling prices.
     const { sellingPrices } =
       computeSellingPrices(
         picks.picks,
         transfers,
-        elementsMap,
-      );
-
-    const body: PlanResponse = {
-      entryId,
-      currentGw,
-      nextGw,
-      gws,
-      deadlines,
-      bank: picks.entry_history.bank,
-      freeTransfers: computeFreeTransfers(
-        history,
-        entry.started_event ?? 1,
-      ),
-      picks: picks.picks.map((p) => ({
-        element: p.element,
-        position: p.position,
-        isCaptain: p.is_captain,
-        isVice: p.is_vice_captain,
-      })),
-      sellingPrices,
-      teams: rawBs.teams.map((t) => ({
-        id: t.id,
-        code: t.code,
-        short: t.short_name,
-        name: t.name,
-      })),
-      fixtures: planFixtures,
-      players,
-      computedAt: new Date().toISOString(),
-    };
-
-    return NextResponse.json(body);
-  } catch (err) {
-    console.error(
-      `[FPL Vortex /api/plan/${entryId} error]`,
-      err,
-    );
-
-    const status =
-      err instanceof FplError
-        ? err.status
-        : 500;
-
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Could not build the plan for this team.",
-      },
-      { status },
-    );
-  }
-}
