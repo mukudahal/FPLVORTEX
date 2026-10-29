@@ -40,6 +40,12 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # Passive read-only check of the currently deployed Render service. No secrets,
+      # paid feed refreshes, deployments or fixture state changes are performed.
+      - name: Audit current production bookmaker coverage (read-only)
+        continue-on-error: true
+        run: node scripts/audit-live-odds.mjs
+
       - name: Verify offline snapshot
         run: |
           node -e "const s=require('./public/data/fpl-snapshot.json'); if(!s.players?.length||!s.fixtures?.length) process.exit(1); console.log('Snapshot OK:',s.players.length,'players');"
