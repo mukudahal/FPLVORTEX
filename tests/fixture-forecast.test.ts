@@ -57,3 +57,13 @@ test('fixture matrix has explicit light theme surfaces and compact desktop layou
   assert.match(css, /:root\[data-theme="light"\] \.fm-dialog/);
   assert.match(css, /@media \(min-width: 701px\)[\s\S]*?\.fm-table th, \.fm-table td \{ padding: 2px 3px;/);
 });
+
+test('fixture matrix uses compact responsive layouts for both forecast sources', async () => {
+  const css = await readFile('src/styles.css', 'utf8');
+  const component = await readFile('src/components/FixtureMatrix.tsx', 'utf8');
+  assert.match(component, /fm-page--\$\{source\}/);
+  assert.match(component, /320 \+ gws\.length \* 72/);
+  assert.match(css, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.fm-page--market \.fm-table tbody tr \{ grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.fm-page--market \.fm-table tbody td:not\(\.fm-overall-col\):not\(\.fm-avg-col\) \{ grid-column: span 2/);
+});

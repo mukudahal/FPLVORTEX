@@ -6960,3 +6960,45 @@ kbd {
   :root[data-theme="light"] .fm-table tbody tr { border-color: #c6dbe8; }
   :root[data-theme="light"] .fm-table tbody td.fm-overall-col::before, :root[data-theme="light"] .fm-table tbody td.fm-avg-col::before { color: #47677b; }
 }
+
+/* Responsive fixture sizing: keep the data legible instead of squeezing ten
+   gameweeks into ten tiny phone columns. Each team uses rows of five; the
+   three-gameweek market view uses three wider cards. */
+@media (max-width: 700px) {
+  .fm-page { gap: 8px; }
+  .fm-hero { min-height: 0; padding: 10px 14px; }
+  .fm-hero h1 { margin: 3px 0; font-size: 23px; }
+  .fm-hero p { font-size: 12px; }
+  .fm-hero__orb { width: 42px; height: 42px; box-shadow: none; }
+  .fm-hero__orb span { width: 33px; height: 33px; border-radius: 10px; }
+  .fm-topline { padding: 8px; gap: 6px; }
+  .fm-model-tabs button { padding: 6px; }
+  .fm-section-head { padding: 10px 10px 6px; gap: 8px; }
+  .fm-section-head h2 { margin: 3px 0; font-size: 19px; }
+  .fm-metric-tabs { max-width: 100%; }
+  .fm-metric-tabs button { padding: 7px 8px; }
+  .fm-legend { padding: 3px 10px 7px; }
+  .fm-mobile-sort { padding: 0 10px 8px; }
+  .fm-table tbody tr { padding: 4px 3px; }
+  .fm-table tbody td { padding: 2px 1px; }
+  .fm-club { gap: 4px; }
+  .fm-club .club-badge { width: 24px; height: 24px; }
+  .fm-club strong { font-size: 11px; }
+  .fm-club small { margin-top: 1px; }
+  .fm-overall-value { padding: 3px 5px; font-size: 11px; }
+  .fm-average { gap: 2px; }
+  .fm-average .fm-score { min-width: 0; padding: 2px 3px; font-size: 10px; }
+  .fm-mobile-gw { margin-bottom: 2px; font-size: 10px; }
+  .fm-match { min-height: 0; padding: 4px 1px; border-radius: 6px; }
+  .fm-opponent { flex-wrap: nowrap; gap: 1px; font-size: 10px; }
+  .fm-opponent .club-badge { flex: none; width: 12px; height: 12px; }
+  .fm-opponent small { font-size: 9px; }
+  .fm-match-values { gap: 2px; margin-top: 2px; }
+  .fm-match .fm-score { min-width: 0; padding: 2px 3px; font-size: 10px; }
+  .fm-match-values > strong { font-size: 13px; }
+  .fm-blank, .fm-unavailable { min-height: 54px; padding: 3px; border-radius: 6px; font-size: 10px; overflow-wrap: anywhere; }
+  .fm-footnote { padding: 8px 10px; }
+  .fm-page--market .fm-table tbody tr { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .fm-page--market .fm-table tbody th.fm-team-col { grid-column: span 4; }
+  .fm-page--market .fm-table tbody td:not(.fm-overall-col):not(.fm-avg-col) { grid-column: span 2; }
+}
