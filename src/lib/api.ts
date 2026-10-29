@@ -95,6 +95,7 @@ export async function fetchEntry(
   signal?: AbortSignal,
   options?: { refresh?: boolean; gw?: number },
 ): Promise<EntryData> {
+  if (!/^[1-9]\d{0,11}$/.test(id)) throw new ApiRequestError('Enter a valid positive numeric FPL Team ID.', 400, true);
   try {
     const params = new URLSearchParams();
     if (options?.refresh) params.set('refresh', '1');
@@ -111,9 +112,10 @@ export async function fetchEntry(
       fetchOfflineSnapshot(signal),
       getJson<RawLeagueFallback>(withBase('data/fpl-league-fallback.json'), signal),
     ]);
-    const firstArchivedKey = fallback.entries ? Object.keys(fallback.entries)[0] : undefined;
-    const archived = fallback.entries?.[id] ?? (firstArchivedKey ? fallback.entries?.[firstArchivedKey] : undefined);
-    if (!archived) throw error;
+    const archived = fallback.entries?.[id];
+    if (!archived || numberValue(archived.root.id) !== Number(id)) {
+      throw new ApiRequestError(`FPL Team #${id} could not be verified. No matching offline squad exists; another manager's archive was not loaded.`, 503, true);
+    }
     const enriched = enrichPlayers(snapshot, 'balanced');
     const playerIndex = new Map(enriched.map((player) => [player.id, player]));
     const picks = (Array.isArray(archived.picks.picks) ? archived.picks.picks : []).map((pick: Record<string, any>) => {
@@ -142,7 +144,6 @@ export async function fetchEntry(
     }, 0);
     const history = archived.picks.entry_history ?? {};
     const targetGw = options?.gw ?? numberValue(history.event, snapshot.meta.currentEventId);
-    const isExactArchive = Boolean(fallback.entries?.[id]);
     const startedEvent = numberValue(archived.root.started_event, 1);
     const activeChip = archived.picks.active_chip ?? null;
     const freeTransfers = computeDynamicFreeTransfers({
@@ -154,10 +155,8 @@ export async function fetchEntry(
     });
     return {
       id: numberValue(id, numberValue(archived.root.id)),
-      name: isExactArchive
-        ? `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim()
-        : `Manager #${id}`,
-      teamName: isExactArchive ? String(archived.root.name ?? 'FPLVORTEX') : `Squad #${id}`,
+      name: `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim(),
+      teamName: String(archived.root.name ?? 'Archived squad'),
       region: String(archived.root.player_region_name ?? 'Worldwide'),
       startedEvent,
       favouriteTeamId: archived.root.favourite_team ?? null,
@@ -184,6 +183,7 @@ export async function fetchEntry(
       squadValue: numberValue(history.value) / 10,
       source: 'offline',
       generatedAt: new Date().toISOString(),
+      provenance: { kind: id === '999999' ? 'demo' : 'archived', requestedIdVerified: false, sourceCapturedAt: null },
     };
   }
 }

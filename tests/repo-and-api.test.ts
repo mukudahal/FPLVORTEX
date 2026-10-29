@@ -97,6 +97,8 @@ test('keeps manager Team ID secret by default and serves offline demo entry & cl
 
   const demoEntry = await getEntry('999999');
   assert.equal(demoEntry.id, 999999);
+  assert.equal(demoEntry.provenance?.kind, 'demo');
+  assert.equal(demoEntry.provenance?.requestedIdVerified, false);
   assert.equal(demoEntry.teamName, 'Template XI');
   assert.equal(demoEntry.freeTransfers, 2);
   assert.equal(demoEntry.picks.length, 15);
@@ -108,6 +110,12 @@ test('keeps manager Team ID secret by default and serves offline demo entry & cl
   assert.equal(league.id, 314);
   assert.equal(league.name, 'Overall');
   assert.ok(league.standings.length >= 50);
+});
+
+test('invalid and unrelated team IDs never inherit the archived template squad', async () => {
+  await assert.rejects(() => getEntry('0'), /valid positive numeric FPL Team ID/);
+  await assert.rejects(() => getEntry('000999999'), /valid positive numeric FPL Team ID/);
+  await assert.rejects(() => getEntry('234567'), /no matching verified archive exists/);
 });
 
 test('preserves brand-kit font, tokens, repo assets, and default dark theme configuration', async () => {

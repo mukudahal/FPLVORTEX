@@ -398,6 +398,12 @@ export interface EntryData {
   recentTransfers?: EntryTransferRecord[];
   source: DataSource;
   generatedAt: string;
+  /** Archive and demo records are not the user's verified current FPL team. */
+  provenance?: {
+    kind: 'official' | 'archived' | 'demo';
+    requestedIdVerified: boolean;
+    sourceCapturedAt: string | null;
+  };
 }
 
 export interface LeagueStanding {

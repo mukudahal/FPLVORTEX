@@ -79,12 +79,14 @@ export function LeagueIntel({
   const loadEntry = useCallback(async (id: string, signal?: AbortSignal) => {
     if (!isNumeric(id)) return;
     setEntryLoading(true);
+    setEntry(null); // Clear the previous manager while the requested ID is loading.
     setEntryError(null);
     try {
       const data = await fetchEntry(id.trim(), signal);
       setEntry(data);
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
+        setEntry(null);
         setEntryError(err instanceof Error ? err.message : 'Unable to scan team.');
       }
     } finally {
@@ -225,6 +227,11 @@ export function LeagueIntel({
         </div>
       )}
 
+      {entry && (entry.provenance?.kind === 'demo' || entry.provenance?.kind === 'archived' || entry.source === 'offline' || entry.source === 'snapshot') && (
+        <div className="data-warning" role="status">
+          {entry.provenance?.kind === 'demo' ? 'DEMO SQUAD' : 'ARCHIVED SQUAD'} · Team #{entry.id}. Not verified as the requested manager's current FPL team. Archive capture date: {entry.provenance?.sourceCapturedAt ?? 'unknown'}.
+        </div>
+      )}
       {entry && (
         <section className="stat-grid stat-grid--league">
           <StatCard

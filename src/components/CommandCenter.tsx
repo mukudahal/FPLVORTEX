@@ -1139,6 +1139,9 @@ export function CommandCenter({
               <header className="vx-card__header vx-pitch-header">
                 <div className="vx-pitch-header__identity">
                   <strong>{entry!.teamName}</strong>
+                  {entry!.provenance?.kind !== 'official' && (entry!.source === 'snapshot' || entry!.source === 'offline') && (
+                    <small role="status">{entry!.provenance?.kind === 'demo' ? 'DEMO SQUAD' : 'ARCHIVED SQUAD'} — not a verified current FPL team; archive date unknown.</small>
+                  )}
                   <button
                     type="button"
                     className="vx-team-id-trigger"
