@@ -58,12 +58,13 @@ test('fixture matrix has explicit light theme surfaces and compact desktop layou
   assert.match(css, /@media \(min-width: 701px\)[\s\S]*?\.fm-table th, \.fm-table td \{ padding: 2px 3px;/);
 });
 
-test('fixture matrix uses compact responsive layouts for both forecast sources', async () => {
+test('fixture matrix allows sideways scrolling in both forecast sources', async () => {
   const css = await readFile('src/styles.css', 'utf8');
   const component = await readFile('src/components/FixtureMatrix.tsx', 'utf8');
   assert.match(component, /fm-page--\$\{source\}/);
   assert.match(component, /320 \+ gws\.length \* 72/);
-  assert.match(css, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
-  assert.match(css, /\.fm-page--market \.fm-table tbody tr \{ grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
-  assert.match(css, /\.fm-page--market \.fm-table tbody td:not\(\.fm-overall-col\):not\(\.fm-avg-col\) \{ grid-column: span 2/);
+  assert.match(component, /aria-label="Fixture matrix, scroll sideways to see all gameweeks"/);
+  assert.match(css, /\.player-table-scroll, \.fm-table-scroll \{[^}]*overflow-x: auto/);
+  assert.match(css, /\.fm-table tbody tr, \.fm-page--market \.fm-table tbody tr \{ display: table-row/);
+  assert.match(css, /\.fm-table thead \{ display: table-header-group/);
 });
