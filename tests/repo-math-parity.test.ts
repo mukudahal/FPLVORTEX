@@ -447,6 +447,9 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   const portraitMatches = htmlPlayers.match(/https:\/\/resources\.premierleague\.com\/premierleague25\/photos\/players\/250x250\/\d+\.png/g) ?? [];
   assert.ok(portraitMatches.length >= 20, `expected >= 20 real player portraits in PlayerLab, got ${portraitMatches.length}`);
 
+  assert.match(htmlPlayers, /Player results, scroll sideways to see all columns/);
+  assert.match(htmlPlayers, /Projection information/);
+  assert.doesNotMatch(htmlPlayers, /Multi-gameweek xPts, Legacy xP &amp; DEFCON/);
   assert.match(htmlPlayers, /Player results pages/);
   assert.match(htmlPlayers, /Rows per page/);
   assert.match(htmlPlayers, /Page 1 of/);

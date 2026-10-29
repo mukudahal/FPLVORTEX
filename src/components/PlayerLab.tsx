@@ -311,11 +311,6 @@ export function PlayerLab({
           </label>
         </div>
 
-        {snapshot?.meta.repoData?.benchmarkPlayers ? <p className="player-projection-notice">Some xPts use the repository projection file {snapshot.meta.repoData.benchmarkFile.split('/').pop()}; its age should be checked before using these forecasts. Legacy xP is a local heuristic, not a live Opta feed.</p> : <p className="player-projection-notice">Legacy xP is a local heuristic, not a live Opta feed. Projection freshness depends on the available source data.</p>}
-        <div className="player-results-meta">
-          <strong>{filtered.length}</strong> of {players.length} Premier League players · Multi-gameweek xPts, Legacy xP & DEFCON
-          <span>Click any column heading to sort · Click any row for full GW7–GW16 breakdown</span>
-        </div>
       </section>
 
       {/* Head-to-head comparison bar when 1 or 2 players pinned */}
@@ -371,7 +366,8 @@ export function PlayerLab({
       )}
 
       <section className="panel table-panel" aria-label="All 667 repository players">
-        <div className="table-wrap">
+        <p className="table-swipe-hint">Swipe left or right to see all columns ↔</p>
+        <div className="table-wrap player-table-scroll" role="region" aria-label="Player results, scroll sideways to see all columns" tabIndex={0}>
           <table className="player-table">
             <thead>
               <tr>
@@ -523,6 +519,7 @@ export function PlayerLab({
           <span>{filtered.length} players · Page {currentPage + 1} of {totalPages}</span>
           <div><button type="button" onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0}>Previous</button><button type="button" onClick={() => setPage(Math.min(totalPages - 1, currentPage + 1))} disabled={currentPage >= totalPages - 1}>Next</button></div>
         </nav>
+        <details className="player-projection-details"><summary>Projection information</summary><p>{snapshot?.meta.repoData?.benchmarkPlayers ? `Some xPts use ${snapshot.meta.repoData.benchmarkFile.split('/').pop()}, which may be outdated. ` : 'Projection freshness depends on available source data. '}Legacy xP is a local heuristic, not a live Opta feed.</p></details>
       </section>
 
       <PlayerGraphicModal
