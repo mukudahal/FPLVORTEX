@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Activity,
   BrainCircuit,
@@ -13,13 +13,8 @@ import {
 } from 'lucide-react';
 import type { EnrichedPlayer, Snapshot, VideoItem } from '../lib/types';
 import { fetchVideos } from '../lib/api';
-import { formatDate, formatNumber, relativeTime } from '../lib/format';
+import { formatDate, relativeTime } from '../lib/format';
 import { API_BASE, AWAY_GOALS, HOME_GOALS, PRIOR_GAMES } from '../lib/repoModel/dashboardMath';
-import {
-  fitPointsCalibration,
-  validateHistoricalPredictions,
-  type HistoricalPrediction,
-} from '../lib/repoModel/forecastScience';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import { RULES_2026_27 } from '../lib/repoModel/seasonRules';
 import { DEFAULT_PRIORS, SHRINK_90S } from '../lib/repoModel/xpts';
@@ -61,7 +56,6 @@ const DATA_TIERS = [
 
 export function Methodology({
   snapshot,
-  players,
   lastSuccessAt,
   refreshing,
   onRefresh,
@@ -76,28 +70,10 @@ export function Methodology({
     return () => controller.abort();
   }, []);
 
-  // Run repo calibration & cross-model diagnostics (`site/model/forecastScience.ts`)
-  const scienceMetrics = useMemo(() => {
-    const active = players.filter((p) => p.projection > 0.2);
-    const targetGw = snapshot.meta.nextEventId;
-    const historyGw = Math.max(1, targetGw - 1);
-    const posToGroup = (pos: string): 1 | 2 | 3 | 4 =>
-      pos === 'GKP' ? 1 : pos === 'DEF' ? 2 : pos === 'MID' ? 3 : 4;
-    const history: HistoricalPrediction[] = active.map((p) => ({
-      position: posToGroup(p.position),
-      gw: historyGw,
-      predictedAt: '2026-10-01T10:00:00.000Z',
-      deadlineAt: '2026-10-03T10:00:00.000Z',
-      predicted: p.modelBreakdown.modelXPts,
-      actual: p.projection,
-      p60: p.modelBreakdown.p60Plus,
-      played60: p.modelBreakdown.expectedMinutes >= 60,
-    }));
-    const calibrations = fitPointsCalibration(history, targetGw);
-    const midCal = calibrations.find((c) => c.group === 3) ?? calibrations[0];
-    const validation = validateHistoricalPredictions(history, targetGw);
-    return { calibration: midCal, validation };
-  }, [players, snapshot.meta.nextEventId]);
+  // Current projections are not historical outcomes. The original app has no
+  // verified frozen forecast/outcome feed yet; do not manufacture a history
+  // from projections, dates or expected minutes. Wire an audited archive here
+  // before reporting historical errors or validated calibration parameters.
 
   return (
     <div className="page page--method">
@@ -224,34 +200,33 @@ export function Methodology({
         <section className="panel">
           <div className="panel__header">
             <div>
-              <span className="panel__eyebrow">FORECAST CALIBRATION</span>
-              <h3>Cross-model calibration & diagnostic status</h3>
+              <span className="panel__eyebrow">FORECAST VALIDATION</span>
+              <h3>Historical prediction accuracy status</h3>
             </div>
             <Check size={17} />
           </div>
           <div className="system-status-grid">
             <div className="status-tile">
-              <span>Sample Pool</span>
-              <strong>{formatNumber(scienceMetrics.validation.sampleSize)}</strong>
-              <small>Active 2026/27 players</small>
+              <span>Verified Samples</span>
+              <strong>Not yet verified</strong>
+              <small>0 connected verified pairs</small>
             </div>
             <div className="status-tile">
-              <span>Cross-Model MAE</span>
-              <strong>{(scienceMetrics.validation.mae ?? 0).toFixed(2)} pts</strong>
-              <small>CSV vs Mechanistic xPts</small>
+              <span>Historical MAE</span>
+              <strong>Not yet verified</strong>
             </div>
             <div className="status-tile">
-              <span>Cross-Model RMSE</span>
-              <strong>{(scienceMetrics.validation.rmse ?? 0).toFixed(2)} pts</strong>
-              <small>Ridge shrink +20</small>
+              <span>Historical RMSE</span>
+              <strong>Not yet verified</strong>
             </div>
             <div className="status-tile">
-              <span>Ridge Calibration</span>
-              <strong>{scienceMetrics.calibration.scale.toFixed(2)}×</strong>
-              <small>Bias {scienceMetrics.calibration.bias >= 0 ? '+' : ''}{scienceMetrics.calibration.bias.toFixed(2)}</small>
+              <span>Calibration</span>
+              <strong>Not yet verified</strong>
             </div>
           </div>
           <p className="muted-copy" style={{ marginTop: 12 }}>
+            Historical accuracy requires forecasts saved before their official deadline and matched to finalized
+            official points and minutes. Comparing two projections does not verify prediction accuracy.{' '}
             Default Empirical-Bayes Position Priors: GKP ({DEFAULT_PRIORS[1].saves} saves/90), DEF (
             {DEFAULT_PRIORS[2].defc} DEFCON/90, {DEFAULT_PRIORS[2].goals} G/90), MID ({DEFAULT_PRIORS[3].goals} G/90,{' '}
             {DEFAULT_PRIORS[3].assists} A/90), FWD ({DEFAULT_PRIORS[4].goals} G/90, {DEFAULT_PRIORS[4].assists} A/90) ·
@@ -317,3 +292,4 @@ export function Methodology({
     </div>
   );
 }
+
