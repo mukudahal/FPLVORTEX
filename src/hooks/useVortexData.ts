@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Snapshot } from '../lib/types';
-import { fetchOfflineSnapshot, fetchSnapshot, forceRefresh } from '../lib/api';
+import { fetchSnapshot, forceRefresh } from '../lib/api';
+import { isOlderSnapshot } from '../lib/snapshotFreshness';
 
 export interface VortexDataState {
   snapshot: Snapshot | null;
@@ -18,6 +19,7 @@ export function useVortexData(): VortexDataState {
   const [error, setError] = useState<string | null>(null);
   const [lastSuccessAt, setLastSuccessAt] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const snapshotRef = useRef<Snapshot | null>(null);
 
   const refresh = useCallback(async (manual = false) => {
     controllerRef.current?.abort();
@@ -29,27 +31,23 @@ export function useVortexData(): VortexDataState {
       if (manual) {
         await forceRefresh(controller.signal);
       }
-      let data: Snapshot;
-      try {
-        data = await fetchSnapshot(controller.signal);
-      } catch (apiError) {
-        if (controller.signal.aborted) throw apiError;
-        data = await fetchOfflineSnapshot(controller.signal);
-      }
+      const data = await fetchSnapshot(controller.signal);
       if (controller.signal.aborted) return;
-      setSnapshot(data);
-      setError(data.meta.stale ? 'Live upstream unavailable — showing the built-in data snapshot.' : null);
+      const existing = snapshotRef.current;
+      if (existing && isOlderSnapshot(existing, data)) {
+        const retained = { ...existing, meta: { ...existing.meta, source: 'cache' as const, stale: true, upstreamOk: false } };
+        snapshotRef.current = retained;
+        setSnapshot(retained);
+        setError('An older data snapshot was ignored; showing the latest available data.');
+      } else {
+        snapshotRef.current = data;
+        setSnapshot(data);
+        setError(data.meta.stale ? 'Live data is unavailable or updating — showing the latest available snapshot.' : null);
+      }
       setLastSuccessAt(new Date().toISOString());
     } catch (caught) {
       if (controller.signal.aborted) return;
-      try {
-        const fallback = await fetchOfflineSnapshot();
-        setSnapshot(fallback);
-        setError('The data engine is offline — using the built-in snapshot.');
-        setLastSuccessAt(new Date().toISOString());
-      } catch {
-        setError(caught instanceof Error ? caught.message : 'Could not load FPL data.');
-      }
+      setError(caught instanceof Error ? caught.message : 'Could not load FPL data.');
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
@@ -66,7 +64,9 @@ export function useVortexData(): VortexDataState {
   }, []);
 
   useEffect(() => {
-    const intervalSeconds = Math.max(30, snapshot?.meta.refreshSeconds ?? 300);
+    // Check for an updated snapshot at least once a minute; the server/provider cache
+    // still controls paid odds requests and may return older prices.
+    const intervalSeconds = Math.min(60, Math.max(30, snapshot?.meta.refreshSeconds ?? 60));
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible' && navigator.onLine) void refresh(false);
     }, intervalSeconds * 1000);

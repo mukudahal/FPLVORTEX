@@ -1,4 +1,4 @@
-import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
+import { makeFixtureForecasts, fixtureCellIndex, difficultyColor, overallDifficulty } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -41,7 +41,8 @@ type SortKey =
   | 'ownership'
   | 'price'
   | 'easeSum5'
-  | 'name';
+  | 'name'
+  | 'club';
 
 function scoreTone(value: number): string {
   if (value >= 6.5) return 'is-elite';
@@ -60,7 +61,7 @@ function exportCsv(players: EnrichedPlayer[], nextGw: number): void {
     'Price',
     `GW${nextGw}_Repo_xPts`,
     '5GW_Repo_xPts',
-    'Opta_5GW_xP',
+    'Legacy_5GW_xP',
     'Model_xPts',
     'xMins',
     'DEFCON_xPts',
@@ -111,14 +112,15 @@ export function PlayerLab({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [maxPrice, setMaxPrice] = useState(16);
   const [differentialsOnly, setDifferentialsOnly] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(30);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [selected, setSelected] = useState<EnrichedPlayer | null>(null);
   const [selectedInjury, setSelectedInjury] = useState<EnrichedPlayer | null>(null);
   const [compareIds, setCompareIds] = useState<number[]>([]);
 
   useEffect(() => {
-    setVisibleCount(30);
-  }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly]);
+    setPage(0);
+  }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize]);
 
   const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map(), [snapshot, fixtureRows]);
 
@@ -127,12 +129,17 @@ export function PlayerLab({
     [fixtureRows],
   );
 
+  const vortexFiveGwAvg = useMemo(() => new Map(fixtureRows.map(row => {
+    const items = row.cells.slice(0, 5).flatMap(cell => sharedFixtureForecasts.get(`${row.team.id}:${cell.event}`) ?? []);
+    return [row.team.id, items.length ? items.reduce((sum, item) => sum + overallDifficulty(item), 0) / items.length : null] as const;
+  })), [fixtureRows, sharedFixtureForecasts]);
+
   const toggleSort = (key: SortKey) => {
     if (sort === key) {
       setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
     } else {
       setSort(key);
-      setSortDir(key === 'name' || key === 'price' ? 'asc' : 'desc');
+      setSortDir(key === 'name' || key === 'club' || key === 'price' || key === 'easeSum5' ? 'asc' : 'desc');
     }
   };
 
@@ -159,6 +166,9 @@ export function PlayerLab({
         case 'name':
           cmp = a.name.localeCompare(b.name);
           break;
+        case 'club':
+          cmp = a.team.name.localeCompare(b.team.name);
+          break;
         case 'price':
           cmp = a.cost - b.cost;
           break;
@@ -175,7 +185,11 @@ export function PlayerLab({
           cmp = a.modelBreakdown.defcon - b.modelBreakdown.defcon;
           break;
         case 'easeSum5':
-          cmp = a.modelBreakdown.fiveGwEaseScore - b.modelBreakdown.fiveGwEaseScore;
+          {
+            const av = vortexFiveGwAvg.get(a.teamId) ?? null, bv = vortexFiveGwAvg.get(b.teamId) ?? null;
+            if (av === null || bv === null) return av === bv ? a.name.localeCompare(b.name) : av === null ? 1 : -1;
+            cmp = av - bv;
+          }
           break;
         case 'optaXP5Gw':
           cmp = a.modelBreakdown.optaXP5Gw - b.modelBreakdown.optaXP5Gw;
@@ -192,7 +206,11 @@ export function PlayerLab({
       return b.projection - a.projection;
     });
     return result;
-  }, [deferredQuery, differentialsOnly, maxPrice, players, position, sort, sortDir, teamId]);
+  }, [deferredQuery, differentialsOnly, maxPrice, players, position, sort, sortDir, teamId, vortexFiveGwAvg]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const visiblePlayers = filtered.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
   const toggleCompare = (id: number) => {
     setCompareIds((prev) => {
@@ -293,8 +311,9 @@ export function PlayerLab({
           </label>
         </div>
 
+        {snapshot?.meta.repoData?.benchmarkPlayers ? <p className="player-projection-notice">Some xPts use the repository projection file {snapshot.meta.repoData.benchmarkFile.split('/').pop()}; its age should be checked before using these forecasts. Legacy xP is a local heuristic, not a live Opta feed.</p> : <p className="player-projection-notice">Legacy xP is a local heuristic, not a live Opta feed. Projection freshness depends on the available source data.</p>}
         <div className="player-results-meta">
-          <strong>{filtered.length}</strong> of {players.length} Premier League players · Multi-gameweek xPts, Opta xP & DEFCON
+          <strong>{filtered.length}</strong> of {players.length} Premier League players · Multi-gameweek xPts, Legacy xP & DEFCON
           <span>Click any column heading to sort · Click any row for full GW7–GW16 breakdown</span>
         </div>
       </section>
@@ -340,7 +359,7 @@ export function PlayerLab({
                 <div className="compare-card__metrics">
                   <div><span>GW{nextEventId} xPts</span><strong>{p.projection.toFixed(2)}</strong></div>
                   <div><span>5-GW xPts</span><strong>{p.horizon5Projection.toFixed(2)}</strong></div>
-                  <div><span>Opta 5GW xP</span><strong>{p.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
+                  <div><span>Legacy 5GW xP</span><strong>{p.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
                   <div><span>DEFCON xPts</span><strong>+{p.modelBreakdown.defcon.toFixed(2)}</strong></div>
                   <div><span>Attack xPts</span><strong>{p.modelBreakdown.attacking.toFixed(2)}</strong></div>
                   <div><span>CS / Saves</span><strong>{(p.modelBreakdown.cleanSheet + p.modelBreakdown.saves).toFixed(2)}</strong></div>
@@ -361,7 +380,7 @@ export function PlayerLab({
                     Player <ArrowUpDown size={11} />
                   </button>
                 </th>
-                <th>Club</th>
+                <th><button type="button" className="sortable-th" onClick={() => toggleSort('club')}>Club <ArrowUpDown size={11} /></button></th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('price')}>
                     Price <ArrowUpDown size={11} />
@@ -379,7 +398,7 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('optaXP5Gw')}>
-                    Opta xP <ArrowUpDown size={11} />
+                    Legacy xP <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -399,7 +418,7 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('easeSum5')}>
-                    Next 5 Fixtures <ArrowUpDown size={11} />
+                    Next 5 Fixtures (VORTEX FDR) <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>GW7–16 Trend</th>
@@ -407,7 +426,7 @@ export function PlayerLab({
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, visibleCount).map((player) => {
+              {visiblePlayers.map((player) => {
                 const row = fixtureByTeam.get(player.teamId);
                 const pinned = compareIds.includes(player.id);
                 return (
@@ -499,13 +518,11 @@ export function PlayerLab({
           </table>
         </div>
 
-        {visibleCount < filtered.length && (
-          <div className="table-more">
-            <button type="button" className="button button--ghost" onClick={() => setVisibleCount((count) => count + 40)}>
-              Show more ({filtered.length - visibleCount} remaining of {filtered.length})
-            </button>
-          </div>
-        )}
+        <nav className="player-pagination" aria-label="Player results pages">
+          <label>Rows per page <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))}>{[10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+          <span>{filtered.length} players · Page {currentPage + 1} of {totalPages}</span>
+          <div><button type="button" onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0}>Previous</button><button type="button" onClick={() => setPage(Math.min(totalPages - 1, currentPage + 1))} disabled={currentPage >= totalPages - 1}>Next</button></div>
+        </nav>
       </section>
 
       <PlayerGraphicModal
