@@ -51,34 +51,21 @@ export async function fetchSnapshot(signal?: AbortSignal): Promise<Snapshot> {
   try {
     return await getJson<Snapshot>(withBase('api/vortex/snapshot'), signal);
   } catch (error) {
-    if (error instanceof ApiRequestError && error.status === 400 && error.isJsonError) {
-      throw error;
-    }
-    try {
-      return await getJson<Snapshot>(withBase('data/vortex-snapshot.json'), signal);
-    } catch {
-      return fetchOfflineSnapshot(signal);
-    }
+    if (signal?.aborted || (error instanceof ApiRequestError && error.status === 400 && error.isJsonError)) throw error;
+    return fetchOfflineSnapshot(signal);
   }
 }
 
 export async function fetchOfflineSnapshot(signal?: AbortSignal): Promise<Snapshot> {
+  let snapshot: Snapshot;
   try {
-    return await getJson<Snapshot>(withBase('data/vortex-snapshot.json'), signal);
-  } catch {
-    const snapshot = await getJson<Snapshot>(withBase('data/fpl-snapshot.json'), signal);
-    return {
-      ...snapshot,
-      meta: {
-        ...snapshot.meta,
-        source: 'offline',
-        servedAt: new Date().toISOString(),
-        upstreamOk: false,
-        stale: true,
-        refreshSeconds: 120,
-      },
-    };
+    snapshot = await getJson<Snapshot>(withBase('data/vortex-snapshot.json'), signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    snapshot = await getJson<Snapshot>(withBase('data/fpl-snapshot.json'), signal);
   }
+  // A static build is a fallback, not proof of a current upstream connection.
+  return { ...snapshot, meta: { ...snapshot.meta, source: 'offline', servedAt: new Date().toISOString(), upstreamOk: false, stale: true, refreshSeconds: 120 } };
 }
 
 export async function forceRefresh(signal?: AbortSignal): Promise<void> {

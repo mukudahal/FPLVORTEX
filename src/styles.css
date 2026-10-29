@@ -7002,3 +7002,23 @@ kbd {
   .fm-page--market .fm-table tbody th.fm-team-col { grid-column: span 4; }
   .fm-page--market .fm-table tbody td:not(.fm-overall-col):not(.fm-avg-col) { grid-column: span 2; }
 }
+.fm-leaders { margin: 8px 12px; padding: 10px; border: 1px solid #38536e; border-radius: 12px; background: #10243a; color: #e6f4ff; }
+.fm-leaders summary { cursor: pointer; font-weight: 800; font-size: 13px; }
+.fm-leaders__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.fm-leaders h3 { font-size: 12px; margin: 10px 0 5px; }
+.fm-leaders table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.fm-leaders th, .fm-leaders td { padding: 5px 7px; border-bottom: 1px solid #28415b; text-align: left; }
+.fm-leaders th:last-child, .fm-leaders td:last-child { text-align: center; font-weight: 800; }
+.fm-leaders td .club-badge { vertical-align: middle; }
+.fm-leaders p { color: #a9c0d4; font-size: 11px; }
+:root[data-theme="light"] .fm-leaders { background: #edf6fa; border-color: #c6dbe8; color: #19394e; }
+:root[data-theme="light"] .fm-leaders p { color: #47677b; }
+:root[data-theme="light"] .fm-leaders th, :root[data-theme="light"] .fm-leaders td { border-color: #d0e2eb; }
+.player-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 14px; color: var(--text-secondary); font-size: 12px; }
+.player-pagination label, .player-pagination > div { display: flex; align-items: center; gap: 7px; }
+.player-pagination select, .player-pagination button { padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--panel-solid); color: var(--text-primary); }
+.player-pagination button:not(:disabled) { cursor: pointer; }
+.player-pagination button:disabled { opacity: .45; }
+.player-table th { padding: 9px 10px; }
+.player-table td { padding: 6px 10px; }
+.player-projection-notice { margin: 8px 0; font-size: 11px; line-height: 1.4; color: var(--text-secondary); }
