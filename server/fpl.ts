@@ -497,7 +497,8 @@ export async function getLeague(id: string): Promise<LeagueData> {
 }
 
 export async function getHealth(): Promise<Record<string, unknown>> {
-  const snapshot = await getSnapshot();
+  // Readiness must not wait on external FPL or bookmaker requests.
+  const snapshot = await getSnapshotFast();
   return {
     ok: true,
     service: 'fpl-vortex',
@@ -518,3 +519,4 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     node: process.version,
   };
 }
+

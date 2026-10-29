@@ -49,7 +49,9 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 
 export async function fetchSnapshot(signal?: AbortSignal): Promise<Snapshot> {
   try {
-    return await getJson<Snapshot>(withBase('api/vortex/snapshot'), signal);
+    const timeout = AbortSignal.timeout(8_000);
+    return await getJson<Snapshot>(withBase('api/vortex/snapshot'),
+      signal ? AbortSignal.any([signal, timeout]) : timeout);
   } catch (error) {
     if (signal?.aborted || (error instanceof ApiRequestError && error.status === 400 && error.isJsonError)) throw error;
     return fetchOfflineSnapshot(signal);
@@ -273,4 +275,5 @@ export async function deleteSavedTeamOnServer(id: string): Promise<void> {
     // Ignore offline/static errors; client storage is updated synchronously.
   }
 }
+
 

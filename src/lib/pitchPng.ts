@@ -1,4 +1,3 @@
-import { toBlob } from 'html-to-image';
 import { savePngBlob } from './savePng';
 
 /** Try the exact displayed image first, then the app's same-origin photo proxy. */
@@ -29,6 +28,7 @@ async function imageDataUrl(img: HTMLImageElement): Promise<string> {
 
 /** Capture the actual visible pitch, including all players and the bench, without site controls. */
 export async function downloadPitchPng(pitch: HTMLElement, filename: string): Promise<void> {
+  const { toBlob } = await import('html-to-image');
   const width = pitch.offsetWidth, height = pitch.offsetHeight;
   if (!width || !height || !pitch.parentElement) throw new Error('The pitch is not ready to save.');
   const clone = pitch.cloneNode(true) as HTMLElement;
@@ -51,3 +51,4 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     clone.remove();
   }
 }
+

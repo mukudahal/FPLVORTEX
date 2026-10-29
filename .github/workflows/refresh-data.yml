@@ -2,7 +2,11 @@ name: Refresh FPL snapshot
 
 on:
   schedule:
-    - cron: '23 */6 * * *'
+    # Hourly recovery opportunities: a delayed/dropped run no longer creates a 6h gap.
+    - cron: '23 * * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/refresh-data.yml']
   workflow_dispatch:
     inputs:
       source:
@@ -39,18 +43,23 @@ jobs:
         run: npm ci
 
       - name: Fetch and normalize public FPL data
+        id: official
+        continue-on-error: true
         if: ${{ github.event.inputs.source != 'deployment' }}
         run: npm run data:refresh
 
       - name: Archive completed official FPL matches
-        if: ${{ github.event.inputs.source != 'deployment' }}
+        if: ${{ steps.official.outcome == 'success' }}
         run: npm run data:archive-matches
 
       - name: Mirror the published deployment snapshot
-        if: ${{ github.event.inputs.source == 'deployment' }}
+        if: ${{ github.event.inputs.source == 'deployment' || steps.official.outcome == 'failure' }}
         env:
           VORTEX_UPSTREAM_BASE: https://fplvortex.onrender.com
         run: npm run data:mirror
+
+      - name: Reject stale, incomplete or unverified recovery data
+        run: node --import tsx scripts/check-snapshot.ts
 
       - name: Commit changed snapshot
         run: |
@@ -62,4 +71,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add public/data/fpl-snapshot.json data/fpl-match-history
           git commit -m "chore(data): refresh FPL snapshot [skip ci]"
+          # Rebase only our generated files over unrelated commits; conflicts fail visibly.
+          git pull --rebase origin main
           git push
+
+      - name: Report refresh failure
+        if: failure()
+        run: |
+          echo '::error::Snapshot refresh failed. The previous recovery snapshot was retained; inspect this run before calling it fresh.'
+          echo '## Snapshot refresh FAILED — previous recovery data retained' >> "$GITHUB_STEP_SUMMARY"
+

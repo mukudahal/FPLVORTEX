@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Snapshot } from '../src/lib/types.ts';
+import { assertFreshSnapshot } from '../server/snapshotValidation.ts';
 
 /**
  * Mirrors a published FPL VORTEX deployment's live snapshot into the repo.
@@ -58,6 +59,7 @@ async function fetchAttempt(attempt: Attempt): Promise<Snapshot> {
   if (!response.ok) throw new Error(`Upstream ${response.status} for ${attempt.path}`);
   const payload: unknown = await response.json();
   assertSnapshot(payload);
+  assertFreshSnapshot(payload);
   return payload;
 }
 
@@ -90,8 +92,7 @@ async function main(): Promise<void> {
     meta: {
       ...upstream.meta,
       source: 'snapshot',
-      upstreamOk: true,
-      stale: false,
+      // Preserve the verified upstream state and original generation time.
       mirroredFrom: UPSTREAM_BASE,
       mirroredAt,
     },
@@ -113,3 +114,4 @@ main().catch((error) => {
   console.error('[mirror] Failed:', error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
+
