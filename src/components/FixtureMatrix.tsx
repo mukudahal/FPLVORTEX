@@ -4,6 +4,8 @@ import type { EnrichedPlayer, FixtureRow, Snapshot } from '../lib/types';
 import { makeFixtureForecasts, meanForecast, difficultyColor, overallDifficulty, provisionalOpportunityIndices, type FixtureForecast, type ForecastSource } from '../lib/fixtureForecast';
 import { ClubBadge } from './ClubBadge';
 import { ForecastTile } from './ForecastTile';
+import { SaveTableButton } from './SaveTableButton';
+import { buildFixturePngTables } from '../lib/fixturePng';
 
 interface FixtureMatrixProps {
   snapshot: Snapshot;
@@ -25,7 +27,7 @@ function badge(value: number, prefix: string) {
 }
 function fair(probability: number) { return probability > 0 ? (1 / probability).toFixed(2) : '—'; }
 
-export function FixtureMatrix({ snapshot }: FixtureMatrixProps) {
+export function FixtureMatrix({ snapshot, onToast }: FixtureMatrixProps) {
   const first = Math.max(1, Math.min(38, snapshot.meta.nextEventId));
   const [source, setSource] = useState<ForecastSource>('vortex');
   const [metric, setMetric] = useState<Metric>('difficulty');
@@ -97,6 +99,16 @@ export function FixtureMatrix({ snapshot }: FixtureMatrixProps) {
       </div>
       <div className="fm-legend">{metric === 'difficulty' ? <><span>Easy</span><div className="fm-color-key" aria-label="Five difficulty colour bands">{[1,2,3,4,5].map(value => <span key={value} style={{ background: difficultyColor(value) }} />)}</div><span>Hard</span></> : <span>{metric === 'win' ? 'WIN = model-derived win probability' : 'G = projected goals · CS = clean-sheet chance'}</span>}<small>{source === 'vortex' && metric === 'difficulty' ? 'A = Attack · D = Defence · H / A = venue' : source === 'market' ? 'Market-implied projections · prices may be unavailable' : 'H / A = venue · click a fixture for details'}</small></div>
       <div className="fm-mobile-sort"><label htmlFor="fm-sort-mobile">Sort fixtures</label><select id="fm-sort-mobile" value={`${sort.gw}:${sort.metric}`} onChange={event => { const [gw, kind] = event.target.value.split(':'); setSortMetric(gw === 'avg' ? 'avg' : Number(gw), kind as SortMetric); }}><option value="avg:overall">Average FDR</option>{metricKeys.map(key => <option key={`avg:${key}`} value={`avg:${key}`}>Average {metricLabel[key]}</option>)}{gws.flatMap(gw => metricKeys.map(key => <option key={`${gw}:${key}`} value={`${gw}:${key}`}>GW{gw} {metricLabel[key]}</option>))}</select><button type="button" aria-label="Reverse sort order" onClick={() => setSort(prev => ({ ...prev, ascending: !prev.ascending }))}>{sort.ascending ? '↑' : '↓'}</button></div>
+      <div className="save-table-bar"><SaveTableButton getTables={() => {
+        const tables = buildFixturePngTables(snapshot, safeStart, safeEnd);
+        const marketForecasts = makeFixtureForecasts(snapshot, 'market', [first]);
+        const leaders = snapshot.teams.flatMap(team => marketForecasts.get(`${team.id}:${first}`) ?? []);
+        for (const metric of ['goals', 'cleanSheet'] as const) {
+          const rows = [...leaders].sort((a, b) => b[metric] - a[metric] || a.team.name.localeCompare(b.team.name));
+          if (rows.length) tables.push({ title: `GW${first} MARKET LEADERS · ${metric === 'goals' ? 'GOALS' : 'CLEAN SHEETS'}`, headers: ['CLUB', 'OPPONENT', metric === 'goals' ? 'GOALS' : 'CS'], widths: [180, 140, 90], rows: rows.map(item => [{ text: item.team.name }, { text: `${item.opponent.shortName} (${item.home ? 'H' : 'A'})` }, { text: metric === 'goals' ? num(item.goals) : percent(item.cleanSheet) }]) });
+        }
+        return tables;
+      }} filename={`fpl-vortex-fixtures-gw${safeStart}-${safeEnd}.png`} onError={message => onToast(message, 'error')} /></div>
       <p className="table-swipe-hint fm-swipe-hint">Swipe left or right to see all gameweeks ↔</p>
       <div className="fm-table-scroll" role="region" aria-label="Fixture matrix, scroll sideways to see all gameweeks" tabIndex={0}><table className="fm-table" style={{ minWidth: `${320 + gws.length * 72}px`, '--fm-mobile-min-width': `${320 + gws.length * 100}px` } as CSSProperties}><thead><tr><th className="fm-team-col">CLUB</th><th className="fm-overall-col"><button type="button" onClick={() => setSortMetric('avg', 'overall')} aria-label="Sort average overall FDR">AVG FDR {sort.gw === 'avg' && sort.metric === 'overall' ? (sort.ascending ? '↑' : '↓') : '↕'}</button></th><th className="fm-avg-col"><span>AVG</span><div className="fm-sort-pair fm-sort-pair--avg">{metricKeys.map(key => <button key={key} type="button" onClick={() => setSortMetric('avg', key)} aria-label={`Sort average ${metricLabel[key]}`}>{shortMetric(key)}{sort.gw === 'avg' && sort.metric === key ? (sort.ascending ? ' ↑' : ' ↓') : ' ↕'}</button>)}</div></th>{gws.map(gw => <th key={gw}><span>GW{gw}</span><div className={`fm-sort-pair ${metric === 'win' ? 'fm-sort-pair--win' : ''}`}><span className="fm-col-opponent">OPP</span>{metricKeys.map(key => <button key={key} type="button" onClick={() => setSortMetric(gw, key)} aria-label={`Sort GW${gw} ${metricLabel[key]}`}>{shortMetric(key)}{sort.gw === gw && sort.metric === key ? (sort.ascending ? ' ↑' : ' ↓') : ' ↕'}</button>)}</div></th>)}</tr></thead>
         <tbody>{sorted.map(team => {

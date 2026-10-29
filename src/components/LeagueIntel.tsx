@@ -21,6 +21,7 @@ import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 import { StatCard } from './StatCard';
 import { TeamIdInput } from './TeamIdInput';
+import { SaveTableButton } from './SaveTableButton';
 
 interface LeagueIntelProps {
   snapshot: Snapshot;
@@ -424,6 +425,7 @@ export function LeagueIntel({
             </div>
             {leagueError && <span className="badge badge--amber">{leagueError}</span>}
           </div>
+          <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-league-${league.id}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `LEAGUE STANDINGS · LOADED RESULTS · ${league.name}`, headers: ['RANK', 'MOVE', 'TEAM', 'MANAGER', 'GW PTS', 'TOTAL'], widths: [65, 65, 180, 180, 80, 80], rows: league.standings.map(row => [{ text: String(row.rank) }, { text: rankMovement(row).label }, { text: row.entryName }, { text: row.playerName }, { text: String(row.eventTotal) }, { text: String(row.total) }]) }]} /></div>
           <div className="table-wrap">
             <table className="player-table">
               <thead>

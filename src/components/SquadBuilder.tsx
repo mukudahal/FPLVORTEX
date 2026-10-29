@@ -1,4 +1,7 @@
 import { ForecastTile } from './ForecastTile';
+import { SaveTableButton } from './SaveTableButton';
+import type { PngTable } from '../lib/tablePng';
+import { buildFixturePngTables } from '../lib/fixturePng';
 import { makeFixtureForecasts } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -203,6 +206,7 @@ export function SquadBuilder({
   onInspectInjury,
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
+  const [plannerHorizon, setPlannerHorizon] = useState(5);
   const [squadMode, setSquadMode] = useState<'mySquad' | 'autoOptimal'>('mySquad');
   const [budget, setBudget] = useState(100);
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
@@ -443,14 +447,23 @@ export function SquadBuilder({
   const hitPoints = squadMode === 'mySquad' ? Math.max(0, transfersUsedCount - freeTransfers) * 4 : 0;
 
   const activeChipSim = reviewSim?.chipSimulations.find((c) => c.chip === selectedChipPreview) ?? null;
+  const optimizerTables = (): PngTable[] => {
+    const tables: PngTable[] = [buildFixturePngTables(snapshot, snapshot.meta.nextEventId, snapshot.meta.nextEventId + plannerHorizon - 1)[0], { title: 'SUGGESTED TRANSFER TARGETS', headers: ['PLAYER', 'CLUB / POS', 'NEXT 5 FIXTURES', 'PRICE', 'EO%', 'POINTS', 'GW xPTS', 'LEGACY xP'], widths: [155, 100, 260, 70, 65, 70, 75, 80], rows: players.filter(player => !activeSquadIds.includes(player.id)).map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: fixtureByTeam.get(player.teamId)?.cells.map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: formatPrice(player.price) }, { text: formatPercent(player.ownership) }, { text: String(player.totalPoints) }, { text: player.projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(1) }]) }];
+    if (reviewSim) {
+      tables.push({ title: 'CHIP EXPECTED-POINTS MATRIX', headers: ['GW', 'BASE xPTS', 'WILDCARD', 'FREE HIT', 'BENCH BOOST', 'TRIPLE CAPTAIN', 'OPTIMAL CAPTAIN'], widths: [70, 100, 110, 110, 110, 120, 150], rows: reviewSim.chipMatrixByGw.map(row => [{ text: `GW${row.gw}` }, { text: row.baseXPts.toFixed(2) }, { text: row.wildcardGain.toFixed(2) }, { text: row.freehitGain.toFixed(2) }, { text: row.bboostGain.toFixed(2) }, { text: row.tripleCapGain.toFixed(2) }, { text: playerMap.get(reviewSim.chipSimulations.find(c => c.chip === '3xc')?.topGws.find(g => g.gw === row.gw)?.captainId ?? result.captain.id)?.name ?? '—' }]) });
+      tables.push({ title: 'MONTE CARLO · CAPTAIN RISK', headers: ['CAPTAIN', 'MEAN 2×', 'P90 2×', 'HAUL %', 'BLANK %'], widths: [150, 100, 100, 100, 100], rows: reviewSim.monteCarlo.captains.map(cap => [{ text: playerMap.get(cap.id)?.name ?? `#${cap.id}` }, { text: (cap.mean * 2).toFixed(2) }, { text: (cap.p90 * 2).toFixed(1) }, { text: `${(cap.pHaul * 100).toFixed(1)}%` }, { text: `${(cap.pBlank * 100).toFixed(1)}%` }]) });
+    }
+    return tables;
+  };
 
   return (
     <div className="page page--optimizer">
-      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} />
+      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} onToast={onToast} horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} getExportTables={optimizerTables} />
       <details className="vx-planner-legacy">
         <summary>Advanced tools · transfers & chips</summary>
       {/* Sub-navigation bar: Team Planner | Chip Strategy (FPLReview style) | Monte Carlo (3,000 Draws) */}
       <section className="panel optimizer-header-panel">
+        <div className="save-table-bar"><SaveTableButton getTables={optimizerTables} filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} /></div>
         <div className="optimizer-top-row">
           <div className="subtab-bar" role="tablist" aria-label="Optimizer & simulation modes">
             <button

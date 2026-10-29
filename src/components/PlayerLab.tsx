@@ -19,6 +19,7 @@ import { InjuryDetailModal } from './InjuryDetailModal';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { Sparkline } from './Sparkline';
+import { SaveTableButton } from './SaveTableButton';
 
 interface PlayerLabProps {
   snapshot?: import('../lib/types').Snapshot;
@@ -387,6 +388,7 @@ export function PlayerLab({
       )}
 
       <section className="panel table-panel" aria-label="All 667 repository players">
+        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${nextEventId}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: 'PLAYER LAB · ALL PLAYERS', headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'EO%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: [...players].sort((a, b) => b.projection - a.projection || a.name.localeCompare(b.name)).map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: player.projection.toFixed(2) }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => `GW${cell.event}: ${cell.label}`).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
         <p className="table-swipe-hint">Swipe left or right to see all columns ↔</p>
         <div className="table-wrap player-table-scroll" role="region" aria-label="Player results, scroll sideways to see all columns" tabIndex={0}>
           <table className="player-table">

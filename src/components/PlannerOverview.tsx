@@ -9,15 +9,20 @@ import { makeFixtureForecasts, overallDifficulty, difficultyColor } from '../lib
 import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
+import { SaveTableButton } from './SaveTableButton';
+import type { PngTable } from '../lib/tablePng';
 
 interface Props {
   snapshot: Snapshot;
   squad: EnrichedPlayer[];
   onInspectPlayer?: (player: EnrichedPlayer) => void;
+  onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
+  horizon: number;
+  onHorizonChange: (value: number) => void;
+  getExportTables: () => PngTable[];
 }
 
-export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
-  const [horizon, setHorizon] = useState(5);
+export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, horizon, onHorizonChange, getExportTables }: Props) {
   const [decay, setDecay] = useState(15);
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const [sort, setSort] = useState<{ gw: number | 'avg'; ascending: boolean }>({ gw: snapshot.meta.nextEventId, ascending: true });
@@ -60,7 +65,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   };
   return <section className="vx-planner-overview" aria-label="Team planner">
     <div className="vx-planner-controls panel">
-      <label>Horizon<select value={horizon} onChange={e => setHorizon(Number(e.target.value))}><option value={1}>1 GW</option><option value={5}>5 GW</option><option value={10}>10 GW</option></select></label>
+      <label>Horizon<select value={horizon} onChange={e => onHorizonChange(Number(e.target.value))}><option value={1}>1 GW</option><option value={5}>5 GW</option><option value={10}>10 GW</option></select></label>
       <label>Decay/GW<select value={decay} onChange={e => setDecay(Number(e.target.value))}>{[0, 5, 10, 15, 20, 30].map(n => <option key={n} value={n}>{n}%</option>)}</select></label>
       <div className="vx-planner-score"><span>Projected xPts <strong>{totals.reduce((a, b) => a + b, 0).toFixed(1)}</strong></span><span>Planning score <strong>{futureGwScore(totals, 1 - decay / 100).toFixed(1)}</strong></span></div>
     </div>
@@ -75,6 +80,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
       </div>
       <div className="panel vx-planner-fixtures">
         <div className="vx-planner-fixture-head"><strong>Fixtures · VORTEX difficulty</strong><small>Click a GW or AVG to sort</small></div>
+        <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} getTables={getExportTables} /></div>
         <div className="vx-planner-table-scroll"><table><thead><tr><th>TEAM</th>{gws.map(gw => <th key={gw}><button type="button" onClick={() => setSort(prev => ({ gw, ascending: prev.gw === gw ? !prev.ascending : true }))}>GW{gw}{sort.gw === gw ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th>)}<th><button type="button" onClick={() => setSort(prev => ({ gw: 'avg', ascending: prev.gw === 'avg' ? !prev.ascending : true }))}>AVG{sort.gw === 'avg' ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th></tr></thead>
           <tbody>{sorted.map(row => {
             const average = sharedDifficulty(row.team.id, 'avg');
