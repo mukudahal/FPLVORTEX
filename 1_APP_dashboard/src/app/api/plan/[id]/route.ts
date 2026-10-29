@@ -281,3 +281,70 @@ export async function GET(
       computeSellingPrices(
         picks.picks,
         transfers,
+        elementsMap,
+      );
+
+    // Safely determine the entry start Gameweek.
+    const startedGw =
+      validGameweek(entry.started_event) ?? 1;
+
+    // Build the complete planner response.
+    const body: PlanResponse = {
+      entryId,
+      currentGw,
+      nextGw,
+      gws,
+      deadlines,
+
+      bank: picks.entry_history.bank,
+
+      freeTransfers: computeFreeTransfers(
+        history,
+        startedGw,
+      ),
+
+      picks: picks.picks.map((p) => ({
+        element: p.element,
+        position: p.position,
+        isCaptain: p.is_captain,
+        isVice: p.is_vice_captain,
+      })),
+
+      sellingPrices,
+
+      teams: teams.map((team) => ({
+        id: Number(team.id),
+        code: team.code,
+        short: team.short_name,
+        name: team.name,
+      })),
+
+      fixtures: planFixtures,
+      players,
+
+      computedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json(body);
+  } catch (err) {
+    console.error(
+      `[FPL Vortex /api/plan/${entryId} error]`,
+      err,
+    );
+
+    const status =
+      err instanceof FplError
+        ? err.status
+        : 500;
+
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Could not build the plan for this team.",
+      },
+      { status },
+    );
+  }
+}
