@@ -49,3 +49,11 @@ test('overall rating and shared colour agree across sources', () => {
   assert.equal(difficultyColor(overallDifficulty(a)), difficultyColor(3));
   assert.notEqual(difficultyColor(1), difficultyColor(5));
 });
+
+test('fixture matrix has explicit light theme surfaces and compact desktop layout', async () => {
+  const css = await readFile('src/styles.css', 'utf8');
+  assert.match(css, /:root\[data-theme="light"\] \.fm-panel/);
+  assert.match(css, /:root\[data-theme="light"\] \.fm-table/);
+  assert.match(css, /:root\[data-theme="light"\] \.fm-dialog/);
+  assert.match(css, /@media \(min-width: 701px\)[\s\S]*?\.fm-table th, \.fm-table td \{ padding: 2px 3px;/);
+});
