@@ -8,6 +8,7 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
+import { auditPlayerData } from '../src/lib/playerDataQuality.ts';
 
 type RawRecord = Record<string, any>;
 
@@ -194,6 +195,11 @@ export function normalizeSnapshot(raw: RawFplData, options: NormalizeOptions = {
   const deadlinePassed = current?.deadlineTime ? new Date(current.deadlineTime).getTime() <= now : false;
   const isLive = liveFixtures.length > 0 || (deadlinePassed && !current?.finished);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
+  const quality = auditPlayerData(
+    Array.isArray(raw.bootstrap.elements) ? raw.bootstrap.elements : [],
+    Array.isArray(raw.bootstrap.teams) ? raw.bootstrap.teams : [],
+    generatedAt,
+  );
   return {
     meta: {
       source: options.source ?? 'live',
@@ -206,6 +212,7 @@ export function normalizeSnapshot(raw: RawFplData, options: NormalizeOptions = {
       refreshSeconds: isLive ? 45 : 600,
       totalPlayers: numberValue(raw.bootstrap.total_players, players.length),
       fixtureCount: fixtures.length,
+      playerDataQuality: quality,
       upstreamOk: options.upstreamOk ?? true,
       stale: options.stale ?? false,
       version: 1,

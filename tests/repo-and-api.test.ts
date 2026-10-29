@@ -18,7 +18,7 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   const benchmarks = await getRepoBenchmarks(8);
   assert.equal(benchmarks.count, 667);
   assert.deepEqual(benchmarks.horizonEvents, [8, 9, 10, 11, 12]);
-  assert.ok(benchmarks.players[0].expectedPoints > 5);
+  assert.ok((benchmarks.players[0].expectedPoints ?? 0) > 5);
 
   const rawSnapshot = JSON.parse(
     await readFile(path.resolve(process.cwd(), 'public/data/fpl-snapshot.json'), 'utf8'),
@@ -27,6 +27,8 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   assert.equal(enrichedSnapshot.players.length, 667);
   assert.equal(enrichedSnapshot.meta.exampleEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.benchmarkPlayers, 667);
+  assert.equal(enrichedSnapshot.meta.repoData?.projectionFileDate, '2026-10-15');
+  assert.deepEqual(enrichedSnapshot.meta.repoData?.projectionGameweeks, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
   assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.seasonRules, REPO_SEASON_RULES_2026_27.season);
 
@@ -36,6 +38,42 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   assert.equal(haaland.code, 223094);
   assert.ok((haaland.repoExpectedMinutes ?? 0) > 70);
   assert.ok((haaland.repoHorizon5Xpts ?? 0) > 25);
+});
+
+test('never backfills future imported xPts/xMins from GW16 or invents 5GW coverage', async () => {
+  const beyond = await getRepoBenchmarks(17);
+  assert.deepEqual(beyond.horizonEvents, [17, 18, 19, 20, 21]);
+  assert.equal(beyond.count, 667);
+  for (const row of beyond.players) {
+    assert.equal(row.expectedPoints, null);
+    assert.equal(row.expectedMinutes, null);
+    assert.equal(row.horizon5Points, null);
+  }
+
+  const lastWeek = await getRepoBenchmarks(16);
+  assert.ok(lastWeek.players.some(row => row.expectedPoints !== null));
+  assert.ok(lastWeek.players.every(row => row.horizon5Points === null));
+
+  const snapshot = JSON.parse(
+    await readFile(path.resolve(process.cwd(), 'public/data/fpl-snapshot.json'), 'utf8'),
+  ) as Snapshot;
+  const future = structuredClone(snapshot);
+  future.meta.nextEventId = 17;
+  const futureEnriched = await enrichSnapshotWithRepoData(future);
+  const haaland = futureEnriched.players.find(p => p.id === 411);
+  assert.ok(haaland);
+  assert.equal(haaland.repoBenchmarkXpts, null);
+  assert.equal(haaland.repoExpectedMinutes, null);
+  assert.equal(haaland.repoHorizon5Xpts, null);
+  assert.equal(haaland.gwProjections?.[16], 7.91);
+  assert.equal(haaland.gwProjections?.[17], undefined);
+
+  const partial = structuredClone(snapshot);
+  partial.meta.nextEventId = 15;
+  const partialHaaland = (await enrichSnapshotWithRepoData(partial)).players.find(p => p.id === 411);
+  assert.ok(partialHaaland);
+  assert.ok((partialHaaland.repoBenchmarkXpts ?? 0) > 0);
+  assert.equal(partialHaaland.repoHorizon5Xpts, null);
 });
 
 test('loads @FPLVORTEX channel briefings from site/ui/videos.json', async () => {

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { EnrichedPlayer, Snapshot, VideoItem } from '../lib/types';
 import { fetchVideos } from '../lib/api';
+import { snapshotSourceLabel } from '../lib/projectionFreshness';
 import { formatDate, formatNumber, relativeTime } from '../lib/format';
 import { API_BASE, AWAY_GOALS, HOME_GOALS, PRIOR_GAMES } from '../lib/repoModel/dashboardMath';
 import {
@@ -35,8 +36,8 @@ interface MethodologyProps {
 const DATA_TIERS = [
   {
     icon: <Database size={18} />,
-    title: 'Tier 1 — Primary GW7–GW16 Projections',
-    text: '667 Premier League players with multi-gameweek expected minutes, expected points, and @FPLVORTEX video briefings.',
+    title: 'Tier 1 — Dated Imported GW7–GW16 Projections',
+    text: 'Repository CSV player xPts/xMins are a dated import, not live FPL or current market projections. @FPLVORTEX videos have a separate feed.',
     endpoint: 'Primary projection feed',
   },
   {
@@ -129,7 +130,7 @@ export function Methodology({
             <h3>Three-tier repository-first data pipeline</h3>
           </div>
           <span className="badge badge--mint">
-            {snapshot.meta.upstreamOk ? 'Live + Repo Active' : 'Repo Primary · Offline Supplement'}
+            {snapshotSourceLabel(snapshot.meta)} · Imported CSV separate
           </span>
         </div>
         <div className="data-source-grid">

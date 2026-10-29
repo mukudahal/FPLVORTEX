@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { EnrichedPlayer, FixtureCell, FixtureRow, FplTeam, Position } from '../lib/types';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
+import { importedProjectionsNotice } from '../lib/projectionFreshness';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 
 import { ClubBadge } from './ClubBadge';
@@ -534,7 +535,7 @@ export function PlayerLab({
           <span>{filtered.length} players · Page {currentPage + 1} of {totalPages}</span>
           <div><button type="button" onClick={() => setPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0}>Previous</button><button type="button" onClick={() => setPage(Math.min(totalPages - 1, currentPage + 1))} disabled={currentPage >= totalPages - 1}>Next</button></div>
         </nav>
-        <details className="player-projection-details"><summary>Projection information</summary><p>{snapshot?.meta.repoData?.benchmarkPlayers ? `Some xPts use ${snapshot.meta.repoData.benchmarkFile.split('/').pop()}, which may be outdated. ` : 'Projection freshness depends on available source data. '}Legacy xP is a local heuristic, not a live Opta feed.</p></details>
+        <details className="player-projection-details"><summary>Projection information</summary><p>{importedProjectionsNotice(snapshot?.meta.repoData) ?? 'Imported projection source unavailable. '}Legacy xP is a local heuristic, not a live Opta feed.</p></details>
       </section>
 
       <PlayerGraphicModal

@@ -155,6 +155,10 @@ export interface VerifiedEvidenceNote {
 export interface RepoDataMeta {
   benchmarkFile: string;
   benchmarkPlayers: number;
+  /** Date inferred from CSV filename, not a verified publication timestamp. */
+  projectionFileDate?: string | null;
+  /** Distinct GWs with imported values, not full per-player coverage. */
+  projectionGameweeks?: number[];
   videosFile: string;
   videosCount: number;
   channelId: string;
@@ -162,6 +166,30 @@ export interface RepoDataMeta {
   configuredEntryName: string;
   seasonRules: string;
   verifiedNotes?: VerifiedEvidenceNote[];
+}
+
+export type PlayerDataQualitySource = 'official-bootstrap' | 'normalized-snapshot';
+export interface PlayerDataQuality {
+  source: PlayerDataQualitySource;
+  status: 'checked' | 'incomplete' | 'unverified';
+  /** Local normalization/snapshot time, not the last upstream player-field update. */
+  observedAt: string;
+  /** FPL bootstrap does not provide an aggregate last-modified timestamp. */
+  sourceUpdatedAt: null;
+  playerCount: number;
+  validIds: number;
+  uniqueIds: number;
+  validTeamRefs: number;
+  validPrices: number;
+  validOwnership: number;
+  validStatuses: number;
+  validChanceValues: number;
+  /** Empty news is valid; these fields count advisory text and dates only. */
+  newsItems: number;
+  datedNewsItems: number;
+  undatedNewsItems: number;
+  invalidNewsDates: number;
+  latestNewsAddedAt: string | null;
 }
 
 export interface SnapshotMeta {
@@ -183,6 +211,8 @@ export interface SnapshotMeta {
   fallbackNotice?: string;
   repoData?: RepoDataMeta;
   oddsMeta?: MarketOddsMeta;
+  /** Read-only coverage/provenance audit; never mutates player inputs or forecast scores. */
+  playerDataQuality?: PlayerDataQuality;
   /** Set when the snapshot file was mirrored from a published deployment (`npm run data:mirror`). */
   mirroredFrom?: string;
   mirroredAt?: string;
@@ -404,9 +434,11 @@ export interface RepoBenchmarkRow {
   team: string;
   position: Position;
   price: number;
-  expectedMinutes: number;
-  expectedPoints: number;
-  horizon5Points: number;
+  /** Null when the target GW has no imported value; never back/forward filled. */
+  expectedMinutes: number | null;
+  expectedPoints: number | null;
+  /** Null unless all five consecutive GWs have imported xPts values. */
+  horizon5Points: number | null;
 }
 
 export interface RepoBenchmarksResponse {
