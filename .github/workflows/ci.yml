@@ -46,6 +46,11 @@ jobs:
         continue-on-error: true
         run: node scripts/audit-live-odds.mjs
 
+      # P4: inspect live Render endpoints without changing state or disclosing names.
+      - name: Audit live manager, league, video and snapshot provenance (read-only)
+        continue-on-error: true
+        run: node scripts/audit-live-source-integrity.mjs
+
       - name: Verify offline snapshot
         run: |
           node -e "const s=require('./public/data/fpl-snapshot.json'); if(!s.players?.length||!s.fixtures?.length) process.exit(1); console.log('Snapshot OK:',s.players.length,'players');"
