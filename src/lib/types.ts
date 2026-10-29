@@ -424,6 +424,12 @@ export interface LeagueData {
   standings: LeagueStanding[];
   source: DataSource;
   generatedAt: string;
+  /** Explicitly separate genuine FPL league standings from a dated local archive. */
+  provenance?: {
+    kind: 'official' | 'archived';
+    requestedIdVerified: boolean;
+    sourceCapturedAt: string | null;
+  };
 }
 
 export interface VideoItem {

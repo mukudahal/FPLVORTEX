@@ -109,6 +109,7 @@ test('keeps manager Team ID secret by default and serves offline demo entry & cl
   const league = await getLeague('314');
   assert.equal(league.id, 314);
   assert.equal(league.name, 'Overall');
+  assert.equal(league.provenance?.kind, 'archived');
   assert.ok(league.standings.length >= 50);
 });
 
@@ -116,6 +117,11 @@ test('invalid and unrelated team IDs never inherit the archived template squad',
   await assert.rejects(() => getEntry('0'), /valid positive numeric FPL Team ID/);
   await assert.rejects(() => getEntry('000999999'), /valid positive numeric FPL Team ID/);
   await assert.rejects(() => getEntry('234567'), /no matching verified archive exists/);
+});
+
+test('an unavailable league ID cannot receive the archived Overall standings', async () => {
+  await assert.rejects(() => getLeague('0'), /valid positive classic league ID/);
+  await assert.rejects(() => getLeague('123456789'), /No other league was substituted/);
 });
 
 test('preserves brand-kit font, tokens, repo assets, and default dark theme configuration', async () => {

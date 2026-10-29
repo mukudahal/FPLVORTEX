@@ -189,6 +189,7 @@ export async function fetchEntry(
 }
 
 export async function fetchLeague(id: string, signal?: AbortSignal): Promise<LeagueData> {
+  if (!/^[1-9]\d{0,11}$/.test(id)) throw new ApiRequestError('Enter a valid positive classic league ID.', 400, true);
   try {
     return await getJson<LeagueData>(withBase(`api/vortex/league/${encodeURIComponent(id)}`), signal);
   } catch (error) {
@@ -196,8 +197,10 @@ export async function fetchLeague(id: string, signal?: AbortSignal): Promise<Lea
       throw error;
     }
     const fallback = await getJson<RawLeagueFallback>(withBase('data/fpl-league-fallback.json'), signal);
-    const archived = fallback.leagues?.[id] ?? fallback.leagues?.['314'];
-    if (!archived) throw error;
+    const archived = fallback.leagues?.[id];
+    if (!archived || numberValue(archived.league?.id) !== Number(id)) {
+      throw new ApiRequestError(`Classic league #${id} is unavailable; no matching offline standings exist. No unrelated league was substituted.`, 503, true);
+    }
     return {
       id: numberValue(archived.league?.id, numberValue(id)),
       name: String(archived.league?.name ?? `League ${id}`),
@@ -214,6 +217,7 @@ export async function fetchLeague(id: string, signal?: AbortSignal): Promise<Lea
       })),
       source: 'offline',
       generatedAt: new Date().toISOString(),
+      provenance: { kind: 'archived', requestedIdVerified: false, sourceCapturedAt: null },
     };
   }
 }

@@ -97,12 +97,14 @@ export function LeagueIntel({
   const loadLeague = useCallback(async (id: string, signal?: AbortSignal) => {
     if (!isNumeric(id)) return;
     setLeagueLoading(true);
+    setLeague(null);
     setLeagueError(null);
     try {
       const data = await fetchLeague(id.trim(), signal);
       setLeague(data);
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
+        setLeague(null);
         setLeagueError(err instanceof Error ? err.message : 'Unable to scan classic league.');
       }
     } finally {
@@ -423,6 +425,14 @@ export function LeagueIntel({
       </div>
 
       {/* Classic League Standings */}
+      {leagueError && (
+        <div className="data-warning" role="alert">{leagueError} <button type="button" onClick={() => setScanNonce(n => n + 1)}><RefreshCw size={14} /> Retry</button></div>
+      )}
+      {league && (league.provenance?.kind === 'archived' || league.source === 'snapshot' || league.source === 'offline') && (
+        <div className="data-warning" role="status">
+          ARCHIVED LEAGUE · #{league.id}. These standings are not verified current. Archive capture date: {league.provenance?.sourceCapturedAt ?? 'unknown'}.
+        </div>
+      )}
       {league && (
         <section className="panel" aria-label="Classic league standings">
           <div className="panel__header">

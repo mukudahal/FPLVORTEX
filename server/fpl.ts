@@ -462,6 +462,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
 }
 
 export async function getLeague(id: string): Promise<LeagueData> {
+  if (!isNumericId(id)) throw new UpstreamHttpError('Enter a valid positive classic league ID.', 400);
   const cached = readCache<LeagueData>(`league:${id}`);
   if (cached) {
     return {
@@ -472,23 +473,27 @@ export async function getLeague(id: string): Promise<LeagueData> {
   }
   try {
     const raw = await fetchFplJson<RawRecord>(`/leagues-classic/${id}/standings/`, { retries: 1 });
+    if (numberValue(raw.league?.id) !== Number(id)) {
+      throw new UpstreamHttpError('Official FPL league identity did not match the requested ID.', 502);
+    }
     const result = normalizeLeaguePayload(raw, id, 'live');
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     return writeCache(`league:${id}`, result, PROFILE_TTL);
   } catch (error) {
     if (error instanceof UpstreamHttpError && error.status === 404) {
       throw new UpstreamHttpError(`Classic league ID ${id} was not found.`, 404);
     }
     const fallbackFile = await loadOfflineLeagueFallback();
-    const archived = fallbackFile.leagues?.[id] ?? fallbackFile.leagues?.['314'];
-    if (archived) {
-      const fallbackResult = normalizeLeaguePayload(
-        id === '314' ? archived : { ...archived, league: { ...archived.league, id: numberValue(id), name: `Classic League #${id} (offline snapshot)` } },
-        id,
-        'snapshot',
+    const archived = fallbackFile.leagues?.[id];
+    if (!archived || numberValue(archived.league?.id) !== Number(id)) {
+      throw new UpstreamHttpError(
+        `Classic league #${id} is unavailable; no matching standings archive exists. No other league was substituted.`,
+        503,
       );
-      return writeCache(`league:${id}`, fallbackResult, 120_000);
     }
-    throw error;
+    const fallbackResult = normalizeLeaguePayload(archived, id, 'snapshot');
+    fallbackResult.provenance = { kind: 'archived', requestedIdVerified: false, sourceCapturedAt: null };
+    return writeCache(`league:${id}`, fallbackResult, 120_000);
   }
 }
 
