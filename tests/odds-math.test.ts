@@ -227,7 +227,7 @@ test('coverage reports upcoming fixtures separately from past market prices', as
   next1.marketOdds = quote;
   assert.equal(oddsCoverage([past, next1, next2], 9).status, 'partial');
   next2.marketOdds = quote;
-  assert.equal(oddsCoverage([past, next1, next2], 9).status, 'live');
+  assert.equal(oddsCoverage([past, next1, next2], 9).status, 'partial'); // 1X2 without totals or verified bookmaker timestamp is not "live"
   assert.equal(oddsCoverage([past], 9).status, 'fallback');
 });
 
