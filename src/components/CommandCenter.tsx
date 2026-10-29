@@ -1,4 +1,5 @@
 import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
+import { marketCoverage, fixtureQuoteNotice } from '../lib/marketCoverage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -376,7 +377,8 @@ export function CommandCenter({
   };
   const bestFixture = [...fixtureRows].sort((a, b) => (avgFor(a.team.id, a.cells) ?? Infinity) - (avgFor(b.team.id, b.cells) ?? Infinity))[0];
 
-  // Match-level Live Bookmaker Implied Goals/CS%/Win% (falling back per-fixture to `site/model/dashboardMath.ts`)
+  // Bookmaker-implied forecasts where priced; otherwise explicitly labelled VORTEX estimates.
+  const gwMarketCoverage = useMemo(() => marketCoverage(snapshot.fixtures, selectedGw, 1), [snapshot.fixtures, selectedGw]);
   const gwMatchesAndClubs = useMemo(() => {
     const repoTeams = toRepoTeams(snapshot.teams);
     const repoElements = snapshot.players.map(toRepoElement);
@@ -1360,10 +1362,10 @@ export function CommandCenter({
               <h3>GW {selectedGw} Fixtures</h3>
               <small className="vx-card__sub">
                 {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
-                  ? `Market odds (${gwMatchesAndClubs.bookmakerLabel}) · ${gwMatchesAndClubs.availableOddsCount}/${gwMatchesAndClubs.matches.length}`
+                  ? `Market quotes: 1X2 ${gwMarketCoverage.complete1x2}/${gwMarketCoverage.totalFixtures} · O/U ${gwMarketCoverage.completeTotals}/${gwMarketCoverage.totalFixtures} · remaining VORTEX model`
                   : finishedMatchesCount > 0
                     ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
-                    : 'Poisson Model (auto-switches to live market odds online)'}
+                    : 'VORTEX model · no verified bookmaker prices'}
               </small>
             </div>
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
@@ -1433,7 +1435,7 @@ export function CommandCenter({
                       </div>
                       <div className="vx-xg-labels">
                         <strong>{m.homeXg.toFixed(2)}</strong>
-                        <span>{m.marketOdds ? `Implied Goals · ${m.marketOdds.bookmaker}` : 'Projected xG'}</span>
+                        <span>{m.marketOdds ? `Implied Goals · ${m.marketOdds.bookmaker}` : 'VORTEX projected xG'}</span>
                         <strong>{m.awayXg.toFixed(2)}</strong>
                       </div>
 
@@ -1446,6 +1448,7 @@ export function CommandCenter({
                           <span>
                             CS {(m.homeCs * 100).toFixed(0)}% / {(m.awayCs * 100).toFixed(0)}%
                           </span>
+                          <span className="vx-match-probs__odds">{fixtureQuoteNotice(m.marketOdds)}</span>
                           {m.marketOdds && (
                             <span className="vx-match-probs__odds">
                               1X2 {m.marketOdds.oddsHome.toFixed(2)} / {m.marketOdds.oddsDraw.toFixed(2)} /{' '}
@@ -1527,14 +1530,14 @@ export function CommandCenter({
               <span
                 className={classNames(
                   'vx-odds-dot',
-                  gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto' && 'is-live',
+                  gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
                 )}
               />
               {gwMatchesAndClubs.availableOddsCount > 0
                 ? oddsSourceMode === 'auto'
-                  ? `Market odds (${gwMatchesAndClubs.bookmakerLabel})`
-                  : 'Repo Poisson Model (market odds paused)'
-                : 'Poisson model · no matched market odds'}
+                  ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
+                  : 'VORTEX model (market quotes paused)'
+                : 'VORTEX model · no matched bookmaker odds'}
             </span>
             {gwMatchesAndClubs.availableOddsCount > 0 && (
               <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">

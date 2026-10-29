@@ -213,6 +213,10 @@ test('parses Football-Data CSV, The Odds API v4, and ESPN EPL odds and renders L
 
   assert.match(html, /Market odds/);
   assert.match(html, /Implied Goals · Pinnacle/);
+  assert.match(html, /Market quotes: 1X2/);
+  assert.match(html, /VORTEX projected xG/);
+  assert.match(html, /Bookmaker quote timestamp unknown/);
+
 });
 
 test('coverage reports upcoming fixtures separately from past market prices', async () => {
