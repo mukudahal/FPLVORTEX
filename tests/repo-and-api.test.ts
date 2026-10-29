@@ -27,6 +27,8 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   assert.equal(enrichedSnapshot.players.length, 667);
   assert.equal(enrichedSnapshot.meta.exampleEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.benchmarkPlayers, 667);
+  assert.equal(enrichedSnapshot.meta.repoData?.projectionFileDate, '2026-10-15');
+  assert.deepEqual(enrichedSnapshot.meta.repoData?.projectionGameweeks, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
   assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.seasonRules, REPO_SEASON_RULES_2026_27.season);
 

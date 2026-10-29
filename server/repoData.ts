@@ -11,6 +11,7 @@ import type {
   VideosResponse,
 } from '../src/lib/types.ts';
 import { clamp, numberValue, round } from '../src/lib/format.ts';
+import { filenameProjectionDate } from '../src/lib/projectionFreshness.ts';
 
 const BENCHMARK_REL_PATH =
   process.env.VORTEX_BENCHMARK_CSV_PATH ?? '3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv';
@@ -331,9 +332,14 @@ export async function getRepoBenchmarks(targetEventId = 9): Promise<RepoBenchmar
 
 export async function getRepoMeta(): Promise<RepoDataMeta> {
   const [benchmarks, videos] = await Promise.all([loadRepoBenchmarkIndex(), loadRepoVideosArchive()]);
+  const projectionGameweeks = [...new Set([...benchmarks.values()].flatMap(player => [
+    ...player.xpts.keys(), ...player.xmins.keys(),
+  ]))].sort((a, b) => a - b);
   return {
     benchmarkFile: BENCHMARK_REL_PATH,
     benchmarkPlayers: benchmarks.size,
+    projectionFileDate: filenameProjectionDate(BENCHMARK_REL_PATH),
+    projectionGameweeks,
     videosFile: VIDEOS_REL_PATH,
     videosCount: videos.videos.length,
     channelId: videos.channelId,

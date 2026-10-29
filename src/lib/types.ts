@@ -155,6 +155,10 @@ export interface VerifiedEvidenceNote {
 export interface RepoDataMeta {
   benchmarkFile: string;
   benchmarkPlayers: number;
+  /** Date inferred from CSV filename, not a verified publication timestamp. */
+  projectionFileDate?: string | null;
+  /** Distinct GWs with imported values, not full per-player coverage. */
+  projectionGameweeks?: number[];
   videosFile: string;
   videosCount: number;
   channelId: string;

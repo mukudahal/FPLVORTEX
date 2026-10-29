@@ -35,8 +35,8 @@ interface MethodologyProps {
 const DATA_TIERS = [
   {
     icon: <Database size={18} />,
-    title: 'Tier 1 — Primary GW7–GW16 Projections',
-    text: '667 Premier League players with multi-gameweek expected minutes, expected points, and @FPLVORTEX video briefings.',
+    title: 'Tier 1 — Dated Imported GW7–GW16 Projections',
+    text: 'Repository CSV player xPts/xMins are a dated import, not live FPL or current market projections. @FPLVORTEX videos have a separate feed.',
     endpoint: 'Primary projection feed',
   },
   {
