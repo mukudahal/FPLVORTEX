@@ -1,4 +1,5 @@
-import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
+import { ForecastTile } from './ForecastTile';
+import { makeFixtureForecasts } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -775,15 +776,10 @@ export function SquadBuilder({
                           </td>
                           <td>
                             <div className="fixchip-row">
-                              {(fxRow?.cells ?? []).map((cell) => (
-                                <span
-                                  key={cell.event}
-                                  className="fixchip" style={(() => { const value = fixtureCellIndex(sharedFixtureForecasts, player.teamId, cell.event); return value === null ? undefined : { background: difficultyColor(value), color: "#071a1b" }; })()}
-                                  title={`GW${cell.event}: ${cell.label}`}
-                                >
-                                  {cell.isBlank ? '—' : cell.label.split(' ')[0]}
-                                </span>
-                              ))}
+                              {(fxRow?.cells ?? []).map(cell => {
+                                const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? [];
+                                return items.length ? items.map(item => <ForecastTile key={item.fixture.id} item={item} mode="difficulty" showLabels />) : <span key={cell.event} className="optimizer-fixture-blank" title={`GW${cell.event}: ${cell.label}`}>—</span>;
+                              })}
                             </div>
                           </td>
                           <td className="mono-num">{formatPrice(player.price)}</td>

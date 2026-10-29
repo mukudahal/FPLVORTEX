@@ -100,3 +100,21 @@ test('phone fixture cards and player fixture chips reserve readable space', asyn
   assert.match(css, /\.player-table \.fixture-inline \.fdr-chip \{[^}]*min-height: 62px/);
   assert.match(css, /\.player-table \.fixture-inline \.fdr-chip small \{[^}]*font-size: 12px/);
 });
+
+test('fixture tiles use distinct columns and shared colours for VORTEX and market', async () => {
+  const { ForecastTile } = await import('../src/components/ForecastTile.tsx');
+  const { snapshot, event, fixture } = await sample();
+  for (const source of ['vortex', 'market'] as const) {
+    const item = makeFixtureForecasts(snapshot, source, [event]).get(`${fixture.teamH}:${event}`)![0];
+    const difficulty = renderToStaticMarkup(React.createElement(ForecastTile, { item, mode: 'difficulty', showLabels: true }));
+    assert.match(difficulty, new RegExp(item.attackIndex.toFixed(2)));
+    assert.match(difficulty, new RegExp(item.defenceIndex.toFixed(2)));
+    assert.match(difficulty, new RegExp(difficultyColor(item.attackIndex)));
+    assert.match(difficulty, new RegExp(difficultyColor(item.defenceIndex)));
+    const projections = renderToStaticMarkup(React.createElement(ForecastTile, { item, mode: 'projections', showLabels: true }));
+    assert.match(projections, new RegExp(item.goals.toFixed(2)));
+    assert.match(projections, new RegExp(`${Math.round(item.cleanSheet * 100)}%`));
+    assert.equal((projections.match(/forecast-tile__value/g) ?? []).length, 2);
+  }
+  assert.equal(new Set([1, 2, 3, 4, 5].map(difficultyColor)).size, 5);
+});
