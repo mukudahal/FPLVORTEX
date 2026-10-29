@@ -569,13 +569,16 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       lastSuccessAt: snapshot.meta.servedAt,
       theme: 'dark',
       onToggleTheme: noop,
-      onMenu: noop,
       onOpenPalette: noop,
       onRefresh: noop,
       onNavigate: noop,
     }),
   );
   assert.match(htmlTopbar, /topbar__brand-lion/);
+  assert.doesNotMatch(htmlTopbar, /Open navigation/);
+  assert.doesNotMatch(appRaw, /<Sidebar/);
+  assert.match(appRaw, /aria-label="Module tabs"/);
+  assert.match(appRaw, /aria-label="Mobile navigation"/);
 
   const htmlMethod = renderToStaticMarkup(
     React.createElement(Methodology, {

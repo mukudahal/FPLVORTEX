@@ -6806,3 +6806,19 @@ kbd {
 .fm-detail-match { display: flex; align-items: center; gap: 14px; margin-top: 17px; }.fm-detail-match h2 { margin: 0; font-size: clamp(20px,3vw,29px); letter-spacing: -.03em; }.fm-detail-match h2 span { color: #7893a8; font-weight: 500; }.fm-detail-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; color: #9fb4c7; font-size: 12px; }.fm-source-pill { padding: 6px 10px; border-radius: 7px; background: #134037; color: #7bf0d1; font-weight: 750; }.fm-source-pill.is-market { background: #302851; color: #d2c7ff; }
 .fm-detail-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(125px,1fr)); gap: 15px; margin-top: 24px; padding: 22px 0; border-block: 1px solid #293e54; }.fm-detail-grid > div { min-width: 0; }.fm-detail-grid small,.fm-detail-grid strong,.fm-detail-grid em { display: block; }.fm-detail-grid small { color: #a2b5c9; font-size: 11px; line-height: 1.4; }.fm-detail-grid strong { margin-top: 8px; color: #f4f8ff; font-size: 27px; letter-spacing: -.04em; }.fm-detail-grid em { margin-top: 7px; color: #8ca3b8; font-size: 10px; font-style: normal; }.fm-detail-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 12px; }.fm-detail-note { margin: 16px 0 0; color: #93aabd; font-size: 11px; line-height: 1.5; }
 @media (max-width: 700px) { .fm-hero { min-height: 135px; padding: 22px; }.fm-hero__orb { width: 65px; height: 65px; }.fm-hero__orb span { width: 45px; height: 45px; }.fm-hero__orb svg { width: 24px; }.fm-topline { padding: 14px; }.fm-model-tabs { flex: 1; flex-wrap: nowrap; }.fm-model-tabs button { min-width: 0; flex: 1; padding: 9px; }.fm-model-tabs strong { font-size: 11px; }.fm-model-tabs small { font-size: 9px; }.fm-tab-icon { width: 28px; height: 28px; }.fm-section-head { padding: 20px 15px 13px; }.fm-legend { flex-wrap: wrap; padding: 3px 15px 14px; }.fm-legend small { width: 100%; margin-left: 0; }.fm-table .fm-team-col { min-width: 122px; max-width: 122px; padding-left: 8px; }.fm-table .fm-avg-col { left: 122px; min-width: 72px; max-width: 72px; }.fm-club { gap: 5px; }.fm-club strong { font-size: 10px; }.fm-dialog { padding: 19px; }.fm-detail-match { gap: 8px; }.fm-detail-match h2 { font-size: 19px; }.fm-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+/* Full-width workspace: the top tabs and mobile navigation replace the sidebar. */
+.app-main { margin-left: 0; width: 100%; }
+.content { max-width: none; width: 100%; padding-inline: clamp(14px, 2vw, 32px); }
+.fm-table { table-layout: fixed; width: 100%; }
+.fm-table .fm-team-col { width: 166px; }
+.fm-table .fm-avg-col { width: 89px; }
+.fm-table thead th { min-width: 0; }
+.fm-cell-stack { min-width: 0; }
+.fm-match { padding-inline: 4px; }
+.fm-match-values svg { display: none; }
+.fm-match .fm-score { min-width: 43px; padding-inline: 3px; font-size: 9px; }
+@media (max-width: 700px) {
+  .fm-table .fm-team-col { width: 122px; }
+  .fm-table .fm-avg-col { width: 72px; }
+}

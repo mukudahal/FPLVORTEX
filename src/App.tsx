@@ -32,7 +32,6 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { Methodology } from './components/Methodology';
 import { PlayerGraphicModal } from './components/PlayerGraphicModal';
 import { PlayerLab } from './components/PlayerLab';
-import { Sidebar } from './components/Sidebar';
 import { XBrandLogo, YouTubeBrandLogo } from './components/SocialIcons';
 import { SquadBuilder } from './components/SquadBuilder';
 import { Toast } from './components/Toast';
@@ -85,7 +84,6 @@ export default function App() {
   const [entryLoading, setEntryLoading] = useState(false);
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySyncNonce, setEntrySyncNonce] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [playerQuery, setPlayerQuery] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -218,7 +216,6 @@ export default function App() {
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const toggleTheme = useCallback(() => setTheme((current) => (current === 'dark' ? 'light' : 'dark')), [setTheme]);
   const handleRefresh = useCallback(() => {
     setEntrySyncNonce((n) => n + 1);
@@ -242,7 +239,6 @@ export default function App() {
         setPaletteOpen(true);
       } else if (event.key === 'Escape') {
         setPaletteOpen(false);
-        setSidebarOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -450,14 +446,6 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar
-        route={route}
-        onNavigate={navigate}
-        snapshot={snapshot}
-        entry={effectiveEntry}
-        open={sidebarOpen}
-        onClose={closeSidebar}
-      />
       <div className="app-main">
         <Topbar
           route={route}
@@ -466,7 +454,6 @@ export default function App() {
           lastSuccessAt={lastSuccessAt}
           theme={theme}
           onToggleTheme={toggleTheme}
-          onMenu={() => setSidebarOpen(true)}
           onOpenPalette={openPalette}
           onRefresh={handleRefresh}
           onNavigate={navigate}
@@ -484,7 +471,7 @@ export default function App() {
                     : tab.id === 'players'
                       ? String(players.length)
                       : tab.id === 'fixtures'
-                        ? '5 GW'
+                        ? '10 GW'
                         : tab.id === 'league'
                           ? effectiveEntry
                             ? 'Linked'

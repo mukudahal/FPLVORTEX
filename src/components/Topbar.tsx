@@ -1,4 +1,4 @@
-import { Menu, Moon, RefreshCw, Search, Sun, Target } from 'lucide-react';
+import { Moon, RefreshCw, Search, Sun, Target } from 'lucide-react';
 import type { Snapshot } from '../lib/types';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import type { RouteId } from '../hooks/useHashRoute';
@@ -8,7 +8,7 @@ const ROUTE_TITLES: Record<RouteId, { title: string; subtitle: string }> = {
   command: { title: 'Command center', subtitle: 'The whole gameweek at a glance' },
   optimizer: { title: 'Squad optimizer', subtitle: 'Build the strongest legal fifteen automatically' },
   players: { title: 'Player lab', subtitle: 'Search, compare and explain every projection' },
-  fixtures: { title: 'Fixture matrix', subtitle: 'Five-gameweek difficulty and schedule swings' },
+  fixtures: { title: 'Fixture matrix', subtitle: 'Fixture forecasts and schedule difficulty' },
   league: { title: 'League intel', subtitle: 'Scan your team, transfers and rivals' },
   method: { title: 'Model & automation', subtitle: 'Transparent inputs, resilient infrastructure' },
 };
@@ -20,7 +20,6 @@ interface TopbarProps {
   lastSuccessAt: string | null;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
-  onMenu: () => void;
   onOpenPalette: () => void;
   onRefresh: () => void;
   onNavigate: (route: RouteId) => void;
@@ -33,7 +32,6 @@ export function Topbar({
   lastSuccessAt,
   theme,
   onToggleTheme,
-  onMenu,
   onOpenPalette,
   onRefresh,
   onNavigate,
@@ -43,9 +41,6 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="topbar__left">
-        <button type="button" className="icon-button topbar__menu" onClick={onMenu} aria-label="Open navigation">
-          <Menu size={20} />
-        </button>
         <button
           type="button"
           className="topbar__brand-lion"
