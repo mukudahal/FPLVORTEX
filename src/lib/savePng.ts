@@ -26,15 +26,28 @@ export async function validatePng(blob: Blob): Promise<void> {
 export async function savePngBlob(blob: Blob, filename: string): Promise<void> {
   await validatePng(blob);
   const url = URL.createObjectURL(blob);
+  let downloadUrl: string | null = null;
+  const controller = new AbortController();
+  const uploadTimeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(`/api/vortex/image-downloads?filename=${encodeURIComponent(filename)}`, {
+      method: 'POST', headers: { 'Content-Type': 'image/png' }, body: blob, signal: controller.signal,
+    });
+    if (response.ok) {
+      const result: unknown = await response.json();
+      if (result && typeof result === 'object' && 'path' in result && typeof result.path === 'string' && /^\/api\/vortex\/image-downloads\/[a-f0-9]{48}$/.test(result.path)) downloadUrl = result.path;
+    }
+  } catch { /* The device can still use Share or the browser download fallback. */ }
+  finally { clearTimeout(uploadTimeout); }
   const overlay = document.createElement('div');
   overlay.className = 'png-save-overlay';
   overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-label', 'Save image');
   const panel = document.createElement('div'); panel.className = 'png-save-dialog';
   const heading = document.createElement('h2'); heading.textContent = 'Your image is ready';
-  const description = document.createElement('p'); description.textContent = 'Choose Download, or Share to save or send the image using your device.';
+  const description = document.createElement('p'); description.textContent = downloadUrl ? 'Choose Download, or Share to save or send the image. For downloading, the image is kept temporarily on the server for up to five minutes.' : 'The download link could not be prepared. Try Share image, or use the browser download below.';
   const preview = document.createElement('img'); preview.src = url; preview.alt = 'Preview of the image to save';
   const actions = document.createElement('div'); actions.className = 'png-save-actions';
-  const download = document.createElement('a'); download.className = 'png-save-primary'; download.href = url; download.download = filename; download.textContent = 'Download image';
+  const download = document.createElement('a'); download.className = 'png-save-primary'; download.href = downloadUrl ?? url; download.download = filename; download.textContent = 'Download image';
   const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Close';
   const message = document.createElement('p'); message.className = 'png-save-message'; message.setAttribute('role', 'status');
   let finished = false;
