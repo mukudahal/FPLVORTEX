@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { makeFixtureForecasts, meanForecast, provisionalOpportunityIndices, overallDifficulty, difficultyColor } from '../src/lib/fixtureForecast.ts';
 import type { Snapshot, FixtureMarketOdds } from '../src/lib/types.ts';
-import { fixtureChipLabel } from '../src/components/PlayerLab.tsx';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { PlayerFixtureBlocks } from '../src/components/PlayerLab.tsx';
+import type { FixtureCell } from '../src/lib/types.ts';
 
 async function sample() {
   const snapshot = JSON.parse(await readFile('public/data/fpl-snapshot.json', 'utf8')) as Snapshot;
@@ -71,10 +74,21 @@ test('fixture matrix allows sideways scrolling in both forecast sources', async 
 });
 
 
-test('player fixture labels keep all opponents in doubles and show blanks', () => {
-  assert.equal(fixtureChipLabel('BHA (H)', false), 'BHA');
-  assert.equal(fixtureChipLabel('BHA (H) · ARS (A)', false), 'BHA/ARS');
-  assert.equal(fixtureChipLabel('Blank GW', true), '—');
+test('player fixture blocks show opponents and venues on separate lines, including doubles and blanks', async () => {
+  const { snapshot, event, fixture } = await sample();
+  const homeTeam = fixture.teamH;
+  const other = snapshot.teams.find(team => team.id !== fixture.teamH && team.id !== fixture.teamA)!;
+  const second = { ...fixture, id: fixture.id + 10000, teamH: other.id, teamA: homeTeam };
+  const teamById = new Map(snapshot.teams.map(team => [team.id, team]));
+  const forecasts = makeFixtureForecasts({ ...snapshot, fixtures: [...snapshot.fixtures, second] }, 'vortex', [event]);
+  const cell: FixtureCell = { event, difficulty: 3, isBlank: false, isDouble: true, fixtures: [fixture, second], label: 'Double' };
+  const html = renderToStaticMarkup(React.createElement(PlayerFixtureBlocks, { cell, teamId: homeTeam, teamById, forecasts }));
+  assert.equal((html.match(/class="fdr-chip"/g) ?? []).length, 2);
+  assert.match(html, /<small>\(H\)<\/small>/);
+  assert.match(html, /<small>\(A\)<\/small>/);
+  assert.equal((html.match(/background:/g) ?? []).length, 2);
+  const blank = renderToStaticMarkup(React.createElement(PlayerFixtureBlocks, { cell: { ...cell, fixtures: [], isBlank: true }, teamId: homeTeam, teamById, forecasts }));
+  assert.match(blank, /BLANK/);
 });
 
 test('phone fixture cards and player fixture chips reserve readable space', async () => {
@@ -83,5 +97,6 @@ test('phone fixture cards and player fixture chips reserve readable space', asyn
   assert.match(component, /--fm-mobile-min-width/);
   assert.match(css, /\.fm-table \{ min-width: var\(--fm-mobile-min-width\) !important/);
   assert.match(css, /\.player-table \.fixture-inline \{ display: flex; align-items: center; gap: 5px/);
-  assert.match(css, /\.player-table \.fixture-inline \.fdr-chip \{[^}]*min-height: 30px/);
+  assert.match(css, /\.player-table \.fixture-inline \.fdr-chip \{[^}]*min-height: 62px/);
+  assert.match(css, /\.player-table \.fixture-inline \.fdr-chip small \{[^}]*font-size: 12px/);
 });

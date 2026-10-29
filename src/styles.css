@@ -7081,3 +7081,10 @@ kbd {
   .player-table th:nth-child(10), .player-table td:nth-child(10) { min-width: 270px; }
   .player-table td { font-size: 13px; }
 }
+
+/* Player Lab: large, separate fixture blocks with opponent and venue on their own lines. */
+.player-table th:nth-child(10), .player-table td:nth-child(10) { min-width: 380px; }
+.player-table .fixture-inline { gap: 8px; }
+.player-table .fixture-inline .fdr-chip { flex: 0 0 auto; flex-direction: column; width: 64px; min-width: 64px; min-height: 62px; padding: 7px 4px; border-radius: 6px; line-height: 1.2; }
+.player-table .fixture-inline .fdr-chip strong { font-size: 15px; font-weight: 850; }
+.player-table .fixture-inline .fdr-chip small { display: block; margin-top: 4px; font-size: 12px; font-weight: 700; }

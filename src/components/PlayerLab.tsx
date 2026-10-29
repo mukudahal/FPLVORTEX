@@ -1,4 +1,4 @@
-import { makeFixtureForecasts, fixtureCellIndex, difficultyColor, overallDifficulty } from '../lib/fixtureForecast';
+import { makeFixtureForecasts, difficultyColor, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -10,7 +10,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import type { EnrichedPlayer, FixtureRow, FplTeam, Position } from '../lib/types';
+import type { EnrichedPlayer, FixtureCell, FixtureRow, FplTeam, Position } from '../lib/types';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 
@@ -31,9 +31,23 @@ interface PlayerLabProps {
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
 }
 
-/** Keep all opponents visible for double gameweeks without squeezing them together. */
-export function fixtureChipLabel(label: string, isBlank: boolean): string {
-  return isBlank ? '—' : label.split(' · ').map(item => item.split(' ')[0]).join('/');
+/** A double gameweek gets a separate, individually coloured block for each match. */
+export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts }: {
+  cell: FixtureCell;
+  teamId: number;
+  teamById: ReadonlyMap<number, FplTeam>;
+  forecasts: ReadonlyMap<string, FixtureForecast[]>;
+}) {
+  if (cell.isBlank || !cell.fixtures.length) return <span className="fdr-chip fdr-chip--blank" title={`GW${cell.event}: Blank gameweek`} aria-label={`GW${cell.event}: Blank gameweek`}><strong>—</strong><small>BLANK</small></span>;
+  return <>{cell.fixtures.map(fixture => {
+    const home = fixture.teamH === teamId;
+    const opponentId = home ? fixture.teamA : fixture.teamH;
+    const opponent = teamById.get(opponentId);
+    const label = opponent?.shortName ?? `T${opponentId}`;
+    const forecast = (forecasts.get(`${teamId}:${cell.event}`) ?? []).find(item => item.fixture.id === fixture.id);
+    const style = forecast ? { background: difficultyColor(overallDifficulty(forecast)), color: '#071a1b' } : undefined;
+    return <span key={fixture.id} className="fdr-chip" style={style} title={`GW${cell.event}: ${opponent?.name ?? label} (${home ? 'H' : 'A'})`} aria-label={`GW${cell.event}: ${opponent?.name ?? label}, ${home ? 'home' : 'away'}`}><strong>{label}</strong><small>({home ? 'H' : 'A'})</small></span>;
+  })}</>;
 }
 
 type SortKey =
@@ -128,6 +142,8 @@ export function PlayerLab({
   }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize]);
 
   const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map(), [snapshot, fixtureRows]);
+
+  const teamById = useMemo(() => new Map(teams.map(team => [team.id, team])), [teams]);
 
   const fixtureByTeam = useMemo(
     () => new Map(fixtureRows.map((row) => [row.team.id, row])),
@@ -489,15 +505,7 @@ export function PlayerLab({
                     <td className="mono-num">{formatPercent(player.ownership)}</td>
                     <td>
                       <div className="fixture-inline">
-                        {(row?.cells.slice(0, 5) ?? []).map((cell) => (
-                          <span
-                            key={cell.event}
-                            className="fdr-chip" style={(() => { const value = fixtureCellIndex(sharedFixtureForecasts, player.teamId, cell.event); return value === null ? undefined : { background: difficultyColor(value), color: "#071a1b" }; })()}
-                            title={`GW${cell.event}: ${cell.label}`}
-                          >
-                            {fixtureChipLabel(cell.label, cell.isBlank)}
-                          </span>
-                        ))}
+                        {(row?.cells.slice(0, 5) ?? []).map(cell => <PlayerFixtureBlocks key={cell.event} cell={cell} teamId={player.teamId} teamById={teamById} forecasts={sharedFixtureForecasts} />)}
                       </div>
                     </td>
                     <td><Sparkline values={player.sparkline} width={76} height={22} /></td>
