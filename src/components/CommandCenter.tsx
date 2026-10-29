@@ -38,6 +38,7 @@ import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
 import { downloadPitchPng } from '../lib/pitchPng';
 import { fetchVideos } from '../lib/api';
+import { videoSourceNotice } from '../lib/videoProvenance';
 import {
   buildInsights,
   computePriceChangePrediction,
@@ -238,6 +239,7 @@ export function CommandCenter({
   const [videos, setVideos] = useState<VideoItem[]>(
     initialVideos?.length ? initialVideos.slice(0, 30) : SEED_VORTEX_VIDEOS,
   );
+  const [videoStatus, setVideoStatus] = useState(videoSourceNotice(null));
   // Default to the Review Gameweek (`entry.currentEvent`) when a team is loaded, or nextEventId before linking!
   const [selectedGw, setSelectedGw] = useState<number>(hasLinkedTeam ? reviewEventId : nextEventId);
   const [squadView, setSquadView] = useState<'pitch' | 'table'>('pitch');
@@ -280,8 +282,9 @@ export function CommandCenter({
     fetchVideos(controller.signal)
       .then((res) => {
         if (res.videos.length > 0) setVideos(res.videos.slice(0, 30));
+        setVideoStatus(videoSourceNotice(res));
       })
-      .catch(() => {});
+      .catch(() => { setVideoStatus('Video feed unavailable — preloaded videos may be an old archive.'); });
     return () => controller.abort();
   }, []);
 
@@ -2063,6 +2066,7 @@ export function CommandCenter({
           </div>
         </header>
 
+        <p role="status">{videoStatus}</p>
         <div className="vx-videos-scroll-row" ref={videoTrackRef}>
           {videos.map((video) => {
             const videoWatchUrl = video.url || `https://www.youtube.com/watch?v=${video.id}`;

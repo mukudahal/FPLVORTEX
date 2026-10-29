@@ -443,8 +443,13 @@ export interface VideoItem {
 export interface VideosResponse {
   channelId: string;
   channelTitle: string;
+  /** Original archive capture; NOT a successful RSS check or video publication date. */
   capturedAt: string;
-  source: 'live' | 'repository';
+  source: 'live' | 'repository' | 'mixed' | 'static-export';
+  archiveCapturedAt?: string;
+  feedCheckedAt?: string | null;
+  liveFeedItems?: number;
+  archivedItems?: number;
   videos: VideoItem[];
 }
 

@@ -80,6 +80,9 @@ test('loads @FPLVORTEX channel briefings from site/ui/videos.json', async () => 
   const videos = await getRepoVideos();
   assert.equal(videos.channelId, 'UCDU7nEIN72xoiR3NtxCT6CQ');
   assert.ok(videos.videos.length >= 25);
+  assert.equal(videos.source, 'repository');
+  assert.equal(videos.feedCheckedAt, null);
+  assert.equal(videos.archivedItems, videos.videos.length);
   assert.match(videos.videos[0].url, /^https:\/\/www\.youtube\.com\/watch\?v=/);
 });
 

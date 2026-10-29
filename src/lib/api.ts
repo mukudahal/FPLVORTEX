@@ -225,8 +225,11 @@ export async function fetchLeague(id: string, signal?: AbortSignal): Promise<Lea
 export async function fetchVideos(signal?: AbortSignal): Promise<VideosResponse> {
   try {
     return await getJson<VideosResponse>(withBase('api/vortex/videos'), signal);
-  } catch {
-    return getJson<VideosResponse>(withBase('data/vortex-videos.json'), signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const fallback = await getJson<VideosResponse>(withBase('data/vortex-videos.json'), signal);
+    // A static build's export is not a currently checked YouTube RSS feed.
+    return { ...fallback, source: 'static-export', feedCheckedAt: null };
   }
 }
 
