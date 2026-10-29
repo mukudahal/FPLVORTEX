@@ -44,7 +44,7 @@ test('client static fallback preserves snapshot age and fails closed for unmatch
     await assert.rejects(fetchEntry('0'), (error: unknown) =>
       error instanceof ApiRequestError && error.status === 400);
     await assert.rejects(fetchEntry('123456'), /No matching offline squad exists/);
-    await assert.rejects(fetchLeague('123456'), /No matching offline standings exist/);
+    await assert.rejects(fetchLeague('123456'), /no matching offline standings exist/i);
     const videos = await fetchVideos();
     assert.equal(videos.source, 'static-export');
     assert.equal(videos.feedCheckedAt, null);
