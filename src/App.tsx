@@ -441,6 +441,7 @@ export default function App() {
           onOpenPalette={openPalette}
           onRefresh={handleRefresh}
           refreshing={refreshing}
+          onToast={showToast}
         />
       );
   }

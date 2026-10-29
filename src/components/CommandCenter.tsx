@@ -33,6 +33,8 @@ import type { PendingSwap } from '../App';
 import type { RouteId } from '../hooks/useHashRoute';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { useNow } from '../hooks/useNow';
+import { SaveTableButton } from './SaveTableButton';
+import type { PngTable } from '../lib/tablePng';
 import { fetchVideos } from '../lib/api';
 import {
   buildInsights,
@@ -95,6 +97,7 @@ interface CommandCenterProps {
   onRefresh: () => void;
   refreshing: boolean;
   onPlayVideo?: (video?: VideoItem | null) => void;
+  onToast?: (message: string, tone?: 'success' | 'error' | 'info') => void;
 }
 
 const DEFAULT_SAMPLE_SQUAD = [1, 149, 256, 369, 444, 16, 48, 82, 136, 224, 240, 297, 381, 411, 560];
@@ -220,6 +223,7 @@ export function CommandCenter({
   onOpenPalette,
   onRefresh,
   refreshing,
+  onToast = message => window.alert(message),
 }: CommandCenterProps) {
   const now = useNow(1000);
   const videoTrackRef = useRef<HTMLDivElement | null>(null);
@@ -798,6 +802,12 @@ export function CommandCenter({
 
   const finishedMatchesCount = gwMatchesAndClubs.matches.filter((m) => m.fixture.finished).length;
 
+  const homeExportTables = (): PngTable[] => {
+            const tables: PngTable[] = [{ title: 'PRICE & TRANSFERS · ALL PLAYERS', headers: ['PLAYER', 'STATUS', 'PROGRESS', 'PREDICTED', 'NET TRANSFERS', 'PRICE', 'PURCHASE', 'SELLING'], widths: [150, 100, 90, 90, 115, 80, 90, 90], rows: sortedTransfers.map(row => [{ text: row.player.name }, { text: row.status }, { text: `${row.progressPct.toFixed(1)}%` }, { text: `${row.predictedProgressPct.toFixed(1)}%` }, { text: String(row.net) }, { text: formatPrice(row.player.price) }, { text: row.purchasePrice === null ? '—' : formatPrice(row.purchasePrice / 10) }, { text: row.sellingPrice === null ? '—' : formatPrice(row.sellingPrice / 10) }]) }];
+            if (hasLinkedTeam && pitchLineup) tables.unshift({ title: `SQUAD · GW${selectedGw}`, headers: ['PLAYER', 'POSITION', 'FIXTURE', 'GW POINTS', 'NEXT GW xP'], widths: [160, 100, 170, 100, 100], rows: [...pitchLineup.starters, ...pitchLineup.bench].flatMap((id, index) => { const player = playerMap.get(id); if (!player) return []; return [[{ text: `${player.name}${id === pitchLineup.captainId ? ' (C)' : id === pitchLineup.viceId ? ' (V)' : ''}` }, { text: index >= 11 ? `B${index - 10} ${player.position}` : player.position }, { text: getPitchFixture(player.teamId).label }, { text: String(player.eventPoints) }, { text: ((player.gwProjections?.[nextEventId] ?? player.projection) * (id === pitchLineup.captainId ? 2 : 1)).toFixed(2) }]]; }) });
+            return tables;
+          };
+
   return (
     <div className="page page--command">
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
@@ -1243,6 +1253,7 @@ export function CommandCenter({
                 </div>
               ) : (
                 <div className="vx-squad-table-wrap">
+                  <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-home-tables.png" onError={message => onToast(message, 'error')} getTables={homeExportTables} /></div>
                   <table className="vx-compact-table">
                     <thead>
                       <tr>
@@ -1652,6 +1663,7 @@ export function CommandCenter({
             </button>
           </header>
 
+          <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-home-tables.png" onError={message => onToast(message, 'error')} getTables={homeExportTables} /></div>
           <div className="vx-card__scroll vx-transfer-scroll-x">
             <table className="vx-transfer-table vx-transfer-table--predictor vx-transfer-table--home-full">
               <thead>
