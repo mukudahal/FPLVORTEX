@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DataStatus } from '../src/components/DataStatus.tsx';
+import { Topbar } from '../src/components/Topbar.tsx';
 import { fit4kFrame } from '../src/lib/pngFrame.ts';
 import { buildFixturePngTables } from '../src/lib/fixturePng.ts';
 import { downloadTablePng } from '../src/lib/tablePng.ts';
@@ -11,18 +11,18 @@ import type { Snapshot } from '../src/lib/types.ts';
 
 const sample = async () => JSON.parse(await readFile('public/data/fpl-snapshot.json', 'utf8')) as Snapshot;
 
-test('collapsed data details keep stale projection warnings and source dates visible', async () => {
-  const snapshot = await sample();
-  snapshot.meta.repoData = { ...snapshot.meta.repoData, benchmarkPlayers: 667,
-    benchmarkFile: 'fplcopilot-projections-gw7-2026-10-15-v4.csv', projectionFileDate: '2026-10-15' } as NonNullable<Snapshot['meta']['repoData']>;
-  const html = renderToStaticMarkup(React.createElement(DataStatus, { snapshot }));
-  const summary = html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'));
-  assert.match(summary, /Imported projections may be stale/);
-  assert.match(summary, /2026-10-15/);
-  assert.doesNotMatch(summary, /ownership|unique|news text/);
-  assert.doesNotMatch(html, /<details[^>]*\bopen/);
-  assert.match(html, new RegExp(snapshot.meta.generatedAt.replaceAll('.', '\\.')));
-  assert.match(html, /File-name date is not a verified provider publication time/);
+test('header keeps the brand without promotional text or the removed diagnostics panel', async () => {
+  const html = renderToStaticMarkup(React.createElement(Topbar, {
+    route: 'command', snapshot: null, refreshing: false, lastSuccessAt: null,
+    theme: 'dark', onToggleTheme() {}, onOpenPalette() {}, onRefresh() {}, onNavigate() {},
+  }));
+  assert.match(html, /FPL VORTEX home/);
+  assert.doesNotMatch(html, /Better transfers|Smarter captain|Fixture ratings|Follow @/);
+  const app = await readFile('src/App.tsx', 'utf8');
+  assert.doesNotMatch(app, /DataStatus|playerDataQualityNotice|importedProjectionsNotice/);
+  const lab = await readFile('src/components/PlayerLab.tsx', 'utf8');
+  assert.match(lab, /Projection information/);
+  assert.match(lab, /importedProjectionsNotice/);
 });
 
 test('4K framing preserves the whole content at any phone or desktop aspect ratio', () => {

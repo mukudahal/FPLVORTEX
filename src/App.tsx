@@ -14,7 +14,6 @@ import {
 } from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
 import { buildFixtureMatrix } from './lib/fixtures';
-import { DataStatus } from './components/DataStatus';
 import {
   RECENT_TEAM_IDS_KEY,
   mergeRecentTeamLists,
@@ -497,7 +496,6 @@ export default function App() {
             })}
           </nav>
 
-          <DataStatus snapshot={snapshot} />
           {error && (
             <div className="data-warning" role="status">
               <span className="pulse-dot is-stale" />
