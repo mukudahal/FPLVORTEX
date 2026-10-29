@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { makeFixtureForecasts, meanForecast, provisionalOpportunityIndices, overallDifficulty, difficultyColor } from '../src/lib/fixtureForecast.ts';
 import type { Snapshot, FixtureMarketOdds } from '../src/lib/types.ts';
+import { fixtureChipLabel } from '../src/components/PlayerLab.tsx';
 
 async function sample() {
   const snapshot = JSON.parse(await readFile('public/data/fpl-snapshot.json', 'utf8')) as Snapshot;
@@ -67,4 +68,20 @@ test('fixture matrix allows sideways scrolling in both forecast sources', async 
   assert.match(css, /\.player-table-scroll, \.fm-table-scroll \{[^}]*overflow-x: auto/);
   assert.match(css, /\.fm-table tbody tr, \.fm-page--market \.fm-table tbody tr \{ display: table-row/);
   assert.match(css, /\.fm-table thead \{ display: table-header-group/);
+});
+
+
+test('player fixture labels keep all opponents in doubles and show blanks', () => {
+  assert.equal(fixtureChipLabel('BHA (H)', false), 'BHA');
+  assert.equal(fixtureChipLabel('BHA (H) · ARS (A)', false), 'BHA/ARS');
+  assert.equal(fixtureChipLabel('Blank GW', true), '—');
+});
+
+test('phone fixture cards and player fixture chips reserve readable space', async () => {
+  const css = await readFile('src/styles.css', 'utf8');
+  const component = await readFile('src/components/FixtureMatrix.tsx', 'utf8');
+  assert.match(component, /--fm-mobile-min-width/);
+  assert.match(css, /\.fm-table \{ min-width: var\(--fm-mobile-min-width\) !important/);
+  assert.match(css, /\.player-table \.fixture-inline \{ display: flex; align-items: center; gap: 5px/);
+  assert.match(css, /\.player-table \.fixture-inline \.fdr-chip \{[^}]*min-height: 30px/);
 });
