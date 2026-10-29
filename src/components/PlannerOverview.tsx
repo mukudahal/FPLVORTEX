@@ -10,7 +10,6 @@ import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
 import { SaveTableButton } from './SaveTableButton';
-import type { PngTable } from '../lib/tablePng';
 
 interface Props {
   snapshot: Snapshot;
@@ -19,10 +18,9 @@ interface Props {
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
   horizon: number;
   onHorizonChange: (value: number) => void;
-  getExportTables: () => PngTable[];
 }
 
-export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, horizon, onHorizonChange, getExportTables }: Props) {
+export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, horizon, onHorizonChange }: Props) {
   const [decay, setDecay] = useState(15);
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const [sort, setSort] = useState<{ gw: number | 'avg'; ascending: boolean }>({ gw: snapshot.meta.nextEventId, ascending: true });
@@ -80,7 +78,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, hor
       </div>
       <div className="panel vx-planner-fixtures">
         <div className="vx-planner-fixture-head"><strong>Fixtures · VORTEX difficulty</strong><small>Click a GW or AVG to sort</small></div>
-        <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} getTables={getExportTables} /></div>
+        <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} getTables={() => [{ title: 'PLANNER · VORTEX FIXTURE DIFFICULTY', headers: ['TEAM', ...gws.map(gw => `GW${gw}`), 'AVG'], widths: [140, ...gws.map(() => 150), 75], rows: sorted.map(row => [{ text: row.team.shortName }, ...row.cells.map(cell => { const value = sharedDifficulty(row.team.id, cell.event); return { text: `${cell.isBlank ? '—' : cell.label} ${value === null ? '' : value.toFixed(1)}`, color: value === null ? undefined : difficultyColor(value) }; }), { text: sharedDifficulty(row.team.id, 'avg')?.toFixed(1) ?? '—', color: sharedDifficulty(row.team.id, 'avg') === null ? undefined : difficultyColor(sharedDifficulty(row.team.id, 'avg')!) }]) }]} /></div>
         <div className="vx-planner-table-scroll"><table><thead><tr><th>TEAM</th>{gws.map(gw => <th key={gw}><button type="button" onClick={() => setSort(prev => ({ gw, ascending: prev.gw === gw ? !prev.ascending : true }))}>GW{gw}{sort.gw === gw ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th>)}<th><button type="button" onClick={() => setSort(prev => ({ gw: 'avg', ascending: prev.gw === 'avg' ? !prev.ascending : true }))}>AVG{sort.gw === 'avg' ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th></tr></thead>
           <tbody>{sorted.map(row => {
             const average = sharedDifficulty(row.team.id, 'avg');

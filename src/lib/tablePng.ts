@@ -1,3 +1,4 @@
+import { choosePngDestination, savePngBlob } from './savePng';
 /** Data-only canvas export: no DOM, web fonts, remote images, navigation or controls. */
 export interface PngCell { text: string; color?: string }
 export interface PngTable { title: string; headers: string[]; widths: number[]; rows: PngCell[][] }
@@ -36,6 +37,7 @@ function wrap(ctx: CanvasRenderingContext2D, input: string, width: number): stri
 }
 
 export async function downloadTablePng(tables: PngTable[], filename: string): Promise<void> {
+  const destination = await choosePngDestination(filename);
   const blocks = splitTables(tables);
   if (!blocks.length) throw new Error('No table data available to save.');
   const measure = document.createElement('canvas').getContext('2d');
@@ -98,7 +100,5 @@ export async function downloadTablePng(tables: PngTable[], filename: string): Pr
   }
   const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('PNG creation failed; try a smaller selection.');
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a'); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  await savePngBlob(blob, filename, destination);
 }

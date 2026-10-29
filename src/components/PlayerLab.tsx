@@ -142,7 +142,7 @@ export function PlayerLab({
     setPage(0);
   }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize]);
 
-  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map(), [snapshot, fixtureRows]);
+  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map<string, FixtureForecast[]>(), [snapshot, fixtureRows]);
 
   const teamById = useMemo(() => new Map(teams.map(team => [team.id, team])), [teams]);
 
@@ -388,7 +388,7 @@ export function PlayerLab({
       )}
 
       <section className="panel table-panel" aria-label="All 667 repository players">
-        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${nextEventId}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: 'PLAYER LAB · ALL PLAYERS', headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'EO%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: [...players].sort((a, b) => b.projection - a.projection || a.name.localeCompare(b.name)).map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: player.projection.toFixed(2) }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => `GW${cell.event}: ${cell.label}`).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
+        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${nextEventId}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `PLAYER LAB · PAGE ${currentPage + 1}`, headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'EO%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: visiblePlayers.map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: player.projection.toFixed(2) }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
         <p className="table-swipe-hint">Swipe left or right to see all columns ↔</p>
         <div className="table-wrap player-table-scroll" role="region" aria-label="Player results, scroll sideways to see all columns" tabIndex={0}>
           <table className="player-table">
