@@ -586,7 +586,10 @@ export async function enrichFixturesWithLiveOdds(
     return marketOdds ? { ...fx, marketOdds } : fx;
   });
 
-  const { matched: nextGwMatched, status } = oddsCoverage(enrichedFixtures, nextEventId);
+  const { matched: nextGwMatched } = oddsCoverage(enrichedFixtures, nextEventId);
+  const next3Coverage = marketCoverage(enrichedFixtures, nextEventId);
+  const status: MarketOddsMeta['status'] = next3Coverage.completeMarketData
+    ? 'live' : next3Coverage.pricedFixtures > 0 ? 'partial' : 'fallback';
 
   return {
     fixtures: enrichedFixtures,
@@ -598,7 +601,7 @@ export async function enrichFixturesWithLiveOdds(
       upcomingFixtures: nextGwFixtures.length,
       apiKeyConfigured,
       updatedAt: loaded.updatedAt,
-      next3Coverage: marketCoverage(enrichedFixtures, nextEventId),
+      next3Coverage,
       feedDiagnostics: loaded.feedDiagnostics,
     },
   };

@@ -67,3 +67,10 @@ test('prior GWs and finished fixtures never count toward near-term market covera
   assert.equal(report.totalFixtures, 1);
   assert.equal(report.pricedFixtures, 1);
 });
+
+test('three-GW incomplete market cannot become fully live from a perfect first GW', () => {
+  const data = marketCoverage([fixture(1, 9, priced), fixture(2, 10), fixture(3, 11)], 9, 3, now);
+  assert.equal(data.gameweeks[0].completeBoth, 1);
+  assert.equal(data.completeMarketData, false);
+  assert.equal(data.pricedFixtures, 1);
+});
