@@ -61,7 +61,7 @@ export function Topbar({
 
       <div className="topbar__right">
         <div className="topbar__heading topbar__page-label"><h1>{heading.title}</h1><p>{heading.subtitle}</p></div>
-        <button type="button" className="search-trigger" onClick={onOpenPalette}>
+        <button type="button" className="search-trigger" aria-label="Search players, teams and pages" onClick={onOpenPalette}>
           <Search size={17} />
           <span>Search players, teams, pages…</span>
           <kbd>⌘ K</kbd>
