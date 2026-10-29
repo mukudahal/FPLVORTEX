@@ -458,7 +458,7 @@ export function SquadBuilder({
 
   return (
     <div className="page page--optimizer">
-      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} onToast={onToast} horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} getExportTables={optimizerTables} />
+      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} onToast={onToast} horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} />
       <details className="vx-planner-legacy">
         <summary>Advanced tools · transfers & chips</summary>
       {/* Sub-navigation bar: Team Planner | Chip Strategy (FPLReview style) | Monte Carlo (3,000 Draws) */}

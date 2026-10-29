@@ -35,6 +35,7 @@ import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { useNow } from '../hooks/useNow';
 import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
+import { downloadPitchPng, type PitchPlayer } from '../lib/pitchPng';
 import { fetchVideos } from '../lib/api';
 import {
   buildInsights,
@@ -802,6 +803,20 @@ export function CommandCenter({
 
   const finishedMatchesCount = gwMatchesAndClubs.matches.filter((m) => m.fixture.finished).length;
 
+  const savePitch = async () => {
+    const makePlayer = (id: number, bench: boolean): PitchPlayer | null => {
+      const player = playerMap.get(id); if (!player) return null;
+      const fixture = getPitchFixture(player.teamId);
+      const captain = !bench && id === pitchLineup.captainId;
+      const reviewing = isReviewMode && selectedGw <= snapshot.meta.currentEventId;
+      const points = reviewing ? `${player.eventPoints * (captain ? 2 : 1)} pts` : `${((playerGwXp.get(id) ?? player.projection) * (captain ? 2 : 1)).toFixed(1)} xP`;
+      return { name: player.name, position: player.position, team: player.team.shortName, score: points, fixture: fixture.label, fixtureColor: fixture.isBlank ? undefined : difficultyColor(fixture.difficulty), captain, vice: !bench && id === pitchLineup.viceId, flag: player.status !== 'a' || (player.chance !== null && player.chance < 100) ? '!' : undefined, price: formatPrice(player.price) };
+    };
+    const rows = (['GKP', 'DEF', 'MID', 'FWD'] as const).map(pos => pitchLineup.starters.filter(id => playerMap.get(id)?.position === pos).map(id => makePlayer(id, false)).filter((p): p is PitchPlayer => p !== null));
+    const bench = pitchLineup.bench.map(id => makePlayer(id, true)).filter((p): p is PitchPlayer => p !== null);
+    await downloadPitchPng(rows, bench, selectedGw, `fpl-vortex-pitch-gw${selectedGw}.png`);
+  };
+
   const homeExportTables = (): PngTable[] => {
             const tables: PngTable[] = [{ title: 'PRICE & TRANSFERS · ALL PLAYERS', headers: ['PLAYER', 'STATUS', 'PROGRESS', 'PREDICTED', 'NET TRANSFERS', 'PRICE', 'PURCHASE', 'SELLING'], widths: [150, 100, 90, 90, 115, 80, 90, 90], rows: sortedTransfers.map(row => [{ text: row.player.name }, { text: row.status }, { text: `${row.progressPct.toFixed(1)}%` }, { text: `${row.predictedProgressPct.toFixed(1)}%` }, { text: String(row.net) }, { text: formatPrice(row.player.price) }, { text: row.purchasePrice === null ? '—' : formatPrice(row.purchasePrice / 10) }, { text: row.sellingPrice === null ? '—' : formatPrice(row.sellingPrice / 10) }]) }];
             if (hasLinkedTeam && pitchLineup) tables.unshift({ title: `SQUAD · GW${selectedGw}`, headers: ['PLAYER', 'POSITION', 'FIXTURE', 'GW POINTS', 'NEXT GW xP'], widths: [160, 100, 170, 100, 100], rows: [...pitchLineup.starters, ...pitchLineup.bench].flatMap((id, index) => { const player = playerMap.get(id); if (!player) return []; return [[{ text: `${player.name}${id === pitchLineup.captainId ? ' (C)' : id === pitchLineup.viceId ? ' (V)' : ''}` }, { text: index >= 11 ? `B${index - 10} ${player.position}` : player.position }, { text: getPitchFixture(player.teamId).label }, { text: String(player.eventPoints) }, { text: ((player.gwProjections?.[nextEventId] ?? player.projection) * (id === pitchLineup.captainId ? 2 : 1)).toFixed(2) }]]; }) });
@@ -1204,6 +1219,8 @@ export function CommandCenter({
               </div>
 
               {squadView === 'pitch' ? (
+                <>
+                <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-pitch-gw${selectedGw}.png`} onSave={savePitch} onError={message => onToast(message, 'error')} /></div>
                 <div className="vx-soccer-pitch">
                   <div className="vx-pitch-top-boards">
                     <div className="vx-pitch-board">
@@ -1251,6 +1268,7 @@ export function CommandCenter({
                     </div>
                   </div>
                 </div>
+                </>
               ) : (
                 <div className="vx-squad-table-wrap">
                   <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-home-tables.png" onError={message => onToast(message, 'error')} getTables={homeExportTables} /></div>
@@ -1465,6 +1483,7 @@ export function CommandCenter({
                 {projMetric === 'goals' ? 'Projected Goals' : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
               </h3>
             </div>
+            <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2) }, { text: `${Math.round(club.cs * 100)}%` }, { text: `${Math.round(club.win * 100)}%` }]) }]} />
             <div className="vx-seg-pills" role="group" aria-label="Club projection metric">
               <button
                 type="button"
@@ -1569,6 +1588,7 @@ export function CommandCenter({
             </select>
           </header>
 
+          <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-top-players-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `TOP PLAYERS · ${topMetric === 'season' ? 'SEASON POINTS' : topMetric === 'gwPts' ? `GW${snapshot.meta.currentEventId} POINTS` : topMetric === 'horizon5' ? '5-GW xPTS' : `GW${selectedGw} xPTS`}`, headers: ['RANK', 'PLAYER', 'CLUB', 'POSITION', 'PRICE', 'SCORE'], widths: [65, 170, 90, 90, 90, 90], rows: topPlayersList.map(({ player, score }, idx) => [{ text: String(idx + 1) }, { text: player.name }, { text: player.team.shortName }, { text: player.position }, { text: formatPrice(player.price) }, { text: topMetric === 'season' || topMetric === 'gwPts' ? String(Math.round(score)) : score.toFixed(1) }]) }]} /></div>
           <div className="vx-card__scroll vx-top-players-list">
             {topPlayersList.map(({ player, score }, idx) => {
               const pct = Math.max(6, (score / maxTopScore) * 100);
@@ -1904,6 +1924,7 @@ export function CommandCenter({
             <small className="vx-card__sub">{flaggedPlayers.length} players</small>
           </header>
 
+          <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-injuries.png" onError={message => onToast(message, 'error')} getTables={() => [{ title: `INJURIES & SUSPENSIONS · ${flaggedPlayers.length} PLAYERS`, headers: ['PLAYER', 'CLUB', 'POSITION', 'PRICE', 'STATUS', 'DETAILS', 'RETURN', 'CHANCE'], widths: [160, 90, 90, 80, 110, 240, 160, 90], rows: flaggedPlayers.map(player => { const info = parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label); return [{ text: player.name }, { text: player.team.shortName }, { text: player.position }, { text: formatPrice(player.price) }, { text: info.statusLabel }, { text: formatInjurySummary(player) }, { text: info.expectedReturn }, { text: player.chance === null ? '—' : `${player.chance}%` }]; }) }]} /></div>
           <div className="vx-card__scroll vx-injuries-list">
             {visibleInjuries.map((player) => {
               const info = parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label);
