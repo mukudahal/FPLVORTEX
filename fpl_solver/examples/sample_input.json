@@ -1,0 +1,1114 @@
+{
+  "players": [
+    {
+      "player_id": 1,
+      "name": "Example 1",
+      "team_id": 1,
+      "position": "GK",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 2,
+      "name": "Example 2",
+      "team_id": 2,
+      "position": "GK",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.22,
+        "2": 2.27,
+        "3": 2.32,
+        "4": 2.37,
+        "5": 2.42
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 3,
+      "name": "Example 3",
+      "team_id": 3,
+      "position": "GK",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.44,
+        "2": 2.49,
+        "3": 2.54,
+        "4": 2.59,
+        "5": 2.64
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 4,
+      "name": "Example 4",
+      "team_id": 4,
+      "position": "GK",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.66,
+        "2": 2.71,
+        "3": 2.76,
+        "4": 2.81,
+        "5": 2.86
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 5,
+      "name": "Example 5",
+      "team_id": 5,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 6,
+      "name": "Example 6",
+      "team_id": 6,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.22,
+        "2": 2.27,
+        "3": 2.32,
+        "4": 2.37,
+        "5": 2.42
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 7,
+      "name": "Example 7",
+      "team_id": 7,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.44,
+        "2": 2.49,
+        "3": 2.54,
+        "4": 2.59,
+        "5": 2.64
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 8,
+      "name": "Example 8",
+      "team_id": 8,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.66,
+        "2": 2.71,
+        "3": 2.76,
+        "4": 2.81,
+        "5": 2.86
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 9,
+      "name": "Example 9",
+      "team_id": 9,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.88,
+        "2": 2.93,
+        "3": 2.98,
+        "4": 3.03,
+        "5": 3.08
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 10,
+      "name": "Example 10",
+      "team_id": 10,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 11,
+      "name": "Example 11",
+      "team_id": 1,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.22,
+        "2": 2.27,
+        "3": 2.32,
+        "4": 2.37,
+        "5": 2.42
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 12,
+      "name": "Example 12",
+      "team_id": 2,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.44,
+        "2": 2.49,
+        "3": 2.54,
+        "4": 2.59,
+        "5": 2.64
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 13,
+      "name": "Example 13",
+      "team_id": 3,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.66,
+        "2": 2.71,
+        "3": 2.76,
+        "4": 2.81,
+        "5": 2.86
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 14,
+      "name": "Example 14",
+      "team_id": 4,
+      "position": "DEF",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.88,
+        "2": 2.93,
+        "3": 2.98,
+        "4": 3.03,
+        "5": 3.08
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 15,
+      "name": "Example 15",
+      "team_id": 5,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 16,
+      "name": "Example 16",
+      "team_id": 6,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.22,
+        "2": 2.27,
+        "3": 2.32,
+        "4": 2.37,
+        "5": 2.42
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 17,
+      "name": "Example 17",
+      "team_id": 7,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.44,
+        "2": 2.49,
+        "3": 2.54,
+        "4": 2.59,
+        "5": 2.64
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 18,
+      "name": "Example 18",
+      "team_id": 8,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.66,
+        "2": 2.71,
+        "3": 2.76,
+        "4": 2.81,
+        "5": 2.86
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 19,
+      "name": "Example 19",
+      "team_id": 9,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.88,
+        "2": 2.93,
+        "3": 2.98,
+        "4": 3.03,
+        "5": 3.08
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 20,
+      "name": "Example 20",
+      "team_id": 10,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 21,
+      "name": "Example 21",
+      "team_id": 1,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.22,
+        "2": 2.27,
+        "3": 2.32,
+        "4": 2.37,
+        "5": 2.42
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 22,
+      "name": "Example 22",
+      "team_id": 2,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.44,
+        "2": 2.49,
+        "3": 2.54,
+        "4": 2.59,
+        "5": 2.64
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 23,
+      "name": "Example 23",
+      "team_id": 3,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.66,
+        "2": 2.71,
+        "3": 2.76,
+        "4": 2.81,
+        "5": 2.86
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 24,
+      "name": "Example 24",
+      "team_id": 4,
+      "position": "MID",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.88,
+        "2": 4.73,
+        "3": 4.78,
+        "4": 4.83,
+        "5": 4.88
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 25,
+      "name": "Example 25",
+      "team_id": 5,
+      "position": "FWD",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 26,
+      "name": "Example 26",
+      "team_id": 6,
+      "position": "FWD",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.22,
+        "2": 2.27,
+        "3": 2.32,
+        "4": 2.37,
+        "5": 2.42
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 27,
+      "name": "Example 27",
+      "team_id": 7,
+      "position": "FWD",
+      "current_price": 5.0,
+      "selling_price": 4.9,
+      "xpts_by_gw": {
+        "1": 2.44,
+        "2": 2.49,
+        "3": 2.54,
+        "4": 2.59,
+        "5": 2.64
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 28,
+      "name": "Example 28",
+      "team_id": 8,
+      "position": "FWD",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.66,
+        "2": 2.71,
+        "3": 2.76,
+        "4": 2.81,
+        "5": 2.86
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 29,
+      "name": "Example 29",
+      "team_id": 9,
+      "position": "FWD",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.88,
+        "2": 2.93,
+        "3": 2.98,
+        "4": 3.03,
+        "5": 3.08
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    },
+    {
+      "player_id": 30,
+      "name": "Example 30",
+      "team_id": 10,
+      "position": "FWD",
+      "current_price": 5.0,
+      "selling_price": null,
+      "xpts_by_gw": {
+        "1": 2.0,
+        "2": 2.05,
+        "3": 2.1,
+        "4": 2.15,
+        "5": 2.2
+      },
+      "xmin_by_gw": {
+        "1": 75,
+        "2": 75,
+        "3": 75,
+        "4": 75,
+        "5": 75
+      },
+      "availability_by_gw": {
+        "1": 0.95,
+        "2": 0.95,
+        "3": 0.95,
+        "4": 0.95,
+        "5": 0.95
+      },
+      "has_fixture_by_gw": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true
+      }
+    }
+  ],
+  "current_team": {
+    "squad_player_ids": [
+      1,
+      2,
+      5,
+      6,
+      7,
+      8,
+      9,
+      15,
+      16,
+      17,
+      18,
+      19,
+      25,
+      26,
+      27
+    ],
+    "bank": 4.0,
+    "free_transfers": 2,
+    "current_gameweek": 1
+  },
+  "settings": {
+    "start_gw": 1,
+    "end_gw": 5,
+    "max_transfers_per_gw": 1,
+    "max_total_hits": 0,
+    "solutions_requested": 1,
+    "time_limit_seconds": 30
+  }
+}

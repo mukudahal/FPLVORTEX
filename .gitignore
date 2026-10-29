@@ -14,3 +14,5 @@ coverage/
 *.tsbuildinfo
 **/.openai/qa-data/
 *.tar.gz
+
+**/.venv/
