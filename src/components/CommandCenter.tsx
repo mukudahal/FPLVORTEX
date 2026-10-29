@@ -1,3 +1,4 @@
+import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -361,7 +362,13 @@ export function CommandCenter({
   }, [hasLinkedTeam, nextEventId, pitchLineup.nextGwXp, playerMap]);
 
   const captain = insights.captainCandidates[0];
-  const bestFixture = fixtureRows[0];
+  const sharedFixtureForecasts = useMemo(() => makeFixtureForecasts(snapshot, 'vortex', [...new Set([selectedGw, ...fixtureRows.flatMap(row => row.cells.map(cell => cell.event))])]), [snapshot, selectedGw, fixtureRows]);
+  const overallFor = (teamId: number, event: number) => fixtureCellIndex(sharedFixtureForecasts, teamId, event);
+  const avgFor = (teamId: number, cells: typeof fixtureRows[number]['cells']) => {
+    const items = cells.flatMap(cell => sharedFixtureForecasts.get(`${teamId}:${cell.event}`) ?? []);
+    return items.length ? items.reduce((sum, item) => sum + (item.attackIndex + item.defenceIndex) / 2, 0) / items.length : null;
+  };
+  const bestFixture = [...fixtureRows].sort((a, b) => (avgFor(a.team.id, a.cells) ?? Infinity) - (avgFor(b.team.id, b.cells) ?? Infinity))[0];
 
   // Match-level Live Bookmaker Implied Goals/CS%/Win% (falling back per-fixture to `site/model/dashboardMath.ts`)
   const gwMatchesAndClubs = useMemo(() => {
@@ -511,10 +518,8 @@ export function CommandCenter({
       const opp = teamMap.get(isHome ? fx.teamA : fx.teamH)?.shortName ?? 'OPP';
       return `${opp} (${isHome ? 'H' : 'A'})`;
     });
-    const maxDiff = Math.max(
-      ...fxs.map((fx) => (fx.teamH === teamIdNum ? fx.teamHDifficulty : fx.teamADifficulty)),
-    );
-    return { label: labels.join(', '), difficulty: maxDiff, isBlank: false };
+    const difficulty = overallFor(teamIdNum, selectedGw);
+    return { label: labels.join(', '), difficulty: difficulty ?? 3, isBlank: difficulty === null };
   };
 
   // Top Players (top 10)
@@ -769,7 +774,7 @@ export function CommandCenter({
           />
         </div>
         <strong className="vx-pitch-name">{p.name}</strong>
-        <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)}>{fx.label}</span>
+        <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)} style={fx.isBlank ? undefined : { background: difficultyColor(fx.difficulty), color: '#071a1b' }}>{fx.label}</span>
         {isBench && (
           <span className="vx-pitch-bench-meta">
             {p.team.shortName} · £{p.price.toFixed(1)}m
@@ -989,14 +994,15 @@ export function CommandCenter({
                   </span>
                   <div className="float-card__title">{bestFixture.team.name}</div>
                   <div className="float-card__meta-pills">
-                    <span className="float-card__ease-pill">Ease +{bestFixture.easeSum5}</span>
-                    <span className="float-card__fdr-avg">{bestFixture.next5.toFixed(2)} FDR</span>
+                    <span className="float-card__ease-pill">VORTEX index</span>
+                    <span className="float-card__fdr-avg">{avgFor(bestFixture.team.id, bestFixture.cells)?.toFixed(2) ?? '—'} FDR</span>
                   </div>
                   <div className="float-card__fdr-strip" aria-hidden="true">
                     {bestFixture.cells.slice(0, 5).map((cell) => {
-                      const tone = fdrPillTone(cell.difficulty, cell.isBlank);
+                      const value = overallFor(bestFixture.team.id, cell.event);
+                      const tone = fdrPillTone(value ?? 3, value === null);
                       return (
-                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)}>
+                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)} style={value === null ? undefined : { background: difficultyColor(value), color: '#071a1b' }}>
                           {cell.isBlank ? '—' : cell.label.split(' ')[0]}
                         </span>
                       );
@@ -1305,7 +1311,7 @@ export function CommandCenter({
                               {isBench ? `B${idx - 10} · ${p.position}` : p.position}
                             </td>
                             <td>
-                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', tone, `is-${tone}`)}>
+                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', tone, `is-${tone}`)} style={fx.isBlank ? undefined : { background: difficultyColor(fx.difficulty), color: '#071a1b' }}>
                                 {fx.label}
                               </span>
                             </td>
@@ -2084,6 +2090,7 @@ export function CommandCenter({
 
       {/* FPL VORTEX Broadcast Player Graphic Card Modal (Image 1 style — pure stats & fixtures, no transfer-out) */}
       <PlayerGraphicModal
+        snapshot={snapshot}
         player={selectedCardPlayer}
         teams={snapshot.teams}
         fixtureRows={fixtureRows}

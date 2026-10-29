@@ -14,15 +14,17 @@ import {
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames } from '../lib/format';
+import { makeFixtureForecasts, overallDifficulty, difficultyColor, type FixtureForecast } from '../lib/fixtureForecast';
 import {
   buildJerseyFallbackSvgDataUri,
   getPlayerPhotoCandidates,
 } from '../lib/playerImages';
-import type { EnrichedPlayer, FixtureRow, FplTeam, Position } from '../lib/types';
+import type { EnrichedPlayer, FixtureRow, FplTeam, Position, Snapshot } from '../lib/types';
 import { ClubBadge } from './ClubBadge';
 
 interface PlayerGraphicModalProps {
   player: EnrichedPlayer | null;
+  snapshot?: Snapshot;
   teams: FplTeam[];
   fixtureRows: FixtureRow[];
   reviewGw?: number;
@@ -119,14 +121,6 @@ function computeCleanSheetPct(player: EnrichedPlayer): number {
   return Math.max(0, Math.min(100, rawPct));
 }
 
-function fdrToneClass(difficulty: number, isBlank: boolean): string {
-  if (isBlank) return 'is-fdr-blank';
-  if (difficulty <= 2) return 'is-fdr-2';
-  if (difficulty === 3) return 'is-fdr-3';
-  if (difficulty === 4) return 'is-fdr-4';
-  return 'is-fdr-5';
-}
-
 function SoccerBallIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -143,6 +137,7 @@ function SoccerBallIcon() {
 
 export function PlayerGraphicModal({
   player,
+  snapshot,
   teams,
   fixtureRows,
   isCaptain = false,
@@ -217,13 +212,14 @@ export function PlayerGraphicModal({
     if (!player) return [];
     const row = fixtureRows.find((r) => r.team.id === player.teamId);
     if (!row) return [];
+    const predictions = snapshot ? makeFixtureForecasts(snapshot, 'vortex', row.cells.slice(0, 5).map(c => c.event)) : new Map<string, FixtureForecast[]>();
     return row.cells.slice(0, 5).map((cell) => {
       if (cell.isBlank || cell.fixtures.length === 0) {
         return {
           key: `gw-${cell.event}`,
           label: 'BLANK',
           oppTeam: null as FplTeam | null,
-          difficulty: 3,
+          difficulty: null as number | null,
           isBlank: true,
         };
       }
@@ -238,11 +234,11 @@ export function PlayerGraphicModal({
         key: `gw-${cell.event}`,
         label,
         oppTeam,
-        difficulty: Math.round(cell.difficulty),
+        difficulty: (() => { const items = predictions.get(`${player.teamId}:${cell.event}`) ?? []; return items.length ? items.reduce((sum, item) => sum + overallDifficulty(item), 0) / items.length : null; })(),
         isBlank: false,
       };
     });
-  }, [fixtureRows, player, teamMap]);
+  }, [fixtureRows, player, teamMap, snapshot]);
 
   if (!player) return null;
 
@@ -407,7 +403,7 @@ export function PlayerGraphicModal({
 
             <div className="vx-pcard__fixtures-grid">
               {nextFiveFixtures.map((fx) => (
-                <div key={fx.key} className="vx-pcard__fix-item">
+                <div key={fx.key} className="vx-pcard__fix-item" style={fx.difficulty === null ? undefined : { backgroundColor: difficultyColor(fx.difficulty), color: "#071a1b", borderRadius: 8 }}>
                   <strong className="vx-pcard__fix-opp">{fx.label}</strong>
                   <div className="vx-pcard__fix-crest">
                     {fx.oppTeam ? (
@@ -421,8 +417,8 @@ export function PlayerGraphicModal({
                       <span className="vx-pcard__fix-blank">—</span>
                     )}
                   </div>
-                  <span className={classNames('vx-pcard__fdr-pill', fdrToneClass(fx.difficulty, fx.isBlank))}>
-                    {fx.isBlank ? '—' : fx.difficulty}
+                  <span className={classNames('vx-pcard__fdr-pill', fx.difficulty === null && 'is-fdr-blank')} style={fx.difficulty === null ? undefined : { background: difficultyColor(fx.difficulty), color: '#071a1b' }} title="VORTEX average attack and defence index">
+                    {fx.difficulty === null ? '—' : fx.difficulty.toFixed(2)}
                   </span>
                 </div>
               ))}
@@ -431,18 +427,18 @@ export function PlayerGraphicModal({
 
           {/* BOTTOM FDR LEGEND */}
           <footer className="vx-pcard__fdr-legend" aria-label="Fixture Difficulty Rating legend">
-            <strong className="vx-pcard__fdr-title">FDR:</strong>
+            <strong className="vx-pcard__fdr-title">FDR: VORTEX (PROVISIONAL)</strong>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot is-fdr-2">2</em> Easy
+              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(2), color: "#071a1b" }}>2</em> Easy
             </span>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot is-fdr-3">3</em> Normal
+              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(3), color: "#071a1b" }}>3</em> Normal
             </span>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot is-fdr-4">4</em> Hard
+              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(4), color: "#071a1b" }}>4</em> Hard
             </span>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot is-fdr-5">5</em> Very Hard
+              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(5), color: "#071a1b" }}>5</em> Very Hard
             </span>
           </footer>
         </div>

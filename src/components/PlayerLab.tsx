@@ -1,3 +1,4 @@
+import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -12,7 +13,7 @@ import {
 import type { EnrichedPlayer, FixtureRow, FplTeam, Position } from '../lib/types';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
-import { fixtureTone } from '../lib/fixtures';
+
 import { ClubBadge } from './ClubBadge';
 import { InjuryDetailModal } from './InjuryDetailModal';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -20,6 +21,7 @@ import { PlayerGraphicModal } from './PlayerGraphicModal';
 import { Sparkline } from './Sparkline';
 
 interface PlayerLabProps {
+  snapshot?: import('../lib/types').Snapshot;
   players: EnrichedPlayer[];
   teams: FplTeam[];
   fixtureRows: FixtureRow[];
@@ -93,6 +95,7 @@ function exportCsv(players: EnrichedPlayer[], nextGw: number): void {
 }
 
 export function PlayerLab({
+  snapshot,
   players,
   teams,
   fixtureRows,
@@ -116,6 +119,8 @@ export function PlayerLab({
   useEffect(() => {
     setVisibleCount(30);
   }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly]);
+
+  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map(), [snapshot, fixtureRows]);
 
   const fixtureByTeam = useMemo(
     () => new Map(fixtureRows.map((row) => [row.team.id, row])),
@@ -467,7 +472,7 @@ export function PlayerLab({
                         {(row?.cells.slice(0, 5) ?? []).map((cell) => (
                           <span
                             key={cell.event}
-                            className={`fdr-chip fdr-chip--${fixtureTone(cell.difficulty, cell.isBlank)}`}
+                            className="fdr-chip" style={(() => { const value = fixtureCellIndex(sharedFixtureForecasts, player.teamId, cell.event); return value === null ? undefined : { background: difficultyColor(value), color: "#071a1b" }; })()}
                             title={`GW${cell.event}: ${cell.label}`}
                           >
                             {cell.isBlank ? '—' : cell.label.split(' ')[0]}
@@ -504,6 +509,7 @@ export function PlayerLab({
       </section>
 
       <PlayerGraphicModal
+        snapshot={snapshot}
         player={selected}
         teams={teams}
         fixtureRows={fixtureRows}

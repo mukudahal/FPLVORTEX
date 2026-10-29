@@ -364,6 +364,7 @@ export default function App() {
     case 'players':
       page = (
         <PlayerLab
+          snapshot={snapshot}
           players={players}
           teams={snapshot.teams}
           fixtureRows={fixtureRows}
@@ -550,6 +551,7 @@ export default function App() {
       </nav>
 
       <PlayerGraphicModal
+        snapshot={snapshot}
         player={globalCardPlayer}
         teams={snapshot.teams}
         fixtureRows={fixtureRows}
