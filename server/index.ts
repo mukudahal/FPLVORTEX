@@ -5,6 +5,7 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './fpl.ts';
+import { createImageDownloadRouter } from './imageDownloads.ts';
 import { isNumericId, UpstreamHttpError } from './http.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import {
@@ -64,6 +65,9 @@ function rateLimit(limit: number, windowMs: number) {
     next();
   };
 }
+
+app.post('/api/vortex/image-downloads', rateLimit(30, 60_000));
+app.use('/api/vortex/image-downloads', createImageDownloadRouter());
 
 async function fileExistsNonEmpty(filePath: string): Promise<boolean> {
   try {

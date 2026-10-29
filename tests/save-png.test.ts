@@ -38,3 +38,18 @@ test('prepared image offers a real download link instead of triggering a delayed
     assert.equal(elements.find(el => el.className === 'png-save-overlay')?.removed, undefined);
   } finally { Object.assign(globalThis, { window: oldWindow, document: oldDocument }); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
 });
+
+test('mobile download uses the temporary normal URL when upload succeeds', async () => {
+  const oldWindow = globalThis.window, oldDocument = globalThis.document, oldFetch = globalThis.fetch;
+  const create = URL.createObjectURL, revoke = URL.revokeObjectURL;
+  const elements: any[] = [];
+  const el = (tag: string) => { const node: any = { tag, children: [], appendChild(child: any) { this.children.push(child); }, append(...children: any[]) { this.children.push(...children); }, setAttribute() {}, addEventListener() {}, focus() {}, remove() {} }; elements.push(node); return node; };
+  const path = `/api/vortex/image-downloads/${'a'.repeat(48)}`;
+  Object.assign(globalThis, { window: { setTimeout: () => 0 }, document: { body: el('body'), createElement: el, addEventListener() {}, removeEventListener() {} }, fetch: async () => new Response(JSON.stringify({ path }), { status: 201, headers: { 'Content-Type': 'application/json' } }) });
+  URL.createObjectURL = () => 'blob:test'; URL.revokeObjectURL = () => {};
+  try {
+    await savePngBlob(png(), 'pitch.png');
+    assert.equal(elements.find(node => node.tag === 'a').href, path);
+    assert.equal(elements.find(node => node.tag === 'img').src, 'blob:test');
+  } finally { Object.assign(globalThis, { window: oldWindow, document: oldDocument, fetch: oldFetch }); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
+});
