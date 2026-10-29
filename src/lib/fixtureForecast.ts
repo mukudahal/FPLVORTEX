@@ -78,11 +78,10 @@ export function meanForecast(items: readonly FixtureForecast[], metric: 'attackI
 
 /** Shared colour scale; low is easier, high is harder. */
 export function difficultyColor(value: number): string {
-  const stops = [[16, 201, 133], [37, 174, 206], [232, 198, 75], [229, 75, 96]];
-  const n = Math.max(0, Math.min(3, (value - 1) * .75));
-  const i = Math.min(2, Math.floor(n));
-  const t = n - i;
-  return `rgb(${stops[i].map((c, index) => Math.round(c + (stops[i + 1][index] - c) * t)).join(',')})`;
+  // Five discrete, solid bands are shared across every fixture view.
+  if (!Number.isFinite(value)) return '#9bacba';
+  const bands = ['#40d99c', '#45c8ce', '#eed35e', '#efa859', '#ed7781'];
+  return bands[Math.max(0, Math.min(4, Math.round(value) - 1))];
 }
 /** Overall display index, equally weighted attack and defence; not official FDR. */
 export function overallDifficulty(item: Pick<FixtureForecast, 'attackIndex' | 'defenceIndex'>): number {

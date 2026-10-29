@@ -37,3 +37,7 @@ The fourth tab has separate VORTEX-only and market-only modes, fixture detail ca
 ## Unified display index
 
 The overall display index is the arithmetic mean of the separate provisional attack and defence indices for each fixture. The matrix, squad overview and player-card fixture tiles share the same VORTEX projections and colour scale. The market tab applies the same mappings to market-implied rates only; it does not fill unavailable quotes from VORTEX. Average values are per fixture, excluding blanks and missing prices. Colours on win percentage use win probability directly and do not imply a calibrated FDR. The index is not used to claim a trained player-points model, calibrated FDR or better accuracy.
+
+## Solid fixture columns
+
+The matrix and optimizer use the same forecast tile: opponent and separate attack/defence indices, with five discrete solid difficulty-colour bands shared throughout the application. The goals and clean-sheet views show both values together in separate columns; their colours use the same provisional attack and defence index mappings. A double gameweek displays each match separately. Market tiles use only available market-derived forecasts and explicitly show missing prices; they do not fall back to VORTEX. These presentational changes do not calibrate the indices or change the underlying match forecasts.

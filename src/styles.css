@@ -7081,3 +7081,40 @@ kbd {
   .player-table th:nth-child(10), .player-table td:nth-child(10) { min-width: 270px; }
   .player-table td { font-size: 13px; }
 }
+
+/* Player Lab: large, separate fixture blocks with opponent and venue on their own lines. */
+.player-table th:nth-child(10), .player-table td:nth-child(10) { min-width: 380px; }
+.player-table .fixture-inline { gap: 8px; }
+.player-table .fixture-inline .fdr-chip { flex: 0 0 auto; flex-direction: column; width: 64px; min-width: 64px; min-height: 62px; padding: 7px 4px; border-radius: 6px; line-height: 1.2; }
+.player-table .fixture-inline .fdr-chip strong { font-size: 15px; font-weight: 850; }
+.player-table .fixture-inline .fdr-chip small { display: block; margin-top: 4px; font-size: 12px; font-weight: 700; }
+
+/* Consistent, solid-colour fixture columns across the matrix and optimizer. */
+.fm-color-key { display: flex; gap: 2px; }
+.fm-color-key span { display: block; width: 20px; height: 8px; border-radius: 2px; }
+.forecast-tile { display: grid; grid-auto-flow: column; grid-template-columns: minmax(52px, 1.55fr) repeat(2, minmax(31px, 1fr)); align-items: stretch; gap: 2px; width: 100%; padding: 0; border: 0; background: transparent; color: #071a1b; font: inherit; text-align: center; }
+button.forecast-tile { cursor: pointer; }
+button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset: 2px; }
+.forecast-tile__opponent, .forecast-tile__value { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 33px; padding: 4px 2px; border-radius: 4px; color: #071a1b; font-size: 10px; line-height: 1.15; }
+.forecast-tile__opponent { white-space: nowrap; }
+.forecast-tile__opponent .club-badge { width: 16px; height: 16px; flex: none; }
+.forecast-tile__opponent small { font-size: 9px; }
+.forecast-tile__value { flex-direction: column; font-variant-numeric: tabular-nums; }
+.forecast-tile__value small { font-size: 9px; }
+.fm-table { table-layout: auto; }
+.fm-table thead th:not(.fm-team-col):not(.fm-overall-col):not(.fm-avg-col), .fm-table tbody td:not(.fm-overall-col):not(.fm-avg-col) { min-width: 145px; }
+.fm-sort-pair { display: grid; grid-template-columns: minmax(52px, 1.55fr) repeat(2, minmax(31px, 1fr)); align-items: center; gap: 2px; }
+.fm-col-opponent { font-size: 9px; }
+.fm-average { display: flex; justify-content: center; gap: 3px; }
+.fm-average-value { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 28px; padding: 3px; border-radius: 4px; font-size: 10px; font-weight: 850; color: #071a1b; }
+.fixchip-row .forecast-tile { width: 150px; flex: 0 0 auto; }
+.optimizer-fixture-blank { display: grid; place-items: center; flex: 0 0 150px; min-height: 33px; border: 1px dashed var(--border-strong); border-radius: 4px; color: var(--text-secondary); }
+:root[data-theme="light"] .fm-col-opponent { color: #3d6478; }
+@media (max-width: 700px) {
+  .fm-table thead th:not(.fm-team-col):not(.fm-overall-col):not(.fm-avg-col), .fm-table tbody td:not(.fm-overall-col):not(.fm-avg-col) { min-width: 160px; }
+  .forecast-tile__opponent, .forecast-tile__value { min-height: 44px; font-size: 12px; }
+  .forecast-tile__opponent small, .forecast-tile__value small { font-size: 10px; }
+  .forecast-tile__opponent .club-badge { width: 17px; height: 17px; }
+}
+.fm-sort-pair--avg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fm-sort-pair--win, .forecast-tile--win { grid-template-columns: minmax(52px, 1.55fr) minmax(31px, 1fr); }
