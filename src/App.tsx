@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
 import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
 import { BRAND_LION_SRC } from './lib/baseUrl';
@@ -28,18 +28,19 @@ import {
 } from './lib/recentTeamIds';
 import { CommandCenter } from './components/CommandCenter';
 import { CommandPalette } from './components/CommandPalette';
-import { FixtureMatrix } from './components/FixtureMatrix';
 import { InjuryDetailModal } from './components/InjuryDetailModal';
-import { LeagueIntel } from './components/LeagueIntel';
 import { LoadingScreen } from './components/LoadingScreen';
-import { Methodology } from './components/Methodology';
 import { PlayerGraphicModal } from './components/PlayerGraphicModal';
-import { PlayerLab } from './components/PlayerLab';
 import { XBrandLogo, YouTubeBrandLogo } from './components/SocialIcons';
-import { SquadBuilder } from './components/SquadBuilder';
 import { Toast } from './components/Toast';
 import { Topbar } from './components/Topbar';
 import { YOUTUBE_CHANNEL_URL } from './components/YouTubePlayerModal';
+
+const FixtureMatrix = lazy(() => import('./components/FixtureMatrix').then(m => ({ default: m.FixtureMatrix })));
+const LeagueIntel = lazy(() => import('./components/LeagueIntel').then(m => ({ default: m.LeagueIntel })));
+const Methodology = lazy(() => import('./components/Methodology').then(m => ({ default: m.Methodology })));
+const PlayerLab = lazy(() => import('./components/PlayerLab').then(m => ({ default: m.PlayerLab })));
+const SquadBuilder = lazy(() => import('./components/SquadBuilder').then(m => ({ default: m.SquadBuilder })));
 
 type ToastTone = 'success' | 'error' | 'info';
 interface ToastState {
@@ -508,7 +509,7 @@ export default function App() {
               <button type="button" onClick={handleRefresh}>Retry live connection</button>
             </div>
           )}
-          {page}
+          <Suspense fallback={<LoadingScreen />}>{page}</Suspense>
           <footer className="app-footer">
             <div className="app-footer__brand-social">
               <img src={BRAND_LION_SRC} alt="" className="app-footer__lion" width={26} height={26} />
@@ -599,3 +600,4 @@ export default function App() {
     </div>
   );
 }
+

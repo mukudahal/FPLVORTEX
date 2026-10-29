@@ -51,6 +51,10 @@ jobs:
         continue-on-error: true
         run: node scripts/audit-live-source-integrity.mjs
 
+      - name: Measure current production loading (read-only)
+        continue-on-error: true
+        run: node scripts/audit-live-loading.mjs
+
       - name: Verify offline snapshot
         run: |
           node -e "const s=require('./public/data/fpl-snapshot.json'); if(!s.players?.length||!s.fixtures?.length) process.exit(1); console.log('Snapshot OK:',s.players.length,'players');"
@@ -76,3 +80,4 @@ jobs:
       - run: python -m pip install -r fpl_solver/requirements.txt
       - run: python -m pytest -q fpl_solver/tests
       - run: python -m fpl_solver.examples.run_example > /dev/null
+
