@@ -31,6 +31,11 @@ interface PlayerLabProps {
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
 }
 
+/** Keep all opponents visible for double gameweeks without squeezing them together. */
+export function fixtureChipLabel(label: string, isBlank: boolean): string {
+  return isBlank ? '—' : label.split(' · ').map(item => item.split(' ')[0]).join('/');
+}
+
 type SortKey =
   | 'projection'
   | 'horizon5Projection'
@@ -490,7 +495,7 @@ export function PlayerLab({
                             className="fdr-chip" style={(() => { const value = fixtureCellIndex(sharedFixtureForecasts, player.teamId, cell.event); return value === null ? undefined : { background: difficultyColor(value), color: "#071a1b" }; })()}
                             title={`GW${cell.event}: ${cell.label}`}
                           >
-                            {cell.isBlank ? '—' : cell.label.split(' ')[0]}
+                            {fixtureChipLabel(cell.label, cell.isBlank)}
                           </span>
                         ))}
                       </div>

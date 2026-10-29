@@ -7055,3 +7055,29 @@ kbd {
   :root[data-theme="light"] .fm-table tbody td.fm-overall-col, :root[data-theme="light"] .fm-table tbody td.fm-avg-col { background: #f1f8fb; }
   :root[data-theme="light"] .fm-table tbody td { border-color: #d8e5ed; }
 }
+
+/* Legible fixture cells, with enough space for each opponent to read separately. */
+.player-table th:nth-child(10), .player-table td:nth-child(10) { min-width: 270px; }
+.player-table .fixture-inline { display: flex; align-items: center; gap: 5px; width: max-content; }
+.player-table .fixture-inline .fdr-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 30px; padding: 4px 6px; border-radius: 6px; font-size: 12px; line-height: 1.2; font-weight: 800; white-space: nowrap; }
+.player-table .fixture-inline .fdr-chip:not([style]) { color: var(--text-secondary); background: var(--panel-hover); }
+@media (max-width: 700px) {
+  .fm-table { min-width: var(--fm-mobile-min-width) !important; }
+  .fm-table tbody td, .fm-page--market .fm-table tbody td:not(.fm-overall-col):not(.fm-avg-col) { padding: 3px 4px; }
+  .fm-table thead th { font-size: 12px; line-height: 1.25; }
+  .fm-table tbody th.fm-team-col, .fm-page--market .fm-table tbody th.fm-team-col { padding: 5px 7px; }
+  .fm-club strong { font-size: 12px; line-height: 1.25; }
+  .fm-club small { font-size: 10px; }
+  .fm-opponent { gap: 3px; font-size: 12px; line-height: 1.25; }
+  .fm-opponent small { font-size: 11px; }
+  .fm-opponent .club-badge { width: 16px; height: 16px; }
+  .fm-match { min-height: 54px; padding: 5px 3px; }
+  .fm-match-values { margin-top: 3px; }
+  .fm-match-values > strong { font-size: 15px; line-height: 1.25; }
+  .fm-match .fm-score, .fm-average .fm-score { font-size: 11px; padding: 3px 4px; }
+  .fm-overall-value { font-size: 12px; padding: 4px 6px; }
+  .fm-table tbody td.fm-avg-col { width: 89px; min-width: 89px; }
+  .fm-sort-pair button, .fm-overall-col button { font-size: 11px; }
+  .player-table th:nth-child(10), .player-table td:nth-child(10) { min-width: 270px; }
+  .player-table td { font-size: 13px; }
+}
