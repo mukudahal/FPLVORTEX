@@ -51,6 +51,7 @@ export function PlayerAvatar({
         loading="lazy"
         decoding="async"
         data-player-code={code ?? ''}
+        data-team-code={teamCode ?? ''}
         onError={() => {
           setCandidateIndex((prev) => (prev < candidates.length ? prev + 1 : prev));
         }}

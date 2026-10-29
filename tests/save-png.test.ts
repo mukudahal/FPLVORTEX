@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { choosePngDestination, savePngBlob } from '../src/lib/savePng.ts';
-import { downloadPitchPng } from '../src/lib/pitchPng.ts';
+import { pitchPhotoSources } from '../src/lib/pitchPng.ts';
 
 test('native save picker writes the PNG to the chosen location', async () => {
   const oldWindow = globalThis.window;
@@ -15,15 +15,20 @@ test('native save picker writes the PNG to the chosen location', async () => {
   } finally { Object.assign(globalThis, { window: oldWindow }); }
 });
 
-test('fallback downloads and pitch export includes starters and bench in one image', async () => {
+test('pitch capture tries the actual photo before the same-origin proxy', () => {
+  assert.deepEqual(pitchPhotoSources('https://images.example/photo.png', '123', '4'), ['https://images.example/photo.png', '/api/img/player/123?teamCode=4']);
+  assert.deepEqual(pitchPhotoSources('data:image/svg+xml,test'), ['data:image/svg+xml,test']);
+  assert.deepEqual(pitchPhotoSources('https://images.example/photo.png', '../bad'), ['https://images.example/photo.png']);
+});
+
+test('fallback saves the PNG using the browser download', async () => {
   const oldWindow = globalThis.window, oldDocument = globalThis.document;
   const create = URL.createObjectURL, revoke = URL.revokeObjectURL;
-  let clicked = false, filename = ''; const text: string[] = [];
-  const context = new Proxy({}, { get(_target, prop) { if (prop === 'fillText') return (value: string) => text.push(value); return () => {}; }, set() { return true; } });
-  Object.assign(globalThis, { window: { setTimeout: () => 0 }, document: { body: { appendChild() {} }, createElement(tag: string) { if (tag === 'canvas') return { width: 0, height: 0, getContext: () => context, toBlob: (cb: (blob: Blob) => void) => cb(new Blob(['png'], { type: 'image/png' })) }; return { set href(_v: string) {}, set download(v: string) { filename = v; }, click() { clicked = true; }, remove() {} }; } } });
+  let clicked = false, filename = '';
+  Object.assign(globalThis, { window: { setTimeout: () => 0 }, document: { body: { appendChild() {} }, createElement() { return { set href(_v: string) {}, set download(v: string) { filename = v; }, click() { clicked = true; }, remove() {} }; } } });
   URL.createObjectURL = () => 'blob:test'; URL.revokeObjectURL = () => {};
   try {
-    await downloadPitchPng([[{ name: 'Starter', position: 'MID', team: 'ARS', score: '8.2 xP', fixture: 'CHE (H)', captain: true }]], [{ name: 'Substitute', position: 'DEF', team: 'CHE', score: '3.0 xP', fixture: 'ARS (A)' }], 10, 'pitch.png');
-    assert.ok(clicked); assert.equal(filename, 'pitch.png'); assert.ok(text.includes('Starter')); assert.ok(text.includes('Substitute')); assert.ok(text.includes('C')); assert.ok(text.includes('BENCH · SUBSTITUTES'));
+    await savePngBlob(new Blob(['png'], { type: 'image/png' }), 'pitch.png', null);
+    assert.ok(clicked); assert.equal(filename, 'pitch.png');
   } finally { Object.assign(globalThis, { window: oldWindow, document: oldDocument }); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
 });

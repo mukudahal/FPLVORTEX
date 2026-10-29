@@ -35,7 +35,7 @@ import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { useNow } from '../hooks/useNow';
 import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
-import { downloadPitchPng, type PitchPlayer } from '../lib/pitchPng';
+import { downloadPitchPng } from '../lib/pitchPng';
 import { fetchVideos } from '../lib/api';
 import {
   buildInsights,
@@ -250,6 +250,7 @@ export function CommandCenter({
   >('trend');
   const [transferDir, setTransferDir] = useState<'desc' | 'asc'>('desc');
   const [transferPage, setTransferPage] = useState(0);
+  const homePitchRef = useRef<HTMLDivElement>(null);
   const [injuryPage, setInjuryPage] = useState(0);
   const [selectedCardPlayer, rawSetSelectedCardPlayer] = useState<EnrichedPlayer | null>(null);
   const [selectedInjuryPlayer, rawSetSelectedInjuryPlayer] = useState<EnrichedPlayer | null>(null);
@@ -804,17 +805,8 @@ export function CommandCenter({
   const finishedMatchesCount = gwMatchesAndClubs.matches.filter((m) => m.fixture.finished).length;
 
   const savePitch = async () => {
-    const makePlayer = (id: number, bench: boolean): PitchPlayer | null => {
-      const player = playerMap.get(id); if (!player) return null;
-      const fixture = getPitchFixture(player.teamId);
-      const captain = !bench && id === pitchLineup.captainId;
-      const reviewing = isReviewMode && selectedGw <= snapshot.meta.currentEventId;
-      const points = reviewing ? `${player.eventPoints * (captain ? 2 : 1)} pts` : `${((playerGwXp.get(id) ?? player.projection) * (captain ? 2 : 1)).toFixed(1)} xP`;
-      return { name: player.name, position: player.position, team: player.team.shortName, score: points, fixture: fixture.label, fixtureColor: fixture.isBlank ? undefined : difficultyColor(fixture.difficulty), captain, vice: !bench && id === pitchLineup.viceId, flag: player.status !== 'a' || (player.chance !== null && player.chance < 100) ? '!' : undefined, price: formatPrice(player.price) };
-    };
-    const rows = (['GKP', 'DEF', 'MID', 'FWD'] as const).map(pos => pitchLineup.starters.filter(id => playerMap.get(id)?.position === pos).map(id => makePlayer(id, false)).filter((p): p is PitchPlayer => p !== null));
-    const bench = pitchLineup.bench.map(id => makePlayer(id, true)).filter((p): p is PitchPlayer => p !== null);
-    await downloadPitchPng(rows, bench, selectedGw, `fpl-vortex-pitch-gw${selectedGw}.png`);
+    if (!homePitchRef.current) throw new Error('The pitch is not ready to save.');
+    await downloadPitchPng(homePitchRef.current, `fpl-vortex-pitch-gw${selectedGw}.png`);
   };
 
   const homeExportTables = (): PngTable[] => {
@@ -1221,7 +1213,7 @@ export function CommandCenter({
               {squadView === 'pitch' ? (
                 <>
                 <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-pitch-gw${selectedGw}.png`} onSave={savePitch} onError={message => onToast(message, 'error')} /></div>
-                <div className="vx-soccer-pitch">
+                <div className="vx-soccer-pitch" ref={homePitchRef}>
                   <div className="vx-pitch-top-boards">
                     <div className="vx-pitch-board">
                       <img src={BRAND_LION_SRC} alt="" width={20} height={20} />

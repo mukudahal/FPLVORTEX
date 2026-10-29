@@ -1,44 +1,54 @@
+import { toBlob } from 'html-to-image';
 import { choosePngDestination, savePngBlob } from './savePng';
 
-export interface PitchPlayer {
-  name: string;
-  position: string;
-  team: string;
-  score: string;
-  fixture: string;
-  fixtureColor?: string;
-  captain?: boolean;
-  vice?: boolean;
-  flag?: string;
-  price?: string;
+/** Try the exact displayed image first, then the app's same-origin photo proxy. */
+export function pitchPhotoSources(src: string, code?: string, teamCode?: string): string[] {
+  const sources = [src];
+  if (code && /^\d+$/.test(code)) sources.push(`/api/img/player/${encodeURIComponent(code)}${teamCode && /^\d+$/.test(teamCode) ? `?teamCode=${encodeURIComponent(teamCode)}` : ''}`);
+  return sources;
 }
 
-/** Draw a self-contained, full-size pitch; no external player photos are needed. */
-export async function downloadPitchPng(rows: PitchPlayer[][], bench: PitchPlayer[], gw: number, filename: string): Promise<void> {
+async function imageDataUrl(img: HTMLImageElement): Promise<string> {
+  const src = img.currentSrc || img.src;
+  if (src.startsWith('data:')) return src;
+  for (const url of pitchPhotoSources(src, img.dataset.playerCode, img.dataset.teamCode)) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const image = await response.blob();
+      // The server returns a generic SVG shirt when a portrait cannot be fetched.
+      // Do not silently replace a visible portrait with a different picture.
+      if (!image.type.startsWith('image/') || (url.startsWith('/api/img/player/') && image.type.includes('svg'))) continue;
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(image);
+      });
+    } catch { /* Try the next source. */ }
+  }
+  throw new Error(`Could not include ${img.alt || 'an image'} in the pitch. Please try again when images are available.`);
+}
+
+/** Capture the actual visible pitch, including all players and the bench, without site controls. */
+export async function downloadPitchPng(pitch: HTMLElement, filename: string): Promise<void> {
   const destination = await choosePngDestination(filename);
-  const canvas = document.createElement('canvas'); canvas.width = 1400; canvas.height = 1650;
-  const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('PNG export is not supported by this browser.');
-  ctx.fillStyle = '#123f37'; ctx.fillRect(0, 0, 1400, 1650);
-  ctx.fillStyle = '#0f5647'; ctx.fillRect(35, 95, 1330, 1150);
-  for (let i = 0; i < 8; i += 2) { ctx.fillStyle = 'rgba(255,255,255,.025)'; ctx.fillRect(35, 95 + i * 143.75, 1330, 143.75); }
-  ctx.strokeStyle = 'rgba(255,255,255,.32)'; ctx.lineWidth = 4; ctx.strokeRect(65, 120, 1270, 1095);
-  ctx.strokeRect(450, 120, 500, 140); ctx.strokeRect(550, 120, 300, 65);
-  ctx.beginPath(); ctx.moveTo(65, 667); ctx.lineTo(1335, 667); ctx.stroke();
-  ctx.beginPath(); ctx.arc(700, 667, 100, 0, 2 * Math.PI); ctx.stroke();
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = 'bold 36px Arial'; ctx.fillText(`FPL VORTEX  ·  GW ${gw}`, 700, 60);
-  const drawPlayer = (p: PitchPlayer, x: number, y: number, isBench: boolean) => {
-    ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = 'bold 23px Arial'; ctx.fillText(p.score, x, y - 36, 240);
-    ctx.fillStyle = '#d8f5ec'; ctx.beginPath(); ctx.arc(x, y + 6, 36, 0, 2 * Math.PI); ctx.fill();
-    ctx.fillStyle = '#164b40'; ctx.font = 'bold 17px Arial'; ctx.fillText(p.team, x, y + 12, 64);
-    if (p.captain || p.vice) { ctx.fillStyle = '#ffe39b'; ctx.beginPath(); ctx.arc(x + 43, y - 16, 15, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = '#10243a'; ctx.font = 'bold 16px Arial'; ctx.fillText(p.captain ? 'C' : 'V', x + 43, y - 10); }
-    ctx.fillStyle = '#092d29'; ctx.fillRect(x - 120, y + 51, 240, 39); ctx.fillStyle = '#fff'; ctx.font = 'bold 23px Arial'; ctx.fillText(`${p.name}${p.flag ? ' !' : ''}`, x, y + 77, 228);
-    ctx.fillStyle = p.fixtureColor ?? '#e0e6e5'; ctx.fillRect(x - 120, y + 93, 240, 36); ctx.fillStyle = '#10243a'; ctx.font = 'bold 20px Arial'; ctx.fillText(p.fixture, x, y + 118, 230);
-    if (isBench) { ctx.fillStyle = '#fff'; ctx.font = '18px Arial'; ctx.fillText(`${p.position} · ${p.team}${p.price ? ` · ${p.price}` : ''}`, x, y + 153, 240); }
-  };
-  rows.forEach((row, r) => row.forEach((player, i) => drawPlayer(player, 120 + (1160 * (i + 0.5)) / row.length, 235 + r * 245, false)));
-  ctx.fillStyle = '#102e2a'; ctx.fillRect(35, 1265, 1330, 345); ctx.fillStyle = '#fff'; ctx.font = 'bold 27px Arial'; ctx.fillText('BENCH · SUBSTITUTES', 700, 1305);
-  bench.forEach((player, i) => drawPlayer(player, 120 + (1160 * (i + 0.5)) / bench.length, 1385, true));
-  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) throw new Error('PNG creation failed.');
-  await savePngBlob(blob, filename, destination);
+  const width = pitch.offsetWidth, height = pitch.offsetHeight;
+  if (!width || !height || !pitch.parentElement) throw new Error('The pitch is not ready to save.');
+  const clone = pitch.cloneNode(true) as HTMLElement;
+  Object.assign(clone.style, { position: 'fixed', left: '-20000px', top: '0', width: `${width}px`, height: `${height}px`, minWidth: `${width}px`, maxWidth: `${width}px`, margin: '0', pointerEvents: 'none' });
+  clone.setAttribute('aria-hidden', 'true');
+  pitch.parentElement.appendChild(clone);
+  try {
+    const originals = [...pitch.querySelectorAll('img')];
+    const copies = [...clone.querySelectorAll('img')];
+    const images = await Promise.all(originals.map(imageDataUrl));
+    await Promise.all(copies.map((image, index) => new Promise<void>((resolve, reject) => {
+      image.loading = 'eager'; image.onload = () => resolve(); image.onerror = () => reject(new Error('A pitch image could not be loaded.'));
+      image.src = images[index];
+      if (image.complete && image.naturalWidth) resolve();
+    })));
+    const blob = await toBlob(clone, { pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)), cacheBust: false });
+    if (!blob) throw new Error('PNG creation failed in this browser.');
+    await savePngBlob(blob, filename, destination);
+  } finally {
+    clone.remove();
+  }
 }
