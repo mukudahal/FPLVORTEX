@@ -168,6 +168,30 @@ export interface RepoDataMeta {
   verifiedNotes?: VerifiedEvidenceNote[];
 }
 
+export type PlayerDataQualitySource = 'official-bootstrap' | 'normalized-snapshot';
+export interface PlayerDataQuality {
+  source: PlayerDataQualitySource;
+  status: 'checked' | 'incomplete' | 'unverified';
+  /** Local normalization/snapshot time, not the last upstream player-field update. */
+  observedAt: string;
+  /** FPL bootstrap does not provide an aggregate last-modified timestamp. */
+  sourceUpdatedAt: null;
+  playerCount: number;
+  validIds: number;
+  uniqueIds: number;
+  validTeamRefs: number;
+  validPrices: number;
+  validOwnership: number;
+  validStatuses: number;
+  validChanceValues: number;
+  /** Empty news is valid; these fields count advisory text and dates only. */
+  newsItems: number;
+  datedNewsItems: number;
+  undatedNewsItems: number;
+  invalidNewsDates: number;
+  latestNewsAddedAt: string | null;
+}
+
 export interface SnapshotMeta {
   source: DataSource;
   generatedAt: string;
@@ -187,6 +211,8 @@ export interface SnapshotMeta {
   fallbackNotice?: string;
   repoData?: RepoDataMeta;
   oddsMeta?: MarketOddsMeta;
+  /** Read-only coverage/provenance audit; never mutates player inputs or forecast scores. */
+  playerDataQuality?: PlayerDataQuality;
   /** Set when the snapshot file was mirrored from a published deployment (`npm run data:mirror`). */
   mirroredFrom?: string;
   mirroredAt?: string;

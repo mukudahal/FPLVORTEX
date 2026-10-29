@@ -17,6 +17,7 @@ import {
 } from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
 import { optimizeSquad } from '../src/lib/optimize.ts';
+import { auditNormalizedPlayers } from '../src/lib/playerDataQuality.ts';
 import { fetchFplJson, UpstreamHttpError } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
 import { enrichFixturesWithLiveOdds } from './odds.ts';
@@ -76,6 +77,7 @@ async function loadOfflineSnapshot(options: { skipOdds?: boolean } = {}): Promis
     ...raw,
     meta: {
       ...raw.meta,
+      playerDataQuality: raw.meta.playerDataQuality ?? auditNormalizedPlayers(raw.players, raw.teams, raw.meta.generatedAt),
       source: mirroredState.source,
       servedAt: new Date().toISOString(),
       upstreamOk: mirroredState.upstreamOk,

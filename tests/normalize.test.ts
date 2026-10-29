@@ -147,3 +147,21 @@ test('normalizeSnapshot converts raw FPL payloads into the typed universe', () =
   assert.equal(snapshot.fixtures[0].teamHDifficulty, 2);
   assert.equal(snapshot.fixtures.length, snapshot.meta.fixtureCount);
 });
+
+test('normalization attaches audit sourced from raw fields, without changing player scoring data', () => {
+  const prior = normalizeSnapshot(raw, { generatedAt: '2026-10-26T12:00:00.000Z' });
+  assert.equal(prior.meta.playerDataQuality?.status, 'checked');
+  assert.equal(prior.meta.playerDataQuality?.source, 'official-bootstrap');
+  assert.equal(prior.meta.playerDataQuality?.observedAt, '2026-10-26T12:00:00.000Z');
+  assert.equal(prior.meta.playerDataQuality?.sourceUpdatedAt, null);
+  assert.equal(prior.players[0].price, 7.5);
+  assert.equal(prior.players[0].eventPoints, 9);
+
+  const bad = structuredClone(raw);
+  bad.bootstrap.elements[0].now_cost = null;
+  bad.bootstrap.elements[0].selected_by_percent = null;
+  const invalid = normalizeSnapshot(bad);
+  assert.equal(invalid.meta.playerDataQuality?.status, 'incomplete');
+  assert.equal(invalid.meta.playerDataQuality?.validPrices, 0);
+  assert.equal(invalid.meta.playerDataQuality?.validOwnership, 0);
+});
