@@ -398,6 +398,12 @@ export interface EntryData {
   recentTransfers?: EntryTransferRecord[];
   source: DataSource;
   generatedAt: string;
+  /** Archive and demo records are not the user's verified current FPL team. */
+  provenance?: {
+    kind: 'official' | 'archived' | 'demo';
+    requestedIdVerified: boolean;
+    sourceCapturedAt: string | null;
+  };
 }
 
 export interface LeagueStanding {
@@ -418,6 +424,12 @@ export interface LeagueData {
   standings: LeagueStanding[];
   source: DataSource;
   generatedAt: string;
+  /** Explicitly separate genuine FPL league standings from a dated local archive. */
+  provenance?: {
+    kind: 'official' | 'archived';
+    requestedIdVerified: boolean;
+    sourceCapturedAt: string | null;
+  };
 }
 
 export interface VideoItem {
@@ -431,8 +443,13 @@ export interface VideoItem {
 export interface VideosResponse {
   channelId: string;
   channelTitle: string;
+  /** Original archive capture; NOT a successful RSS check or video publication date. */
   capturedAt: string;
-  source: 'live' | 'repository';
+  source: 'live' | 'repository' | 'mixed' | 'static-export';
+  archiveCapturedAt?: string;
+  feedCheckedAt?: string | null;
+  liveFeedItems?: number;
+  archivedItems?: number;
   videos: VideoItem[];
 }
 

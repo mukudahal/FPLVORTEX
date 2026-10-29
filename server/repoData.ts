@@ -213,7 +213,7 @@ async function loadRepoVideosArchive(): Promise<{
     cachedVideosArchive = {
       channelId: parsed.channelId ?? DEFAULT_CHANNEL_ID,
       channelTitle: parsed.channelTitle ?? 'FPL VORTEX',
-      capturedAt: parsed.capturedAt ?? new Date().toISOString(),
+      capturedAt: parsed.capturedAt ?? '',
       videos: Array.isArray(parsed.videos) ? parsed.videos : [],
     };
     return cachedVideosArchive;
@@ -221,7 +221,7 @@ async function loadRepoVideosArchive(): Promise<{
     cachedVideosArchive = {
       channelId: DEFAULT_CHANNEL_ID,
       channelTitle: 'FPL VORTEX',
-      capturedAt: new Date().toISOString(),
+      capturedAt: '',
       videos: [],
     };
     return cachedVideosArchive;
@@ -268,12 +268,17 @@ export async function getRepoVideos(): Promise<VideosResponse> {
       }
       if (liveVideos.length > 0) {
         const seen = new Set(liveVideos.map((v) => v.id));
-        const merged = [...liveVideos, ...archive.videos.filter((v) => !seen.has(v.id))];
+        const archivedItems = archive.videos.filter((v) => !seen.has(v.id));
+        const merged = [...liveVideos, ...archivedItems];
         const result: VideosResponse = {
           channelId,
           channelTitle: archive.channelTitle,
-          capturedAt: new Date().toISOString(),
-          source: 'live',
+          capturedAt: archive.capturedAt,
+          archiveCapturedAt: archive.capturedAt,
+          feedCheckedAt: new Date().toISOString(),
+          liveFeedItems: liveVideos.length,
+          archivedItems: archivedItems.length,
+          source: archivedItems.length ? 'mixed' : 'live',
           videos: merged,
         };
         liveVideosCache = { value: result, expiresAt: Date.now() + 30 * 60_000 };
@@ -288,6 +293,10 @@ export async function getRepoVideos(): Promise<VideosResponse> {
     channelTitle: archive.channelTitle,
     capturedAt: archive.capturedAt,
     source: 'repository',
+    archiveCapturedAt: archive.capturedAt,
+    feedCheckedAt: null,
+    liveFeedItems: 0,
+    archivedItems: archive.videos.length,
     videos: archive.videos,
   };
   liveVideosCache = { value: fallback, expiresAt: Date.now() + 5 * 60_000 };

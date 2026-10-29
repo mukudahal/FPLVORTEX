@@ -16,14 +16,12 @@ import {
   type RawEntryHistoryPayload,
 } from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
-import { optimizeSquad } from '../src/lib/optimize.ts';
 import { auditNormalizedPlayers } from '../src/lib/playerDataQuality.ts';
-import { fetchFplJson, UpstreamHttpError } from './http.ts';
+import { fetchFplJson, UpstreamHttpError, isNumericId } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
 import { enrichFixturesWithLiveOdds } from './odds.ts';
 import { enrichWithMatchHistory } from './matchHistory.ts';
 import {
-  CONFIGURED_REPO_ENTRY_ID,
   CONFIGURED_REPO_ENTRY_NAME,
   enrichSnapshotWithRepoData,
   REPO_SEASON_RULES_2026_27,
@@ -307,70 +305,6 @@ function normalizeEntry(
   };
 }
 
-function buildOfflineSyntheticEntry(
-  numericId: number,
-  snapshot: Snapshot,
-  enriched: ReturnType<typeof enrichPlayers>,
-): EntryData {
-  const isRepoManager = CONFIGURED_REPO_ENTRY_ID !== null && numericId === CONFIGURED_REPO_ENTRY_ID;
-  const profiles = ['balanced', 'safe', 'differential', 'upside'] as const;
-  const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
-  const optimized = optimizeSquad(enriched, { budget: 1000, profile });
-  const ordered = [...optimized.starters, ...optimized.bench];
-  const picks: EntryPick[] = ordered.map((player, index) => {
-    const prices = resolveSquadPurchaseAndSellingPrices(player);
-    return {
-      element: player.id,
-      position: index + 1,
-      multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
-      isCaptain: player.isCaptain,
-      isViceCaptain: player.isViceCaptain,
-      purchasePrice: prices.purchasePrice,
-      sellingPrice: prices.sellingPrice,
-    };
-  });
-  const eventPoints = ordered.reduce((sum, player, index) => {
-    const mult = player.isCaptain ? 2 : index < 11 ? 1 : 0;
-    return sum + player.eventPoints * mult;
-  }, 0);
-  const benchPoints = optimized.bench.reduce((sum, player) => sum + player.eventPoints, 0);
-  const valueTenths = Math.round(optimized.cost * 10);
-  const bankTenths = Math.max(0, 1000 - valueTenths);
-  const totalPoints = Math.max(eventPoints, Math.round(eventPoints * Math.max(1, snapshot.meta.currentEventId * 0.72)));
-  const overallRank = isRepoManager ? 237000 : 45000 + ((numericId * 7919) % 420000);
-  return {
-    id: numericId,
-    name: isRepoManager ? 'Muku Dahal' : `Manager #${numericId}`,
-    teamName: isRepoManager ? CONFIGURED_REPO_ENTRY_NAME : `Offline Squad #${numericId}`,
-    region: 'Offline snapshot',
-    startedEvent: 1,
-    favouriteTeamId: 1,
-    overallRank,
-    overallPoints: totalPoints,
-    freeTransfers: computeDynamicFreeTransfers({ startedEvent: 1, singleGwEventTransfers: 0 }),
-    currentEvent: snapshot.meta.currentEventId,
-    activeChip: null,
-    history: {
-      event: snapshot.meta.currentEventId,
-      points: eventPoints,
-      totalPoints,
-      rank: Math.max(1000, Math.round(overallRank * 0.85)),
-      overallRank,
-      bank: bankTenths,
-      value: valueTenths,
-      eventTransfers: 0,
-      eventTransfersCost: 0,
-      pointsOnBench: benchPoints,
-    },
-    picks,
-    players: ordered,
-    projectedPoints: optimized.projectedPoints,
-    squadValue: optimized.cost,
-    source: 'snapshot',
-    generatedAt: new Date().toISOString(),
-  };
-}
-
 function normalizeLeaguePayload(raw: RawRecord, id: string, source: DataSource): LeagueData {
   return {
     id: numberValue(raw.league?.id, numberValue(id)),
@@ -397,6 +331,7 @@ export interface GetEntryOptions {
 }
 
 export async function getEntry(id: string, options?: GetEntryOptions): Promise<EntryData> {
+  if (!isNumericId(id)) throw new UpstreamHttpError('Enter a valid positive numeric FPL Team ID.', 400);
   const requestedGw =
     options?.gameweek && Number.isFinite(options.gameweek) && options.gameweek >= 1 && options.gameweek <= 38
       ? Math.round(options.gameweek)
@@ -471,6 +406,10 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       postLockTransfersUsed,
       latestTransferInCostByElement,
     );
+    if (numberValue(root.id) !== Number(id)) {
+      throw new UpstreamHttpError('Official FPL entry identity did not match the requested Team ID.', 502);
+    }
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     result.recentTransfers = recentTransfers;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
@@ -505,14 +444,24 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     }
     const fallbackFile = await loadOfflineLeagueFallback();
     const archived = fallbackFile.entries?.[id];
-    const fallbackResult = archived
-      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null)
-      : buildOfflineSyntheticEntry(numberValue(id, 999999), snapshot, enriched);
+    if (!archived || numberValue(archived.root.id) !== Number(id)) {
+      throw new UpstreamHttpError(
+        `Official FPL team #${id} is unavailable; no matching verified archive exists. No demo team was substituted.`,
+        503,
+      );
+    }
+    const fallbackResult = normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null);
+    fallbackResult.provenance = {
+      kind: id === '999999' ? 'demo' : 'archived',
+      requestedIdVerified: false,
+      sourceCapturedAt: null,
+    };
     return writeCache(cacheKey, fallbackResult, 120_000);
   }
 }
 
 export async function getLeague(id: string): Promise<LeagueData> {
+  if (!isNumericId(id)) throw new UpstreamHttpError('Enter a valid positive classic league ID.', 400);
   const cached = readCache<LeagueData>(`league:${id}`);
   if (cached) {
     return {
@@ -523,23 +472,27 @@ export async function getLeague(id: string): Promise<LeagueData> {
   }
   try {
     const raw = await fetchFplJson<RawRecord>(`/leagues-classic/${id}/standings/`, { retries: 1 });
+    if (numberValue(raw.league?.id) !== Number(id)) {
+      throw new UpstreamHttpError('Official FPL league identity did not match the requested ID.', 502);
+    }
     const result = normalizeLeaguePayload(raw, id, 'live');
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     return writeCache(`league:${id}`, result, PROFILE_TTL);
   } catch (error) {
     if (error instanceof UpstreamHttpError && error.status === 404) {
       throw new UpstreamHttpError(`Classic league ID ${id} was not found.`, 404);
     }
     const fallbackFile = await loadOfflineLeagueFallback();
-    const archived = fallbackFile.leagues?.[id] ?? fallbackFile.leagues?.['314'];
-    if (archived) {
-      const fallbackResult = normalizeLeaguePayload(
-        id === '314' ? archived : { ...archived, league: { ...archived.league, id: numberValue(id), name: `Classic League #${id} (offline snapshot)` } },
-        id,
-        'snapshot',
+    const archived = fallbackFile.leagues?.[id];
+    if (!archived || numberValue(archived.league?.id) !== Number(id)) {
+      throw new UpstreamHttpError(
+        `Classic league #${id} is unavailable; no matching standings archive exists. No other league was substituted.`,
+        503,
       );
-      return writeCache(`league:${id}`, fallbackResult, 120_000);
     }
-    throw error;
+    const fallbackResult = normalizeLeaguePayload(archived, id, 'snapshot');
+    fallbackResult.provenance = { kind: 'archived', requestedIdVerified: false, sourceCapturedAt: null };
+    return writeCache(`league:${id}`, fallbackResult, 120_000);
   }
 }
 

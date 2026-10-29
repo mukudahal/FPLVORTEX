@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { EnrichedPlayer, Snapshot, VideoItem } from '../lib/types';
 import { fetchVideos } from '../lib/api';
+import { videoSourceNotice } from '../lib/videoProvenance';
 import { snapshotSourceLabel } from '../lib/projectionFreshness';
 import { formatDate, formatNumber, relativeTime } from '../lib/format';
 import { API_BASE, AWAY_GOALS, HOME_GOALS, PRIOR_GAMES } from '../lib/repoModel/dashboardMath';
@@ -68,12 +69,13 @@ export function Methodology({
   onRefresh,
 }: MethodologyProps) {
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [videoStatus, setVideoStatus] = useState(videoSourceNotice(null));
 
   useEffect(() => {
     const controller = new AbortController();
     fetchVideos(controller.signal)
-      .then((res) => setVideos(res.videos))
-      .catch(() => setVideos([]));
+      .then((res) => { setVideos(res.videos); setVideoStatus(videoSourceNotice(res)); })
+      .catch(() => { setVideos([]); setVideoStatus('YouTube feed unavailable; video source not verified.'); });
     return () => controller.abort();
   }, []);
 
@@ -286,6 +288,7 @@ export function Methodology({
             <div>
               <span className="panel__eyebrow">@FPLVORTEX YOUTUBE CHANNEL</span>
               <h3>@FPLVORTEX Video Briefings ({videos.length})</h3>
+              <p role="status">{videoStatus}</p>
             </div>
             <a
               href="https://www.youtube.com/@Fplvortex"
