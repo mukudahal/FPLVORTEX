@@ -1435,7 +1435,7 @@ export function CommandCenter({
                       </div>
                       <div className="vx-xg-labels">
                         <strong>{m.homeXg.toFixed(2)}</strong>
-                        <span>{m.marketOdds ? `Implied Goals · ${m.marketOdds.bookmaker}` : 'VORTEX projected xG'}</span>
+                        <span title={fixtureQuoteNotice(m.marketOdds)}>{m.marketOdds ? `Implied Goals · ${m.marketOdds.bookmaker}` : 'VORTEX projected xG'}</span>
                         <strong>{m.awayXg.toFixed(2)}</strong>
                       </div>
 
