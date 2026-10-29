@@ -10,7 +10,7 @@ export function assessModelDrift(baseline: ForecastValidation, recent: ForecastV
     differences: { mae: maediff, p60Brier: brierdiff },
   };
   const reasons: string[] = [];
-  if (maediff > Math.max(0.75, baseline.mae * 0.2)) reasons.push("Observed points error increased materially.");
+  if (baseline.mae !== null && maediff > Math.max(0.75, baseline.mae * 0.2)) reasons.push("Observed points error increased materially.");
   if (brierdiff !== null && brierdiff > 0.05) reasons.push("Minutes-probability Brier score worsened.");
   if (recent.bias !== null && Math.abs(recent.bias) > 1.5) reasons.push("Recent xPts have large directional bias.");
   return { status: reasons.length ? "investigate" : "healthy", reasons, differences: { mae: maediff, p60Brier: brierdiff } };
