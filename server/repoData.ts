@@ -170,28 +170,21 @@ export async function loadRepoBenchmarkIndex(): Promise<Map<number, ParsedCsvPla
   return map;
 }
 
+/** Missing GW data is unavailable, never a repeat of the first or last imported GW. */
 function resolveGwMetric(metricMap: Map<number, number>, targetGw: number): number | null {
-  if (!metricMap.size) return null;
-  if (metricMap.has(targetGw)) return metricMap.get(targetGw) ?? null;
-  const gws = [...metricMap.keys()].sort((a, b) => a - b);
-  const clampedGw = clamp(targetGw, gws[0], gws[gws.length - 1]);
-  return metricMap.get(clampedGw) ?? null;
+  return metricMap.get(targetGw) ?? null;
 }
 
+/** Report a five-GW imported total only when every exact GW has an imported value. */
 function resolveHorizonSum(metricMap: Map<number, number>, startGw: number, horizon = 5): number | null {
-  if (!metricMap.size) return null;
-  const gws = [...metricMap.keys()].sort((a, b) => a - b);
+  if (!Number.isInteger(horizon) || horizon <= 0) return null;
   let total = 0;
-  let found = 0;
   for (let offset = 0; offset < horizon; offset += 1) {
-    const gw = clamp(startGw + offset, gws[0], gws[gws.length - 1]);
-    const val = metricMap.get(gw);
-    if (val !== undefined) {
-      total += val;
-      found += 1;
-    }
+    const val = metricMap.get(startGw + offset);
+    if (val === undefined) return null;
+    total += val;
   }
-  return found > 0 ? round(total, 2) : null;
+  return round(total, 2);
 }
 
 function mapToRecord(metricMap: Map<number, number>): Record<number, number> {
@@ -306,21 +299,22 @@ export async function getRepoBenchmarks(targetEventId = 9): Promise<RepoBenchmar
   const horizonEvents = Array.from({ length: 5 }, (_, offset) => targetEventId + offset);
   const players: RepoBenchmarkRow[] = [];
   for (const row of index.values()) {
-    const expectedMinutes = resolveGwMetric(row.xmins, targetEventId) ?? 0;
-    const expectedPoints = resolveGwMetric(row.xpts, targetEventId) ?? 0;
-    const horizon5Points = resolveHorizonSum(row.xpts, targetEventId, 5) ?? expectedPoints * 5;
+    const expectedMinutes = resolveGwMetric(row.xmins, targetEventId);
+    const expectedPoints = resolveGwMetric(row.xpts, targetEventId);
+    const horizon5Points = resolveHorizonSum(row.xpts, targetEventId, 5);
     players.push({
       fplId: row.fplId,
       name: row.name,
       team: row.team,
       position: row.position,
       price: row.price,
-      expectedMinutes: round(expectedMinutes, 1),
-      expectedPoints: round(expectedPoints, 2),
-      horizon5Points: round(horizon5Points, 2),
+      expectedMinutes: expectedMinutes === null ? null : round(expectedMinutes, 1),
+      expectedPoints: expectedPoints === null ? null : round(expectedPoints, 2),
+      horizon5Points,
     });
   }
-  players.sort((a, b) => b.expectedPoints - a.expectedPoints || b.horizon5Points - a.horizon5Points);
+  players.sort((a, b) => (b.expectedPoints ?? -1) - (a.expectedPoints ?? -1) ||
+    (b.horizon5Points ?? -1) - (a.horizon5Points ?? -1));
   return {
     sourceFile: BENCHMARK_REL_PATH,
     targetEventId,
@@ -351,7 +345,7 @@ export async function getRepoMeta(): Promise<RepoDataMeta> {
 }
 
 /**
- * Tier-1 Authoritative Repository Data Adapter:
+ * Dated imported repository data adapter (not a live or authoritative projection feed):
  * Preserves live/current official FPL player identity, club, position, and prices (`price`, `cost`),
  * while enriching GW7-GW16 model projections (`gwProjections`, `gwExpectedMinutes`) from
  * `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`.

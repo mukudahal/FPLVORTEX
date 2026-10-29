@@ -408,9 +408,11 @@ export interface RepoBenchmarkRow {
   team: string;
   position: Position;
   price: number;
-  expectedMinutes: number;
-  expectedPoints: number;
-  horizon5Points: number;
+  /** Null when the target GW has no imported value; never back/forward filled. */
+  expectedMinutes: number | null;
+  expectedPoints: number | null;
+  /** Null unless all five consecutive GWs have imported xPts values. */
+  horizon5Points: number | null;
 }
 
 export interface RepoBenchmarksResponse {
