@@ -5,6 +5,8 @@ import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../lib/fixtures
 import { computePlayerXPts, computePositionPriors } from '../lib/repoModel/xpts';
 import { evaluateSquad } from '../lib/optimize';
 import { createPlanningHorizon } from '../lib/dataProvenance';
+import { buildPublicDataHealth } from '../lib/publicDataHealth';
+import { useNow } from '../hooks/useNow';
 import { makeFixtureForecasts, overallDifficulty, difficultyFillStyle } from '../lib/fixtureForecast';
 import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -18,6 +20,8 @@ interface Props {
 
 export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   const [horizon, setHorizon] = useState(10);
+  const now = useNow(60_000);
+  const sourceHealth = useMemo(() => buildPublicDataHealth(snapshot, now), [snapshot, now]);
   const [sort, setSort] = useState<{ gw: number | 'avg'; ascending: boolean }>({ gw: 'avg', ascending: true });
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const finalGw = snapshot.gameweeks.reduce((latest, gw) => Math.max(latest, gw.id), 0);
@@ -57,7 +61,14 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   };
   return <section className="vx-planner-overview" aria-label="Team planner">
     <div className="vx-planner-timeline-bar">
-      <div className="vx-planner-timeline-summary" role="status"><strong>10-GW PLANNING ROADMAP</strong><span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} weeks · model xP` : 'Upcoming gameweek schedule unavailable'}</span></div>
+      <div className="vx-planner-timeline-summary" role="status">
+        <strong>10-GW PLANNING ROADMAP</strong>
+        <span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} weeks` : 'Upcoming schedule unavailable'} · model xP</span>
+        <span className="vx-planner-data-flags" title={`FPL: ${sourceHealth.officialFpl.reason} Retrieved: ${sourceHealth.officialFpl.retrievedAt ?? 'unavailable'}. Odds: ${sourceHealth.market.reason}`}>
+          <b className={`is-${sourceHealth.officialFpl.state}`}>FPL: {sourceHealth.officialFpl.state}</b>
+          <b className={`is-${sourceHealth.market.state}`}>ODDS: {sourceHealth.market.state}</b>
+        </span>
+      </div>
       <div className="vx-planner-gws" aria-label="Select gameweek">{gws.length ? gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>) : <p role="status">No verified upcoming gameweek is available. Refresh the official FPL snapshot.</p>}</div>
     </div>
     <div className="vx-planner-columns">

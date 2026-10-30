@@ -10364,3 +10364,38 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .page--optimizer .planner-team-link__controls input,
   .page--optimizer .planner-team-link__controls > button { min-height: 44px; }
 }
+
+/* Verified source markers belong to the 10-GW timeline, not an oversized dashboard. */
+.vx-planner-timeline-bar .vx-planner-timeline-summary { flex-basis: 270px; gap: 1px; }
+.vx-planner-data-flags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  line-height: 1.1;
+  overflow: hidden;
+}
+.vx-planner-data-flags b {
+  display: inline-flex;
+  align-items: center;
+  max-width: 52%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  background: var(--panel-soft);
+  font-size: 9px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.vx-planner-data-flags .is-fresh { color: #0b6c4c; border-color: #37bd94; background: #d8fff0; }
+.vx-planner-data-flags .is-stale { color: #8a420a; border-color: #f8b04c; background: #fff4d4; }
+.vx-planner-data-flags .is-unverified { color: #6445aa; border-color: #9b87ef; background: #ece6ff; }
+.vx-planner-data-flags .is-unavailable { color: #596579; border-color: #9ba3b3; background: #e7e9ee; }
+@media (max-width: 850px) {
+  .vx-planner-timeline-bar .vx-planner-timeline-summary { flex-basis: auto; }
+  .vx-planner-data-flags b { max-width: none; }
+}

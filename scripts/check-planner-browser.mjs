@@ -24,6 +24,17 @@ try {
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  const sourceBadges = page.locator('.vx-planner-data-flags b');
+  assert.equal(await sourceBadges.count(), 2, 'Planner must distinguish official FPL retrieval and bookmaker odds confidence');
+  assert.match(await sourceBadges.nth(0).innerText(), /FPL: (fresh|stale|unverified|unavailable)/i);
+  assert.match(await sourceBadges.nth(1).innerText(), /ODDS: (fresh|stale|unverified|unavailable)/i);
+  const health = await page.request.get((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/api/vortex/data-status');
+  assert.equal(health.status(), 200, 'Public source-health route must be available');
+  const healthJson = await health.json();
+  assert.ok(healthJson.officialFpl && healthJson.market && healthJson.model);
+  assert.ok(['fresh', 'stale', 'unverified', 'unavailable'].includes(healthJson.officialFpl.state));
+  assert.equal(healthJson.model.calibration, 'unverified', 'Provisional model must not claim calibrated forecasts');
+  assert.ok(!JSON.stringify(healthJson).includes('ODDS_API_KEY'), 'Source-health API must not expose credentials');
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'Team planner should show one pitch');
   assert.equal(await page.locator('.vx-planner-fixtures').count(), 1, 'FDR table should appear alongside the pitch');
   assert.equal(await page.locator('.vx-planner-fixtures tbody tr').count(), 20);
