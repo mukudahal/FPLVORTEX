@@ -1654,15 +1654,33 @@ export function TransferPlanModal({
                               const isPendingOutgoing = pendingSet.has(p.id);
                               const hasFlag = p.status !== 'a' || (p.chance !== null && p.chance < 100);
                               const isWatched = watchlistIds.includes(p.id);
+                              const activeTargetOutId =
+                                focusedPendingOutId && pendingOutIds.includes(focusedPendingOutId)
+                                  ? focusedPendingOutId
+                                  : pendingOutIds[0] ?? null;
+                              const replacementError =
+                                activeTargetOutId !== null && planCtx && replayState
+                                  ? validatePendingReplacement({
+                                      ctx: planCtx,
+                                      stateSquad: replayState.squad,
+                                      effectiveBankTenths: liveMetrics.effectiveBankTenths,
+                                      pendingOutIds,
+                                      outId: activeTargetOutId,
+                                      inId: p.id,
+                                    })
+                                  : null;
                               const overBudgetWhenReplacing =
-                                pendingOutIds.length > 0 &&
-                                !isPendingOutgoing &&
-                                p.cost > liveMetrics.effectiveBankTenths;
+                                activeTargetOutId !== null && !isPendingOutgoing && replacementError !== null;
 
                               return (
                                 <tr
                                   key={p.id}
                                   data-tp-row-player={p.id}
+                                  data-tp-eligible={
+                                    activeTargetOutId !== null && !isPendingOutgoing && !inSquad && replacementError === null
+                                      ? 'true'
+                                      : 'false'
+                                  }
                                   className={classNames(
                                     'vx-tp-player-row',
                                     inSquad && 'is-in-squad',

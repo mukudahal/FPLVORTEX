@@ -50,18 +50,33 @@ try {
   await page.locator('[data-testid="vx-tp-new-plan"]').click();
   await page.locator('[data-testid="vx-tp-editor-view"]').waitFor({ timeout: 15000 });
   assert.equal(await page.locator('.vx-tp-pitch-card').count(), 15, 'Should render 15 squad cards (11 XI + 4 bench)');
-  assert.ok(await page.getByText('NEXT 5', { exact: true }).isVisible(), 'Right player table must show NEXT 5 header');
+  assert.ok(await page.locator('th.is-next5-col').isVisible(), 'Right player table must show NEXT 5 header');
+  assert.match(await page.locator('th.is-next5-col').innerText(), /NEXT 5/);
   assert.equal(await page.locator('.vx-tp-player-row').first().locator('.vx-tp-next5-chip').count(), 5, 'Each player row shows Next 5 fixtures');
   await page.screenshot({ path: 'test-results/planner/fix2-workspace.png' });
 
-  // Fix 3: Click a player on the pitch -> "+ / <Name> / Replace" slot & position filter
-  await page.locator('.vx-tp-formation .vx-tp-pitch-card').nth(4).click();
+  // Fix 3: Click the highest-priced starter on the pitch -> "+ / <Name> / Replace" slot & position filter
+  const priciestIdx = await page.locator('.vx-tp-formation .vx-tp-pitch-card').evaluateAll((cards) => {
+    let bestIdx = 0;
+    let bestPrice = -1;
+    cards.forEach((card, idx) => {
+      const pill = card.querySelector('.vx-tp-price-pill')?.textContent ?? '';
+      const val = Number.parseFloat(pill.replace(/[^0-9.]/g, '')) || 0;
+      if (val > bestPrice) {
+        bestPrice = val;
+        bestIdx = idx;
+      }
+    });
+    return bestIdx;
+  });
+  await page.locator('.vx-tp-formation .vx-tp-pitch-card').nth(priciestIdx).click();
   await page.locator('.vx-tp-replace-slot').first().waitFor({ timeout: 10000 });
   assert.equal(await page.locator('.vx-tp-replace-slot').count(), 1, 'Clicked pitch player becomes + / Replace slot');
   await page.screenshot({ path: 'test-results/planner/fix3-replace-slot.png' });
 
   // Select first eligible unowned replacement from the right-hand VORTEX xPts table
-  const candidateRow = page.locator('.vx-tp-player-row:not(.is-in-squad):not(.is-pending-out):not(.is-over-budget)').first();
+  const candidateRow = page.locator('.vx-tp-player-row[data-tp-eligible="true"]').first();
+  await candidateRow.waitFor({ timeout: 10000 });
   await candidateRow.click();
   assert.equal(await page.locator('.vx-tp-replace-slot').count(), 0, 'Replacement fills the pitch slot');
   assert.equal(await page.locator('.vx-tp-pitch-card').count(), 15, 'Squad returns to 15 active players');
