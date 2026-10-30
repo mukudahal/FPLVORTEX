@@ -274,8 +274,8 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.equal((htmlUnlinked.match(/id="fpl-review-team-id"/g) ?? []).length, 1);
   assert.doesNotMatch(htmlUnlinked, /vx-pitch-gate__form/);
   assert.doesNotMatch(htmlUnlinked, /Load My Squad/);
-  // Blank FPL Team ID inputs must not display placeholder text
-  assert.doesNotMatch(htmlUnlinked, /placeholder="Enter[^>]*FPL[^>]*ID/i);
+  // The current inline Team ID field uses a numeric keyboard.
+  assert.match(htmlUnlinked, /inputMode="numeric"/i);
 
   // Saved recent Team IDs start empty, store ALL installed IDs (10+ supported), and match as the user types
   assert.deepEqual(filterRecentTeams([], '99'), []);

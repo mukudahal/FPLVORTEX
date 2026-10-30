@@ -5,10 +5,12 @@ import { solveLineupTS } from '../src/lib/repoModel/fplReviewSimulator.ts';
 import { runMonteCarlo } from '../src/lib/repoModel/monteCarlo.ts';
 import { validateSeasonChipPlan, validateSquad } from '../src/lib/repoModel/seasonRules.ts';
 import { normalizeChipHistory } from '../src/lib/freeTransfers.ts';
-import { toRepoElement } from '../src/lib/analytics.ts';
+import { readFile } from 'node:fs/promises';
+import { optimizeSquad } from '../src/lib/optimize.ts';
+import { enrichPlayers, toRepoElement } from '../src/lib/analytics.ts';
 import { toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
 import { makeFixture, makePlayer, makeTeam } from './helpers.ts';
-import type { Position } from '../src/lib/types.ts';
+import type { Position, Snapshot } from '../src/lib/types.ts';
 
 function scenario(nextGw = 18, extra = true): PlannerSimulationInput {
   const positions: Position[] = ['GKP', 'GKP', 'DEF', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD'];
@@ -27,7 +29,7 @@ function scenario(nextGw = 18, extra = true): PlannerSimulationInput {
 
 test('zero FT charges a real hit; selling values, locks and budget constrain every path', () => {
   const input = scenario();
-  const result = runPlannerSimulation({ ...input, chipsUsed: ['wildcard', 'freehit', 'bboost', '3xc'].map(name => ({ name, event: 12 })) });
+  const result = runPlannerSimulation({ ...input, chipsUsed: ['wildcard', 'freehit', 'bboost', '3xc'].map((name, index) => ({ name, event: 12 + index })) });
   const transfer = result.options.find(o => o.id === 'transfer1')!;
   assert.equal(result.freeTransfersNow, 0);
   assert.equal(transfer.hitCost, 4);
@@ -100,7 +102,7 @@ test('unknown chip history disables recommendations; first-half uses reset in se
   const unknown = runPlannerSimulation({ ...scenario(38, false), chipsUsed: undefined, chipHistoryKnown: false });
   assert.deepEqual(unknown.strategy.schedule, []);
   assert.ok(unknown.chipSimulations.every(c => !c.available));
-  const reset = runPlannerSimulation({ ...scenario(38, false), chipsUsed: ['wildcard', 'freehit', 'bboost', '3xc'].map(name => ({ name, event: 18 })) });
+  const reset = runPlannerSimulation({ ...scenario(38, false), chipsUsed: ['wildcard', 'freehit', 'bboost', '3xc'].map((name, index) => ({ name, event: 12 + index })) });
   assert.ok(reset.chipSimulations.every(c => c.available));
 });
 
@@ -125,4 +127,19 @@ test('lineup solver maximizes the XI plus captain and keeps a legal formation', 
   assert.equal(lineup.starters.length, 11); assert.equal(lineup.bench.length, 4);
   assert.equal(new Set([...lineup.starters, ...lineup.bench]).size, 15);
   assert.equal(lineup.totalXPts, lineup.starters.reduce((s, id) => s + points[id], 0) + points[lineup.captainId]);
+});
+
+test('archived production forecasts and detailed component means safely share the sampler', async () => {
+  const snapshot = JSON.parse(await readFile('public/data/fpl-snapshot.json', 'utf8')) as Snapshot;
+  const allPlayers = enrichPlayers(snapshot, 'balanced');
+  const squad = optimizeSquad(allPlayers, { budget: 1000, profile: 'balanced' }).squad;
+  const result = runPlannerSimulation({
+    players: squad, currentSquadIds: squad.map(p => p.id),
+    bankTenths: Math.max(0, 1000 - squad.reduce((sum, p) => sum + p.cost, 0)),
+    freeTransfersNow: 0, nextGw: snapshot.meta.nextEventId, horizon: 2, draws: 300,
+    chipHistoryKnown: false, repoFixtures: toRepoFixtures(snapshot.fixtures),
+    repoTeams: toRepoTeams(snapshot.teams), repoElements: snapshot.players.map(toRepoElement),
+  });
+  assert.ok(result.monteCarlo.paths.every(path => Number.isFinite(path.mean)));
+  assert.equal(result.monteCarlo.paths.find(path => path.id === 'transfer_plan')!.deltaMean, 0);
 });

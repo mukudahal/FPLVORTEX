@@ -107,6 +107,9 @@ jobs:
           exit 1
       - name: Exercise existing planner and simulation tabs
         run: node scripts/check-planner-browser.mjs
+      - name: Verify automatic production deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/check-planner-deployment.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

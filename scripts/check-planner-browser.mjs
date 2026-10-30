@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
 const failures = [];
 async function waitForSimulation() {
   await page.locator('.mc-paths-list .mc-range-row').first().or(page.getByText('SIMULATION UNAVAILABLE', { exact: true })).first().waitFor({ timeout: 120000 });
@@ -30,6 +30,8 @@ try {
   await page.getByRole('combobox', { name: 'Free transfers available' }).selectOption('0');
   await page.getByRole('tab', { name: /3. Monte Carlo/ }).click();
   await waitForSimulation();
+  await page.getByRole('combobox', { name: 'Simulation draws' }).selectOption('10000');
+  await page.getByText(/10,000 PAIRED DRAWS/).waitFor({ timeout: 120000 });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/planner/simulation-mobile.png', fullPage: true });
   const bodyWidth = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -40,7 +42,7 @@ try {
   assert.deepEqual(failures, [], 'No uncaught page or worker errors');
   // A fresh session with a blocked module-worker must recover into an explicit error state.
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route('**/assets/planner.worker-*.js', route => route.abort());
+  await page.context().route('**/assets/planner.worker-*.js', route => route.abort());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.vx-planner-overview').waitFor({ timeout: 90000 });
   await page.getByText('Advanced tools · transfers & chips', { exact: true }).click();
