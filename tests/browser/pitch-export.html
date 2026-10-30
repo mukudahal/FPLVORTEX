@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FPL VORTEX PNG export regression</title>
+<style>
+body{margin:24px;background:#e8ebf1;font:16px Arial,sans-serif;color:#101827}
+button{padding:12px 18px;margin:0 12px 16px 0}
+#pitch{position:relative;box-sizing:border-box;width:340px;height:560px;padding:10px;background:#087f33;color:white;overflow:hidden}
+.vx-pitch-formation{display:flex;flex-direction:column;justify-content:space-around;height:410px}
+.vx-pitch-row{display:flex;align-items:center;justify-content:space-around}
+.vx-pitch-player{min-width:80px;padding:10px 5px;text-align:center;border-radius:8px;background:#103b2c;color:#fff}
+.vx-pitch-name{font-weight:bold;font-size:15px}
+.vx-pitch-bench{display:flex;justify-content:space-around;gap:4px;background:#112b36;padding:8px}
+.vx-pitch-bench .vx-pitch-player{background:#fee000;color:#000;font-size:12px;min-width:48px;padding:6px 2px}
+.vx-pitch-top-boards{background:#32245f;padding:12px;font-weight:bold}
+</style></head>
+<body>
+<button id="save-pitch" type="button">Create pitch PNG</button>
+<button id="save-table" type="button">Create table PNG</button>
+<output id="status" role="status">Ready</output>
+<div id="pitch" aria-label="Sample test pitch">
+ <div class="vx-pitch-top-boards">FPL VORTEX · GW 9</div>
+ <div class="vx-pitch-formation">
+  <div class="vx-pitch-row"><div class="vx-pitch-player"><span class="vx-pitch-name">Goalkeeper A</span></div></div>
+  <div class="vx-pitch-row"><div class="vx-pitch-player"><span class="vx-pitch-name">Defender A</span></div><div class="vx-pitch-player"><span class="vx-pitch-name">Defender B</span></div></div>
+  <div class="vx-pitch-row"><div class="vx-pitch-player"><span class="vx-pitch-name">Midfielder A</span></div><div class="vx-pitch-player"><span class="vx-pitch-name">Midfielder B</span></div></div>
+  <div class="vx-pitch-row"><div class="vx-pitch-player"><span class="vx-pitch-name">Forward A</span></div></div>
+ </div>
+ <div class="vx-pitch-bench"><div class="vx-pitch-player"><span class="vx-pitch-name">Bench A</span></div><div class="vx-pitch-player"><span class="vx-pitch-name">Bench B</span></div></div>
+</div>
+<script type="module">
+import { downloadPitchPng } from '../../src/lib/pitchPng.ts';
+import { downloadTablePng } from '../../src/lib/tablePng.ts';
+const status = document.querySelector('#status');
+document.querySelector('#save-pitch').addEventListener('click', async () => {
+ status.textContent = 'Preparing pitch…';
+ try { await downloadPitchPng(document.querySelector('#pitch'), 'fpl-vortex-pitch-gw9.png'); status.textContent = 'Pitch preview prepared'; }
+ catch (error) { status.textContent = 'ERROR: ' + error.message; }
+});
+document.querySelector('#save-table').addEventListener('click', async () => {
+ status.textContent = 'Preparing table…';
+ try {
+  await downloadTablePng([{
+   title:'TEST FIXTURE DIFFICULTY · ILLUSTRATIVE ONLY',
+   headers:['CLUB','GW9','GW10','GW11'],widths:[170,180,180,180],
+   rows:[
+    [{text:'Test Club A'},{text:'ARS (H) A 2.0 D 4.0',color:'#40d99c'},{text:'WOL (A)',color:'#45c8ce'},{text:'BLANK'}],
+    [{text:'Test Club B'},{text:'MCI (A) A 4.5 D 4.8',color:'#d62849'},{text:'LIV (H)',color:'#f59e42'},{text:'BHA (A)',color:'#40d99c'}],
+   ],
+  }], 'fpl-vortex-test-fixtures.png');
+  status.textContent = 'Table preview prepared';
+ } catch (error) { status.textContent = 'ERROR: ' + error.message; }
+});
+</script>
+</body></html>
