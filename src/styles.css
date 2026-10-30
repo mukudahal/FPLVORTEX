@@ -8412,3 +8412,10 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .page--command .vx-hub-upper {margin-top:2px;}
   .page--command .vx-gw-bar {margin-bottom:4px;}
 }
+
+@media (min-width:1280px) {
+  /* Reserve space for the score ribbon, pitch boards and complete substitutes. */
+  .page--command:not(.page--review) .vx-pitch-formation {
+    height:clamp(398px,calc(100svh - 430px),490px);
+  }
+}
