@@ -47,6 +47,7 @@ export function ClubBadge({
     <span className={classNames('club-badge', `club-badge--${size}`, className)}>
       <img
         src={candidates[candidateIndex]}
+        data-team-code={teamCode ?? ""}
         alt={`${teamName ?? shortName} club crest`}
         loading="lazy"
         decoding="async"
