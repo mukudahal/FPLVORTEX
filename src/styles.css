@@ -10228,3 +10228,68 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   color: #ffe6ea;
   font-size: 12px;
 }
+
+/* V2 Stage 03: compact, data-first 10-GW timeline; not a fixed-ratio page. */
+.vx-planner-timeline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(139, 92, 246, .28));
+  border-radius: 10px;
+  background: var(--panel-soft, rgba(23, 26, 43, .88));
+  color: var(--text-primary, #f8fafc);
+}
+.vx-planner-timeline-summary strong {
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  color: var(--brand-violet, #8b5cf6);
+}
+.vx-planner-timeline-summary span {
+  font-size: 12px;
+  color: var(--text-secondary, #a9b1c5);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme="light"] .vx-planner-timeline-summary strong { color: #5b21b6; }
+:root[data-theme="light"] .vx-planner-timeline-summary span { color: #475569; }
+@media (max-width: 680px) {
+  .vx-planner-timeline-summary { padding: 9px 10px; }
+  .vx-planner-timeline-summary strong, .vx-planner-timeline-summary span { font-size: 11px; }
+}
+
+/* Stage 03 viewport fix: the 10-week strip and context occupy one row on desktop.
+   The narrow responsive view retains stacked controls and touch scrolling. */
+.vx-planner-timeline-bar { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vx-planner-timeline-bar .vx-planner-timeline-summary {
+  flex: 0 0 244px;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  align-self: stretch;
+  align-content: center;
+}
+.vx-planner-timeline-bar .vx-planner-timeline-summary span { overflow-wrap: anywhere; }
+.vx-planner-timeline-bar .vx-planner-gws {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-bottom: 2px;
+  align-items: stretch;
+  scrollbar-width: thin;
+}
+.vx-planner-timeline-bar .vx-planner-gws button {
+  flex: 1 0 54px;
+  min-width: 54px;
+  min-height: 46px;
+  padding: 5px 4px;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 850px) {
+  .vx-planner-timeline-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .vx-planner-timeline-bar .vx-planner-timeline-summary { flex-basis: auto; }
+  .vx-planner-timeline-bar .vx-planner-gws { flex-basis: auto; width: 100%; }
+  .vx-planner-timeline-bar .vx-planner-gws button { flex: 0 0 70px; }
+}

@@ -18,7 +18,10 @@ try {
   assert.equal(await page.locator('.vx-planner-fixtures').count(), 1, 'FDR table should appear alongside the pitch');
   assert.equal(await page.locator('.vx-planner-fixtures tbody tr').count(), 20);
   assert.equal(await page.getByRole('button', { name: 'Suggest transfers' }).count(), 0);
-  assert.equal(await page.locator('.vx-planner-gws button').count(), 15);
+  assert.equal(await page.locator('.vx-planner-gws button').count(), 10, 'Planner defaults to next 10 verified GWs');
+  assert.match(await page.locator('.vx-planner-timeline-summary').innerText(), /10-GW PLANNING ROADMAP/);
+  await page.getByRole('combobox', { name: 'Fixture gameweeks' }).selectOption('5');
+  assert.equal(await page.locator('.vx-planner-gws button').count(), 5, 'Short horizon must work');
   await page.getByRole('combobox', { name: 'Fixture gameweeks' }).selectOption('10');
   assert.equal(await page.locator('.vx-planner-gws button').count(), 10);
   await page.getByRole('button', { name: 'Sort by average difficulty' }).click();
