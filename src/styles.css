@@ -10180,3 +10180,51 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   }
 }
 
+/* V2 export: keep Player Intelligence controls visible without obscuring branding. */
+.vx-side-popup-dock .vx-pcard__top-actions {
+  position: sticky;
+  top: 6px;
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 2px;
+}
+.vx-side-popup-dock .vx-pcard__top-actions .vx-pcard__close {
+  position: static;
+  margin: 0;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+}
+.vx-side-popup-dock .vx-pcard__top-ribbons { padding-right: 0; }
+.vx-pcard__save-png {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #a78bfa;
+  border-radius: 10px;
+  background: #6d28d9;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.vx-pcard__save-png:hover:not(:disabled) { background: #5b21b6; }
+.vx-pcard__save-png:disabled { opacity: .65; cursor: progress; }
+.vx-pcard__save-png:focus-visible { outline: 3px solid #22d3ee; outline-offset: 2px; }
+.vx-pcard__png-error {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid #ff879b;
+  border-radius: 9px;
+  background: #3b142a;
+  color: #ffe6ea;
+  font-size: 12px;
+}
