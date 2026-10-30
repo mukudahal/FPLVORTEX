@@ -143,3 +143,15 @@ test('archived production forecasts and detailed component means safely share th
   assert.ok(result.monteCarlo.paths.every(path => Number.isFinite(path.mean)));
   assert.equal(result.monteCarlo.paths.find(path => path.id === 'transfer_plan')!.deltaMean, 0);
 });
+
+test('Wildcard clears committed scenario hits and preserves the original FT allowance', () => {
+  const input = scenario(38, false);
+  const result = runPlannerSimulation({ ...input, initialHitCost: 4, initialFreeTransfersBeforeScenario: 3,
+    lockedIds: input.currentSquadIds,
+    chipsUsed: [{ name: 'bboost', event: 32 }, { name: '3xc', event: 33 }, { name: 'freehit', event: 34 }] });
+  const first = result.strategy.weeks[0];
+  assert.equal(first.chip, 'wc');
+  assert.equal(first.hitCost, 0);
+  assert.equal(first.ftBefore, 3);
+  assert.equal(first.ftAfter, 3);
+});

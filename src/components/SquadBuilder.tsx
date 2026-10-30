@@ -1165,13 +1165,13 @@ export function SquadBuilder({
             <section className="panel">
               <div className="panel__header">
                 <div>
-                  <span className="panel__eyebrow">{reviewSim.gws.length}-GAMEWEEK HORIZON ROLLOUT</span>
+                  <span className="panel__eyebrow">{reviewSim.strategy.horizon.length}-GAMEWEEK CHIP PLAN</span>
                   <h3>Projected XI & FT trajectory</h3>
                 </div>
                 <RefreshCw size={16} />
               </div>
               <div className="rollout-list">
-                {reviewSim.strategy.weeks.filter(step => reviewSim.gws.includes(step.gw)).map((step) => {
+                {reviewSim.strategy.weeks.map((step) => {
                   const cap = playerMap.get(step.lineup.captainId);
                   return (
                     <div key={step.gw} className="rollout-row">

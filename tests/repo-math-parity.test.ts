@@ -482,7 +482,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /vx-price-pct-pill/);
   assert.match(htmlCommand, /Likely to drop|Likely to rise|Unlikely to change/);
   // Accurate Free Transfers (2 FT instead of old hardcoded 4 FT) + Rectangular Injury Sign
-  assert.match(htmlCommand, /2 FT/);
+  assert.match(htmlCommand, /class="vx-score-metric is-ft"><span>FT<\/span><strong>2<\/strong>/);
   assert.doesNotMatch(htmlCommand, /4 FT/);
   assert.match(htmlCommand, /vx-injury-rect/);
   // Exact Graphics CSS tokens: 24px dot-grid + radial glow, .vx-btn, .vx-btn-primary, .easy/.medium/.hard
