@@ -9,6 +9,7 @@ import { createImageDownloadRouter } from './imageDownloads.ts';
 import { isNumericId, UpstreamHttpError } from './http.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import { marketCoverage } from '../src/lib/marketCoverage.ts';
+import { buildPublicDataHealth } from '../src/lib/publicDataHealth.ts';
 import {
   PL_BADGE_BASE,
   PL_PHOTO_BASE_CURRENT,
@@ -117,6 +118,15 @@ app.get('/api/health', asyncRoute(async (_req, res) => {
 app.get('/api/status', asyncRoute(async (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(await getHealth());
+}));
+
+/** Public source-health summary; no secrets, private manager data or raw odds. */
+app.get('/api/vortex/data-status', asyncRoute(async (_req, res) => {
+  const snapshot = await getSnapshotFast();
+  res.set('Cache-Control', 'no-store');
+  res.json(buildPublicDataHealth(snapshot, Date.now(), {
+    marketRedisplayRightsVerified: process.env.VORTEX_ODDS_REDISPLAY_LICENSE_VERIFIED === '1',
+  }));
 }));
 
 app.get('/api/vortex/snapshot', asyncRoute(async (req, res) => {
