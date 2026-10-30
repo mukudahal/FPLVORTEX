@@ -8,7 +8,7 @@
 
 - `supabase/migrations/20261030_000001_vortex_plans_admin.sql` establishes private per-account 10-GW scenarios and immutable JSONB revisions. Each revision has an owner-bound composite foreign key, stored source snapshot/model version, and a 1MB payload limit. Actual transfer/lineup/chip legality remains enforced by the versioned server model, **not** implied by a JSON document passing an RLS check.
 - `vortex_private.admin_grants` is inaccessible to the public and authenticated database roles. A server/service-role operator must deliberately grant admin membership to an account *after identity verification and MFA*. There is no route where a user can grant themselves admin.
-- `public.vortex_is_admin()` is a security-definer membership check with sealed `search_path`; `public.vortex_admin_data_runs` is readable only by authenticated admins, and writable only by trusted service-role workers. Never store provider API keys or raw licensed feeds in the diagnostics table.
+- `vortex_private.is_vortex_admin()` is a security-definer membership check with sealed `search_path` in a schema excluded from public Data API exposure; `public.vortex_admin_data_runs` is readable only by authenticated admins, and writable only by trusted service-role workers. Never store provider API keys or raw licensed feeds in the diagnostics table.
 - There is no shared, hardcoded DATA password. Passwords are set privately through Supabase Auth and should use MFA. **Do not reuse a password posted in chat.**
 - The existing root browser-local plan slots stay operational during the migration. No local user plan is uploaded or replaced without the user's consent and a verified account.
 
