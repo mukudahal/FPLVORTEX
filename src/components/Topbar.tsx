@@ -85,6 +85,10 @@ export function Topbar({
           <kbd aria-hidden="true">⌘ K</kbd>
         </label>
         <div className="topbar__utilities">
+          <button type="button" className="topbar__sync" onClick={onRefresh} disabled={refreshing} title="Sync official FPL data">
+            <RefreshCw size={12} className={refreshing ? 'spin' : ''} />
+            {refreshing ? 'SYNCING' : 'SYNC FPL'}
+          </button>
           <button
             type="button"
             className={`vortex-theme-switch ${theme === 'light' ? 'is-light' : 'is-dark'}`}
@@ -94,11 +98,7 @@ export function Topbar({
             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
           >
             <span className={`vortex-theme-switch__opt ${theme === 'dark' ? 'is-active' : ''}`} aria-hidden="true"><Moon size={14} /></span>
-            <span className={`vortex-theme-switch__opt ${theme === 'light' ? 'is-active' : ''}`} aria-hidden="true"><Sun size={14} /></span>
-          </button>
-          <button type="button" className="topbar__sync" onClick={onRefresh} disabled={refreshing} title="Sync official FPL data">
-            <RefreshCw size={12} className={refreshing ? 'spin' : ''} />
-            {refreshing ? 'SYNCING' : 'SYNC FPL'}
+            <span className={`vortex-theme-switch__opt ${theme === 'light' ? 'is-active' : ''}`} aria-hidden="true"><Sun size={17} strokeWidth={2.4} /></span>
           </button>
         </div>
       </div>
