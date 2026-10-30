@@ -4,6 +4,7 @@ import { toRepoElement } from '../lib/analytics';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { computePlayerXPts, computePositionPriors } from '../lib/repoModel/xpts';
 import { evaluateSquad } from '../lib/optimize';
+import { createPlanningHorizon } from '../lib/dataProvenance';
 import { makeFixtureForecasts, overallDifficulty, difficultyFillStyle } from '../lib/fixtureForecast';
 import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -16,10 +17,11 @@ interface Props {
 }
 
 export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
-  const [horizon, setHorizon] = useState(15);
+  const [horizon, setHorizon] = useState(10);
   const [sort, setSort] = useState<{ gw: number | 'avg'; ascending: boolean }>({ gw: 'avg', ascending: true });
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
-  const gws = Array.from({ length: Math.min(horizon, Math.max(0, 39 - snapshot.meta.nextEventId)) }, (_, i) => snapshot.meta.nextEventId + i);
+  const finalGw = snapshot.gameweeks.reduce((latest, gw) => Math.max(latest, gw.id), 0);
+  const gws = finalGw > 0 ? createPlanningHorizon(snapshot.meta.nextEventId, finalGw, horizon) : [];
   const selected = gws.includes(selectedGw) ? selectedGw : gws[0];
   const model = useMemo(() => ({ fixtures: toRepoFixtures(snapshot.fixtures), teams: new Map(toRepoTeams(snapshot.teams).map(team => [team.id, team])), priors: computePositionPriors(snapshot.players.map(toRepoElement)), completed: Math.max(1, snapshot.gameweeks.filter(gw => gw.finished).length) }), [snapshot]);
   const projected = gws.map(gw => {
@@ -54,7 +56,8 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
     </div>;
   };
   return <section className="vx-planner-overview" aria-label="Team planner">
-    <div className="vx-planner-gws" aria-label="Select gameweek">{gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>)}</div>
+    <div className="vx-planner-timeline-summary" role="status"><strong>10-GW PLANNING ROADMAP</strong><span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} upcoming gameweeks · provisional model xP` : 'Upcoming gameweek schedule unavailable'}</span></div>
+    <div className="vx-planner-gws" aria-label="Select gameweek">{gws.length ? gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>) : <p role="status">No verified upcoming gameweek is available. Refresh the official FPL snapshot.</p>}</div>
     <div className="vx-planner-columns">
       <div className="vx-soccer-pitch">
         <div className="vx-pitch-top-boards"><div className="vx-pitch-board"><img src={BRAND_LION_SRC} alt="" /><span>FPL VORTEX</span></div><div className="vx-pitch-goal-net" aria-hidden="true" /><a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer" className="vx-pitch-board vx-pitch-board--link">@FPLVORTEX</a></div>
@@ -67,7 +70,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
         <div className="vx-planner-fixture-head">
           <div><strong>FIXTURE DIFFICULTY</strong><small>VORTEX model · lower is easier</small></div>
           <label>GAMEWEEKS <select aria-label="Fixture gameweeks" value={horizon} onChange={e => setHorizon(Number(e.target.value))}>
-            {[5, 10, 15, 20, 38].map(n => <option key={n} value={n}>{n === 38 ? 'Remaining season' : `${n} GW`}</option>)}
+            {[3, 5, 10].map(n => <option key={n} value={n}>{`${n} GW`}</option>)}
           </select></label>
         </div>
         <div className="vx-planner-table-scroll" role="region" aria-label="Fixture difficulty table scroll" tabIndex={0}>
