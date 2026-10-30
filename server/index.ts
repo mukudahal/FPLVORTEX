@@ -36,7 +36,7 @@ app.use((_req, res, next) => {
   if (process.env.VORTEX_FRAME_OPTIONS) {
     res.setHeader('X-Frame-Options', process.env.VORTEX_FRAME_OPTIONS);
   }
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   next();
 });
 
