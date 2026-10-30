@@ -45,6 +45,8 @@ export interface StrategyWeek {
 }
 
 export interface PlannerSimulationOutput extends FplReviewSimOutput {
+  /** Already-computed best no-chip transfer path; chips are saved. */
+  transferWeeks: StrategyWeek[];
   strategy: {
     weeks: StrategyWeek[];
     schedule: SeasonChipUse[];
@@ -425,7 +427,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     squad0: first0.squad, squad1: firstOf(1).squad, squad2: firstOf(2).squad,
     chipSimulations, chipMatrixByGw: matrix,
     multiGwRollout: best.weeks.filter(w => gws.includes(w.gw)).map(w => ({ gw: w.gw, lineup: w.lineup, ftAvailable: w.ftBefore })),
-    monteCarlo, forecastByGw, warnings,
+    monteCarlo, forecastByGw, warnings, transferWeeks: baseline.weeks,
     strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, search: 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds.' },
   };
 }
