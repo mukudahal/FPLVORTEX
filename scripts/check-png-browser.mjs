@@ -58,8 +58,12 @@ try {
   await page.getByRole('button', { name: 'Create table PNG' }).click();
   const table = await expectPngDownload('fpl-vortex-test-fixtures.png');
   assert.ok(table.bright > 200, 'Table must retain legible text / coloured cells');
+
+  await page.getByRole('button', { name: 'Create player PNG' }).click();
+  const player = await expectPngDownload('fpl-vortex-test-player.png');
+  assert.ok(player.bright > 200, 'Player export must include readable stats / identity');
   assert.deepEqual(failures, []);
-  console.log('PNG browser export passed: pitch, bench, 4K ratio, branded table and real downloadable files.');
+  console.log('PNG browser export passed: pitch, bench, fixture table, player card, 4K ratio and real downloaded files.');
 } catch (error) {
   await page.screenshot({ path: 'test-results/planner/png-export/failure.png', fullPage: true });
   console.error((await page.locator('body').innerText()).slice(-5000));
