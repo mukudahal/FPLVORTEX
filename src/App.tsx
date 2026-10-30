@@ -198,7 +198,7 @@ export default function App() {
       setRecentTeams((prev) => upsertRecentTeam(prev, { id: cleaned }));
       void saveTeamOnServer({ id: cleaned });
       setEntrySyncNonce((n) => n + 1);
-      showToast(`Syncing FPL Team #${cleaned} & Review Gameweek…`, 'info');
+      showToast(`Syncing official FPL Team #${cleaned}…`, 'info');
     },
     [setRecentTeams, setTeamId, showToast],
   );
