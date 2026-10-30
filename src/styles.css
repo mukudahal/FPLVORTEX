@@ -7926,30 +7926,49 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 
   /* A genuine 4x1 grid eliminates the long blank turf areas and overlap. */
   .page--review .vx-pitch-formation {
-    display: grid;
-    grid-template-rows: repeat(4,minmax(0,1fr));
-    height: clamp(330px, calc(100svh - 480px), 438px);
-    flex: none;
-    min-height: 0;
-    padding: 6px 8px 8px;
-    gap: clamp(3px,.55svh,7px);
+    /* All four lines must stretch edge-to-edge across the field. */
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:space-between;
+    width:100%;
+    max-width:100%;
+    align-self:stretch;
+    box-sizing:border-box;
+    height:clamp(420px,calc(100svh - 380px),528px);
+    flex:0 0 auto;
+    min-height:0;
+    padding:6px clamp(7px,1vw,13px) 8px;
+    gap:clamp(5px,.7svh,9px);
   }
   .page--review .vx-pitch-row {
-    align-items: center;
-    justify-content: space-around;
-    height: 100%;
-    min-height: 0;
-    gap: clamp(3px,.5vw,8px);
+    display:flex;
+    flex:1 1 0;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    align-items:center;
+    justify-content:space-evenly;
+    min-height:0;
+    height:auto;
+    gap:clamp(3px,.5vw,8px);
   }
-  .page--review .vx-pitch-player {
-    width: clamp(70px,6vw,92px);
-    max-width: 23%;
-    min-width: 0;
-    flex-shrink: 1;
+  .page--review .vx-pitch-row > .vx-pitch-player {
+    width:clamp(86px,7vw,112px);
+    max-width:23%;
+    min-width:0;
+    flex:0 1 auto;
   }
   .page--review .vx-pitch-portrait.player-avatar {
-    width: clamp(48px,5.6svh,65px);
-    height: clamp(49px,6.3svh,69px);
+    width:clamp(64px,7.6svh,84px);
+    height:clamp(65px,8.4svh,88px);
+  }
+  .page--review .vx-pitch-portrait.player-avatar img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    object-position:center bottom;
   }
   .page--review .vx-pitch-xp,
   .page--review .vx-pitch-pos-label {
@@ -7960,7 +7979,7 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   }
   .page--review .vx-pitch-name {
     padding:2px 3px;
-    font-size:clamp(10px,.72vw,12px);
+    font-size:clamp(11px,.85vw,13px);
     line-height:1.1;
     white-space:nowrap;
     text-overflow:ellipsis;
@@ -7968,7 +7987,7 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   }
   .page--review .vx-pitch-fix {
     padding:2px 3px;
-    font-size:clamp(9.5px,.68vw,11px);
+    font-size:clamp(10px,.77vw,12px);
     line-height:1.1;
     white-space:nowrap;
     text-overflow:ellipsis;
@@ -7992,8 +8011,8 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
     width:100%;max-width:100%;min-width:0;padding:0 1px;
   }
   .page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
-    width:clamp(43px,5svh,55px);
-    height:clamp(43px,5.5svh,58px);
+    width:clamp(49px,5.8svh,65px);
+    height:clamp(49px,6.3svh,67px);
   }
   .page--review .vx-pitch-player--bench .vx-pitch-pos-label {font-size:9px;padding:1px 4px;}
   .page--review .vx-pitch-bench-meta {font-size:8.5px;margin-top:1px;}
@@ -8006,16 +8025,16 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .page--review .vx-fixture-rail .vx-fixture-zone {font-size:9px;}
   .page--review .vx-fixture-rail .vx-card__scroll {max-height:none;overflow:visible;}
   .page--review .vx-fixture-columns {grid-template-columns:minmax(0,1fr);gap:0;}
-  .page--review .vx-fixture-column {gap:3px;}
+  .page--review .vx-fixture-column {gap:2px;}
   .page--review .vx-fixture-rail .vx-fixture-date-banner {
-    font-size:10px;padding:3px 5px;margin-bottom:2px;line-height:1.15;
+    font-size:10px;padding:2px 5px;margin-bottom:1px;line-height:1.15;
   }
-  .page--review .vx-fixture-rail .vx-match-item {padding:4px 6px;}
+  .page--review .vx-fixture-rail .vx-match-item {padding:2px 5px;}
   .page--review .vx-fixture-rail .vx-match-row {gap:3px;}
   .page--review .vx-fixture-rail .vx-match-team strong {font-size:11px;}
   .page--review .vx-fixture-rail .vx-match-team .club-badge {width:18px;height:18px;flex-basis:18px;}
   .page--review .vx-fixture-rail .vx-match-pill {font-size:11px;padding:3px 5px;}
-  .page--review .vx-fixture-rail .vx-xg-split-bar {height:4px;margin-top:4px;}
+  .page--review .vx-fixture-rail .vx-xg-split-bar {height:4px;margin-top:2px;}
   .page--review .vx-fixture-rail .vx-xg-labels {margin-top:2px;font-size:10px;}
   .page--review .vx-fixture-rail .vx-xg-labels span {font-size:9px;}
 
@@ -8048,11 +8067,13 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 @media (min-width:1280px) and (max-height:800px) {
   .page--review .vx-gw-bar {min-height:35px;padding-block:3px;margin-bottom:5px;}
   .page--review .vx-pitch-formation {
-    height:clamp(306px,calc(100svh - 454px),346px);
-    padding:4px 7px 5px;gap:2px;
+    height:clamp(398px,calc(100svh - 365px),445px);
+    padding:4px 7px 5px;
+    gap:3px;
   }
-  .page--review .vx-pitch-portrait.player-avatar {width:48px;height:47px;}
-  .page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:41px;height:40px;}
+  .page--review .vx-pitch-row > .vx-pitch-player {width:clamp(80px,6.6vw,100px);}
+  .page--review .vx-pitch-portrait.player-avatar {width:56px;height:58px;}
+  .page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:45px;height:46px;}
   .page--review .vx-pitch-xp,.page--review .vx-pitch-pos-label {font-size:9px;}
   .page--review .vx-pitch-bench {padding:2px 5px 4px;}
   .page--review .vx-pitch-bench-meta {font-size:8px;}
