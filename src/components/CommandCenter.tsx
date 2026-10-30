@@ -1591,117 +1591,18 @@ export function CommandCenter({
       )}
 
       {/* ==================== 3. LOWER 3-COLUMN INTELLIGENCE GRID (IMAGE 2 TOP) ==================== */}
-      <section className="vx-hub-lower" aria-label="Top players, price changes and injuries">
-        {/* CARD 1: TOP PLAYERS */}
-        <article className="panel vx-card vx-card--lower">
-          <header className="vx-card__header">
-            <div className="vx-card__title-icon">
-              <Trophy size={16} className="vx-icon-amber" />
-              <h3>Top Players</h3>
-            </div>
-            <select
-              className="vx-mini-select"
-              value={topMetric}
-              onChange={(e) => setTopMetric(e.target.value as typeof topMetric)}
-              aria-label="Top players metric"
-            >
-              <option value="season">Season points</option>
-              <option value="nextXp">GW {selectedGw} xPts</option>
-              <option value="gwPts">GW {snapshot.meta.currentEventId} points</option>
-              <option value="horizon5">5-GW xPts</option>
-            </select>
-          </header>
-
-          <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-top-players-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `TOP PLAYERS · ${topMetric === 'season' ? 'SEASON POINTS' : topMetric === 'gwPts' ? `GW${snapshot.meta.currentEventId} POINTS` : topMetric === 'horizon5' ? '5-GW xPTS' : `GW${selectedGw} xPTS`}`, headers: ['RANK', 'PLAYER', 'CLUB', 'POSITION', 'PRICE', 'SCORE'], widths: [65, 170, 90, 90, 90, 90], rows: topPlayersList.map(({ player, score }, idx) => [{ text: String(idx + 1) }, { text: player.name }, { text: player.team.shortName }, { text: player.position }, { text: formatPrice(player.price) }, { text: topMetric === 'season' || topMetric === 'gwPts' ? String(Math.round(score)) : score.toFixed(1) }]) }]} /></div>
-          <div className="vx-card__scroll vx-top-players-list">
-            {topPlayersList.map(({ player, score }, idx) => {
-              const pct = Math.max(6, (score / maxTopScore) * 100);
-              const formattedScore =
-                topMetric === 'season' || topMetric === 'gwPts' ? String(Math.round(score)) : score.toFixed(1);
-              const topFlag =
-                player.status !== 'a' || (player.chance !== null && player.chance < 100)
-                  ? parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label)
-                  : null;
-              return (
-                <div
-                  key={player.id}
-                  role="button"
-                  tabIndex={0}
-                  className="vx-top-player-row"
-                  onClick={() => setSelectedCardPlayer(player)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setSelectedCardPlayer(player);
-                    }
-                  }}
-                >
-                  <span className="vx-row-idx">{idx + 1}.</span>
-                  <PlayerAvatar
-                    code={player.code}
-                    teamCode={player.team.code}
-                    name={player.name}
-                    fullName={player.fullName}
-                    teamShort={player.team.shortName}
-                    position={player.position}
-                    size="md"
-                    className="vx-list-avatar"
-                  />
-                  <div className="vx-player-meta">
-                    <div className="vx-name-with-flag">
-                      <strong>{player.name}</strong>
-                      {topFlag && (
-                        <button
-                          type="button"
-                          className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${topFlag.severity}`)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedInjuryPlayer(player);
-                          }}
-                          aria-label={`${player.name} injury details`}
-                          title={`${topFlag.injuryType} · ${topFlag.expectedReturn}`}
-                        >
-                          <AlertTriangle size={10} />
-                          <span>{topFlag.badgeText}</span>
-                        </button>
-                      )}
-                    </div>
-                    <small>
-                      <ClubBadge
-                        teamCode={player.team.code}
-                        shortName={player.team.shortName}
-                        teamName={player.team.name}
-                        size="sm"
-                      />
-                      <span>
-                        {player.position} · {formatPrice(player.price)}
-                      </span>
-                    </small>
-                  </div>
-                  <div className="vx-bar-track" aria-hidden="true">
-                    <span className="vx-bar-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <strong className="vx-top-score mono-num">{formattedScore}</strong>
-                </div>
-              );
-            })}
-          </div>
-
-          <footer className="vx-card__footer">
-            <button type="button" className="vx-inline-link" onClick={() => onNavigate('players')}>
-              All player stats <ArrowRight size={14} />
-            </button>
-            <small>{formatNumber(players.length)} players</small>
-          </footer>
-        </article>
-
-        {/* CARD 2: PRICE & TRANSFERS (HOME TAB FULL-SPECTRUM TRADING TABLE) */}
-        <article className="panel vx-card vx-card--lower vx-card--transfers vx-card--transfers-wide">
-          <header className="vx-card__header">
+      <section className="vx-hub-lower vx-hub-disclosures" aria-label="Price and transfers, top players, injuries and suspensions">
+        <details className="panel vx-card vx-card--lower vx-card--transfers vx-card--transfers-wide vx-disclosure">
+          <summary className="vx-disclosure__summary">
             <div className="vx-card__title-icon">
               <ArrowLeftRight size={16} className="vx-icon-mint" />
               <h3>Price & Transfers</h3>
             </div>
+            <ChevronDown size={20} className="vx-disclosure__chevron" aria-hidden="true" />
+          </summary>
+          <div className="vx-disclosure__body">
+          <header className="vx-card__header">
+
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('players')}>
               Price changes <ArrowRight size={14} />
             </button>
@@ -1936,15 +1837,128 @@ export function CommandCenter({
               </button>
             </div>
           </footer>
-        </article>
+          </div>
+        </details>
 
-        {/* CARD 3: INJURIES & SUSPENSIONS */}
-        <article className="panel vx-card vx-card--lower">
+        <details className="panel vx-card vx-card--lower vx-disclosure">
+          <summary className="vx-disclosure__summary">
+            <div className="vx-card__title-icon">
+              <Trophy size={16} className="vx-icon-amber" />
+              <h3>Top Players</h3>
+            </div>
+            <ChevronDown size={20} className="vx-disclosure__chevron" aria-hidden="true" />
+          </summary>
+          <div className="vx-disclosure__body">
           <header className="vx-card__header">
+
+            <select
+              className="vx-mini-select"
+              value={topMetric}
+              onChange={(e) => setTopMetric(e.target.value as typeof topMetric)}
+              aria-label="Top players metric"
+            >
+              <option value="season">Season points</option>
+              <option value="nextXp">GW {selectedGw} xPts</option>
+              <option value="gwPts">GW {snapshot.meta.currentEventId} points</option>
+              <option value="horizon5">5-GW xPts</option>
+            </select>
+          </header>
+
+          <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-top-players-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `TOP PLAYERS · ${topMetric === 'season' ? 'SEASON POINTS' : topMetric === 'gwPts' ? `GW${snapshot.meta.currentEventId} POINTS` : topMetric === 'horizon5' ? '5-GW xPTS' : `GW${selectedGw} xPTS`}`, headers: ['RANK', 'PLAYER', 'CLUB', 'POSITION', 'PRICE', 'SCORE'], widths: [65, 170, 90, 90, 90, 90], rows: topPlayersList.map(({ player, score }, idx) => [{ text: String(idx + 1) }, { text: player.name }, { text: player.team.shortName }, { text: player.position }, { text: formatPrice(player.price) }, { text: topMetric === 'season' || topMetric === 'gwPts' ? String(Math.round(score)) : score.toFixed(1) }]) }]} /></div>
+          <div className="vx-card__scroll vx-top-players-list">
+            {topPlayersList.map(({ player, score }, idx) => {
+              const pct = Math.max(6, (score / maxTopScore) * 100);
+              const formattedScore =
+                topMetric === 'season' || topMetric === 'gwPts' ? String(Math.round(score)) : score.toFixed(1);
+              const topFlag =
+                player.status !== 'a' || (player.chance !== null && player.chance < 100)
+                  ? parsePlayerInjuryDetails(player, getPitchFixture(player.teamId).label)
+                  : null;
+              return (
+                <div
+                  key={player.id}
+                  role="button"
+                  tabIndex={0}
+                  className="vx-top-player-row"
+                  onClick={() => setSelectedCardPlayer(player)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedCardPlayer(player);
+                    }
+                  }}
+                >
+                  <span className="vx-row-idx">{idx + 1}.</span>
+                  <PlayerAvatar
+                    code={player.code}
+                    teamCode={player.team.code}
+                    name={player.name}
+                    fullName={player.fullName}
+                    teamShort={player.team.shortName}
+                    position={player.position}
+                    size="md"
+                    className="vx-list-avatar"
+                  />
+                  <div className="vx-player-meta">
+                    <div className="vx-name-with-flag">
+                      <strong>{player.name}</strong>
+                      {topFlag && (
+                        <button
+                          type="button"
+                          className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${topFlag.severity}`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInjuryPlayer(player);
+                          }}
+                          aria-label={`${player.name} injury details`}
+                          title={`${topFlag.injuryType} · ${topFlag.expectedReturn}`}
+                        >
+                          <AlertTriangle size={10} />
+                          <span>{topFlag.badgeText}</span>
+                        </button>
+                      )}
+                    </div>
+                    <small>
+                      <ClubBadge
+                        teamCode={player.team.code}
+                        shortName={player.team.shortName}
+                        teamName={player.team.name}
+                        size="sm"
+                      />
+                      <span>
+                        {player.position} · {formatPrice(player.price)}
+                      </span>
+                    </small>
+                  </div>
+                  <div className="vx-bar-track" aria-hidden="true">
+                    <span className="vx-bar-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <strong className="vx-top-score mono-num">{formattedScore}</strong>
+                </div>
+              );
+            })}
+          </div>
+
+          <footer className="vx-card__footer">
+            <button type="button" className="vx-inline-link" onClick={() => onNavigate('players')}>
+              All player stats <ArrowRight size={14} />
+            </button>
+            <small>{formatNumber(players.length)} players</small>
+          </footer>
+          </div>
+        </details>
+
+        <details className="panel vx-card vx-card--lower vx-disclosure">
+          <summary className="vx-disclosure__summary">
             <div className="vx-card__title-icon">
               <Stethoscope size={16} className="vx-icon-pink" />
               <h3>Injuries & Suspensions</h3>
             </div>
+            <ChevronDown size={20} className="vx-disclosure__chevron" aria-hidden="true" />
+          </summary>
+          <div className="vx-disclosure__body">
+          <header className="vx-card__header">
+
             <small className="vx-card__sub">{flaggedPlayers.length} players</small>
           </header>
 
@@ -2034,7 +2048,8 @@ export function CommandCenter({
               Next <ChevronRight size={14} />
             </button>
           </footer>
-        </article>
+          </div>
+        </details>
       </section>
 
       {/* ==================== 4. COMPACT HORIZONTAL SCROLLABLE YOUTUBE STRIP (IMAGE 2 BOTTOM) ==================== */}
