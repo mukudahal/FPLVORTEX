@@ -1,10 +1,14 @@
 import { chromium } from '@playwright/test';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const failures = [];
+async function waitForSimulation() {
+  await page.locator('.mc-paths-list .mc-range-row').first().or(page.getByText('SIMULATION UNAVAILABLE', { exact: true })).first().waitFor({ timeout: 120000 });
+  assert.ok(await page.locator('.mc-range-row').count() > 0, await page.locator('[role="alert"]').allTextContents());
+}
 page.on('pageerror', error => failures.push(error.message));
 await mkdir('test-results/planner', { recursive: true });
 try {
@@ -14,7 +18,7 @@ try {
   await page.getByText('Advanced tools · transfers & chips', { exact: true }).click();
   await page.getByRole('button', { name: /Auto-Build £/ }).click();
   await page.getByRole('tab', { name: /3. Monte Carlo/ }).click();
-  await page.locator('.mc-paths-list .mc-range-row').first().waitFor({ timeout: 120000 });
+  await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
   assert.ok(await page.getByText(/not a probability of a green arrow/).isVisible());
   assert.equal(await page.locator('.vx-soccer-pitch').first().getAttribute('class'), pitchClass);
@@ -25,7 +29,7 @@ try {
   await page.screenshot({ path: 'test-results/planner/chips-desktop.png', fullPage: true });
   await page.getByRole('combobox', { name: 'Free transfers available' }).selectOption('0');
   await page.getByRole('tab', { name: /3. Monte Carlo/ }).click();
-  await page.locator('.mc-paths-list .mc-range-row').first().waitFor({ timeout: 120000 });
+  await waitForSimulation();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/planner/simulation-mobile.png', fullPage: true });
   const bodyWidth = await page.evaluate(() => document.documentElement.scrollWidth);

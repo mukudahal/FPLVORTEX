@@ -9,6 +9,7 @@ import type { ChipGwSimulation, ChipSimulationSummary, OptimizerOptionComparison
 import { computePlayerXPts, computePositionPriors } from './xpts';
 import { runMonteCarlo, mixSeed, type McPath, type McPlayerGw } from './monteCarlo';
 import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
+import { expectedFixturePoints } from './playerModel';
 import { validateSeasonChipPlan, validateSquad, type SeasonChipUse } from './seasonRules';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -234,6 +235,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     // Refine the actual XI/captain objective; WC also values a playable bench for later BB.
     const objective = (ids: number[]) => chip === 'wc' ? squadValue(ids, gw, 0.15) : lineup(ids, gw).totalXPts;
     let best = objective(sq);
+    if (objective(state.squad) > best) { sq = [...state.squad]; best = objective(sq); }
     for (let pass = 0; pass < 2; pass++) for (const inc of candidates) {
       if (sq.includes(inc)) continue;
       const p = byId.get(inc)!;
@@ -381,7 +383,8 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const el = elements.get(id), bd = models.get(`${id}:${gw}`);
     if (!el || !bd) return null;
     const mean = forecastByGw[gw][id];
-    return { mean, fixtureModels: Math.abs(mean - bd.xPts) <= 0.01 ? bd.fixtureModels : undefined, p60: bd.p60, pSub: bd.pSub, fixtures: bd.fixtureCount, csProb: bd.csProb, cardLoss: Math.max(0, -bd.cardPts), team: el.team, position: el.element_type };
+    const componentMean = bd.fixtureModels?.reduce((sum, model) => sum + Object.values(expectedFixturePoints(model)).reduce((s, n) => s + n, 0), 0);
+    return { mean, fixtureModels: componentMean !== undefined && Math.abs(mean - componentMean) <= 0.011 ? bd.fixtureModels : undefined, p60: mean === 0 ? 0 : bd.p60, pSub: mean === 0 ? 0 : bd.pSub, fixtures: bd.fixtureCount, csProb: bd.csProb, cardLoss: Math.max(0, -bd.cardPts), team: el.team, position: el.element_type };
   };
   const pathFor = (id: string, label: string, state: SearchState): McPath => ({
     id, label, hitCost: 0,
@@ -402,6 +405,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     'Bounded beam search: six retained states, shortlisted candidates, up to two normal transfers per week; WC/FH allow a full rebuild. Results are approximate, not globally optimal.',
     `Transfer and chip decisions use ${Math.round(decay * 100)}% weekly decay; displayed totals and Monte Carlo points are undiscounted. Chip planning continues through GW${halfEnd}; distributions cover GW${gws[0]}–GW${gws.at(-1)} only.`,
     'Win versus hold is a paired model probability of scoring more points than keeping this squad. It is not a probability of a green arrow or a predicted overall rank.',
+    'Simulation reports unmodified forecast points. Auto-Build risk profiles change squad selection; ownership is not a measured field-score or rank distribution.',
     'Imported means use an aggregate distribution when they differ from fixture-component forecasts. Tail probabilities remain uncalibrated.',
     ...warnings,
   );

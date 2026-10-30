@@ -59,24 +59,23 @@ test('joint chip plan has one chip per week, respects used chips and exposes rep
   assert.ok(result.monteCarlo.assumptions.some(s => s.includes('not a probability of a green arrow')));
 });
 
-test('Free Hit restores permanent holdings and bank; cannot follow a Free Hit across GW19/20', () => {
-  const input = scenario(20, false);
-  // A one-week-only opportunity makes FH attractive in GW21, but GW20 follows a GW19 FH.
-  const extra = makePlayer(16, { position: 'MID', teamId: 6, team: makeTeam(6), cost: 50, gwProjections: Object.fromEntries(Array.from({ length: 19 }, (_, i) => [20 + i, i === 0 ? 70 : i === 1 ? 60 : 0])) });
+test('Free Hit restores permanent holdings and bank after a profitable one-week squad', () => {
+  const input = scenario(37, false);
+  const extra = makePlayer(16, { position: 'MID', teamId: 6, team: makeTeam(6), cost: 50, gwProjections: { 37: 70, 38: 0 } });
   input.players.push(extra); input.repoElements.push(toRepoElement(extra));
   input.lockedIds = input.currentSquadIds.filter(id => id !== 8);
-  input.chipsUsed = [{ name: 'freehit', event: 19 }, { name: 'wildcard', event: 20 }, { name: 'bboost', event: 20 }, { name: '3xc', event: 20 }];
-  // History after the planning start must not be treated as already used.
-  input.chipsUsed = [{ name: 'freehit', event: 19 }];
+  input.chipsUsed = [{ name: 'wildcard', event: 32 }, { name: 'bboost', event: 33 }, { name: '3xc', event: 34 }];
   const result = runPlannerSimulation(input);
+  assert.ok(result.strategy.schedule.some(c => c.chip === 'fh' && c.gw === 37), 'Expected the only available chip to exploit a one-week opportunity');
+  assert.ok(result.strategy.weeks[0].squad.includes(16));
+  assert.deepEqual([...result.strategy.weeks[1].squad].sort((a, b) => a - b), input.currentSquadIds);
+  assert.equal(result.strategy.weeks[1].bankAfter, input.bankTenths);
+});
+
+test('Free Hit cannot follow the previous half Free Hit across GW19/20', () => {
+  const input = scenario(20, false);
+  const result = runPlannerSimulation({ ...input, lockedIds: input.currentSquadIds, chipsUsed: [{ name: 'freehit', event: 19 }] });
   assert.ok(!result.strategy.schedule.some(c => c.chip === 'fh' && c.gw === 20));
-  for (let i = 0; i + 1 < result.strategy.weeks.length; i++) {
-    const week = result.strategy.weeks[i], next = result.strategy.weeks[i + 1];
-    if (week.chip !== 'fh') continue;
-    const permanent = i === 0 ? input.currentSquadIds : result.strategy.weeks[i - 1].squad;
-    const expected = permanent.map(id => next.moves.find(m => m.outId === id)?.inId ?? id);
-    assert.deepEqual([...next.squad].sort((a, b) => a - b), [...expected].sort((a, b) => a - b));
-  }
 });
 
 test('blank fixtures override imported values; explicit zero stays zero; missing future means are recomputed', () => {

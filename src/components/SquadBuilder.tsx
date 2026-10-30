@@ -324,15 +324,18 @@ export function SquadBuilder({
       dataNotice: entry ? (entry.provenance?.kind === 'official' && !snapshot.meta.stale ? 'Team and snapshot loaded from the connected FPL data sources; projections remain model estimates.' : 'Archived or cached team/data: verify the current squad and chips before acting.') : 'Template squad scenario; load your FPL Team ID for personal chip availability.',
     };
     let worker: Worker | null = null;
+    let cancelled = false;
     try {
       worker = new Worker(new URL('../workers/planner.worker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string }>) => {
+        if (cancelled) return;
         setSimulationPending(false);
         if (event.data.result) setReviewSim(event.data.result);
         else setSimulationError(event.data.error ?? 'Simulation failed. Refresh and try again.');
         worker?.terminate();
       };
       worker.onerror = () => {
+        if (cancelled) return;
         setSimulationPending(false);
         setSimulationError('Simulation could not finish. Reload the page and try again.');
         worker?.terminate();
@@ -342,7 +345,7 @@ export function SquadBuilder({
       setSimulationPending(false);
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
-    return () => worker?.terminate();
+    return () => { cancelled = true; worker?.terminate(); };
   }, [advancedOpen, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
 
   // Clickable automatic column sorting (following `7_skills/fpl-team-planner.skill`)
@@ -696,6 +699,7 @@ export function SquadBuilder({
                     <button
                       type="button"
                       className="button button--ghost button--sm"
+                      disabled={simulationPending || (opt.id !== 'roll' && opt.transfers.length === 0)}
                       onClick={() => applySolverOption(opt.id as 'roll' | 'transfer1' | 'transfer2')}
                     >
                       Load on pitch
@@ -1008,6 +1012,11 @@ export function SquadBuilder({
                 <article
                   key={chip.chip}
                   className={classNames('panel chip-sim-card', isSelected && 'chip-sim-card--active')}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`Preview ${meta.label}`}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc'); } }}
                   onClick={() => setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc')}
                 >
                   <div className="chip-sim-card__head">
@@ -1039,7 +1048,7 @@ export function SquadBuilder({
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">CHIP HORIZON EV MATRIX</span>
-                <h3>Net expected points gained vs free-transfer baseline across GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
+                <h3>Diagnostic chip gains · WC uses a 3-GW hold-squad reference · GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
               </div>
               <span className="badge badge--mint">2026/27 Half-Season Chip Rules</span>
             </div>
@@ -1071,16 +1080,16 @@ export function SquadBuilder({
                         <td><strong>GW{row.gw}</strong></td>
                         <td className="mono-num">{row.baseXPts.toFixed(2)}</td>
                         <td className={classNames('chip-ev-cell', wcBest && 'is-peak')}>
-                          +{row.wildcardGain.toFixed(2)} {wcBest && <em>★ Peak</em>}
+                          {row.wildcardGain >= 0 ? '+' : ''}{row.wildcardGain.toFixed(2)} {wcBest && <em>★ Peak</em>}
                         </td>
                         <td className={classNames('chip-ev-cell', fhBest && 'is-peak')}>
-                          +{row.freehitGain.toFixed(2)} {fhBest && <em>★ Peak</em>}
+                          {row.freehitGain >= 0 ? '+' : ''}{row.freehitGain.toFixed(2)} {fhBest && <em>★ Peak</em>}
                         </td>
                         <td className={classNames('chip-ev-cell', bbBest && 'is-peak')}>
-                          +{row.bboostGain.toFixed(2)} {bbBest && <em>★ Peak</em>}
+                          {row.bboostGain >= 0 ? '+' : ''}{row.bboostGain.toFixed(2)} {bbBest && <em>★ Peak</em>}
                         </td>
                         <td className={classNames('chip-ev-cell', tcBest && 'is-peak')}>
-                          +{row.tripleCapGain.toFixed(2)} {tcBest && <em>★ Peak</em>}
+                          {row.tripleCapGain >= 0 ? '+' : ''}{row.tripleCapGain.toFixed(2)} {tcBest && <em>★ Peak</em>}
                         </td>
                         <td>
                           {capPlayer ? (

@@ -267,11 +267,11 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onNavigate: noop,
     }),
   );
-  assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
-  assert.match(htmlUnlinked, /vx-pitch-gate/);
+  assert.match(htmlUnlinked, /id="fpl-review-team-id"/);
+  assert.match(htmlUnlinked, /vx-squad-scorebox__empty/);
   assert.doesNotMatch(htmlUnlinked, /class="vx-soccer-pitch"/);
   // Exactly ONE FPL Team ID input on the Home Page (second input inside vx-pitch-gate removed)
-  assert.equal((htmlUnlinked.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
+  assert.equal((htmlUnlinked.match(/id="fpl-review-team-id"/g) ?? []).length, 1);
   assert.doesNotMatch(htmlUnlinked, /vx-pitch-gate__form/);
   assert.doesNotMatch(htmlUnlinked, /Load My Squad/);
   // Blank FPL Team ID inputs must not display placeholder text
@@ -300,6 +300,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + masks secret ID when blurred
   const htmlCommand = renderToStaticMarkup(
     React.createElement(CommandCenter, {
+      mode: 'review',
       snapshot,
       entry,
       players,
@@ -315,7 +316,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
     }),
   );
   // Tier 1: Compact Hero + Top FPL Team ID Bar (masked password when blurred) + Vortex Orb + Captain & Fixture float cards
-  assert.match(htmlCommand, /Every transfer, captain and fixture/);
+  assert.match(htmlCommand, /Review squad and captain highlights/);
   assert.match(htmlCommand, /id="fpl-team-id-top"/);
   assert.match(htmlCommand, /type="password"/);
   // Saved Squad chips never print raw numeric `#999999` on screen
@@ -326,7 +327,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   // Tier 2: Review Gameweek strip + Soccer Pitch (15 players) + GW Fixtures + GW Projected Goals (20 clubs)
   assert.match(htmlCommand, /Template XI/);
   assert.match(htmlCommand, /Review GW 8/);
-  assert.match(htmlCommand, /vx-review-strip/);
+  assert.match(htmlCommand, /vx-squad-scorebox__metrics/);
   assert.match(htmlCommand, /vx-soccer-pitch/);
   assert.equal(
     (htmlCommand.match(/vx-pitch-player"/g) ?? []).length +
