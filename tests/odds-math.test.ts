@@ -232,6 +232,30 @@ test('coverage reports upcoming fixtures separately from past market prices', as
   assert.equal(oddsCoverage([past], 9).status, 'fallback');
 });
 
+test('complete bookmaker odds are not labelled live without verified redisplay rights', async () => {
+  const { oddsCoverage } = await import('../server/odds.ts');
+  const { makeFixture } = await import('./helpers.ts');
+  const fixture = makeFixture(9301, 9, 1, 2);
+  const quotedAt = new Date().toISOString();
+  fixture.marketOdds = {
+    provider: 'the-odds-api',
+    bookmaker: 'licensed-example',
+    updatedAt: quotedAt,
+    quoteTimeSource: 'bookmaker',
+    retrievedAt: quotedAt,
+    oddsHome: 2.1, oddsDraw: 3.2, oddsAway: 3.6,
+    totalLine: 2.5, oddsOver: 1.88, oddsUnder: 1.98,
+    homeWin: 0.47, draw: 0.28, awayWin: 0.25,
+    homeXg: 1.4, awayXg: 1.2, homeCs: 0.3, awayCs: 0.2,
+    overround1x2: 1.05,
+  };
+  assert.equal(oddsCoverage([fixture], 9).status, 'partial', 'Default rights unknown must not claim live');
+  assert.equal(oddsCoverage([fixture], 9, false).status, 'partial');
+  assert.equal(oddsCoverage([fixture], 9, true).status, 'live', 'Explicit rights and fresh complete quote permit live label');
+  fixture.marketOdds = { ...fixture.marketOdds, quoteTimeSource: 'unknown' };
+  assert.equal(oddsCoverage([fixture], 9, true).status, 'partial', 'Unknown quote age blocks live status');
+});
+
 test('football-data fallback totals use a complete pair from one source', () => {
   const csv = [
     'Div,Date,Time,HomeTeam,AwayTeam,PSH,PSD,PSA,P>2.5,P<2.5,Avg>2.5,Avg<2.5',
