@@ -8522,3 +8522,28 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .page--optimizer h3 { font-size: max(16px, 1em); }
 .page--optimizer .panel__eyebrow { font-size: 13px; }
 @media (max-width: 800px) { .planner-control-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .planner-summary { justify-content: flex-start; } }
+
+/* Keep the player-card close control inside the scrolling card at all sizes. */
+.vx-side-popup-dock.vx-pcard-overlay {
+  right: max(24px, env(safe-area-inset-right, 0px));
+  width: min(508px, calc(100vw - 48px));
+}
+.vx-side-popup-dock .vx-pcard__close {
+  position: sticky;
+  top: 8px;
+  right: auto;
+  margin: 0 0 -44px auto;
+  width: 44px;
+  height: 44px;
+  z-index: 30;
+  background: #211450;
+  flex: none;
+}
+.vx-side-popup-dock .vx-pcard__close:focus-visible {
+  outline: 3px solid #5bf5d6;
+  outline-offset: 2px;
+}
+.vx-pcard__top-ribbons { padding-right: 50px; }
+@media (max-width: 860px) {
+  .vx-side-popup-dock.vx-pcard-overlay { left: 0; right: 0; width: 100%; }
+}
