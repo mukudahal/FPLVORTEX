@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS vortex_private.admin_grants (
 );
 REVOKE ALL ON vortex_private.admin_grants FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON vortex_private.admin_grants TO service_role;
+ALTER TABLE vortex_private.admin_grants ENABLE ROW LEVEL SECURITY;
+-- Private table has no client grants or RLS policies; service_role may manage
+-- membership via its BYPASSRLS privilege, not browser-originated sessions.
 
 -- SECURITY DEFINER deliberately queries one fixed private table. Fully
 -- qualify every name and disable user-controlled search_path resolution.
