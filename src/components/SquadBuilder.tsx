@@ -35,11 +35,12 @@ interface SquadBuilderProps {
   players: EnrichedPlayer[];
   fixtureRows: FixtureRow[];
   entry?: EntryData | null;
-  teamId: string;
-  recentTeams: RecentTeamEntry[];
-  entryLoading: boolean;
-  entryError: string | null;
-  onLoadTeam: (id: string) => void;
+  /** Optional for isolated planner simulations; wired by the real App shell. */
+  teamId?: string;
+  recentTeams?: RecentTeamEntry[];
+  entryLoading?: boolean;
+  entryError?: string | null;
+  onLoadTeam?: (id: string) => void;
   profile: RiskProfile;
   onProfileChange: (profile: RiskProfile) => void;
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
@@ -62,10 +63,10 @@ export function SquadBuilder({
   snapshot,
   players,
   entry,
-  teamId,
-  recentTeams,
-  entryLoading,
-  entryError,
+  teamId = '',
+  recentTeams = [],
+  entryLoading = false,
+  entryError = null,
   onLoadTeam,
   profile,
   onToast,
@@ -222,7 +223,7 @@ export function SquadBuilder({
             <Icon size={16} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
-        <form className="planner-team-link" aria-label="Load official FPL team for planning"
+        {onLoadTeam && <form className="planner-team-link" aria-label="Load official FPL team for planning"
           aria-busy={entryLoading} noValidate onSubmit={(event) => {
             event.preventDefault();
             if (/^[1-9]\d{0,11}$/.test(draftTeamId.trim())) onLoadTeam(draftTeamId.trim());
@@ -237,7 +238,7 @@ export function SquadBuilder({
             </button>
           </div>
           {entryError && <span className="planner-team-link__error" role="alert">{entryError}</span>}
-        </form>
+        </form>}
       </div>
       {subTab && <div id="planner-section-content" className="planner-section-content">
       {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
