@@ -34,7 +34,7 @@ test('prepared image offers a real download link instead of triggering a delayed
     await savePngBlob(png(), 'pitch.png');
     const link = elements.find(el => el.tag === 'a');
     assert.equal(link.href, 'blob:test'); assert.equal(link.download, 'pitch.png');
-    assert.equal(link.textContent, 'Download image'); assert.ok(link.listeners.click);
+    assert.equal(link.textContent, 'Download PNG'); assert.ok(link.listeners.click);
     assert.equal(elements.find(el => el.className === 'png-save-overlay')?.removed, undefined);
   } finally { Object.assign(globalThis, { window: oldWindow, document: oldDocument }); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
 });
@@ -49,6 +49,7 @@ test('mobile download uses the temporary normal URL when upload succeeds', async
   URL.createObjectURL = () => 'blob:test'; URL.revokeObjectURL = () => {};
   try {
     await savePngBlob(png(), 'pitch.png');
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(elements.find(node => node.tag === 'a').href, path);
     assert.equal(elements.find(node => node.tag === 'img').src, 'blob:test');
   } finally { Object.assign(globalThis, { window: oldWindow, document: oldDocument, fetch: oldFetch }); URL.createObjectURL = create; URL.revokeObjectURL = revoke; }
