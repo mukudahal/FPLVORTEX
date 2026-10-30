@@ -8547,3 +8547,37 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 @media (max-width: 860px) {
   .vx-side-popup-dock.vx-pcard-overlay { left: 0; right: 0; width: 100%; }
 }
+
+/* Planner: one pitch beside a separately scrollable FDR table. */
+.vx-planner-fixture-head > div { display: grid; gap: 3px; }
+.vx-planner-fixture-head label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: var(--text-primary); }
+.vx-planner-fixture-head select { min-height: 40px; padding: 5px 8px; color: var(--text-primary); background: var(--panel-soft); border: 1px solid var(--border-strong); border-radius: 8px; }
+.vx-planner-table-scroll { max-width: 100%; overflow: auto; overscroll-behavior: contain; }
+.vx-planner-fixtures table { width: max-content; min-width: 100%; table-layout: auto; }
+.vx-planner-fixtures th, .vx-planner-fixtures td { min-width: 70px; }
+.vx-planner-fixtures th:first-child { min-width: 78px; position: sticky; left: 0; z-index: 2; background: #1d3044; }
+.vx-planner-fixtures thead th { position: sticky; top: 0; z-index: 1; background: #1d3044; }
+.vx-planner-fixtures thead th:first-child { z-index: 3; }
+.vx-planner-table-scroll:focus-visible { outline: 3px solid var(--brand-mint); outline-offset: 2px; }
+@media (min-width: 851px) {
+  .page--optimizer .vx-planner-overview { gap: 6px; }
+  .page--optimizer .vx-planner-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 10px; }
+  .page--optimizer .vx-planner-fixtures { padding: 10px; }
+  .page--optimizer .vx-planner-table-scroll { max-height: max(180px, calc(100dvh - 490px)); }
+  .page--optimizer .vx-pitch-top-boards { padding: 3px 8px; }
+  .page--optimizer .vx-pitch-formation { padding: 5px 5px; gap: 2px; }
+  .page--optimizer .vx-pitch-portrait.player-avatar { width: clamp(35px, 5.2vh, 52px); height: clamp(36px, 5.4vh, 54px); }
+  .page--optimizer .vx-pitch-player--bench .vx-pitch-portrait.player-avatar { width: clamp(30px, 4.2vh, 44px); height: clamp(31px, 4.4vh, 46px); }
+  .page--optimizer .vx-pitch-bench { padding: 2px 6px 5px; gap: 5px; }
+  .page--optimizer .vx-pitch-bench-head { padding: 2px 8px; }
+  .page--optimizer .vx-pitch-name, .page--optimizer .vx-pitch-fix { font-size: 10px; line-height: 1.15; }
+  .page--optimizer .vx-pitch-xp, .page--optimizer .vx-pitch-pos-label { padding: 1px 5px; margin: 0; }
+}
+@media (max-width: 850px) { .vx-planner-table-scroll { max-height: 65vh; } }
+@media (min-width: 851px) and (max-height: 950px) {
+  .page--optimizer .vx-pitch-portrait.player-avatar { width: clamp(24px, calc((100dvh - 520px) / 10), 43px); height: clamp(25px, calc((100dvh - 510px) / 10), 44px); }
+  .page--optimizer .vx-pitch-player--bench .vx-pitch-portrait.player-avatar { width: clamp(22px, calc((100dvh - 560px) / 10), 36px); height: clamp(23px, calc((100dvh - 550px) / 10), 37px); }
+  .page--optimizer .vx-pitch-name, .page--optimizer .vx-pitch-fix { padding: 1px 2px; line-height: 1; }
+  .page--optimizer .vx-pitch-xp, .page--optimizer .vx-pitch-pos-label { font-size: 9px; line-height: 1; }
+  .page--optimizer .vx-planner-table-scroll { max-height: max(180px, calc(100dvh - 490px)); }
+}
