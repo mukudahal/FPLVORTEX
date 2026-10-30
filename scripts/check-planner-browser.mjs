@@ -11,7 +11,17 @@ async function waitForSimulation() {
 page.on('pageerror', error => failures.push(error.message));
 await mkdir('test-results/planner', { recursive: true });
 try {
-  await page.goto((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/#/optimizer', { waitUntil: 'domcontentloaded' });
+  const base = process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000';
+  await page.goto(base + '/', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
+  assert.equal(await page.locator('.planner-team-link').count(), 1, 'Homepage must open in the 10-GW planner with a team loader');
+  const managerInput = page.getByRole('textbox', { name: 'FPL Team ID' });
+  const loadTeamButton = page.getByRole('button', { name: 'Load team' });
+  assert.ok(await loadTeamButton.isDisabled(), 'Empty manager ID must not initiate a fetch');
+  await managerInput.fill('123456');
+  assert.ok(await loadTeamButton.isEnabled(), 'A syntactically valid manager ID enables team sync');
+  await managerInput.fill('');
+  await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'Team planner should show one pitch');
