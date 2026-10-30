@@ -92,14 +92,15 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
   const renderOption = (item: RecentTeamEntry, idx: number) => (
     <div
       key={item.id}
+      id={`${listboxId}-${idx}`}
       role="option"
       aria-selected={idx === activeIndex}
       className={classNames('vx-team-id-option', idx === activeIndex && 'is-active')}
       onMouseEnter={() => setActiveIndex(idx)}
       onMouseDown={(e) => {
         e.preventDefault();
-        pickRecent(item.id);
       }}
+      onClick={() => pickRecent(item.id)}
     >
       <div className="vx-team-id-option__main">
         <strong className="vx-team-id-option__id">{renderHighlightedId(item.id, value)}</strong>
@@ -113,7 +114,7 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
           className="vx-team-id-option__remove"
           aria-label={`Remove saved ID ${item.id}`}
           title="Remove from saved IDs"
-          onMouseDown={(e) => {
+          onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             onRemoveRecent(item.id);
@@ -136,9 +137,11 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         placeholder=""
         value={value}
         aria-label={ariaLabel}
+        role="combobox"
         aria-expanded={showDropdown}
         aria-controls={showDropdown ? listboxId : undefined}
         aria-autocomplete="list"
+        aria-activedescendant={showDropdown && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
         onFocus={(e) => {
           setFocused(true);
           if (value.trim().length > 0) {
@@ -185,12 +188,14 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         <button
           type="button"
           className={classNames('vx-team-id-clear', recentTeams.length > 0 && 'has-chevron')}
-          tabIndex={-1}
           aria-label="Clear typed FPL Team ID"
           title="Clear and pick another saved ID"
           onMouseDown={(e) => {
             e.preventDefault();
+          }}
+          onClick={() => {
             onChange('');
+            wrapperRef.current?.querySelector('input')?.focus();
             if (recentTeams.length > 0) setOpen(true);
           }}
         >
@@ -202,11 +207,14 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         <button
           type="button"
           className="vx-team-id-chevron"
-          tabIndex={-1}
           aria-label="Show saved FPL Team IDs"
           title={`Saved FPL Team IDs (${recentTeams.length})`}
+          aria-expanded={showDropdown}
+          aria-controls={showDropdown ? listboxId : undefined}
           onMouseDown={(e) => {
             e.preventDefault();
+          }}
+          onClick={() => {
             setOpen((prev) => !prev);
           }}
         >

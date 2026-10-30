@@ -1,0 +1,18 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["src"],
+  "locale": "en-GB",
+  "canonicalMap": "DESIGN.md",
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast"],
+  "ownership": { "Select/Listbox": "native" },
+  "commands": {
+    "typecheck": "npm run typecheck",
+    "unit": "npm test",
+    "build": "npm run build",
+    "responsive": "node scripts/check-responsive-layout.mjs"
+  },
+  "evidence": {
+    "responsiveLayout": "scripts/check-responsive-layout.mjs",
+    "workerFailureRecovery": "scripts/check-planner-browser.mjs"
+  }
+}

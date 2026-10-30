@@ -60,3 +60,6 @@ try {
   await browser.close();
 }
 
+// Phase 1 responsive regression coverage uses the same isolated test server.
+await import('./check-responsive-layout.mjs');
+
