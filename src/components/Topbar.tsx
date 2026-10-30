@@ -41,6 +41,9 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="topbar__left">
+        <div className="topbar__identity">
+          <div className="topbar__channel"><span>FPL</span> <strong>VORTEX</strong></div>
+        </div>
         <button
           type="button"
           className="topbar__brand-lion"
@@ -56,7 +59,6 @@ export function Topbar({
             height={44}
           />
         </button>
-        <div className="topbar__identity"><div className="topbar__channel"><span>FPL</span> <strong>VORTEX</strong></div><p>Better transfers. Smarter captain picks.<br />Fixture ratings, goal projections &amp; clean-sheet probabilities.<br />Follow @FplVortexM for your next Gameweek edge.</p></div>
       </div>
 
       <div className="topbar__right">
