@@ -30,9 +30,17 @@ test('new cron enqueues jobs but never performs expensive optimizer or source re
   assert.match(body,/enqueueScheduledJob\("refresh"/);
   assert.match(body,/enqueueScheduledJob\("live"/);
   assert.doesNotMatch(body,/runCoreOptimizer|captureOfficialFplSnapshots/);
-  const vercel=JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));
-  assert.equal(vercel.crons.length,1);
-  assert.equal(vercel.crons[0].path,'/api/cron/schedule');
+  const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  // This candidate app is NOT deployed as the live website. A schedule must only
+  // be activated after a worker, CRON_SECRET, and a supported hosting plan exist.
+  // Empty/omitted crons are therefore a valid, deliberately inactive state.
+  const crons = vercel.crons ?? [];
+  assert.ok(Array.isArray(crons), 'Vercel crons must be an array when configured');
+  assert.ok(crons.length <= 1, 'Only one enqueue-only scheduler is permitted');
+  for (const cron of crons) {
+    assert.equal(cron.path, '/api/cron/schedule');
+    assert.equal(cron.schedule, '*/10 * * * *');
+  }
 });
 
 test('live automation migration extends the queue kind constraint additively', () => {
