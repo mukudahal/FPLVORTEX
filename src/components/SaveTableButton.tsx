@@ -11,5 +11,5 @@ export function SaveTableButton({ getTables, onSave, filename, onError }: { getT
     catch (error) { if (!(error instanceof Error && error.name === 'AbortError')) onError(error instanceof Error ? error.message : 'Could not save PNG.'); }
     finally { setSaving(false); }
   };
-  return <button type="button" className="save-table-button" onClick={() => void save()} disabled={saving} aria-label="Save this section as a 4K PNG" title="Save this section only · 3840 × 2160 PNG"><Download size={15} />{saving ? 'Preparing…' : 'Save 4K PNG'}</button>;
+  return <button type="button" className="save-table-button" onClick={() => void save()} disabled={saving} aria-label="Save as a PNG image" title="Save as a PNG image"><Download size={15} />{saving ? 'Saving…' : 'Save'}</button>;
 }

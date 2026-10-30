@@ -3,7 +3,6 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './fpl.ts';
 import { createImageDownloadRouter } from './imageDownloads.ts';
@@ -22,7 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const isProduction = process.env.NODE_ENV === 'production';
 const port = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
-const imageCacheDir = process.env.VORTEX_IMAGE_CACHE_DIR ?? path.join(tmpdir(), 'fpl-vortex-player-images');
+const imageCacheDir = path.join(root, '.cache', 'player-images');
 
 export const app = express();
 
@@ -77,16 +76,6 @@ async function fileExistsNonEmpty(filePath: string): Promise<boolean> {
     return info.isFile() && info.size > 200;
   } catch {
     return false;
-  }
-}
-
-async function cacheImageBytes(file: string, bytes: Buffer): Promise<void> {
-  try {
-    await mkdir(imageCacheDir, { recursive: true });
-    await writeFile(file, bytes);
-  } catch {
-    // The disk cache is optional: a real fetched image must still reach the browser.
-    console.warn('[images] Cache write unavailable; serving the fetched image directly.');
   }
 }
 
@@ -312,7 +301,8 @@ app.get('/api/img/player/:code', asyncRoute(async (req, res) => {
 
   const upstreamBytes = await fetchImageBytes(candidates);
   if (upstreamBytes) {
-    await cacheImageBytes(cachedPath, upstreamBytes);
+    await mkdir(imageCacheDir, { recursive: true });
+    await writeFile(cachedPath, upstreamBytes);
     res.set('Cache-Control', 'public, max-age=86400');
     res.type('image/png').send(upstreamBytes);
     return;
@@ -349,7 +339,8 @@ app.get('/api/img/badge/:teamCode', asyncRoute(async (req, res) => {
     `${PL_BADGE_BASE}/t${teamCode}.png`,
   ]);
   if (upstreamBytes) {
-    await cacheImageBytes(cachedPath, upstreamBytes);
+    await mkdir(imageCacheDir, { recursive: true });
+    await writeFile(cachedPath, upstreamBytes);
     res.set('Cache-Control', 'public, max-age=86400');
     res.type('image/png').send(upstreamBytes);
     return;

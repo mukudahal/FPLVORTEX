@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-vortex-v4';
+const CACHE_NAME = 'fpl-vortex-v3';
 const OFFLINE_SNAPSHOT = '/data/fpl-snapshot.json';
 const OFFLINE_LEAGUE = '/data/fpl-league-fallback.json';
 const CORE_ASSETS = [

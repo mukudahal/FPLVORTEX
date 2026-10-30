@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { toRepoElement } from '../lib/analytics';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
@@ -10,7 +10,6 @@ import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
 import { SaveTableButton } from './SaveTableButton';
-import { downloadPitchPng } from '../lib/pitchPng';
 
 interface Props {
   snapshot: Snapshot;
@@ -22,8 +21,6 @@ interface Props {
 }
 
 export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, horizon, onHorizonChange }: Props) {
-  const pitchRef = useRef<HTMLDivElement>(null);
-  const [plannerView, setPlannerView] = useState<'pitch' | 'fixtures'>('pitch');
   const [decay, setDecay] = useState(15);
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const [sort, setSort] = useState<{ gw: number | 'avg'; ascending: boolean }>({ gw: snapshot.meta.nextEventId, ascending: true });
@@ -71,26 +68,17 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, hor
       <div className="vx-planner-score"><span>Projected xPts <strong>{totals.reduce((a, b) => a + b, 0).toFixed(1)}</strong></span><span>Planning score <strong>{futureGwScore(totals, 1 - decay / 100).toFixed(1)}</strong></span></div>
     </div>
     <div className="vx-planner-gws" aria-label="Select gameweek">{gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>)}</div>
-    <div className="planner-view-bar">
-      <div role="group" aria-label="Planner view">
-        <button type="button" aria-pressed={plannerView === 'pitch'} onClick={() => setPlannerView('pitch')}>Pitch view</button>
-        <button type="button" aria-pressed={plannerView === 'fixtures'} onClick={() => setPlannerView('fixtures')}>FDR view</button>
-      </div>
-      {plannerView === 'pitch' && <SaveTableButton filename={`fpl-vortex-planner-pitch-gw${selected}.png`}
-        onSave={async () => { if (!pitchRef.current) throw new Error('Pitch is not ready.'); await downloadPitchPng(pitchRef.current, `fpl-vortex-planner-pitch-gw${selected}.png`); }}
-        onError={message => onToast(message, 'error')} />}
-    </div>
-    <div className="vx-planner-columns vx-planner-columns--focused">
-      <div hidden={plannerView !== 'pitch'} className="vx-soccer-pitch" ref={pitchRef}>
+    <div className="vx-planner-columns">
+      <div className="vx-soccer-pitch">
         <div className="vx-pitch-top-boards"><div className="vx-pitch-board"><img src={BRAND_LION_SRC} alt="" /><span>FPL VORTEX</span></div><div className="vx-pitch-goal-net" aria-hidden="true" /><a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer" className="vx-pitch-board vx-pitch-board--link">@FPLVORTEX</a></div>
         <div className="vx-pitch-turf"><div className="vx-pitch-lines" aria-hidden="true"><span className="vx-pitch-box-18" /><span className="vx-pitch-box-6" /><span className="vx-pitch-halfway" /><span className="vx-pitch-circle" /></div>
           <div className="vx-pitch-formation">{(['GKP', 'DEF', 'MID', 'FWD'] as const).map(pos => <div className="vx-pitch-row" key={pos}>{lineup?.starters.filter(p => p.position === pos).map(p => card(p))}</div>)}</div>
           <div className="vx-pitch-bench-wrap"><div className="vx-pitch-bench-head"><span>BENCH</span></div><div className="vx-pitch-bench">{lineup?.bench.map(p => card(p, true))}</div></div>
         </div>
       </div>
-      <div hidden={plannerView !== 'fixtures'} className="panel vx-planner-fixtures">
+      <div className="panel vx-planner-fixtures">
         <div className="vx-planner-fixture-head"><strong>Fixtures · VORTEX difficulty</strong><small>Click a GW or AVG to sort</small></div>
-        <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-planner-fdr.png" onError={message => onToast(message, 'error')} getTables={() => [{ title: 'PLANNER · VORTEX FIXTURE DIFFICULTY', headers: ['TEAM', ...gws.map(gw => `GW${gw}`), 'AVG'], widths: [140, ...gws.map(() => 150), 75], rows: sorted.map(row => [{ text: row.team.shortName }, ...row.cells.map(cell => { const value = sharedDifficulty(row.team.id, cell.event); return { text: `${cell.isBlank ? '—' : cell.label} ${value === null ? '' : value.toFixed(1)}`, color: value === null ? undefined : difficultyColor(value) }; }), { text: sharedDifficulty(row.team.id, 'avg')?.toFixed(1) ?? '—', color: sharedDifficulty(row.team.id, 'avg') === null ? undefined : difficultyColor(sharedDifficulty(row.team.id, 'avg')!) }]) }]} /></div>
+        <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} getTables={() => [{ title: 'PLANNER · VORTEX FIXTURE DIFFICULTY', headers: ['TEAM', ...gws.map(gw => `GW${gw}`), 'AVG'], widths: [140, ...gws.map(() => 150), 75], rows: sorted.map(row => [{ text: row.team.shortName }, ...row.cells.map(cell => { const value = sharedDifficulty(row.team.id, cell.event); return { text: `${cell.isBlank ? '—' : cell.label} ${value === null ? '' : value.toFixed(1)}`, color: value === null ? undefined : difficultyColor(value) }; }), { text: sharedDifficulty(row.team.id, 'avg')?.toFixed(1) ?? '—', color: sharedDifficulty(row.team.id, 'avg') === null ? undefined : difficultyColor(sharedDifficulty(row.team.id, 'avg')!) }]) }]} /></div>
         <div className="vx-planner-table-scroll"><table><thead><tr><th>TEAM</th>{gws.map(gw => <th key={gw}><button type="button" onClick={() => setSort(prev => ({ gw, ascending: prev.gw === gw ? !prev.ascending : true }))}>GW{gw}{sort.gw === gw ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th>)}<th><button type="button" onClick={() => setSort(prev => ({ gw: 'avg', ascending: prev.gw === 'avg' ? !prev.ascending : true }))}>AVG{sort.gw === 'avg' ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th></tr></thead>
           <tbody>{sorted.map(row => {
             const average = sharedDifficulty(row.team.id, 'avg');

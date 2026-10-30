@@ -228,7 +228,6 @@ export function CommandCenter({
   refreshing,
   onToast = message => window.alert(message),
 }: CommandCenterProps) {
-  const [focusSlide, setFocusSlide] = useState('overview');
   const now = useNow(1000);
   const videoTrackRef = useRef<HTMLDivElement | null>(null);
   const topInputRef = useRef<HTMLInputElement | null>(null);
@@ -821,34 +820,10 @@ export function CommandCenter({
             return tables;
           };
 
-  const focusSlides = [
-    ['overview', 'Overview'], ['pitch', 'My pitch'], ['fixtures', 'Fixtures'],
-    ['goals', 'Projections'], ['players', 'Top players'], ['prices', 'Prices'],
-    ['injuries', 'Injuries'], ['videos', 'Videos'],
-  ] as const;
-
   return (
-    <div className="page page--command page--focused" data-focus-slide={focusSlide}>
-      <div className="focus-slide-header">
-        <nav className="focus-slides" aria-label="Command Center sections">
-          {focusSlides.map(([id, label]) => <button type="button" key={id}
-            className={focusSlide === id ? 'is-active' : ''}
-            aria-pressed={focusSlide === id} onClick={() => setFocusSlide(id)}>{label}</button>)}
-        </nav>
-        <select className="focus-slide-select" aria-label="Command Center section" value={focusSlide}
-          onChange={event => setFocusSlide(event.target.value)}>
-          {focusSlides.map(([id, label]) => <option value={id} key={id}>{label}</option>)}
-        </select>
-        <div className="focus-slide-stepper">
-          <button type="button" aria-label="Previous section" disabled={focusSlide === focusSlides[0][0]}
-            onClick={() => setFocusSlide(focusSlides[Math.max(0, focusSlides.findIndex(([id]) => id === focusSlide) - 1)][0])}><ChevronLeft size={17} /></button>
-          <span>{focusSlides.findIndex(([id]) => id === focusSlide) + 1} / {focusSlides.length}</span>
-          <button type="button" aria-label="Next section" disabled={focusSlide === focusSlides.at(-1)![0]}
-            onClick={() => setFocusSlide(focusSlides[Math.min(focusSlides.length - 1, focusSlides.findIndex(([id]) => id === focusSlide) + 1)][0])}><ChevronRight size={17} /></button>
-        </div>
-      </div>
+    <div className="page page--command">
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
-      <section hidden={focusSlide !== 'overview'} className="hero hero--compact" aria-labelledby="hero-title">
+      <section className="hero hero--compact" aria-labelledby="hero-title">
         <div className="hero__noise" />
         <div className="hero__content hero__content--compact">
           <div className="eyebrow">
@@ -953,8 +928,6 @@ export function CommandCenter({
         </div>
 
         {/* PREMIUM RIGHT VISUAL ORB + COLORFUL ARTISTIC HERO SHOWCASE CARDS */}
-        <details className="overview-highlights">
-          <summary>Captain & fixture highlights</summary>
         <div className="hero__visual hero__visual--compact hero__visual--artistic">
           <div className="vortex-orb vortex-orb--compact vortex-orb--artistic" aria-hidden="true">
             <span className="vortex-orb__aurora" />
@@ -1062,11 +1035,10 @@ export function CommandCenter({
             </button>
           )}
         </div>
-        </details>
       </section>
 
       {/* ==================== GAMEWEEK REVIEW CONTROL BAR ==================== */}
-      <section hidden={!['pitch', 'fixtures', 'goals'].includes(focusSlide)} className="vx-gw-bar" aria-label="Gameweek review and sync controls">
+      <section className="vx-gw-bar" aria-label="Gameweek review and sync controls">
         <div className="vx-gw-bar__left">
           <span className="vx-gw-bar__dot" />
           <strong>Gameweek Review</strong>
@@ -1133,9 +1105,9 @@ export function CommandCenter({
       </section>
 
       {/* ==================== 2. UPPER 3-COLUMN VORTEX HUB (IMAGE 1 — STAYS AT TOP!) ==================== */}
-      <section hidden={!['pitch', 'fixtures', 'goals'].includes(focusSlide)} className="vx-hub-upper" aria-label="Squad review pitch, fixtures and projected goals">
+      <section className="vx-hub-upper" aria-label="Squad review pitch, fixtures and projected goals">
         {/* COLUMN 1: GATED ON TOP FPL TEAM ID BAR -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
-        <article hidden={focusSlide !== 'pitch'} className="panel vx-card vx-card--pitch">
+        <article className="panel vx-card vx-card--pitch">
           {!hasLinkedTeam ? (
             <div className="vx-pitch-gate">
               <div className="vx-pitch-gate__badge">
@@ -1153,11 +1125,8 @@ export function CommandCenter({
                 type="button"
                 className="button button--primary"
                 onClick={() => {
-                  setFocusSlide('overview');
-                  window.setTimeout(() => {
-                    topInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    topInputRef.current?.focus();
-                  }, 0);
+                  topInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  topInputRef.current?.focus();
                 }}
               >
                 <UserCheck size={16} /> Go to Top FPL Team ID Box
@@ -1302,7 +1271,7 @@ export function CommandCenter({
                 </>
               ) : (
                 <div className="vx-squad-table-wrap">
-                  <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-squad-4k.png" onError={message => onToast(message, 'error')} getTables={() => homeExportTables().filter(table => table.title.startsWith('SQUAD'))} /></div>
+                  <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-home-tables.png" onError={message => onToast(message, 'error')} getTables={homeExportTables} /></div>
                   <table className="vx-compact-table">
                     <thead>
                       <tr>
@@ -1393,7 +1362,7 @@ export function CommandCenter({
         </article>
 
         {/* COLUMN 2: GW FIXTURES CARD */}
-        <article hidden={focusSlide !== 'fixtures'} className="panel vx-card vx-card--fixtures">
+        <article className="panel vx-card vx-card--fixtures">
           <header className="vx-card__header">
             <div>
               <h3>GW {selectedGw} Fixtures</h3>
@@ -1506,7 +1475,7 @@ export function CommandCenter({
         </article>
 
         {/* COLUMN 3: GW PROJECTED GOALS / CS% / WIN% CARD */}
-        <article hidden={focusSlide !== 'goals'} className="panel vx-card vx-card--goals">
+        <article className="panel vx-card vx-card--goals">
           <header className="vx-card__header vx-card__header--wrap">
             <div className="vx-card__title-icon">
               <Shield size={16} className="vx-icon-mint" />
@@ -1599,9 +1568,9 @@ export function CommandCenter({
       </section>
 
       {/* ==================== 3. LOWER 3-COLUMN INTELLIGENCE GRID (IMAGE 2 TOP) ==================== */}
-      <section hidden={!['players', 'prices', 'injuries'].includes(focusSlide)} className="vx-hub-lower" aria-label="Top players, price changes and injuries">
+      <section className="vx-hub-lower" aria-label="Top players, price changes and injuries">
         {/* CARD 1: TOP PLAYERS */}
-        <article hidden={focusSlide !== 'players'} className="panel vx-card vx-card--lower">
+        <article className="panel vx-card vx-card--lower">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
               <Trophy size={16} className="vx-icon-amber" />
@@ -1704,7 +1673,7 @@ export function CommandCenter({
         </article>
 
         {/* CARD 2: PRICE & TRANSFERS (HOME TAB FULL-SPECTRUM TRADING TABLE) */}
-        <article hidden={focusSlide !== 'prices'} className="panel vx-card vx-card--lower vx-card--transfers vx-card--transfers-wide">
+        <article className="panel vx-card vx-card--lower vx-card--transfers vx-card--transfers-wide">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
               <ArrowLeftRight size={16} className="vx-icon-mint" />
@@ -1715,7 +1684,7 @@ export function CommandCenter({
             </button>
           </header>
 
-          <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-prices-4k.png" onError={message => onToast(message, 'error')} getTables={() => homeExportTables().filter(table => table.title.startsWith('PRICE'))} /></div>
+          <div className="save-table-bar"><SaveTableButton filename="fpl-vortex-home-tables.png" onError={message => onToast(message, 'error')} getTables={homeExportTables} /></div>
           <div className="vx-card__scroll vx-transfer-scroll-x">
             <table className="vx-transfer-table vx-transfer-table--predictor vx-transfer-table--home-full">
               <thead>
@@ -1947,7 +1916,7 @@ export function CommandCenter({
         </article>
 
         {/* CARD 3: INJURIES & SUSPENSIONS */}
-        <article hidden={focusSlide !== 'injuries'} className="panel vx-card vx-card--lower">
+        <article className="panel vx-card vx-card--lower">
           <header className="vx-card__header">
             <div className="vx-card__title-icon">
               <Stethoscope size={16} className="vx-icon-pink" />
@@ -2046,7 +2015,7 @@ export function CommandCenter({
       </section>
 
       {/* ==================== 4. COMPACT HORIZONTAL SCROLLABLE YOUTUBE STRIP (IMAGE 2 BOTTOM) ==================== */}
-      <section hidden={focusSlide !== 'videos'} className="panel vx-videos-strip" aria-label="Latest FPL VORTEX YouTube videos">
+      <section className="panel vx-videos-strip" aria-label="Latest FPL VORTEX YouTube videos">
         <header className="vx-card__header vx-videos-strip__header">
           <div className="vx-card__title-icon">
             <YouTubeBrandLogo size={22} />

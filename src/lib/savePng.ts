@@ -23,9 +23,7 @@ export async function validatePng(blob: Blob): Promise<void> {
 }
 
 /** The second, real tap is important: mobile browsers may block delayed automatic downloads. */
-export async function savePngBlob(blob: Blob, filename: string, pages?: {
-  current: number; total: number; open: (index: number) => Promise<void>;
-}): Promise<void> {
+export async function savePngBlob(blob: Blob, filename: string): Promise<void> {
   await validatePng(blob);
   const url = URL.createObjectURL(blob);
   let downloadUrl: string | null = null;
@@ -46,7 +44,6 @@ export async function savePngBlob(blob: Blob, filename: string, pages?: {
   overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-label', 'Save image');
   const panel = document.createElement('div'); panel.className = 'png-save-dialog';
   const heading = document.createElement('h2'); heading.textContent = 'Your image is ready';
-  if (pages && pages.total > 1) heading.textContent = `4K PNG · Page ${pages.current + 1} of ${pages.total}`;
   const description = document.createElement('p'); description.textContent = downloadUrl ? 'Choose Download, or Share to save or send the image. For downloading, the image is kept temporarily on the server for up to five minutes.' : 'The download link could not be prepared. Try Share image, or use the browser download below.';
   const preview = document.createElement('img'); preview.src = url; preview.alt = 'Preview of the image to save';
   const actions = document.createElement('div'); actions.className = 'png-save-actions';
@@ -61,7 +58,7 @@ export async function savePngBlob(blob: Blob, filename: string, pages?: {
     window.setTimeout(() => URL.revokeObjectURL(url), 300_000);
   };
   const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') cleanup(); };
-  download.addEventListener('click', () => { if (!pages || pages.total === 1) window.setTimeout(cleanup, 1000); });
+  download.addEventListener('click', () => { window.setTimeout(cleanup, 1000); });
   cancel.addEventListener('click', cleanup);
   actions.appendChild(download);
   const picker = (window as PickerWindow).showSaveFilePicker;
@@ -85,18 +82,6 @@ export async function savePngBlob(blob: Blob, filename: string, pages?: {
         catch (error) { if (!(error instanceof Error && error.name === 'AbortError')) message.textContent = 'Sharing did not work. Try Download image instead.'; }
       });
       actions.appendChild(share);
-    }
-  }
-  if (pages && pages.total > 1) {
-    for (const [label, index] of [['Previous page', pages.current - 1], ['Next page', pages.current + 1]] as const) {
-      const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
-      button.disabled = index < 0 || index >= pages.total;
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        try { await pages.open(index); cleanup(); }
-        catch (error) { message.textContent = error instanceof Error ? error.message : 'Could not create that page.'; button.disabled = false; }
-      });
-      actions.appendChild(button);
     }
   }
   actions.appendChild(cancel); panel.append(heading, description, preview, actions, message); overlay.appendChild(panel);
