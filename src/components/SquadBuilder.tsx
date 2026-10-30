@@ -1247,7 +1247,7 @@ export function SquadBuilder({
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">GW{reviewSim.nextGw} CAPTAINCY VARIANCE</span>
-                  <h3>2× Captaincy haul & blank probabilities</h3>
+                  <h3>Captain score risk · means and ceiling shown at 2×</h3>
                 </div>
                 <Crown size={17} />
               </div>
@@ -1258,8 +1258,8 @@ export function SquadBuilder({
                       <th>Captain</th>
                       <th>Mean (2×)</th>
                       <th>P90 Ceiling (2×)</th>
-                      <th>P(Haul ≥ 9 pts)</th>
-                      <th>P(Blank ≤ 2 pts)</th>
+                      <th>P(Player ≥ 9 pts)</th>
+                      <th>P(Player ≤ 2 pts)</th>
                     </tr>
                   </thead>
                   <tbody>
