@@ -392,6 +392,8 @@ export interface EntryData {
   freeTransfers: number;
   currentEvent: number;
   activeChip: string | null;
+  /** Official played-chip history. Undefined means the upstream history could not be verified. */
+  chipsUsed?: Array<{ name: string; event: number }>;
   history: EntryHistory;
   picks: EntryPick[];
   players: EnrichedPlayer[];

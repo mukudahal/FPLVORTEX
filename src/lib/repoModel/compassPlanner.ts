@@ -1,0 +1,419 @@
+/**
+ * Independent multi-week planning model inspired by public FPL Compass workflows.
+ * Uses FPL VORTEX forecasts and scoring; no Compass code or private model inputs.
+ */
+import type { EnrichedPlayer } from '../types';
+import type { FplReviewSimInput, FplReviewSimOutput, LineupSolution, SolverPlayerNode } from './fplReviewSimulator';
+import { positionToType, solveLineupTS, solveFullSquadTS } from './fplReviewSimulator';
+import type { ChipGwSimulation, ChipSimulationSummary, OptimizerOptionComparison, OptimizerTransferMove } from './dashboardTypes';
+import { computePlayerXPts, computePositionPriors } from './xpts';
+import { runMonteCarlo, mixSeed, type McPath, type McPlayerGw } from './monteCarlo';
+import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
+import { validateSeasonChipPlan, validateSquad, type SeasonChipUse } from './seasonRules';
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const CHIP_NAMES = { wc: 'wildcard', fh: 'freehit', bb: 'bboost', tc: '3xc' } as const;
+const CHIP_LABELS = { wc: 'Wildcard', fh: 'Free Hit', bb: 'Bench Boost', tc: 'Triple Captain' } as const;
+const CHIPS: PlanningChip[] = ['wc', 'fh', 'bb', 'tc'];
+
+export interface PlannerSimulationInput extends FplReviewSimInput {
+  lockedIds?: number[];
+  /** Hits already committed by manual scenario transfers, charged once in the first GW. */
+  initialHitCost?: number;
+  decay?: number;
+  startedEvent?: number;
+  /** Unknown history disables chip recommendations for a loaded manager. */
+  chipHistoryKnown?: boolean;
+  /** Snapshot provenance is shown in assumptions, never upgraded to live. */
+  dataNotice?: string;
+}
+
+export interface StrategyWeek {
+  gw: number;
+  squad: number[];
+  lineup: LineupSolution;
+  chip?: PlanningChip;
+  moves: Array<{ outId: number; inId: number }>;
+  ftBefore: number;
+  ftAfter: number;
+  bankAfter: number;
+  sellingPricesAfter: Record<number, number>;
+  hitCost: number;
+  netXPts: number;
+}
+
+export interface PlannerSimulationOutput extends FplReviewSimOutput {
+  strategy: {
+    weeks: StrategyWeek[];
+    schedule: SeasonChipUse[];
+    expectedPoints: number;
+    baselinePoints: number;
+    gain: number;
+    planningScore: number;
+    horizon: number[];
+    search: string;
+  };
+  forecastByGw: Record<number, Record<number, number>>;
+  warnings: string[];
+}
+
+interface SearchState {
+  squad: number[];
+  bank: number;
+  /** Selling values follow ownership; sold and re-bought players lose the old basis. */
+  sell: Record<number, number>;
+  ft: number;
+  uses: SeasonChipUse[];
+  weeks: StrategyWeek[];
+  score: number;
+  total: number;
+}
+
+interface Action {
+  squad: number[];
+  bank: number;
+  sell: Record<number, number>;
+  moves: Array<{ outId: number; inId: number }>;
+}
+
+export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimulationOutput {
+  const { nextGw } = input;
+  if (!Number.isInteger(nextGw) || nextGw < 1 || nextGw > 38) throw new RangeError('Choose an upcoming gameweek from 1 to 38.');
+  if (!Number.isInteger(input.bankTenths) || input.bankTenths < 0) throw new RangeError('Squad exceeds the available budget. Reset or undo a transfer.');
+  if (!Number.isInteger(input.freeTransfersNow) || input.freeTransfersNow < 0 || input.freeTransfersNow > 5) throw new RangeError('Free transfers must be between 0 and 5.');
+  if (!Number.isFinite(input.initialHitCost ?? 0) || (input.initialHitCost ?? 0) < 0) throw new RangeError('Invalid committed transfer hit.');
+  const horizon = Math.max(1, Math.min(10, Math.round(input.horizon ?? 5)));
+  const decay = input.decay ?? 0.85;
+  if (!Number.isFinite(decay) || decay < 0.5 || decay > 1) throw new RangeError('Decay must be between 0.5 and 1.');
+  const gws = Array.from({ length: Math.min(horizon, 39 - nextGw) }, (_, i) => nextGw + i);
+  const halfEnd = nextGw <= 19 ? 19 : 38;
+  const chipHalfGws = Array.from({ length: halfEnd - nextGw + 1 }, (_, i) => nextGw + i);
+  // Chip search spans the remaining half, including expiry; simulation uses the chosen horizon.
+  const allGws = [...new Set([...gws, ...chipHalfGws])].sort((a, b) => a - b);
+  const byId = new Map<number, SolverPlayerNode>();
+  const playerMap = new Map(input.players.map(p => [p.id, p]));
+  for (const p of input.players) byId.set(p.id, { id: p.id, type: positionToType(p.position), team: p.teamId, cost: p.cost, name: p.name });
+  const initialSquad = input.currentSquadIds.map(id => {
+    const p = byId.get(id);
+    if (!p) throw new RangeError('Load a complete squad before simulating.');
+    return { id, team: p.team, position: p.type, priceTenths: p.cost };
+  });
+  const legality = validateSquad(initialSquad, initialSquad.reduce((s, p) => s + p.priceTenths, input.bankTenths));
+  if (!legality.legal) throw new RangeError(legality.errors.join(' '));
+  const locked = new Set(input.lockedIds ?? []);
+  if ([...locked].some(id => !input.currentSquadIds.includes(id))) throw new RangeError('Only squad players can be locked.');
+  const knownHistory = input.chipHistoryKnown ?? input.chipsUsed !== undefined;
+  const history: SeasonChipUse[] = (input.chipsUsed ?? []).flatMap(use => {
+    const chip = CHIPS.find(c => CHIP_NAMES[c] === use.name || c === use.name);
+    return chip && use.event < nextGw ? [{ gw: use.event, chip }] : [];
+  });
+  const warnings: string[] = [];
+  if (!knownHistory) warnings.push('Chip history is unavailable. Refresh the team to enable chip recommendations.');
+  if (input.dataNotice) warnings.push(input.dataNotice);
+  warnings.push('Forecasts assume the published fixture schedule and fixed player prices; future postponements, injuries and price changes are unknown.');
+
+  const teams = new Map(input.repoTeams.map(t => [t.id, t]));
+  const elements = new Map(input.repoElements.map(e => [e.id, e]));
+  const priors = computePositionPriors(input.repoElements);
+  const models = new Map<string, ReturnType<typeof computePlayerXPts>>();
+  const forecastByGw: Record<number, Record<number, number>> = {};
+  for (const gw of allGws) {
+    const values: Record<number, number> = {};
+    for (const p of input.players) {
+      const el = elements.get(p.id);
+      if (!el) throw new RangeError('Player forecast inputs are incomplete. Refresh the data.');
+      const bd = computePlayerXPts(el, gw, input.repoFixtures, teams, Math.max(1, nextGw - 1), gw - nextGw, priors);
+      models.set(`${p.id}:${gw}`, bd);
+      const imported = p.gwProjections?.[gw];
+      // Fixture blanks override imported projections. Zero is a legitimate imported forecast.
+      values[p.id] = bd.fixtureCount === 0 ? 0 : Number.isFinite(imported) ? Math.max(0, imported!) : Math.max(0, bd.xPts);
+    }
+    forecastByGw[gw] = values;
+  }
+
+  const lineupCache = new Map<string, LineupSolution>();
+  const lineup = (sq: number[], gw: number, chip?: PlanningChip): LineupSolution => {
+    const key = `${gw}:${chip ?? ''}:${[...sq].sort((a, b) => a - b).join(',')}`;
+    let value = lineupCache.get(key);
+    if (!value) {
+      value = solveLineupTS(sq, byId, forecastByGw[gw], chip === 'bb', chip === 'tc');
+      lineupCache.set(key, value);
+    }
+    return value;
+  };
+  const squadValue = (sq: number[], gw: number, benchWeight = 0): number => {
+    let total = 0;
+    // Shared objective for transfers and rebuilds; no arbitrary current-week projection reuse.
+    for (let offset = 0; offset < 3 && forecastByGw[gw + offset]; offset++) {
+      const l = lineup(sq, gw + offset);
+      total += Math.pow(decay, offset) * (l.totalXPts + benchWeight * l.benchXPts);
+    }
+    return total;
+  };
+  const initialSell: Record<number, number> = {};
+  for (const id of input.currentSquadIds) initialSell[id] = input.sellingPrices?.[id] ?? byId.get(id)!.cost;
+  if (Object.values(initialSell).some(n => !Number.isInteger(n) || n < 0)) throw new RangeError('Invalid player selling price.');
+  const totalSellBudgetTenths = input.bankTenths + Object.values(initialSell).reduce((a, b) => a + b, 0);
+  const initial: SearchState = { squad: [...input.currentSquadIds], bank: input.bankTenths, sell: initialSell, ft: input.freeTransfersNow, uses: [], weeks: [], score: 0, total: 0 };
+
+  const pools = new Map<number, number[]>();
+  for (const gw of allGws) {
+    const pool = new Set(input.currentSquadIds);
+    for (const type of [1, 2, 3, 4]) {
+      const eligible = input.players.filter(p => positionToType(p.position) === type && p.availability > 0);
+      const value = (p: EnrichedPlayer) => [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * (forecastByGw[gw + o]?.[p.id] ?? 0), 0);
+      eligible.sort((a, b) => value(b) - value(a) || a.id - b.id).slice(0, 14).forEach(p => pool.add(p.id));
+      eligible.sort((a, b) => a.cost - b.cost || value(b) - value(a)).slice(0, 4).forEach(p => pool.add(p.id));
+    }
+    pools.set(gw, [...pool]);
+  }
+
+  const actionCache = new Map<string, Action[]>();
+  const actionsAt = (state: SearchState, gw: number): Action[] => {
+    const key = `${gw}:${state.ft}:${state.bank}:${[...state.squad].sort((a, b) => a - b).map(id => id + '=' + state.sell[id]).join(',')}`;
+    const cached = actionCache.get(key);
+    if (cached) return cached;
+    const hold: Action = { squad: state.squad, bank: state.bank, sell: state.sell, moves: [] };
+    const current = new Set(state.squad);
+    const swaps: Array<{ outId: number; inId: number; delta: number; gain: number }> = [];
+    for (const outId of state.squad) {
+      if (locked.has(outId)) continue;
+      const out = byId.get(outId)!;
+      for (const inId of pools.get(gw) ?? []) {
+        const inc = byId.get(inId)!;
+        if (current.has(inId) || inc.type !== out.type) continue;
+        const gain = [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * ((forecastByGw[gw + o]?.[inId] ?? 0) - (forecastByGw[gw + o]?.[outId] ?? 0)), 0);
+        swaps.push({ outId, inId, delta: state.sell[outId] - inc.cost, gain });
+      }
+    }
+    const makeAction = (moves: typeof swaps): Action | null => {
+      const bank = state.bank + moves.reduce((sum, m) => sum + m.delta, 0);
+      if (bank < 0) return null;
+      const sq = state.squad.map(id => moves.find(m => m.outId === id)?.inId ?? id);
+      const counts = new Map<number, number>();
+      for (const id of sq) { const team = byId.get(id)!.team; counts.set(team, (counts.get(team) ?? 0) + 1); }
+      if ([...counts.values()].some(n => n > 3)) return null;
+      const sell = { ...state.sell };
+      for (const m of moves) { delete sell[m.outId]; sell[m.inId] = byId.get(m.inId)!.cost; }
+      return { squad: sq, bank, sell, moves: moves.map(({ outId, inId }) => ({ outId, inId })) };
+    };
+    const ranked: Array<{ action: Action; value: number }> = [];
+    const add = (action: Action | null) => {
+      if (action) ranked.push({ action, value: squadValue(action.squad, gw) - pointsHit(action.moves.length, state.ft) });
+    };
+    // Evaluate shortlisted singles and coupled pairs, including selling a scorer to fund a bigger upgrade.
+    swaps.sort((a, b) => b.gain - a.gain || a.inId - b.inId);
+    for (const swap of [...new Set([...swaps.slice(0, 36), ...[...swaps].sort((a, b) => b.delta - a.delta || b.gain - a.gain).slice(0, 8)])]) add(makeAction([swap]));
+    swaps.sort((a, b) => b.gain - a.gain || a.inId - b.inId);
+    const pairPool = [...new Set([...swaps.slice(0, 12), ...[...swaps].sort((a, b) => b.delta - a.delta || b.gain - a.gain).slice(0, 4)])];
+    for (let a = 0; a < pairPool.length; a++) for (let b = a + 1; b < pairPool.length; b++) {
+      const first = pairPool[a], second = pairPool[b];
+      if (first.outId === second.outId || first.inId === second.inId) continue;
+      add(makeAction([first, second]));
+    }
+    ranked.sort((a, b) => b.value - a.value || a.action.moves.length - b.action.moves.length);
+    // Preserve a roll branch and both 1/2-transfer branches even when short-term totals are close.
+    const result: Action[] = [hold];
+    for (const n of [1, 2]) result.push(...ranked.filter(a => a.action.moves.length === n).slice(0, 2).map(a => a.action));
+    actionCache.set(key, result);
+    return result;
+  };
+
+  const rebuildCache = new Map<string, Action | null>();
+  const rebuild = (state: SearchState, gw: number, chip: 'wc' | 'fh'): Action | null => {
+    const budget = state.bank + state.squad.reduce((sum, id) => sum + state.sell[id], 0);
+    const key = `${gw}:${chip}:${budget}:${state.squad.map(id => id + '=' + state.sell[id]).sort().join(',')}`;
+    if (rebuildCache.has(key)) return rebuildCache.get(key)!;
+    const candidates = [...new Set([...(pools.get(gw) ?? []), ...state.squad, ...locked])];
+    const weights: Record<number, number> = {};
+    for (const id of candidates) weights[id] = chip === 'wc' ? [1, 2].reduce((s, o) => s + Math.pow(decay, o) * (forecastByGw[gw + o]?.[id] ?? 0), 0) : 0;
+    let sq = solveFullSquadTS(candidates, byId, budget, forecastByGw[gw], weights, locked);
+    if (!sq) { rebuildCache.set(key, null); return null; }
+    // Refine the actual XI/captain objective; WC also values a playable bench for later BB.
+    const objective = (ids: number[]) => chip === 'wc' ? squadValue(ids, gw, 0.15) : lineup(ids, gw).totalXPts;
+    let best = objective(sq);
+    for (let pass = 0; pass < 2; pass++) for (const inc of candidates) {
+      if (sq.includes(inc)) continue;
+      const p = byId.get(inc)!;
+      for (const out of sq) {
+        if (locked.has(out) || byId.get(out)!.type !== p.type) continue;
+        const trial = sq.map(id => id === out ? inc : id);
+        if (trial.reduce((s, id) => s + byId.get(id)!.cost, 0) > budget || trial.filter(id => byId.get(id)!.team === p.team).length > 3) continue;
+        const value = objective(trial);
+        if (value > best + 0.01) { sq = trial; best = value; break; }
+      }
+    }
+    const sell = Object.fromEntries(sq.map(id => [id, byId.get(id)!.cost]));
+    // Unchanged holdings retain their selling basis after a Wildcard.
+    for (const id of sq) if (state.squad.includes(id)) sell[id] = state.sell[id];
+    const spent = sq.reduce((s, id) => s + byId.get(id)!.cost, 0);
+    const retainedDiscount = sq.reduce((s, id) => s + (state.squad.includes(id) ? byId.get(id)!.cost - state.sell[id] : 0), 0);
+    const incoming = sq.filter(id => !state.squad.includes(id));
+    const moves = state.squad.filter(id => !sq!.includes(id)).map(outId => {
+      const index = incoming.findIndex(id => byId.get(id)!.type === byId.get(outId)!.type);
+      return { outId, inId: incoming.splice(index, 1)[0] };
+    });
+    const action = { squad: sq, sell, bank: budget - spent + retainedDiscount, moves };
+    rebuildCache.set(key, action);
+    return action;
+  };
+  const available = (state: SearchState, gw: number, chip: PlanningChip): boolean => knownHistory &&
+    !((chip === 'wc' || chip === 'fh') && gw === (input.startedEvent ?? 1)) &&
+    validateSeasonChipPlan([...history, ...state.uses, { gw, chip }]).length === 0;
+
+  const advance = (state: SearchState, action: Action, gw: number, chip?: PlanningChip): SearchState => {
+    const hitCost = pointsHit(action.moves.length, state.ft, chip === 'wc' || chip === 'fh') + (gw === nextGw && chip !== 'wc' && chip !== 'fh' ? input.initialHitCost ?? 0 : 0);
+    const lu = lineup(action.squad, gw, chip);
+    const ftAfter = nextFreeTransfers(state.ft, action.moves.length, chip);
+    const uses = chip ? [...state.uses, { gw, chip }] : state.uses;
+    const week: StrategyWeek = { gw, squad: action.squad, lineup: lu, chip, moves: action.moves, ftBefore: state.ft, ftAfter, bankAfter: action.bank, sellingPricesAfter: action.sell, hitCost, netXPts: r2(lu.totalXPts - hitCost) };
+    return { squad: chip === 'fh' ? state.squad : action.squad, bank: chip === 'fh' ? state.bank : action.bank, sell: chip === 'fh' ? state.sell : action.sell, ft: ftAfter, uses, weeks: [...state.weeks, week], score: state.score + Math.pow(decay, gw - nextGw) * week.netXPts, total: state.total + week.netXPts };
+  };
+  const searchGws = allGws;
+  const search = (withChips: boolean, firstMoves?: number): SearchState => {
+    let beam: SearchState[] = [initial];
+    for (const gw of searchGws) {
+      const expanded: SearchState[] = [];
+      for (const state of beam) {
+        const actions = actionsAt(state, gw).filter(a => gw !== nextGw || firstMoves === undefined || a.moves.length === firstMoves);
+        for (const action of actions) {
+          expanded.push(advance(state, action, gw));
+          if (withChips) for (const chip of ['bb', 'tc'] as const) if (available(state, gw, chip)) expanded.push(advance(state, action, gw, chip));
+        }
+        if (withChips) for (const chip of ['wc', 'fh'] as const) if (available(state, gw, chip)) {
+          const built = rebuild(state, gw, chip);
+          if (built) expanded.push(advance(state, built, gw, chip));
+        }
+      }
+      if (!expanded.length) return initial;
+      // Distinct ownership/selling bases, chip inventories and FTs are separate states.
+      const keyOf = (s: SearchState) => `${s.bank}:${s.ft}:${s.squad.map(id => id + '=' + s.sell[id]).sort().join(',')}:${s.uses.map(u => (u.gw <= 19 ? 1 : 2) + u.chip).sort().join(',')}:${s.uses.at(-1)?.chip === 'fh' && s.uses.at(-1)?.gw === gw ? gw : 0}`;
+      const unique = new Map<string, SearchState>();
+      const estimates = new Map<SearchState, number>();
+      const estimate = (s: SearchState) => {
+        const cached = estimates.get(s);
+        if (cached !== undefined) return cached;
+        const remaining = searchGws.filter(g => g > gw).reduce((sum, g) => sum + Math.pow(decay, g - nextGw) * lineup(s.squad, g).totalXPts, 0);
+        // Remaining chip value helps prevent premature use; no hard-coded play-now threshold.
+        const optionValue = withChips ? CHIPS.reduce((sum, c) => {
+          const gains = searchGws.filter(g => g > gw && available(s, g, c)).map(g => {
+            const l = lineup(s.squad, g);
+            return Math.pow(decay, g - nextGw) * (c === 'bb' ? l.benchXPts : c === 'tc' ? forecastByGw[g][l.captainId] : 0);
+          });
+          return sum + Math.max(0, ...gains);
+        }, 0) : 0;
+        const result = s.score + remaining + optionValue;
+        estimates.set(s, result);
+        return result;
+      };
+      expanded.sort((a, b) => estimate(b) - estimate(a) || a.uses.length - b.uses.length || b.ft - a.ft);
+      for (const state of expanded) { const key = keyOf(state); if (!unique.has(key)) unique.set(key, state); }
+      beam = [...unique.values()].slice(0, 6);
+    }
+    return beam.sort((a, b) => b.score - a.score || a.uses.length - b.uses.length)[0] ?? initial;
+  };
+
+  const variants = [0, 1, 2].map(n => search(false, n));
+  const baseline = [...variants].filter(s => s.weeks.length).sort((a, b) => b.score - a.score)[0];
+  if (!baseline) throw new RangeError('No legal transfer plan found.');
+  const searched = knownHistory ? search(true) : baseline;
+  // The available no-chip plan is always a candidate: chips cannot force a worse recommendation.
+  const best = searched.score > baseline.score + 0.01 ? searched : baseline;
+  const holdWeeks = allGws.map(gw => ({ gw, lineup: lineup(initial.squad, gw) }));
+  const moveDetail = (m: { outId: number; inId: number }): OptimizerTransferMove => ({
+    ...m, sellingPrice: initialSell[m.outId], buyPrice: byId.get(m.inId)!.cost,
+    xPtsOutNextGw: forecastByGw[nextGw][m.outId], xPtsInNextGw: forecastByGw[nextGw][m.inId],
+    xPtsGainNextGw: r2(forecastByGw[nextGw][m.inId] - forecastByGw[nextGw][m.outId]),
+    xPtsGainHorizon: r2(gws.reduce((s, gw) => s + forecastByGw[gw][m.inId] - forecastByGw[gw][m.outId], 0)),
+  });
+  const first0 = variants[0].weeks[0]!;
+  const firstOf = (n: number) => variants[n].weeks[0] ?? first0;
+  const optionIds = ['roll', 'transfer1', 'transfer2'] as const;
+  const winnerIndex = variants.indexOf(baseline);
+  const horizonTotal = (state: SearchState) => r2(state.weeks.filter(w => gws.includes(w.gw)).reduce((s, w) => s + w.netXPts, 0));
+  const options: OptimizerOptionComparison[] = variants.map((state, i) => {
+    const first = firstOf(i), moves = first.moves.map(moveDetail), feasible = i === 0 || moves.length === i;
+    return { id: optionIds[i], label: i === 0 ? `Roll (${initial.ft} → ${first.ftAfter} FT)` : feasible ? `${i} move${i === 1 ? '' : 's'}: ${moves.map(m => playerMap.get(m.outId)!.name + ' → ' + playerMap.get(m.inId)!.name).join(', ')}` : `No legal ${i}-move path`, action: i === 0 ? 'ROLL' : 'TRANSFER', transfers: moves, hitCost: first.hitCost, nextGwXPts: first.netXPts, horizonXPts: feasible ? horizonTotal(state) : horizonTotal(variants[0]), xPtsGainVsRoll: r2(first.lineup.totalXPts - first0.lineup.totalXPts), netGainVsRoll: r2(first.netXPts - first0.netXPts), winner: i === winnerIndex, why: feasible ? `Week-by-week bank and FT replay; ${gws.length}-GW total includes all transfer hits. Ranked by ${Math.round(decay * 100)}% weekly decay through GW${allGws.at(-1)}.` : 'Budget, club or locked-player constraints prevent this path.' };
+  });
+  const winner = options[winnerIndex];
+
+  // Chip valuations compare complete, feasible continuation paths on one common horizon.
+  const matrix: FplReviewSimOutput['chipMatrixByGw'] = [];
+  const chipRaw: Record<PlanningChip, ChipGwSimulation[]> = { wc: [], fh: [], bb: [], tc: [] };
+  for (const gw of chipHalfGws) {
+    const week = baseline.weeks.find(w => w.gw === gw)!;
+    const index = baseline.weeks.indexOf(week);
+    const before = index === 0 ? initial : (() => {
+      const previous = baseline.weeks[index - 1];
+      return { ...initial, squad: previous.squad, sell: previous.sellingPricesAfter, bank: previous.bankAfter, ft: previous.ftAfter };
+    })();
+    const gains: Record<PlanningChip, number> = { wc: 0, fh: 0, bb: 0, tc: 0 };
+    for (const chip of CHIPS) {
+      if (!available(initial, gw, chip)) continue;
+      const action = chip === 'wc' || chip === 'fh' ? rebuild(before, gw, chip) : { squad: week.squad, bank: week.bankAfter, sell: before.sell, moves: week.moves };
+      if (!action) continue;
+      const lu = lineup(action.squad, gw, chip);
+      const base = week.lineup;
+      // WC window matches the published label: three weeks, clipped to season end.
+      const wcGws = allGws.filter(g => g >= gw && g < gw + 3);
+      const withChip = chip === 'wc' ? wcGws.reduce((s, g) => s + lineup(action.squad, g).totalXPts, 0) : lu.totalXPts;
+      const withoutChip = chip === 'wc' ? wcGws.reduce((s, g) => s + lineup(before.squad, g).totalXPts, 0) : base.totalXPts;
+      const gain = r2(withChip - withoutChip + (chip === 'fh' ? week.hitCost : 0));
+      gains[chip] = gain;
+      chipRaw[chip].push({ gw, xPtsWithChip: r2(withChip), xPtsNoChip: r2(withoutChip), gain, reason: chip === 'wc' ? 'Three-week rebuild versus keeping the pre-Wildcard squad; approximate diagnostic, not additive to other chip values.' : `${CHIP_LABELS[chip]} versus the no-chip transfer plan in GW${gw}.`, starters: lu.starters, bench: lu.bench, captainId: lu.captainId, viceId: lu.viceId });
+    }
+    matrix.push({ gw, baseXPts: week.lineup.totalXPts, wildcardGain: gains.wc, freehitGain: gains.fh, bboostGain: gains.bb, tripleCapGain: gains.tc });
+  }
+  const chipSimulations: ChipSimulationSummary[] = CHIPS.map(chip => {
+    const used = history.find(u => u.chip === chip && (u.gw <= 19) === (nextGw <= 19));
+    const sims = chipRaw[chip].sort((a, b) => b.gain - a.gain || a.gw - b.gw);
+    const peak = sims[0] ?? null;
+    const planned = best.uses.find(u => u.chip === chip && u.gw <= halfEnd);
+    const canUse = knownHistory && !used;
+    const verdictLine = !knownHistory ? 'Refresh your team to verify chip availability.' : used ? `Already used in GW${used.gw}.` : planned ? `Joint plan: ${CHIP_LABELS[chip]} in GW${planned.gw}. Individual peak values are diagnostic; the plan resolves chip clashes and squad changes.` : `Hold within this search; expires GW${halfEnd}. Recheck when fixtures or minutes change.`;
+    return { chip: CHIP_NAMES[chip], available: canUse, usedGw: used?.gw ?? null, expiresGw: halfEnd, expiryDeadline: null, expiringSoon: halfEnd - nextGw <= 2, bestGw: peak?.gw ?? null, bestGain: peak?.gain ?? 0, gainNow: sims.find(s => s.gw === nextGw)?.gain ?? 0, meaningful: canUse && (peak?.gain ?? 0) > 0, verdictLine, topGws: sims.slice(0, 5), bestPitch: peak };
+  });
+
+  const playerAt = (id: number, gw: number): McPlayerGw | null => {
+    const el = elements.get(id), bd = models.get(`${id}:${gw}`);
+    if (!el || !bd) return null;
+    const mean = forecastByGw[gw][id];
+    return { mean, fixtureModels: Math.abs(mean - bd.xPts) <= 0.01 ? bd.fixtureModels : undefined, p60: bd.p60, pSub: bd.pSub, fixtures: bd.fixtureCount, csProb: bd.csProb, cardLoss: Math.max(0, -bd.cardPts), team: el.team, position: el.element_type };
+  };
+  const pathFor = (id: string, label: string, state: SearchState): McPath => ({
+    id, label, hitCost: 0,
+    hitAt: gw => state.weeks.find(w => w.gw === gw)?.hitCost ?? 0,
+    lineupAt: gw => state.weeks.find(w => w.gw === gw)?.lineup ?? null,
+    chipAt: gw => state.weeks.find(w => w.gw === gw)?.chip,
+  });
+  const paths: McPath[] = [
+    { id: 'roll', label: 'Hold squad · no future transfers or chips', hitCost: 0, hitAt: gw => gw === nextGw ? input.initialHitCost ?? 0 : 0, lineupAt: gw => holdWeeks.find(w => w.gw === gw)?.lineup ?? null },
+    pathFor('transfer_plan', 'Best transfer path · chips saved', baseline),
+    ...variants.filter(s => s !== baseline && s.weeks.length).map((s, i) => pathFor(`alternative_${i}`, `Alternative · ${s.weeks[0].moves.length} move(s) now`, s)),
+    pathFor('chip_strategy', 'Joint transfer + chip strategy', best),
+  ];
+  const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
+  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
+  monteCarlo.assumptions.push(
+    'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',
+    'Bounded beam search: six retained states, shortlisted candidates, up to two normal transfers per week; WC/FH allow a full rebuild. Results are approximate, not globally optimal.',
+    `Transfer and chip decisions use ${Math.round(decay * 100)}% weekly decay; displayed totals and Monte Carlo points are undiscounted. Chip planning continues through GW${halfEnd}; distributions cover GW${gws[0]}–GW${gws.at(-1)} only.`,
+    'Win versus hold is a paired model probability of scoring more points than keeping this squad. It is not a probability of a green arrow or a predicted overall rank.',
+    'Imported means use an aggregate distribution when they differ from fixture-component forecasts. Tail probabilities remain uncalibrated.',
+    ...warnings,
+  );
+  const firstChip = best.uses.find(u => u.gw <= halfEnd);
+  const chipDecision = firstChip ? chipSimulations.find(c => c.chip === CHIP_NAMES[firstChip.chip]) : undefined;
+  return {
+    nextGw, gws, chipHalfGws, freeTransfersNow: initial.ft, freeTransfersAfterRoll: nextFreeTransfers(initial.ft, 0),
+    bankTenths: initial.bank, totalSellBudgetTenths, bankedTransferValueNextGw: 0,
+    options, winner, recommendedDecision: winner.action === 'ROLL' ? 'ROLL' : 'TRANSFER',
+    recommendedChipDecision: { action: firstChip?.gw === nextGw ? 'PLAY' : 'HOLD', chip: firstChip?.gw === nextGw ? CHIP_NAMES[firstChip.chip] : null, gainNow: firstChip?.gw === nextGw ? chipDecision?.gainNow ?? 0 : 0, bestFutureGw: firstChip?.gw ?? null, bestFutureChip: firstChip ? CHIP_NAMES[firstChip.chip] : null, bestFutureGain: chipDecision?.bestGain ?? 0, why: firstChip ? `Joint plan: ${CHIP_LABELS[firstChip.chip]} in GW${firstChip.gw}; re-evaluate before the deadline.` : 'Keep chips available and re-evaluate when data changes.' },
+    lineup0: first0.lineup, lineup1: firstOf(1).lineup, lineup2: firstOf(2).lineup,
+    squad0: first0.squad, squad1: firstOf(1).squad, squad2: firstOf(2).squad,
+    chipSimulations, chipMatrixByGw: matrix,
+    multiGwRollout: best.weeks.filter(w => gws.includes(w.gw)).map(w => ({ gw: w.gw, lineup: w.lineup, ftAvailable: w.ftBefore })),
+    monteCarlo, forecastByGw, warnings,
+    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, search: 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds.' },
+  };
+}
