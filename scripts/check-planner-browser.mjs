@@ -15,39 +15,28 @@ try {
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'Team planner should show one pitch');
-  assert.equal(await page.locator('.vx-planner-fixtures').count(), 0, 'No repeated FDR table');
-  await page.locator('.vx-planner-overview').waitFor();
-  const strategy = page.getByRole('combobox', { name: 'Strategy' });
-  assert.deepEqual(await strategy.locator('option').allTextContents(), ['Steady', 'Top 10K', 'Template']);
-  await strategy.selectOption('top10k');
-  assert.ok(await page.getByText(/Strategy names are labels only/).isVisible());
-  await page.getByRole('combobox', { name: 'Planning horizon' }).selectOption('3');
-  assert.equal(await page.locator('.vx-planner-gws button').count(), 3);
-  await page.getByRole('combobox', { name: 'Planning horizon' }).selectOption('5');
+  assert.equal(await page.locator('.vx-planner-fixtures').count(), 1, 'FDR table should appear alongside the pitch');
+  assert.equal(await page.locator('.vx-planner-fixtures tbody tr').count(), 20);
+  assert.equal(await page.getByRole('button', { name: 'Suggest transfers' }).count(), 0);
+  assert.equal(await page.locator('.vx-planner-gws button').count(), 15);
+  await page.getByRole('combobox', { name: 'Fixture gameweeks' }).selectOption('10');
+  assert.equal(await page.locator('.vx-planner-gws button').count(), 10);
+  await page.getByRole('button', { name: 'Sort by average difficulty' }).click();
   const pitchClass = await page.locator('.vx-soccer-pitch').first().getAttribute('class');
-  await page.getByRole('button', { name: 'Suggest transfers' }).waitFor();
-  await page.getByText('RUNNING SIMULATION', { exact: true }).waitFor({ state: 'hidden', timeout: 120000 });
-  await page.waitForFunction(() => !document.querySelector('.planner-suggest')?.disabled, null, { timeout: 120000 });
-  await page.getByRole('button', { name: 'Suggest transfers' }).click();
-  await page.getByText('VORTEX suggested transfer path').waitFor();
-  const pathBefore = await page.locator('.planner-week-list').innerText();
-  await strategy.selectOption('template');
-  assert.equal(await page.locator('.planner-week-list').innerText(), pathBefore, 'Label-only strategy does not change recommendations');
   for (const width of [320, 375, 390, 414, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     assert.ok(pageWidth <= width, `Team planner overflows at ${width}px: ${pageWidth}px`);
   }
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const selector of ['.vx-soccer-pitch', '.vx-planner-fixtures']) {
+      const box = await page.locator(selector).boundingBox();
+      assert.ok(box && box.y + box.height <= 800, `${selector} does not fit the 800px viewport at ${width}px`);
+    }
+  }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: 'test-results/planner/team-plan-desktop.png', fullPage: true });
-  assert.equal(await page.locator('.vx-soccer-pitch').count(), 1);
-  assert.ok(await page.locator('.planner-week').count() > 0);
-  const firstMove = page.locator('.planner-move').first();
-  if (await firstMove.count()) {
-    const incoming = await firstMove.getAttribute('data-in-id');
-    await firstMove.locator('xpath=ancestor::button').click();
-    assert.equal(await page.locator(`.vx-soccer-pitch [data-player-id="${incoming}"]`).count(), 1, 'Suggested incoming player appears on the selected gameweek pitch');
-  }
   await page.getByRole('button', { name: /3. Monte Carlo/ }).click();
   await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
@@ -82,6 +71,7 @@ try {
   await page.context().route('**/assets/planner.worker-*.js', route => route.abort());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
+  await page.getByRole('button', { name: /2. Chip Strategy/ }).click();
   await page.getByText('Simulation could not finish. Reload the page and try again.', { exact: true }).waitFor({ timeout: 30000 });
   console.log('Planner browser checks passed: production worker, tabs, zero FT, keyboard, mobile, worker failure recovery.');
 } catch (error) {

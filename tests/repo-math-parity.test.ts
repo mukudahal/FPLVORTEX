@@ -529,8 +529,8 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlOptimizer, /Team Planner &amp; Solver/);
   assert.match(htmlOptimizer, /Chip Strategy &amp; EV Matrix/);
   assert.match(htmlOptimizer, /Monte Carlo \(3,000 Draws\)/);
-  assert.match(htmlOptimizer, /Suggest transfers/);
-  assert.doesNotMatch(htmlOptimizer, /vx-planner-fixtures/);
+  assert.match(htmlOptimizer, /Fixture difficulty table/);
+  assert.match(htmlOptimizer, /vx-planner-fixtures/);
 
   assert.match(htmlBrand, /width="56"/);
   assert.match(htmlSidebar, /vx-social-svg--yt/);

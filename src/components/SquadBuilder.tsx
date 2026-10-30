@@ -61,7 +61,6 @@ export function SquadBuilder({
   const [plannerHorizon, setPlannerHorizon] = useState(5);
   const [plannerDecay, setPlannerDecay] = useState(15);
   const [simulationDraws, setSimulationDraws] = useState<number>(MC_DRAWS);
-  const [suggestedPlan, setSuggestedPlan] = useState<PlannerSimulationOutput | null>(null);
   const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
@@ -128,10 +127,10 @@ export function SquadBuilder({
 
   const plannedMoves = activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length;
   useEffect(() => {
-    setSuggestedPlan(null);
     setReviewSim(null);
     setSimulationError(null);
     setSimulationPending(false);
+    if (subTab === 'planner') return;
     if (players.length < 15 || activeSquadIds.length !== 15) {
       setSimulationError('Load a complete 15-player squad to simulate.');
       return;
@@ -181,7 +180,7 @@ export function SquadBuilder({
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
     return () => { cancelled = true; worker?.terminate(); };
-  }, [activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
+  }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
 
   const transfersUsedCount = activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
   const hitPoints = Math.max(0, transfersUsedCount - freeTransfers) * 4;
@@ -203,7 +202,7 @@ export function SquadBuilder({
         ))}
       </div>
       {subTab && <div id="planner-section-content" className="planner-section-content">
-      <section className="panel planner-compact-controls" aria-label="Planning settings">
+      {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
         <div className="planner-control-row">
           <label>Strategy<select aria-label="Strategy" value={strategyLabel} onChange={e => setStrategyLabel(e.target.value)}>
             <option value="steady">Steady</option><option value="top10k">Top 10K</option><option value="template">Template</option>
@@ -222,9 +221,9 @@ export function SquadBuilder({
           </select></label>
         </div>
         <p className="planner-strategy-note">Strategy names are labels only for now; they do not change calculations. Current app profile: {profile}.</p>
-      </section>
+      </section>}
 
-      {(simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
+      {subTab !== 'planner' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
         <div className="panel__header"><div><span className="panel__eyebrow">{simulationPending ? 'RUNNING SIMULATION' : 'SIMULATION UNAVAILABLE'}</span><h3>{simulationPending ? 'Comparing legal transfer and chip paths…' : simulationError}</h3></div></div>
       </section>}
 
@@ -270,9 +269,7 @@ export function SquadBuilder({
       {/* ==================== TAB 1: TEAM PLANNER & TRANSFER SOLVER ==================== */}
       {subTab === 'planner' && !entry && <p className="planner-data-notice">Template squad scenario — load your FPL Team ID on Home for a personal starting squad. Verify bank and free transfers before acting.</p>}
       {subTab === 'planner' && (
-        <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} players={players} onInspectPlayer={onInspectPlayer}
-          horizon={plannerHorizon} decay={plannerDecay}
-          plan={suggestedPlan} onSuggest={() => setSuggestedPlan(reviewSim)} canSuggest={!!reviewSim && !simulationPending} />
+        <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} />
       )}
 
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
