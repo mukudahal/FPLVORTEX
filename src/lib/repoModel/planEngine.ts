@@ -33,6 +33,8 @@ export interface FxCell {
 
 export const MAX_FT = MAX_FREE_TRANSFERS;
 export const HIT_COST = TRANSFER_HIT_COST;
+/** Maximum and default planning window for the Transfer Lab and automatic transfer path. */
+export const TRANSFER_LAB_HORIZON = 10;
 export const MAX_PER_CLUB = MAX_PLAYERS_PER_CLUB;
 
 /* ------------------------------------------------------------------ */
@@ -360,20 +362,39 @@ export function autoPlan(
   existing: TransferMap,
   opts: AutoOptions,
 ): { transfers: TransferMap; steps: AutoStep[] } {
-  const maxPerGw = opts.maxPerGw ?? 2;
+  const maxPerGw = Math.max(0, opts.maxPerGw ?? 2);
   const minFree = opts.minGainFree ?? 1.5;
   const minHit = opts.minGainHit ?? HIT_COST + 2;
+  const startIdx = Math.max(0, Math.min(ctx.gws.length, Math.trunc(opts.fromIdx)));
+  const horizon = Math.max(1, Math.min(TRANSFER_LAB_HORIZON, Math.trunc(opts.horizon) || TRANSFER_LAB_HORIZON));
+  const endIdx = Math.min(ctx.gws.length, startIdx + horizon);
 
+  // The saved plan is the source of truth. Never reconstruct only its past
+  // weeks: doing so silently erased every future manual transfer on Apply.
   const tm: TransferMap = {};
-  for (const gw of ctx.gws.slice(0, opts.fromIdx)) {
-    if (existing[gw]) tm[gw] = [...existing[gw]];
+  for (const gw of ctx.gws) {
+    if (existing[gw]?.length) tm[gw] = existing[gw].map(move => ({ ...move }));
   }
   const steps: AutoStep[] = [];
 
-  for (let idx = opts.fromIdx; idx < ctx.gws.length; idx++) {
+  // Check the *entire* proposed path, including future user-authored moves.
+  // An early automated upgrade must not invalidate a later saved sale or buy.
+  const pathRemainsLegal = (proposal: TransferMap): boolean => {
+    const validated = sanitize(ctx, proposal, opts.chips);
+    return ctx.gws.every(gw => {
+      const expected = proposal[gw] ?? [];
+      const actual = validated[gw] ?? [];
+      return expected.length === actual.length &&
+        expected.every((move, i) => move.out === actual[i].out && move.in === actual[i].in);
+    });
+  };
+
+  for (let idx = startIdx; idx < endIdx; idx++) {
     const gw = ctx.gws[idx];
     const chip = opts.chips?.[gw];
-    if (chip === "fh") continue; // Free Hit squads revert, so auto plan leaves them to you
+    // A manually edited GW stays untouched. The solver can add recommendations
+    // to uncommitted weeks without replacing manually accepted transfer choices.
+    if (chip === "fh" || existing[gw]?.length) continue;
     for (let k = 0; k < maxPerGw; k++) {
       const state = replay(ctx, tm, gw, opts.chips);
       const row = state.ledger[state.ledger.length - 1];
@@ -381,23 +402,24 @@ export function autoPlan(
       const isHit = chip === "wc" ? false : nowN + 1 > row.ftBefore;
       if (isHit && !opts.allowHits) break;
 
-      const base = horizonXP(ctx, state.squad, idx, opts.horizon, opts.decay);
-      // shortlist: top candidates per position by horizon xP
+      // Optimise only within the selected 3/5/8/10-GW window, never past it.
+      const remaining = endIdx - idx;
+      const base = horizonXP(ctx, state.squad, idx, remaining, opts.decay);
       const pool = new Map<number, number[]>();
       for (const t of [1, 2, 3, 4]) {
         const list = [...ctx.players.values()]
-          .filter((p) => p.type === t && !state.squad.includes(p.id))
-          .map((p) => ({
+          .filter(p => p.type === t && !state.squad.includes(p.id))
+          .map(p => ({
             id: p.id,
-            s: futureGwScore(p.xp.slice(idx, idx + opts.horizon), opts.decay ?? 1),
+            s: futureGwScore(p.xp.slice(idx, endIdx), opts.decay ?? 1),
           }))
           .sort((a, b) => b.s - a.s)
           .slice(0, 25)
-          .map((x) => x.id);
+          .map(x => x.id);
         pool.set(t, list);
       }
 
-      let best: { out: number; inn: number; gain: number } | null = null;
+      const choices: Array<{ out: number; inn: number; gain: number }> = [];
       for (const outId of state.squad) {
         const t = typeOf(ctx, outId);
         const at = state.squad.indexOf(outId);
@@ -405,15 +427,37 @@ export function autoPlan(
           if (validateTransfer(ctx, state, outId, cId) !== null) continue;
           const next = [...state.squad];
           next[at] = cId;
-          const gain = horizonXP(ctx, next, idx, opts.horizon, opts.decay) - base;
-          if (!best || gain > best.gain) best = { out: outId, inn: cId, gain };
+          choices.push({
+            out: outId,
+            inn: cId,
+            gain: horizonXP(ctx, next, idx, remaining, opts.decay) - base,
+          });
         }
       }
-      if (!best) break;
+      choices.sort((a, b) => b.gain - a.gain || a.out - b.out || a.inn - b.inn);
       const need = isHit ? minHit : minFree;
-      if (best.gain < need) break;
-      tm[gw] = [...(tm[gw] ?? []), { out: best.out, in: best.inn }];
-      steps.push({ gw, out: best.out, in: best.inn, gain: best.gain, hit: isHit ? HIT_COST : 0 });
+      let accepted: typeof choices[number] | undefined;
+      // Find the strongest shortlist entry that leaves all saved decisions legal.
+      // This is a feasible heuristic, not a proof of global optimality.
+      for (const choice of choices.slice(0, 75)) {
+        if (choice.gain < need) break;
+        const trial: TransferMap = {
+          ...tm,
+          [gw]: [...(tm[gw] ?? []), { out: choice.out, in: choice.inn }],
+        };
+        if (!pathRemainsLegal(trial)) continue;
+        accepted = choice;
+        tm[gw] = trial[gw];
+        break;
+      }
+      if (!accepted) break;
+      steps.push({
+        gw,
+        out: accepted.out,
+        in: accepted.inn,
+        gain: accepted.gain,
+        hit: isHit ? HIT_COST : 0,
+      });
     }
   }
   return { transfers: tm, steps };
