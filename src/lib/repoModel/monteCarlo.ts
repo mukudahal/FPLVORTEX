@@ -52,6 +52,8 @@ export interface McPath {
   id: string;
   label: string;
   hitCost: number;
+  /** Additional per-gameweek hits for a sequential plan; deducted in that week only. */
+  hitAt?: (gw: number) => number;
   lineupAt: (gw: number) => McLineup | null;
   chipAt?: (gw: number) => PlanningChip | undefined;
 }
@@ -363,7 +365,9 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
     const series: Float64Array[] = [];
     const total = new Float64Array(draws).fill(-path.hitCost);
     for (const gw of gws) {
-      const arr = new Float64Array(draws);
+      const weeklyHit = path.hitAt?.(gw) ?? 0;
+      if (!Number.isFinite(weeklyHit) || weeklyHit < 0) throw new RangeError('Invalid weekly transfer hit.');
+      const arr = new Float64Array(draws).fill(-weeklyHit);
       const lineup = path.lineupAt(gw);
       if (lineup) {
         const ids = [...lineup.starters, ...lineup.bench];
@@ -374,10 +378,11 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
             pts: (id) => sims.get(id)?.pts[i] ?? 0,
             played: (id) => (sims.get(id)?.played[i] ?? 0) === 1,
             position: (id) => pos.get(id) ?? 0,
-          }, path.chipAt?.(gw));
+          }, path.chipAt?.(gw)) - weeklyHit;
           total[i] += arr[i];
         }
       }
+      if (!lineup && weeklyHit) for (let i = 0; i < draws; i++) total[i] -= weeklyHit;
       series.push(arr);
     }
     perGw.set(path.id, series);

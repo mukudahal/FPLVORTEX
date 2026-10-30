@@ -17,11 +17,12 @@ interface Props {
   onInspectPlayer?: (player: EnrichedPlayer) => void;
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
   horizon: number;
+  decay: number;
+  onDecayChange: (value: number) => void;
   onHorizonChange: (value: number) => void;
 }
 
-export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, horizon, onHorizonChange }: Props) {
-  const [decay, setDecay] = useState(15);
+export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, horizon, decay, onDecayChange, onHorizonChange }: Props) {
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const [sort, setSort] = useState<{ gw: number | 'avg'; ascending: boolean }>({ gw: snapshot.meta.nextEventId, ascending: true });
   const gws = Array.from({ length: Math.min(horizon, Math.max(0, 39 - snapshot.meta.nextEventId)) }, (_, i) => snapshot.meta.nextEventId + i);
@@ -64,7 +65,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer, onToast, hor
   return <section className="vx-planner-overview" aria-label="Team planner">
     <div className="vx-planner-controls panel">
       <label>Horizon<select value={horizon} onChange={e => onHorizonChange(Number(e.target.value))}><option value={1}>1 GW</option><option value={5}>5 GW</option><option value={10}>10 GW</option></select></label>
-      <label>Decay/GW<select value={decay} onChange={e => setDecay(Number(e.target.value))}>{[0, 5, 10, 15, 20, 30].map(n => <option key={n} value={n}>{n}%</option>)}</select></label>
+      <label>Decay/GW<select value={decay} onChange={e => onDecayChange(Number(e.target.value))}>{[0, 5, 10, 15, 20, 30].map(n => <option key={n} value={n}>{n}%</option>)}</select></label>
       <div className="vx-planner-score"><span>Projected xPts <strong>{totals.reduce((a, b) => a + b, 0).toFixed(1)}</strong></span><span>Planning score <strong>{futureGwScore(totals, 1 - decay / 100).toFixed(1)}</strong></span></div>
     </div>
     <div className="vx-planner-gws" aria-label="Select gameweek">{gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>)}</div>

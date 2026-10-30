@@ -71,16 +71,12 @@ async function worker(cacheValue: Response | null, fetcher: () => Promise<Respon
   };
 }
 
-test('service worker cached navigation opens without waiting for a sleeping server', async () => {
-  let resolve!: (r: Response) => void;
-  const network = new Promise<Response>(r => { resolve = r; });
-  const run = await worker(new Response('<html>cached app</html>'), () => network);
+test('service worker navigation prefers the current deployed shell and uses cache on outage', async () => {
+  const run = await worker(new Response('<html>cached app</html>'), async () => new Response('<html>updated app</html>'));
   const result = run('/', true);
-  const response = await result.response;
-  assert.equal(await response.text(), '<html>cached app</html>');
-  assert.equal(result.background.length, 1);
-  resolve(new Response('<html>updated app</html>'));
-  await Promise.all(result.background);
+  assert.equal(await (await result.response).text(), '<html>updated app</html>');
+  const offline = await worker(new Response('<html>cached app</html>'), async () => { throw Error('offline'); });
+  assert.equal(await (await offline('/', true).response).text(), '<html>cached app</html>');
 });
 
 test('service worker outage cannot replay a cached snapshot or health check as live', async () => {

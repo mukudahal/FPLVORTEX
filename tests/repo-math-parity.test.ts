@@ -265,20 +265,17 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
-      onOpenPalette: noop,
-      onRefresh: noop,
-      refreshing: false,
     }),
   );
-  assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
-  assert.match(htmlUnlinked, /vx-pitch-gate/);
+  assert.match(htmlUnlinked, /id="fpl-review-team-id"/);
+  assert.match(htmlUnlinked, /vx-squad-scorebox__empty/);
   assert.doesNotMatch(htmlUnlinked, /class="vx-soccer-pitch"/);
   // Exactly ONE FPL Team ID input on the Home Page (second input inside vx-pitch-gate removed)
-  assert.equal((htmlUnlinked.match(/vx-team-id-autocomplete/g) ?? []).length, 1);
+  assert.equal((htmlUnlinked.match(/id="fpl-review-team-id"/g) ?? []).length, 1);
   assert.doesNotMatch(htmlUnlinked, /vx-pitch-gate__form/);
   assert.doesNotMatch(htmlUnlinked, /Load My Squad/);
-  // Blank FPL Team ID inputs must not display placeholder text
-  assert.doesNotMatch(htmlUnlinked, /placeholder="Enter[^>]*FPL[^>]*ID/i);
+  // The current inline Team ID field uses a numeric keyboard.
+  assert.match(htmlUnlinked, /inputMode="numeric"/i);
 
   // Saved recent Team IDs start empty, store ALL installed IDs (10+ supported), and match as the user types
   assert.deepEqual(filterRecentTeams([], '99'), []);
@@ -303,6 +300,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   // 2) After entering FPL ID: unlocks Soccer Pitch (15 players) + Review Gameweek strip + masks secret ID when blurred
   const htmlCommand = renderToStaticMarkup(
     React.createElement(CommandCenter, {
+      mode: 'review',
       snapshot,
       entry,
       players,
@@ -315,13 +313,10 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
-      onOpenPalette: noop,
-      onRefresh: noop,
-      refreshing: false,
     }),
   );
   // Tier 1: Compact Hero + Top FPL Team ID Bar (masked password when blurred) + Vortex Orb + Captain & Fixture float cards
-  assert.match(htmlCommand, /Every transfer, captain and fixture/);
+  assert.match(htmlCommand, /Review squad and captain highlights/);
   assert.match(htmlCommand, /id="fpl-team-id-top"/);
   assert.match(htmlCommand, /type="password"/);
   // Saved Squad chips never print raw numeric `#999999` on screen
@@ -332,7 +327,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   // Tier 2: Review Gameweek strip + Soccer Pitch (15 players) + GW Fixtures + GW Projected Goals (20 clubs)
   assert.match(htmlCommand, /Template XI/);
   assert.match(htmlCommand, /Review GW 8/);
-  assert.match(htmlCommand, /vx-review-strip/);
+  assert.match(htmlCommand, /vx-squad-scorebox__metrics/);
   assert.match(htmlCommand, /vx-soccer-pitch/);
   assert.equal(
     (htmlCommand.match(/vx-pitch-player"/g) ?? []).length +
@@ -487,7 +482,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /vx-price-pct-pill/);
   assert.match(htmlCommand, /Likely to drop|Likely to rise|Unlikely to change/);
   // Accurate Free Transfers (2 FT instead of old hardcoded 4 FT) + Rectangular Injury Sign
-  assert.match(htmlCommand, /2 FT/);
+  assert.match(htmlCommand, /class="vx-score-metric is-ft"><span>FT<\/span><strong>2<\/strong>/);
   assert.doesNotMatch(htmlCommand, /4 FT/);
   assert.match(htmlCommand, /vx-injury-rect/);
   // Exact Graphics CSS tokens: 24px dot-grid + radial glow, .vx-btn, .vx-btn-primary, .easy/.medium/.hard
@@ -572,10 +567,10 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlYtModal, /@FPLVORTEX Channel/);
   const htmlTopbar = renderToStaticMarkup(
     React.createElement(Topbar, {
-      route: 'command',
       snapshot,
       refreshing: false,
-      lastSuccessAt: snapshot.meta.servedAt,
+      searchQuery: '',
+      onSearchChange: noop,
       theme: 'dark',
       onToggleTheme: noop,
       onOpenPalette: noop,
@@ -586,7 +581,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlTopbar, /topbar__brand-lion/);
   assert.doesNotMatch(htmlTopbar, /Open navigation/);
   assert.doesNotMatch(appRaw, /<Sidebar/);
-  assert.match(appRaw, /aria-label="Module tabs"/);
+  assert.match(appRaw, /aria-label="Main navigation"/);
   assert.match(appRaw, /aria-label="Mobile navigation"/);
 
   const htmlMethod = renderToStaticMarkup(

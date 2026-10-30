@@ -3,6 +3,7 @@ import { withBase } from './baseUrl';
 import { numberValue } from './format';
 import {
   computeDynamicFreeTransfers,
+  normalizeChipHistory,
   resolveSquadPurchaseAndSellingPrices,
   type RawEntryHistoryPayload,
 } from './freeTransfers';
@@ -171,6 +172,7 @@ export async function fetchEntry(
       overallPoints: archived.root.summary_overall_points ?? null,
       currentEvent: numberValue(history.event, snapshot.meta.currentEventId),
       activeChip,
+      chipsUsed: normalizeChipHistory(archived.history),
       freeTransfers,
       history: {
         event: targetGw,

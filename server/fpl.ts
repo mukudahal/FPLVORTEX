@@ -12,6 +12,7 @@ import { clamp, numberValue } from '../src/lib/format.ts';
 import { mirroredSnapshotState } from '../src/lib/snapshotFreshness.ts';
 import {
   computeDynamicFreeTransfers,
+  normalizeChipHistory,
   resolveSquadPurchaseAndSellingPrices,
   type RawEntryHistoryPayload,
 } from '../src/lib/freeTransfers.ts';
@@ -300,6 +301,7 @@ function normalizeEntry(
     freeTransfers,
     currentEvent: history.event,
     activeChip,
+    chipsUsed: normalizeChipHistory(historyPayload),
     history,
     picks: normalizedPicks,
     players,

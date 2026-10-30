@@ -1,0 +1,9 @@
+feature,area,priority,original,clone,notes
+Planning horizon and decay,planner,must,yes,yes,Existing visual controls feed simulation
+Simulations with paired gains,simulation,must,yes,yes,3000 or 10000 cancellable worker draws
+Sequential transfer path,planner,must,yes,yes,Shortlisted beam with bank selling basis FT and hits
+Joint chip schedule,chips,must,yes,yes,One chip per GW and half-season inventory
+Chip diagnostics,chips,should,yes,yes,Explicit nonadditive WC and single-GW comparisons
+Show model assumptions,transparency,must,yes,yes,Approximate search and uncalibrated rank limitations
+Compass private forecasts and exact formulas,model,skip,unknown,no,Not publicly available
+Compass graphics and assets,design,skip,yes,no,User requires existing FPL VORTEX graphics
