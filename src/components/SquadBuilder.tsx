@@ -1223,6 +1223,7 @@ export function SquadBuilder({
                         </small>
                       </div>
                       <div className="mc-range-row__badges">
+                        {path.id === reviewSim.monteCarlo.recommendedPathId && <span className="badge badge--mint">Recommended plan</span>}
                         {path.probBeatsHold !== null && (
                           <span className={classNames('badge', path.probBeatsHold >= 0.5 ? 'badge--mint' : 'badge--violet')}>
                             {(path.probBeatsHold * 100).toFixed(1)}% Beat unchanged squad
@@ -1232,6 +1233,10 @@ export function SquadBuilder({
                       </div>
                     </div>
                     <small>{path.deltaMean === null ? 'Unchanged-squad baseline' : `Net gain ${path.deltaMean >= 0 ? '+' : ''}${path.deltaMean.toFixed(1)} pts · paired 80% gain range ${path.deltaP10?.toFixed(1)} to ${path.deltaP90?.toFixed(1)} · ties ${((path.probDrawsHold ?? 0) * 100).toFixed(1)}%`}</small>
+                    {path.vsReference && <small>
+                      Versus best transfer plan (chips saved): {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
+                      {' '}Win share sampling interval (95%): {(path.vsReference.winProbability95[0] * 100).toFixed(1)}–{(path.vsReference.winProbability95[1] * 100).toFixed(1)}%; model uncertainty is additional.
+                    </small>}
                     <div className="mc-range-track" aria-hidden="true">
                       <div className="mc-range-band" style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
                       <span className="mc-range-mean" style={{ left: `${meanPct}%` }} />
@@ -1319,3 +1324,4 @@ export function SquadBuilder({
     </div>
   );
 }
+

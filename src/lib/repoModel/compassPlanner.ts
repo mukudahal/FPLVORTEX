@@ -227,11 +227,17 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const key = `${gw}:${chip}:${budget}:${state.squad.map(id => id + '=' + state.sell[id]).sort().join(',')}`;
     if (rebuildCache.has(key)) return rebuildCache.get(key)!;
     const candidates = [...new Set([...(pools.get(gw) ?? []), ...state.squad, ...locked])];
+    // Keeping a player costs their sale value in the liquidation budget, not the
+    // market price of buying them again. The difference is not spendable cash.
+    const rebuildNodes = new Map([...byId].map(([id, player]) => [id, {
+      ...player, cost: state.sell[id] ?? player.cost,
+    }]));
     const weights: Record<number, number> = {};
     for (const id of candidates) weights[id] = chip === 'wc' ? [1, 2].reduce((s, o) => s + Math.pow(decay, o) * (forecastByGw[gw + o]?.[id] ?? 0), 0) : 0;
-    const seeded = solveFullSquadTS(candidates, byId, budget, forecastByGw[gw], weights, locked);
-    if (!seeded) { rebuildCache.set(key, null); return null; }
-    let sq: number[] = seeded;
+    const seeded = solveFullSquadTS(candidates, rebuildNodes, budget, forecastByGw[gw], weights, locked);
+    // The existing squad is always a feasible seed, including when the greedy
+    // construction gets stuck behind a club limit.
+    let sq: number[] = seeded ?? [...state.squad];
     // Refine the actual XI/captain objective; WC also values a playable bench for later BB.
     const objective = (ids: number[]) => chip === 'wc' ? squadValue(ids, gw, 0.15) : lineup(ids, gw).totalXPts;
     let best = objective(sq);
@@ -242,7 +248,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
       for (const out of sq) {
         if (locked.has(out) || byId.get(out)!.type !== p.type) continue;
         const trial = sq.map(id => id === out ? inc : id);
-        if (trial.reduce((s, id) => s + byId.get(id)!.cost, 0) > budget || trial.filter(id => byId.get(id)!.team === p.team).length > 3) continue;
+        if (trial.reduce((s, id) => s + rebuildNodes.get(id)!.cost, 0) > budget || trial.filter(id => byId.get(id)!.team === p.team).length > 3) continue;
         const value = objective(trial);
         if (value > best + 0.01) { sq = trial; best = value; break; }
       }
@@ -250,14 +256,13 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const sell = Object.fromEntries(sq.map(id => [id, byId.get(id)!.cost]));
     // Unchanged holdings retain their selling basis after a Wildcard.
     for (const id of sq) if (state.squad.includes(id)) sell[id] = state.sell[id];
-    const spent = sq.reduce((s, id) => s + byId.get(id)!.cost, 0);
-    const retainedDiscount = sq.reduce((s, id) => s + (state.squad.includes(id) ? byId.get(id)!.cost - state.sell[id] : 0), 0);
+    const spent = sq.reduce((s, id) => s + rebuildNodes.get(id)!.cost, 0);
     const incoming = sq.filter(id => !state.squad.includes(id));
     const moves = state.squad.filter(id => !sq!.includes(id)).map(outId => {
       const index = incoming.findIndex(id => byId.get(id)!.type === byId.get(outId)!.type);
       return { outId, inId: incoming.splice(index, 1)[0] };
     });
-    const action = { squad: sq, sell, bank: budget - spent + retainedDiscount, moves };
+    const action = { squad: sq, sell, bank: budget - spent, moves };
     rebuildCache.set(key, action);
     return action;
   };
@@ -399,7 +404,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     pathFor('chip_strategy', 'Joint transfer + chip strategy', best),
   ];
   const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
-  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
+  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
   monteCarlo.assumptions.push(
     'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',
     'Bounded beam search: six retained states, shortlisted candidates, up to two normal transfers per week; WC/FH allow a full rebuild. Results are approximate, not globally optimal.',
@@ -424,3 +429,4 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, search: 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds.' },
   };
 }
+

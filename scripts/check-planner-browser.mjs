@@ -20,6 +20,9 @@ try {
   await page.getByRole('tab', { name: /3. Monte Carlo/ }).click();
   await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
+  assert.equal(await page.getByText('Recommended plan', { exact: true }).count(), 1);
+  assert.ok(await page.getByText(/Versus best transfer plan \(chips saved\):/).count() >= 2);
+  assert.ok(await page.getByText(/Win share sampling interval \(95%\):/).count() >= 2);
   assert.ok(await page.getByText(/not a probability of a green arrow/).isVisible());
   assert.equal(await page.locator('.vx-soccer-pitch').first().getAttribute('class'), pitchClass);
   await page.screenshot({ path: 'test-results/planner/simulation-desktop.png', fullPage: true });
@@ -56,3 +59,4 @@ try {
 } finally {
   await browser.close();
 }
+

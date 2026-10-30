@@ -29,6 +29,7 @@ No-chip alternatives constrain the first week to roll/one/two moves and then rep
 - FH cannot be played in consecutive GWs, including across GW19/20.
 - FH restores permanent squad, bank and ownership basis after its scoring week.
 - Selling prices use available manager pick data; a sold/re-bought player uses the new basis. Prices stay fixed within a scenario.
+- WC/FH rebuilding prices retained holdings at their selling values within the liquidation budget. This preserves owned price gains without making those gains spendable. The existing legal squad seeds local refinement if greedy construction fails.
 - The server and static fallback expose normalized played-chip history. Missing upstream history remains unknown and disables personal chip recommendations.
 - Manual scenario transfers consume FTs and committed hits are charged once, unless WC/FH removes them.
 
@@ -40,8 +41,11 @@ Paths share player draws, team shocks, legal autosubstitution and captain/vice f
 
 P(beat unchanged squad) means strictly greater points under this model. Ties are reported separately. It is not green-arrow probability, effective ownership, a league finish probability or a predicted overall rank. No field/rival-score distribution exists, so rank gains are not guaranteed.
 
+Each alternative also has a paired comparison against the best no-chip transfer plan. The third tab reports its net gain, 10th–90th percentile gain range, strict win/tie/loss shares and a Wilson 95% interval for the win share. These reuse the same outcomes, including the transfer plan's weekly hits, rather than subtracting unrelated marginal quantiles. The interval describes finite-draw sampling uncertainty only; it does not measure forecast or model accuracy. The expected-points search determines the recommended badge; a larger sampled mean alone does not change that recommendation.
+
 Individual chip-matrix peaks are diagnostics, not an additive schedule. The WC column explicitly compares three weeks against keeping the pre-WC squad; other columns compare with the no-chip transfer path. The displayed joint schedule is the executable recommendation.
 
 ## Verification
 
 Regression coverage includes zero-FT hits, selling-price constraints, locks, weekly bank/FT legality, used chips, half resets, FH adjacency/restoration, blank/zero/missing forecasts, season end, deterministic paired draws, canonical lineups and per-GW hit accounting. A production-build Playwright smoke test exercises the existing tabs, worker result, narrow viewport and unavailable-state recovery. CI runs TypeScript, all repository tests, production build and the Python solver.
+

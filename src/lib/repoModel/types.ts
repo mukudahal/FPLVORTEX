@@ -420,6 +420,19 @@ export interface McBand {
   p90: number;
 }
 
+export interface McPairedComparison {
+  referenceId: string;
+  deltaMean: number;
+  deltaP10: number;
+  deltaP90: number;
+  probWin: number;
+  probTie: number;
+  probLoss: number;
+  /** Wilson 95% interval: sampling uncertainty only, not model accuracy. */
+  winProbability95: [number, number];
+  meanStandardError: number;
+}
+
 export interface McPathSummary {
   id: string; // hold | transfer1 | transfer2 | wildcard
   label: string;
@@ -443,6 +456,8 @@ export interface McPathSummary {
   perGw: McBand[];
   /** Cumulative gain over holding by gameweek, including hit costs. */
   cumDelta: McBand[] | null;
+  /** Optional comparison using the same draws as the named reference plan. */
+  vsReference?: McPairedComparison;
 }
 
 export interface McCaptainRisk {
@@ -539,4 +554,5 @@ export interface OptimizerResponse {
   next6DaysPlan: ActionStep[];
   backtest: BacktestMetrics;
 }
+
 

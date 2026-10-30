@@ -155,3 +155,66 @@ test('Wildcard clears committed scenario hits and preserves the original FT allo
   assert.equal(first.ftBefore, 3);
   assert.equal(first.ftAfter, 3);
 });
+
+test('Wildcard rebuild keeps owned price gains without treating them as spendable bank', () => {
+  const input = scenario(38);
+  input.players.find(p => p.id === 16)!.cost = 45;
+  input.sellingPrices = Object.fromEntries(input.currentSquadIds.map(id => [id, 40]));
+  input.lockedIds = input.currentSquadIds.filter(id => id !== 8);
+  input.chipsUsed = [{ name: 'bboost', event: 32 }, { name: '3xc', event: 33 }, { name: 'freehit', event: 34 }];
+  const result = runPlannerSimulation(input);
+  const week = result.strategy.weeks[0];
+  assert.equal(week.chip, 'wc');
+  assert.ok(week.squad.includes(16));
+  assert.equal(week.bankAfter, 0); // £0.5 bank + £4.0 sale - £4.5 purchase
+  for (const id of input.lockedIds) assert.equal(week.sellingPricesAfter[id], 40);
+  assert.equal(week.sellingPricesAfter[16], 45);
+
+  input.players.find(p => p.id === 16)!.cost = 46;
+  const unaffordable = runPlannerSimulation(input);
+  assert.ok(!unaffordable.strategy.weeks[0].squad.includes(16), 'Retained price gains cannot finance a purchase');
+});
+
+test('Free Hit uses retained sale values and restores the original price basis and bank', () => {
+  const input = scenario(37);
+  const newcomer = input.players.find(p => p.id === 16)!;
+  newcomer.cost = 45;
+  newcomer.gwProjections = { 37: 70, 38: 0 };
+  input.sellingPrices = Object.fromEntries(input.currentSquadIds.map(id => [id, 40]));
+  input.lockedIds = input.currentSquadIds.filter(id => id !== 8);
+  input.chipsUsed = [{ name: 'wildcard', event: 32 }, { name: 'bboost', event: 33 }, { name: '3xc', event: 34 }];
+  const result = runPlannerSimulation(input);
+  assert.equal(result.strategy.weeks[0].chip, 'fh');
+  assert.ok(result.strategy.weeks[0].squad.includes(16));
+  assert.equal(result.strategy.weeks[0].bankAfter, 0);
+  assert.deepEqual([...result.strategy.weeks[1].squad].sort((a, b) => a - b), input.currentSquadIds);
+  assert.equal(result.strategy.weeks[1].bankAfter, 5);
+  assert.deepEqual(result.strategy.weeks[1].sellingPricesAfter, input.sellingPrices);
+});
+
+test('paired reference compares chips against transfers, including hits and tie/loss shares', () => {
+  const lineup = { starters: [1], bench: [], captainId: 1, viceId: 1 };
+  const result = runMonteCarlo({ gws: [38], draws: 300, seed: 71,
+    holdId: 'hold', referenceId: 'transfers', recommendedId: 'chips',
+    playerAt: () => ({ mean: 5, p60: 1, pSub: 0, fixtures: 1, csProb: 0, cardLoss: 0, team: 1, position: 4 }),
+    paths: [
+      { id: 'hold', label: 'Hold', hitCost: 0, lineupAt: () => lineup },
+      { id: 'transfers', label: 'Transfers', hitCost: 0, hitAt: () => 4, lineupAt: () => lineup },
+      { id: 'chips', label: 'Chips', hitCost: 0, lineupAt: () => lineup },
+      { id: 'loss', label: 'Loss', hitCost: 8, lineupAt: () => lineup },
+      { id: 'tie', label: 'Tie', hitCost: 4, lineupAt: () => lineup },
+    ],
+  });
+  const chip = result.paths.find(p => p.id === 'chips')!;
+  assert.equal(chip.deltaMean, 0, 'Chips tie hold in this example');
+  assert.equal(chip.vsReference!.deltaMean, 4, 'Chips beat the transfer plan by the saved hit');
+  assert.equal(chip.vsReference!.deltaP10, 4);
+  assert.equal(chip.vsReference!.deltaP90, 4);
+  assert.equal(chip.vsReference!.meanStandardError, 0);
+  assert.equal(chip.vsReference!.probWin, 1);
+  assert.ok(chip.vsReference!.winProbability95[0] > 0.98);
+  assert.equal(result.paths.find(p => p.id === 'tie')!.vsReference!.probTie, 1);
+  assert.equal(result.paths.find(p => p.id === 'loss')!.vsReference!.probLoss, 1);
+  assert.equal(result.paths.find(p => p.id === 'transfers')!.vsReference, undefined);
+});
+
