@@ -20,6 +20,7 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   lockedIds?: number[];
   /** Hits already committed by manual scenario transfers, charged once in the first GW. */
   initialHitCost?: number;
+  initialFreeTransfersBeforeScenario?: number;
   decay?: number;
   startedEvent?: number;
   /** Unknown history disables chip recommendations for a loaded manager. */
@@ -227,8 +228,9 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const candidates = [...new Set([...(pools.get(gw) ?? []), ...state.squad, ...locked])];
     const weights: Record<number, number> = {};
     for (const id of candidates) weights[id] = chip === 'wc' ? [1, 2].reduce((s, o) => s + Math.pow(decay, o) * (forecastByGw[gw + o]?.[id] ?? 0), 0) : 0;
-    let sq = solveFullSquadTS(candidates, byId, budget, forecastByGw[gw], weights, locked);
-    if (!sq) { rebuildCache.set(key, null); return null; }
+    const seeded = solveFullSquadTS(candidates, byId, budget, forecastByGw[gw], weights, locked);
+    if (!seeded) { rebuildCache.set(key, null); return null; }
+    let sq: number[] = seeded;
     // Refine the actual XI/captain objective; WC also values a playable bench for later BB.
     const objective = (ids: number[]) => chip === 'wc' ? squadValue(ids, gw, 0.15) : lineup(ids, gw).totalXPts;
     let best = objective(sq);
@@ -264,9 +266,10 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   const advance = (state: SearchState, action: Action, gw: number, chip?: PlanningChip): SearchState => {
     const hitCost = pointsHit(action.moves.length, state.ft, chip === 'wc' || chip === 'fh') + (gw === nextGw && chip !== 'wc' && chip !== 'fh' ? input.initialHitCost ?? 0 : 0);
     const lu = lineup(action.squad, gw, chip);
-    const ftAfter = nextFreeTransfers(state.ft, action.moves.length, chip);
+    const ftBefore = gw === nextGw && (chip === 'wc' || chip === 'fh') ? input.initialFreeTransfersBeforeScenario ?? state.ft : state.ft;
+    const ftAfter = nextFreeTransfers(ftBefore, action.moves.length, chip);
     const uses = chip ? [...state.uses, { gw, chip }] : state.uses;
-    const week: StrategyWeek = { gw, squad: action.squad, lineup: lu, chip, moves: action.moves, ftBefore: state.ft, ftAfter, bankAfter: action.bank, sellingPricesAfter: action.sell, hitCost, netXPts: r2(lu.totalXPts - hitCost) };
+    const week: StrategyWeek = { gw, squad: action.squad, lineup: lu, chip, moves: action.moves, ftBefore, ftAfter, bankAfter: action.bank, sellingPricesAfter: action.sell, hitCost, netXPts: r2(lu.totalXPts - hitCost) };
     return { squad: chip === 'fh' ? state.squad : action.squad, bank: chip === 'fh' ? state.bank : action.bank, sell: chip === 'fh' ? state.sell : action.sell, ft: ftAfter, uses, weeks: [...state.weeks, week], score: state.score + Math.pow(decay, gw - nextGw) * week.netXPts, total: state.total + week.netXPts };
   };
   const searchGws = allGws;

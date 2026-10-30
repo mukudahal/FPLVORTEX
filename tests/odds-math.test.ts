@@ -205,9 +205,6 @@ test('parses Football-Data CSV, The Odds API v4, and ESPN EPL odds and renders L
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
-      onOpenPalette: noop,
-      onRefresh: noop,
-      refreshing: false,
     }),
   );
 

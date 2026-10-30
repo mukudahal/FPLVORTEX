@@ -265,9 +265,6 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
-      onOpenPalette: noop,
-      onRefresh: noop,
-      refreshing: false,
     }),
   );
   assert.match(htmlUnlinked, /id="fpl-team-id-top"/);
@@ -315,9 +312,6 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onTeamIdChange: noop,
       onSelectPlayer: noop,
       onNavigate: noop,
-      onOpenPalette: noop,
-      onRefresh: noop,
-      refreshing: false,
     }),
   );
   // Tier 1: Compact Hero + Top FPL Team ID Bar (masked password when blurred) + Vortex Orb + Captain & Fixture float cards
@@ -572,10 +566,10 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlYtModal, /@FPLVORTEX Channel/);
   const htmlTopbar = renderToStaticMarkup(
     React.createElement(Topbar, {
-      route: 'command',
       snapshot,
       refreshing: false,
-      lastSuccessAt: snapshot.meta.servedAt,
+      searchQuery: '',
+      onSearchChange: noop,
       theme: 'dark',
       onToggleTheme: noop,
       onOpenPalette: noop,

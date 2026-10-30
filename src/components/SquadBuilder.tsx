@@ -310,6 +310,7 @@ export function SquadBuilder({
       players, currentSquadIds: activeSquadIds, bankTenths,
       freeTransfersNow: Math.max(0, freeTransfers - plannedMoves),
       initialHitCost: Math.max(0, plannedMoves - freeTransfers) * 4,
+      initialFreeTransfersBeforeScenario: freeTransfers,
       nextGw: snapshot.meta.nextEventId, horizon: plannerHorizon, decay: 1 - plannerDecay / 100,
       repoFixtures: toRepoFixtures(snapshot.fixtures), repoTeams: toRepoTeams(snapshot.teams),
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
