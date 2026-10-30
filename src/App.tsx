@@ -356,6 +356,11 @@ export default function App() {
           players={players}
           fixtureRows={fixtureRows}
           entry={effectiveEntry}
+          teamId={teamId}
+          recentTeams={recentTeams}
+          entryLoading={entryLoading}
+          entryError={entryError}
+          onLoadTeam={handleLoadTeam}
           profile={profile}
           onProfileChange={setProfile}
           onToast={showToast}
