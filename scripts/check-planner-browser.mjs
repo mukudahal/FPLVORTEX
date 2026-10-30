@@ -17,13 +17,22 @@ try {
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'Team planner should show one pitch');
   assert.equal(await page.locator('.vx-planner-fixtures').count(), 0, 'No repeated FDR table');
   await page.locator('.vx-planner-overview').waitFor();
+  const strategy = page.getByRole('combobox', { name: 'Strategy' });
+  assert.deepEqual(await strategy.locator('option').allTextContents(), ['Steady', 'Top 10K', 'Template']);
+  await strategy.selectOption('top10k');
+  assert.ok(await page.getByText(/Strategy names are labels only/).isVisible());
+  await page.getByRole('combobox', { name: 'Planning horizon' }).selectOption('3');
+  assert.equal(await page.locator('.vx-planner-gws button').count(), 3);
+  await page.getByRole('combobox', { name: 'Planning horizon' }).selectOption('5');
   const pitchClass = await page.locator('.vx-soccer-pitch').first().getAttribute('class');
-  await page.getByRole('button', { name: /Auto-Build £/ }).click();
   await page.getByRole('button', { name: 'Suggest transfers' }).waitFor();
   await page.getByText('RUNNING SIMULATION', { exact: true }).waitFor({ state: 'hidden', timeout: 120000 });
   await page.waitForFunction(() => !document.querySelector('.planner-suggest')?.disabled, null, { timeout: 120000 });
   await page.getByRole('button', { name: 'Suggest transfers' }).click();
   await page.getByText('VORTEX suggested transfer path').waitFor();
+  const pathBefore = await page.locator('.planner-week-list').innerText();
+  await strategy.selectOption('template');
+  assert.equal(await page.locator('.planner-week-list').innerText(), pathBefore, 'Label-only strategy does not change recommendations');
   for (const width of [320, 375, 390, 414, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -73,7 +82,6 @@ try {
   await page.context().route('**/assets/planner.worker-*.js', route => route.abort());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
-  await page.getByRole('button', { name: /Auto-Build £/ }).click();
   await page.getByText('Simulation could not finish. Reload the page and try again.', { exact: true }).waitFor({ timeout: 30000 });
   console.log('Planner browser checks passed: production worker, tabs, zero FT, keyboard, mobile, worker failure recovery.');
 } catch (error) {

@@ -17,14 +17,12 @@ interface Props {
   onInspectPlayer?: (player: EnrichedPlayer) => void;
   horizon: number;
   decay: number;
-  onDecayChange: (value: number) => void;
-  onHorizonChange: (value: number) => void;
   plan: PlannerSimulationOutput | null;
   onSuggest: () => void;
   canSuggest: boolean;
 }
 
-export function PlannerOverview({ snapshot, squad, players, onInspectPlayer, horizon, decay, onDecayChange, onHorizonChange, plan, onSuggest, canSuggest }: Props) {
+export function PlannerOverview({ snapshot, squad, players, onInspectPlayer, horizon, decay, plan, onSuggest, canSuggest }: Props) {
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const gws = Array.from({ length: Math.min(horizon, Math.max(0, 39 - snapshot.meta.nextEventId)) }, (_, i) => snapshot.meta.nextEventId + i);
   const selected = gws.includes(selectedGw) ? selectedGw : gws[0];
@@ -58,11 +56,7 @@ export function PlannerOverview({ snapshot, squad, players, onInspectPlayer, hor
     </div>;
   };
   return <section className="vx-planner-overview" aria-label="Team planner">
-    <div className="vx-planner-controls panel">
-      <label>Horizon<select value={horizon} onChange={e => onHorizonChange(Number(e.target.value))}><option value={1}>1 GW</option><option value={5}>5 GW</option><option value={10}>10 GW</option></select></label>
-      <label>Decay/GW<select value={decay} onChange={e => onDecayChange(Number(e.target.value))}>{[0, 5, 10, 15, 20, 30].map(n => <option key={n} value={n}>{n}%</option>)}</select></label>
-      <div className="vx-planner-score"><span>{plan ? 'Plan net xPts' : 'Projected xPts'} <strong>{totals.reduce((a, b) => a + b, 0).toFixed(1)}</strong></span><span>Planning score <strong>{futureGwScore(totals, 1 - decay / 100).toFixed(1)}</strong></span></div>
-    </div>
+    <div className="planner-summary" aria-label="Plan totals"><span>{plan ? 'Plan net xPts' : 'Projected xPts'} <strong>{totals.reduce((a, b) => a + b, 0).toFixed(1)}</strong></span><span>Planning score <strong>{futureGwScore(totals, 1 - decay / 100).toFixed(1)}</strong></span></div>
     <div className="vx-planner-gws" aria-label="Select gameweek">{gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>)}</div>
     <div className="vx-planner-columns">
       <div className="vx-soccer-pitch">
