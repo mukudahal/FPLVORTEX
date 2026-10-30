@@ -8419,3 +8419,47 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
     height:clamp(398px,calc(100svh - 430px),490px);
   }
 }
+
+/* Expandable intelligence sections sit immediately below the squad hub. */
+.page--command .vx-hub-disclosures {
+  display:flex; flex-direction:column; gap:8px; margin-top:8px;
+}
+.page--command .vx-hub-disclosures > .vx-disclosure {
+  display:block; padding:0; order:0; min-width:0; border-radius:14px;
+}
+.vx-disclosure__summary {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:15px 18px; cursor:pointer; list-style:none; color:var(--text-primary);
+}
+.vx-disclosure__summary::-webkit-details-marker {display:none;}
+.vx-disclosure__summary h3 {margin:0;font-size:17px;font-weight:800;}
+.vx-disclosure__summary:focus-visible {outline:2px solid var(--accent);outline-offset:-3px;border-radius:12px;}
+.vx-disclosure__chevron {flex-shrink:0;transition:transform .18s ease;}
+.vx-disclosure[open] > summary .vx-disclosure__chevron {transform:rotate(180deg);}
+.vx-disclosure[open] > summary {border-bottom:1px solid var(--border);}
+.vx-disclosure__body {padding:14px 18px 16px;min-width:0;}
+.vx-disclosure__body > .vx-card__header {justify-content:flex-end;margin-bottom:8px;}
+.vx-disclosure__body .vx-card__scroll {max-height:none;overflow-y:visible;}
+.vx-disclosure__body .vx-transfer-scroll-x {overflow-x:auto;}
+@media(max-width:700px) {
+  .vx-disclosure__summary {padding:13px;}
+  .vx-disclosure__summary h3 {font-size:15px;}
+  .vx-disclosure__body {padding:10px;}
+}
+/* Sun mode uses dark text and deep accents on all light dashboard surfaces. */
+:root[data-theme="light"] .page--command .vx-hub-disclosures {
+  --text-primary:#172b43; --text-secondary:#40536c; --text-muted:#52657b;
+  --brand-mint:#087260; --brand-amber:#87520b; --brand-pink:#ac245b;
+  --success:#08684d; --danger:#ad2046;
+  color:#172b43;
+}
+:root[data-theme="light"] .page--command .vx-disclosure__summary {color:#172b43;background:#f5f8fd;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary h3 {color:#172b43;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary .vx-icon-mint {color:#087260;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary .vx-icon-amber {color:#87520b;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary .vx-icon-pink {color:#ac245b;}
+:root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-inline-link,.vx-top-score,.vx-price-col--current) {color:#075e52;}
+:root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-player-meta small,.vx-injury-copy small,.vx-row-idx,.vx-card__footer,.vx-card__sub) {color:#40536c;}
+:root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-player-meta strong,.vx-injury-head strong,.vx-price-col) {color:#172b43;}
+:root[data-theme="light"] .page--command :is(.vx-fixture-zone,.vx-inline-link) {color:#17675d;}
+:root[data-theme="light"] .page--command .vx-disclosure__body .vx-injury-copy-trigger {color:#172b43;}
