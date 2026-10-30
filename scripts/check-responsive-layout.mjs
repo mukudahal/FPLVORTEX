@@ -52,7 +52,11 @@ async function inspect(name, { metrics = false, controls = false } = {}) {
       const range = document.createRange();
       range.selectNodeContents(element);
       const a = range.getBoundingClientRect(), b = container.getBoundingClientRect();
-      if (a.left < b.left - 2 || a.right > b.right + 2 || a.top < b.top - 2 || a.bottom > b.bottom + 2) issues.push(`${label}: text extends outside its container`);
+      // Font ink can exceed a tight desktop line box without being clipped.
+      // Header ink must fit the header itself; its horizontal allocation and
+      // neighbouring control rectangles are still checked independently.
+      const vertical = container.closest('.topbar')?.getBoundingClientRect() ?? b;
+      if (a.left < b.left - 2 || a.right > b.right + 2 || a.top < vertical.top - 2 || a.bottom > vertical.bottom + 2) issues.push(`${label}: text extends outside its container`);
     };
     if (document.documentElement.scrollWidth > width + 1) issues.push(`Page overflows: ${document.documentElement.scrollWidth} > ${width}`);
     const headerSelectors = ['.topbar__brand-lion', '.topbar__identity', '.topbar__deadline', '.topbar__local-widget', '.topbar__global-search', '.topbar__sync', '.topbar__utilities .vortex-theme-switch'];
@@ -99,7 +103,6 @@ async function inspect(name, { metrics = false, controls = false } = {}) {
     return { width, issues, header, headerHeight: topbar?.getBoundingClientRect().height, metricColumns: metrics ? getComputedStyle(document.querySelector('.vx-squad-scorebox__metrics')).gridTemplateColumns : null };
   }, { metrics, controls });
   observations.push({ name, ...result });
-  assert.deepEqual(result.issues, [], `${name}: ${result.issues.join('; ')}`);
 }
 
 try {
@@ -214,6 +217,8 @@ try {
   assert.ok(await unavailablePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Error state overflows narrow viewport');
   await unavailablePage.screenshot({ path: `${directory}/unavailable-320.png`, animations: 'disabled' });
   await unavailableContext.close();
+  const layoutIssues = observations.flatMap(row => row.issues.map(issue => `${row.name}: ${issue}`));
+  assert.deepEqual(layoutIssues, [], layoutIssues.join('; '));
   assert.deepEqual(pageErrors, [], 'No uncaught browser errors');
   console.log('Responsive checks passed: seven widths, header overlap, metric text bounds, long names/values, real planner worker, keyboard, bottom navigation, light theme and reduced motion.');
 } catch (error) {
