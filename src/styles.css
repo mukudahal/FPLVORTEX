@@ -8132,7 +8132,7 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 :root[data-theme="light"] .page--command:not(.page--review) .vx-xg-labels strong,
 :root[data-theme="light"] .page--command:not(.page--review) .vx-player-meta strong,
 :root[data-theme="light"] .page--command:not(.page--review) .vx-injury-head strong,
-:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td:not(.is-positive):not(.is-negative),
 :root[data-theme="light"] .page--command:not(.page--review) .vx-compact-table td {
   color: #15273c;
 }
@@ -8151,6 +8151,15 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 :root[data-theme="light"] .page--command:not(.page--review) .vx-injury-head span,
 :root[data-theme="light"] .page--command:not(.page--review) .vx-price-dash {
   color: #53617b;
+}
+
+
+/* Preserve the up/down semantics of transfer numbers on white backgrounds. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td.is-positive {
+  color: #08745b;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td.is-negative {
+  color: #ad1d45;
 }
 
 /* Completion/fixture chips were pale mint on an almost white background. */
