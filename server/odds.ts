@@ -529,11 +529,17 @@ async function loadLiveMarketQuotes(force = false): Promise<CachedQuotes> {
  * Enriches FPL fixtures with live bookmaker implied Goals (`homeXg`, `awayXg`),
  * Clean Sheet % (`homeCs`, `awayCs`), and Fair 1X2 Win/Draw % whenever live market quotes are available.
  */
-export function oddsCoverage(fixtures: Fixture[], nextEventId: number): { matched: number; upcoming: number; status: MarketOddsMeta['status'] } {
-  const next = fixtures.filter(fixture => fixture.event === nextEventId);
+export function oddsCoverage(
+  fixtures: Fixture[], nextEventId: number,
+  redisplayLicenseVerified = false,
+): { matched: number; upcoming: number; status: MarketOddsMeta['status'] } {
+  const next = fixtures.filter(fixture => fixture.event === nextEventId && !fixture.finished);
   const matched = next.filter(fixture => Boolean(fixture.marketOdds)).length;
   const coverage = marketCoverage(next, nextEventId, 1);
-  return { matched, upcoming: next.length, status: coverage.completeMarketData ? 'live' : matched > 0 ? 'partial' : 'fallback' };
+  // "live" is a redisplay claim, NOT merely successful download or complete
+  // numeric coverage. Default to partial until the provider's rights are audited.
+  const live = redisplayLicenseVerified && coverage.completeMarketData;
+  return { matched, upcoming: next.length, status: live ? 'live' : matched > 0 ? 'partial' : 'fallback' };
 }
 
 export async function enrichFixturesWithLiveOdds(
@@ -586,9 +592,13 @@ export async function enrichFixturesWithLiveOdds(
     return marketOdds ? { ...fx, marketOdds } : fx;
   });
 
-  const { matched: nextGwMatched } = oddsCoverage(enrichedFixtures, nextEventId);
+  const rightsVerified = process.env.VORTEX_ODDS_REDISPLAY_LICENSE_VERIFIED === '1';
+  const { matched: nextGwMatched } = oddsCoverage(enrichedFixtures, nextEventId, rightsVerified);
   const next3Coverage = marketCoverage(enrichedFixtures, nextEventId);
-  const status: MarketOddsMeta['status'] = next3Coverage.completeMarketData
+  // A verified quote timestamp alone is not proof that VORTEX may redistribute
+  // this provider's prices. Never mark a public market feed "live" without
+  // explicit licensing and complete, current bookmaker-time-stamped coverage.
+  const status: MarketOddsMeta['status'] = rightsVerified && next3Coverage.completeMarketData
     ? 'live' : next3Coverage.pricedFixtures > 0 ? 'partial' : 'fallback';
 
   return {
