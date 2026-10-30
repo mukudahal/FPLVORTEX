@@ -62,7 +62,7 @@ export function SquadBuilder({
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
   const [transferPlansOpen, setTransferPlansOpen] = useState(false);
-  const [plannerHorizon, setPlannerHorizon] = useState(5);
+  const [plannerHorizon, setPlannerHorizon] = useState(10);
   const [plannerDecay, setPlannerDecay] = useState(15);
   const [simulationDraws, setSimulationDraws] = useState<number>(MC_DRAWS);
   const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
