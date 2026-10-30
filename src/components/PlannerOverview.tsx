@@ -56,8 +56,10 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
     </div>;
   };
   return <section className="vx-planner-overview" aria-label="Team planner">
-    <div className="vx-planner-timeline-summary" role="status"><strong>10-GW PLANNING ROADMAP</strong><span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} upcoming gameweeks · provisional model xP` : 'Upcoming gameweek schedule unavailable'}</span></div>
-    <div className="vx-planner-gws" aria-label="Select gameweek">{gws.length ? gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>) : <p role="status">No verified upcoming gameweek is available. Refresh the official FPL snapshot.</p>}</div>
+    <div className="vx-planner-timeline-bar">
+      <div className="vx-planner-timeline-summary" role="status"><strong>10-GW PLANNING ROADMAP</strong><span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} weeks · model xP` : 'Upcoming gameweek schedule unavailable'}</span></div>
+      <div className="vx-planner-gws" aria-label="Select gameweek">{gws.length ? gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>) : <p role="status">No verified upcoming gameweek is available. Refresh the official FPL snapshot.</p>}</div>
+    </div>
     <div className="vx-planner-columns">
       <div className="vx-soccer-pitch">
         <div className="vx-pitch-top-boards"><div className="vx-pitch-board"><img src={BRAND_LION_SRC} alt="" /><span>FPL VORTEX</span></div><div className="vx-pitch-goal-net" aria-hidden="true" /><a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer" className="vx-pitch-board vx-pitch-board--link">@FPLVORTEX</a></div>
