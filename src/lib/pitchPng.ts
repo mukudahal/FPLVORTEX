@@ -8,10 +8,14 @@ export function pitchPhotoSources(src: string, code?: string, teamCode?: string)
   return sources;
 }
 
-async function imageDataUrl(img: HTMLImageElement): Promise<string> {
+export async function imageDataUrl(img: HTMLImageElement): Promise<string> {
   const src = img.currentSrc || img.src;
   if (src.startsWith('data:')) return src;
-  for (const url of pitchPhotoSources(src, img.dataset.playerCode, img.dataset.teamCode)) {
+  const sources = pitchPhotoSources(src, img.dataset.playerCode, img.dataset.teamCode);
+  if (!img.dataset.playerCode && img.dataset.teamCode && /^\d+$/.test(img.dataset.teamCode)) {
+    sources.push('/api/img/badge/' + encodeURIComponent(img.dataset.teamCode));
+  }
+  for (const url of sources) {
     try {
       const response = await fetch(url);
       if (!response.ok) continue;
