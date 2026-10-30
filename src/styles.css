@@ -8082,3 +8082,129 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 }
 
 /* Tablet and mobile remain in the existing responsive, scrollable layout. */
+
+
+/* 2026-10-29 SUN / LIGHT THEME — HOME TEXT VISIBILITY REPAIR
+   Contrast overrides only: do not invert text on dark pitch, player artwork,
+   result badges, route tabs or the dark-red deadline/search controls.
+   Preserve the existing 3-column layout and typography scale. */
+:root[data-theme="light"] {
+  --text-secondary: #43516b;
+  --text-muted: #53617b;
+}
+
+/* The weather temperature was literally white on a transparent/light header;
+   the clock and Sync label also used near-white mint on a light surface. */
+:root[data-theme="light"] .topbar__weather strong {
+  color: #16324c;
+  text-shadow: none;
+}
+:root[data-theme="light"] .topbar__weather small,
+:root[data-theme="light"] .topbar__local-clock small {
+  color: #42546c;
+}
+:root[data-theme="light"] .topbar__local-clock time {
+  color: #096857;
+  text-shadow: none;
+}
+:root[data-theme="light"] .topbar__sync {
+  background: #e3f8f1;
+  border-color: #167a69;
+  color: #095c4b;
+  text-shadow: none;
+}
+:root[data-theme="light"] .topbar__sync:hover:not(:disabled) {
+  background: #d1f2e7;
+}
+:root[data-theme="light"] .vortex-theme-switch__opt {
+  color: #526179;
+}
+:root[data-theme="light"] .topbar__utilities .vortex-theme-switch__opt:last-child svg {
+  color: #9a5805;
+  filter: none;
+}
+
+/* Home panels are light, while the squad score ribbon and pitch stay dark.
+   Scope text corrections to the white panels, not the green/dark player cards. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-card__header h3,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-club-short,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-club-val,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-xg-labels strong,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-player-meta strong,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-injury-head strong,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-compact-table td {
+  color: #15273c;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-card__sub,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-club-opp,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-xg-labels span,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-odds-source-badge,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-player-meta small,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-injury-copy small,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table th button,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-compact-table th,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-card__footer {
+  color: #44546e;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-row-idx,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-injury-head span,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-price-dash {
+  color: #53617b;
+}
+
+/* Completion/fixture chips were pale mint on an almost white background. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-match-pill.is-finished {
+  color: #076b57;
+  border-color: #62bea0;
+  background: #e5f8f0;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-xg-split-bar {
+  background: #dae5f0;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-icon-mint {
+  color: #087463;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-icon-amber {
+  color: #99600e;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-icon-pink {
+  color: #a72462;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table th button:hover,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-inline-link:hover {
+  color: #4c3bb6;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-clickable-row:hover {
+  background: rgba(69, 83, 142, 0.065);
+}
+
+/* Error text sits on the outer white squad panel, NOT the dark score ribbon. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-squad-scorebox__error {
+  background: #fff0f2;
+  color: #a31a39;
+  border: 1px solid #f1b9c6;
+}
+
+/* YouTube strip headings and links are dark on the light-card background.
+   Video duration badges keep their dark background and white text. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-videos-strip__handle-link,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-video-pill__channel-link,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-video-pill__title-btn:hover strong {
+  color: #4d3bb7;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-videos-strip .vx-card__sub,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-video-pill__copy small {
+  color: #4c5b75;
+}
+
+/* Input controls and visible focus states should be obvious in Sun mode. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-mini-select,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-seg-pills button:not(.is-active) {
+  color: #344660;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-mini-select:focus-visible,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-seg-pills button:focus-visible {
+  outline: 2px solid #5b4fd4;
+  outline-offset: 2px;
+}
