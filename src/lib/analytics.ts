@@ -360,20 +360,29 @@ export function riskWatchlist(players: EnrichedPlayer[], limit = 8): EnrichedPla
     .slice(0, limit);
 }
 
+export function normalizeSearchText(value: string): string {
+  return value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 export function searchPlayers(players: EnrichedPlayer[], query: string, limit = 10): EnrichedPlayer[] {
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearchText(query);
+  const relevance = (name: string, fullName: string) => {
+    if (normalizeSearchText(name) === needle || normalizeSearchText(fullName) === needle) return 0;
+    if (normalizeSearchText(name).startsWith(needle) || normalizeSearchText(fullName).startsWith(needle)) return 1;
+    if (normalizeSearchText(name).includes(needle) || normalizeSearchText(fullName).includes(needle)) return 2;
+    return 3;
+  };
   const base = !needle
     ? [...players].sort((a, b) => b.projection - a.projection)
     : players
-        .filter(
-          (p) =>
-            p.name.toLowerCase().includes(needle) ||
-            p.fullName.toLowerCase().includes(needle) ||
-            p.team.name.toLowerCase().includes(needle) ||
-            p.team.shortName.toLowerCase().includes(needle) ||
-            p.position.toLowerCase().includes(needle),
+        .filter((p) =>
+          [p.name, p.fullName, p.team.name, p.team.shortName, p.position]
+            .some((field) => normalizeSearchText(field).includes(needle)),
         )
-        .sort((a, b) => b.projection - a.projection);
+        .sort((a, b) =>
+          relevance(a.name, a.fullName) - relevance(b.name, b.fullName) ||
+          b.projection - a.projection,
+        );
   return base.slice(0, limit);
 }
 

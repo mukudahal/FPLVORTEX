@@ -86,6 +86,8 @@ export default function App() {
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySyncNonce, setEntrySyncNonce] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchRevision, setSearchRevision] = useState(0);
   const [playerQuery, setPlayerQuery] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [globalCardPlayer, setGlobalCardPlayer] = useState<EnrichedPlayer | null>(null);
@@ -216,13 +218,19 @@ export default function App() {
   );
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
-  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    setSearchQuery('');
+  }, []);
   const toggleTheme = useCallback(() => setTheme((current) => (current === 'dark' ? 'light' : 'dark')), [setTheme]);
   const handleRefresh = useCallback(() => {
     setEntrySyncNonce((n) => n + 1);
     void refresh(true);
   }, [refresh]);
-  const selectPlayer = useCallback((query: string) => setPlayerQuery(query), []);
+  const selectPlayer = useCallback((query: string) => {
+    setPlayerQuery(query);
+    setSearchRevision((revision) => revision + 1);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -365,6 +373,7 @@ export default function App() {
     case 'players':
       page = (
         <PlayerLab
+          key={searchRevision}
           snapshot={snapshot}
           players={players}
           teams={snapshot.teams}
@@ -451,14 +460,11 @@ export default function App() {
     <div className="app-shell">
       <div className="app-main">
         <Topbar
-          route={route}
-          snapshot={snapshot}
-          refreshing={refreshing}
-          lastSuccessAt={lastSuccessAt}
           theme={theme}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           onToggleTheme={toggleTheme}
           onOpenPalette={openPalette}
-          onRefresh={handleRefresh}
           onNavigate={navigate}
         />
         <main className="content" id="main-content">
@@ -584,6 +590,8 @@ export default function App() {
 
       <CommandPalette
         open={paletteOpen}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
         onClose={closePalette}
         players={players}
         snapshot={snapshot}

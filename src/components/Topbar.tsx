@@ -1,43 +1,24 @@
-import { Moon, RefreshCw, Search, Sun, Target } from 'lucide-react';
-import type { Snapshot } from '../lib/types';
+import { Moon, Search, Sun } from 'lucide-react';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import type { RouteId } from '../hooks/useHashRoute';
-import { SourcePill } from './SourcePill';
-
-const ROUTE_TITLES: Record<RouteId, { title: string; subtitle: string }> = {
-  command: { title: 'Command center', subtitle: 'The whole gameweek at a glance' },
-  optimizer: { title: 'Squad optimizer', subtitle: 'Build the strongest legal fifteen automatically' },
-  players: { title: 'Player lab', subtitle: 'Search, compare and explain every projection' },
-  fixtures: { title: 'Fixture matrix', subtitle: 'Fixture forecasts and schedule difficulty' },
-  league: { title: 'League intel', subtitle: 'Scan your team, transfers and rivals' },
-  method: { title: 'Model & automation', subtitle: 'Transparent inputs, resilient infrastructure' },
-};
 
 interface TopbarProps {
-  route: RouteId;
-  snapshot: Snapshot | null;
-  refreshing: boolean;
-  lastSuccessAt: string | null;
   theme: 'dark' | 'light';
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
   onToggleTheme: () => void;
   onOpenPalette: () => void;
-  onRefresh: () => void;
   onNavigate: (route: RouteId) => void;
 }
 
 export function Topbar({
-  route,
-  snapshot,
-  refreshing,
-  lastSuccessAt,
   theme,
+  searchQuery,
+  onSearchChange,
   onToggleTheme,
   onOpenPalette,
-  onRefresh,
   onNavigate,
 }: TopbarProps) {
-  const heading = ROUTE_TITLES[route];
-  const event = snapshot?.gameweeks.find((gameweek) => gameweek.id === snapshot.meta.nextEventId);
   return (
     <header className="topbar">
       <div className="topbar__left">
@@ -62,38 +43,22 @@ export function Topbar({
       </div>
 
       <div className="topbar__right">
-        <div className="topbar__heading topbar__page-label"><h1>{heading.title}</h1><p>{heading.subtitle}</p></div>
-        <button type="button" className="search-trigger" onClick={onOpenPalette}>
-          <Search size={17} />
-          <span>Search players, teams, pages…</span>
-          <kbd>⌘ K</kbd>
-        </button>
-
-        <div className="gameweek-chip" title={event?.deadlineTime}>
-          <span className="gameweek-chip__dot" />
-          <span>{event?.shortName ?? 'GW —'}</span>
-          <small>{snapshot?.meta.isLive ? 'LIVE' : 'NEXT'}</small>
-        </div>
-
-        <SourcePill
-          snapshot={snapshot}
-          refreshing={refreshing}
-          lastSuccessAt={lastSuccessAt}
-          onRefresh={onRefresh}
-          compact
-        />
-
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => void onRefresh()}
-          disabled={refreshing}
-          aria-label="Refresh data now"
-          title="Refresh data now"
-        >
-          <RefreshCw size={17} className={refreshing ? 'spin' : ''} />
-        </button>
-
+        <label className="topbar__global-search">
+          <Search size={19} aria-hidden="true" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => {
+              onSearchChange(event.target.value);
+              onOpenPalette();
+            }}
+            onFocus={onOpenPalette}
+            placeholder="Search players, teams & all pages…"
+            aria-label="Search all FPL VORTEX players, teams and website tabs"
+            autoComplete="off"
+          />
+          <kbd aria-hidden="true">⌘ K</kbd>
+        </label>
         <button
           type="button"
           className={`vortex-theme-switch ${theme === 'light' ? 'is-light' : 'is-dark'}`}
@@ -101,7 +66,7 @@ export function Topbar({
           role="switch"
           aria-checked={theme === 'dark'}
           aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          title={theme === 'dark' ? 'Dark theme (#070914) active — click for Light (#f4f6ff)' : 'Light theme (#f4f6ff) active — click for Dark (#070914)'}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         >
           <span className={`vortex-theme-switch__opt ${theme === 'dark' ? 'is-active' : ''}`} aria-hidden="true">
             <Moon size={14} />
@@ -109,10 +74,6 @@ export function Topbar({
           <span className={`vortex-theme-switch__opt ${theme === 'light' ? 'is-active' : ''}`} aria-hidden="true">
             <Sun size={14} />
           </span>
-        </button>
-
-        <button type="button" className="button button--primary topbar__connect" onClick={() => onNavigate('league')}>
-          <Target size={16} /> Connect team
         </button>
       </div>
     </header>

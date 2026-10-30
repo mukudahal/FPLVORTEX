@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { EnrichedPlayer, Snapshot } from '../lib/types';
 import type { RouteId } from '../hooks/useHashRoute';
-import { searchPlayers } from '../lib/analytics';
+import { normalizeSearchText, searchPlayers } from '../lib/analytics';
 import { classNames } from '../lib/format';
 
 interface PaletteItem {
@@ -27,6 +27,8 @@ interface PaletteItem {
 
 interface CommandPaletteProps {
   open: boolean;
+  query: string;
+  onQueryChange: (query: string) => void;
   onClose: () => void;
   players: EnrichedPlayer[];
   snapshot: Snapshot | null;
@@ -34,32 +36,30 @@ interface CommandPaletteProps {
   onSelectPlayer: (query: string) => void;
 }
 
-const PAGE_ITEMS: Array<{ id: RouteId; label: string; subLabel: string; icon: ReactNode }> = [
-  { id: 'command', label: 'Command center', subLabel: 'Gameweek overview, engine verdict & @FPLVORTEX briefings', icon: <Gauge size={17} /> },
-  { id: 'optimizer', label: 'Squad optimizer', subLabel: 'Team planner, FPLReview chip EV matrix & 3,000-draw Monte Carlo', icon: <WandSparkles size={17} /> },
-  { id: 'players', label: 'Player lab', subLabel: 'All 667 repo players with portraits, Opta xP, DEFCON & GW7–16 horizon', icon: <Users size={17} /> },
-  { id: 'fixtures', label: 'Fixture matrix', subLabel: '5-GW Poisson expected goals, clean-sheet % & club badges', icon: <CalendarDays size={17} /> },
-  { id: 'league', label: 'League intel', subLabel: 'Scan your FPL squad, EO rank impact & classic leagues', icon: <Trophy size={17} /> },
-  { id: 'method', label: 'Model & automation', subLabel: '2026/27 DEFCON math, shrinkage priors, calibration & provenance', icon: <BrainCircuit size={17} /> },
+const PAGE_ITEMS: Array<{ id: RouteId; label: string; subLabel: string; keywords: string; icon: ReactNode }> = [
+  { id: 'command', label: 'Command Center', subLabel: 'Home · Gameweek review, captain picks, prices, transfers, injuries & videos', keywords: 'dashboard home overview captaincy goals projections clean sheets news updates injury video price market', icon: <Gauge size={17} /> },
+  { id: 'optimizer', label: 'Squad Optimizer', subLabel: 'Team planner · Squad, transfers, chips, wildcard & Monte Carlo', keywords: 'planner squad builder pitch wildcard free hit bench boost triple captain transfer team fdr', icon: <WandSparkles size={17} /> },
+  { id: 'players', label: 'Player Lab', subLabel: 'All FPL players · Search, compare, expected points & player stats', keywords: 'players stats footballers player lab compare positions xpts xg injuries ownership', icon: <Users size={17} /> },
+  { id: 'fixtures', label: 'Fixture Matrix', subLabel: 'All clubs · Fixtures, difficulty ratings, goals & clean-sheet odds', keywords: 'fixture fdr matrix schedule odds win probability clean sheet cs%', icon: <CalendarDays size={17} /> },
+  { id: 'league', label: 'League Intel', subLabel: 'Your FPL team · Manager ID, mini-leagues, rivals & standings', keywords: 'connect team manager id league rivals standings ranking score', icon: <Trophy size={17} /> },
+  { id: 'method', label: 'Model & Automation', subLabel: 'Methods · Data sources, prediction models & automation', keywords: 'methodology model source data provenance calibration forecast automate explanation', icon: <BrainCircuit size={17} /> },
 ];
 
-export function CommandPalette({ open, onClose, players, snapshot, onNavigate, onSelectPlayer }: CommandPaletteProps) {
-  const [query, setQuery] = useState('');
+export function CommandPalette({ open, query, onQueryChange, onClose, players, snapshot, onNavigate, onSelectPlayer }: CommandPaletteProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setQuery('');
     setActiveIndex(0);
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50);
     return () => window.clearTimeout(timer);
   }, [open]);
 
   const items = useMemo<PaletteItem[]>(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = normalizeSearchText(query);
     const pages = PAGE_ITEMS.filter(
-      (item) => !needle || item.label.toLowerCase().includes(needle) || item.subLabel.toLowerCase().includes(needle),
+      (item) => !needle || normalizeSearchText([item.label, item.subLabel, item.keywords].join(' ')).includes(needle),
     ).map((item) => ({
       id: `page-${item.id}`,
       label: item.label,
@@ -71,7 +71,7 @@ export function CommandPalette({ open, onClose, players, snapshot, onNavigate, o
         onClose();
       },
     }));
-    const foundPlayers = searchPlayers(players, query, needle ? 7 : 4).map((player) => ({
+    const foundPlayers = searchPlayers(players, query, needle ? players.length : 4).map((player) => ({
       id: `player-${player.id}`,
       label: player.name,
       subLabel: `${player.team.shortName} · ${player.position} · ${player.projection.toFixed(1)} projected pts`,
@@ -84,8 +84,8 @@ export function CommandPalette({ open, onClose, players, snapshot, onNavigate, o
       },
     }));
     const clubs = (snapshot?.teams ?? [])
-      .filter((team) => !needle || team.name.toLowerCase().includes(needle) || team.shortName.toLowerCase().includes(needle))
-      .slice(0, needle ? 4 : 2)
+      .filter((team) => !needle || normalizeSearchText(team.name).includes(needle) || normalizeSearchText(team.shortName).includes(needle))
+      .slice(0, needle ? (snapshot?.teams.length ?? 20) : 2)
       .map((team) => ({
         id: `club-${team.id}`,
         label: team.name,
@@ -123,7 +123,7 @@ export function CommandPalette({ open, onClose, players, snapshot, onNavigate, o
             ref={inputRef}
             value={query}
             onChange={(event) => {
-              setQuery(event.target.value);
+              onQueryChange(event.target.value);
               setActiveIndex(0);
             }}
             onKeyDown={(event) => {
@@ -138,8 +138,8 @@ export function CommandPalette({ open, onClose, players, snapshot, onNavigate, o
               }
               if (event.key === 'Enter') items[activeIndex]?.action();
             }}
-            placeholder="Search players, clubs, tools or actions…"
-            aria-label="Search"
+            placeholder="Search every player, club, tab and tool…"
+            aria-label="Search all players, teams and site pages"
           />
           <button type="button" onClick={onClose} aria-label="Close search"><X size={17} /></button>
         </div>
@@ -149,7 +149,7 @@ export function CommandPalette({ open, onClose, players, snapshot, onNavigate, o
             if (!groupItems.length) return null;
             return (
               <div className="command-palette__group" key={group}>
-                <span className="command-palette__group-label">{group}</span>
+                <span className="command-palette__group-label">{group}{query.trim() ? ` (${groupItems.length})` : ''}</span>
                 {groupItems.map((item) => {
                   const index = items.indexOf(item);
                   return (
