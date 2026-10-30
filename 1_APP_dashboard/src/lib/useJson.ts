@@ -24,7 +24,6 @@ export function useJson<T>(
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const urlRef = useRef(url);
-  urlRef.current = url;
 
   const load = useCallback(async (target: string, isInitial: boolean) => {
     if (isInitial) setLoading(true);
@@ -70,21 +69,32 @@ export function useJson<T>(
   }, []);
 
   useEffect(() => {
-    if (!url) {
+    // Keep the latest request target in sync after the render has committed.
+    urlRef.current = url;
+    let active = true;
+    // Reset the view on a microtask rather than synchronously in the effect.
+    // The cleanup prevents obsolete requests when a team/URL is changed rapidly.
+    queueMicrotask(() => {
+      if (!active) return;
+      if (!url) {
+        setData(null);
+        setLoading(false);
+        setError(null);
+        setResolvedUrl(null);
+        return;
+      }
       setData(null);
-      setLoading(false);
       setError(null);
-      setResolvedUrl(null);
-      return;
-    }
-    setData(null);
-    setError(null);
-    setLoading(true);
-    void load(url, true);
-    if (refreshMs > 0) {
-      const t = setInterval(() => void load(url, false), refreshMs);
-      return () => clearInterval(t);
-    }
+      setLoading(true);
+      void load(url, true);
+    });
+    const timer = url && refreshMs > 0
+      ? setInterval(() => { if (active) void load(url, false); }, refreshMs)
+      : null;
+    return () => {
+      active = false;
+      if (timer !== null) clearInterval(timer);
+    };
   }, [url, refreshMs, load]);
 
   const refresh = useCallback(() => {
@@ -95,9 +105,17 @@ export function useJson<T>(
     }
   }, [url, load]);
 
-  // If url just transitioned from null to a new string and hasn't resolved yet, treat as loading
-  const effectiveLoading =
-    loading || (Boolean(url) && resolvedUrl !== url && data === null && error === null);
+  // Old responses must never be shown under a newly selected team or endpoint.
+  const visibleData = resolvedUrl === url ? data : null;
+  const visibleError = resolvedUrl === url ? error : null;
+  const effectiveLoading = Boolean(url) &&
+    (loading || (resolvedUrl !== url && visibleData === null && visibleError === null));
 
-  return { data, error, loading: effectiveLoading, refresh, lastUpdated };
+  return {
+    data: visibleData,
+    error: visibleError,
+    loading: effectiveLoading,
+    refresh,
+    lastUpdated: resolvedUrl === url ? lastUpdated : null,
+  };
 }
