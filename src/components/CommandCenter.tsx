@@ -1136,7 +1136,7 @@ export function CommandCenter({
         <article className="panel vx-card vx-card--fixtures">
           <header className="vx-card__header">
             <div>
-              <h3>GW {selectedGw} Fixtures</h3>
+              <h3>GW {selectedGw} {finishedMatchesCount > 0 ? "Results" : "Fixtures"}</h3>
               <small className="vx-card__sub">
                 {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
                   ? `Market quotes: 1X2 ${gwMarketCoverage.complete1x2}/${gwMarketCoverage.totalFixtures} · O/U ${gwMarketCoverage.completeTotals}/${gwMarketCoverage.totalFixtures} · remaining VORTEX model`
@@ -1249,7 +1249,7 @@ export function CommandCenter({
           </div>
         </article>
 
-        {mode === 'review' && (
+        {false && (
           <article className="panel vx-card vx-card--next-fixtures" aria-label={`Next gameweek ${nextEventId} fixtures in local time`}>
             <header className="vx-card__header">
               <div>
@@ -1309,7 +1309,7 @@ export function CommandCenter({
               <Shield size={16} className="vx-icon-mint" />
               <h3>
                 GW {selectedGw}{' '}
-                {projMetric === 'goals' ? 'Projected Goals' : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
+                {projMetric === 'goals' ? (mode === 'review' ? 'Review Goals' : 'Projected Goals') : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
               </h3>
             </div>
             <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2) }, { text: `${Math.round(club.cs * 100)}%` }, { text: `${Math.round(club.win * 100)}%` }]) }]} />
