@@ -101,8 +101,9 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
       const canvas = document.createElement('canvas');
       canvas.width = f.width;
       canvas.height = f.height;
-      const ctx = canvas.getContext('2d', { alpha: false });
-      if (!ctx) throw new Error('The browser could not prepare the 4K PNG canvas.');
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) throw new Error('The browser could not prepare the 4K PNG canvas.');
+      const ctx: CanvasRenderingContext2D = context;
       const gradient = ctx.createLinearGradient(0, 0, f.width, f.height);
       gradient.addColorStop(0, f.background);
       gradient.addColorStop(1, '#13182B');
