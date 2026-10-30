@@ -7840,3 +7840,50 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
     left: calc(100% - 17px);top: 24px;
   }
 }
+
+/* Review hub: reference-inspired balanced 3-column layout; site header/theme unchanged. */
+@media (min-width: 1180px) {
+  .page--review .vx-hub-upper {
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(0, .91fr) minmax(0, .91fr);
+    align-items: start;
+    gap: 14px;
+  }
+  .page--review .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:2;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-card--goals {grid-column:3;grid-row:1;min-width:0;}
+  .page--review .vx-fixture-columns {grid-template-columns: 1fr;gap:0;}
+  .page--review .vx-fixture-column {gap:5px;}
+  .page--review .vx-fixture-rail .vx-card__header h3 {font-size:15px;}
+  .page--review .vx-fixture-rail .vx-match-team strong {font-size:11px;}
+  .page--review .vx-fixture-rail .vx-match-pill {font-size:12px;padding:5px 8px;}
+  .page--review .vx-fixture-rail .vx-match-team .club-badge {width:20px;height:20px;flex-basis:20px;}
+  .page--review .vx-fixture-rail .vx-match-item {padding:8px 7px;}
+  .page--review .vx-fixture-rail .vx-xg-split-bar {height:5px;margin-top:7px;}
+  .page--review .vx-fixture-rail .vx-xg-labels,.page--review .vx-fixture-rail .vx-xg-labels span {font-size:10.5px;}
+}
+/* Uncramped pitch; preserves existing portraits, injury flags, captain badges and real points. */
+.page--review .vx-pitch-formation {gap:18px;padding:18px 10px 22px;}
+.page--review .vx-pitch-row {justify-content:space-around;gap:10px;min-height:110px;}
+.page--review .vx-pitch-player {width:clamp(78px,7.5vw,108px);max-width:23%;flex-shrink:0;}
+.page--review .vx-pitch-portrait.player-avatar {width:clamp(65px,6.1vw,88px);height:clamp(68px,6.5vw,92px);}
+.page--review .vx-pitch-name {font-size:clamp(11px,.95vw,14px);line-height:1.22;overflow-wrap:anywhere;}
+.page--review .vx-pitch-fix {font-size:clamp(10px,.85vw,12px);}
+.page--review .vx-pitch-bench {grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.page--review .vx-pitch-player.vx-pitch-player--bench {min-width:0;max-width:100%;}
+.page--review .vx-card--goals .vx-card__header h3 {font-size:clamp(13px,1.05vw,17px);}
+@media(max-width:1179px) {
+ .page--review .vx-hub-upper {grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ .page--review .vx-hub-upper > .vx-card--pitch {grid-column:1/-1;grid-row:1;}
+ .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:1;grid-row:2;}
+ .page--review .vx-hub-upper > .vx-card--goals {grid-column:2;grid-row:2;}
+ .page--review .vx-fixture-columns {grid-template-columns:1fr;}
+}
+@media(max-width:700px) {
+ .page--review .vx-hub-upper {grid-template-columns:minmax(0,1fr);}
+ .page--review .vx-hub-upper > .vx-card--pitch,.page--review .vx-hub-upper > .vx-fixture-rail,.page--review .vx-hub-upper > .vx-card--goals {grid-column:1;grid-row:auto;}
+ .page--review .vx-pitch-formation {gap:8px;padding:8px 4px 10px;}
+ .page--review .vx-pitch-row {min-height:85px;gap:3px;}
+ .page--review .vx-pitch-player {width:22%;max-width:22%;}
+ .page--review .vx-pitch-portrait.player-avatar {width:clamp(43px,13vw,70px);height:clamp(48px,14vw,75px);}
+}
