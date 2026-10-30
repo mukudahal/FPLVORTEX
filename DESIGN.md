@@ -31,3 +31,21 @@ This is an **additional image-output contract**, not a replacement for existing 
 - Save buttons expose a direct user-initiated Download PNG action; Share/Choose location/Open image remain device-specific alternatives. Optional temporary storage must not block showing the download.
 - Dynamic source/model timestamps are displayed in the interactive site, not fabricated inside rendered graphics; exports state that they reflect the on-screen dataset.
 - Browser acceptance requires correct PNG signature, real downloaded file, exact 3840 × 2160 dimensions, visible pitch/bench content, readable colored tables, and player identity/stat surfaces.
+
+## V2 planning workspace direction (Stage 02 decision)
+
+**Product register:** a live football analysis workstation, not a promotional landing page. The memorable interaction is the **10-GW timeline tied to the manager's persistent, editable squad**, with a compact comparison of Manual / Auto / Simulate. It is not a decorative hero, giant badge or fixed aspect-ratio website.
+
+- The existing root app's CSS theme variables, typography, spacing and icon components remain canonical until the Stage 03 theme/shell implementation. Do not make new shadow palettes in page-specific style blocks.
+- **Existing UI tokens:** root `src/styles.css` defines the dark/light runtime; Inter Variable is the current product type family; `lucide-react` icons already power the interface. Export-specific dark 4K colors in `src/lib/exportFrame.ts` are for downloaded graphics only, **not** an instruction to replace all live theme tokens.
+- The planner’s primary content order is: next-GW/deadline/source status → 10-week strip → working XI / bench and legal actions → projected gain, costs and uncertainty → paired comparison. Data explanation lives behind a small contextual detail/help link.
+- Pitch and fixtures share width on spacious desktops; smaller layouts use stacked panels or controlled inner scrolling, **not** scaled-down illegible screenshots. Keep consistent 44px touch targets, strong numerical alignment and visible status labels.
+- Provisional FDR retains the established four-band fixture fill semantics and text contrast; do not silently rename it calibrated VORTEX FDR until the Stage 08 historical reference tests pass.
+- Keyboard and dark/light themes must preserve the exact same operations. Use subdued panel separators, small labels, and one purple action accent; reserve cyan for focus/selection/secondary analytical emphasis.
+- A player headshot and team crest is shown where permitted by the existing resolver. Source/broken-image states must be explicit. Never invent realistic photographs or use an unverified player identity.
+- Source states `Fresh / Stale / Unverified / Unavailable` remain visible in data-first panels; model xPts are forecasts and always identified as such.
+- Changes to the canonical shell and tokens require direct edits to runtime owners **and** narrow/wide browser evidence; Stage 02 only records the decision and does not redesign deployed components.
+
+**Anti-patterns:** forced 16:9 live pages, rainbow dashboard gradients, informational walls of text, fake-live odds, oversized KPI cards, duplicate scrollbars, color-only FDR legends, and nonfunctional button mockups.
+
+See `PRODUCT.md`, `UX-CONTRACT.md`, `docs/adr/0001-v2-runtime-migration.md` and `docs/VORTEX_V2_SOURCE_CONTRACT.md` for authority and implementation gates.
