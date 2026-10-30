@@ -2,7 +2,7 @@
 
 Status: **SOURCE IMPLEMENTED; production scheduling requires hosting/worker configuration**.
 
-- `vercel.json`: requests `/api/cron/schedule` every ten minutes. **This frequency requires a compatible paid hosting plan**, not a default free-tier Cron guarantee. It is not active until deployed with `CRON_SECRET`.
+- `vercel.json`: **does not currently declare any `crons`**. The `/api/cron/schedule` route is implemented but intentionally inactive on the undeployed Next.js candidate. Activation requires a supported hosting schedule (target: `*/10 * * * *`), a valid `CRON_SECRET`, a running authorized background worker, production/staging database configuration and a reviewed deployment. Ten-minute frequency is not available on Vercel Hobby.
 - `src/app/api/cron/schedule/route.ts`: constant-time Bearer-secret check, FPL fixture access through Step 12 source adapters, only enqueues jobs. No long-running analysis executes inside the scheduled web request.
 - `src/lib/refreshSchedule.ts`: stable UTC hourly job-key slot for bootstrap/fixtures; ten-minute live slot is active only from 15 minutes before a scheduled kickoff through up to five hours after, and never for finished or blank-gameweek fixtures. Keyed to the fixture's actual gameweek.
 - `src/server/jobs/queue.ts`: per-slot idempotent insert with deduplication of recently pending jobs so slow workers do not accumulate hourly duplicates.
