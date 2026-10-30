@@ -51,9 +51,9 @@ export interface PendingSwap {
 }
 
 const ROUTE_PILLS: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
-  { id: 'command', label: 'HOME', icon: Gauge },
+  { id: 'optimizer', label: '10-GW PLANNER', icon: WandSparkles },
+  { id: 'command', label: 'DASHBOARD', icon: Gauge },
   { id: 'review', label: 'REVIEW', icon: ClipboardList },
-  { id: 'optimizer', label: 'PLANNER', icon: WandSparkles },
   { id: 'players', label: 'PLAYERS', icon: Users },
   { id: 'fixtures', label: 'FIXTURES', icon: CalendarDays },
   { id: 'league', label: 'LEAGUE', icon: Trophy },
