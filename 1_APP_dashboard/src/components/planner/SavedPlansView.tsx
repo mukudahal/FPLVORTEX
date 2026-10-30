@@ -49,7 +49,11 @@ export function SavedPlansView({entryId, ctx, draft, onLoad}: {
     }
   }, [entryId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => { if (active) void refresh(); });
+    return () => { active = false; };
+  }, [refresh]);
 
   async function save() {
     if (requiresSignIn) { setMessage("Sign in to store a cloud plan. Your browser draft remains available."); return; }

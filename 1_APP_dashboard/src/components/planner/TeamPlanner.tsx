@@ -113,13 +113,18 @@ export function TeamPlanner({ initialTeamId, embedded = false }: {initialTeamId?
   const storageKey = teamId && !shared ? `vortex-planner-${teamId}` : null;
   useEffect(() => {
     if (!storageKey) return;
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the saved draft once per team
-      if (raw) {
-        setTransfersState(JSON.parse(raw) as TransferMap);
-      } else if (teamId) {
-        const older = readLocal(teamId);
+    let cancelled = false;
+    // Hydrate browser-only state after React commits. Cancellation prevents
+    // a previous team's draft from overwriting a newly selected team.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw) {
+          setTransfersState(JSON.parse(raw) as TransferMap);
+          return;
+        }
+        const older = teamId ? readLocal(teamId) : null;
         const migrated = older ? older.data.transfers : null;
         if (migrated && typeof migrated === "object") {
           const imports: TransferMap = {};
@@ -134,10 +139,11 @@ export function TeamPlanner({ initialTeamId, embedded = false }: {initialTeamId?
         } else {
           setTransfersState({});
         }
+      } catch {
+        setTransfersState({});
       }
-    } catch {
-      setTransfersState({});
-    }
+    });
+    return () => { cancelled = true; };
   }, [storageKey, teamId]);
 
   const chipKey = teamId && !shared ? `vortex-chips-${teamId}` : null;

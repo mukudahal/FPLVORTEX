@@ -2,25 +2,25 @@
 
 Updated: 2026-10-30
 Source: GitHub repository `mukudahal/FPLVORTEX`
-Branch: `upgrade/vortex-10gw-v2`
+Tracking branch: `upgrade/vortex-stage01-next-ci-repair`
 Purpose: concise evidence-based status and unresolved dependencies for each stage.
 
 ## Current release context
 
 - Stage 00 audit and backup branch: COMPLETE.
-- Stage 01 source/architecture comparison and new Next.js CI job: IMPLEMENTED; validation PENDING.
+- Stage 01 source/architecture comparison and Next.js parity CI job: IMPLEMENTED. Next.js test failure identified; repair under validation.
 - Root baseline `main` CI `41086671032`: PASSED.
-- New branch Next.js parity CI run `41100517347`: QUEUED at last read (do **not** claim pass).
+- Post-merge main CI run `41101145630`: FAILED only in the Next.js candidate job; root build, planner browser and Python solver jobs PASSED. Next test run found 111/112 tests passing, failure in `refresh-schedule.test.cjs` because `1_APP_dashboard/vercel.json` deliberately has no scheduled crons. The candidate did not reach typecheck/lint/build in that run.
 - The candidate Next.js app has not been demonstrated to have production parity or working Supabase Auth.
 - Production source is the existing root Vite/Express application as described in README.
-- This PR adds documentation and GitHub CI only: **it does not deploy Next.js or implement the finished 10-GW V2 application.**
+- PR #53 **was merged and auto-deployed** on Render service `FPLVORTEX` to commit `c1a574bf` with status `live`. The deployed root app is unchanged functionally. The current repair PR adjusts the Next.js test to accept explicitly inactive cron configuration; it does not deploy or implement the finished V2 application.
 
 ## Outstanding — priority order
 
 | Priority | Item | Needed evidence / decision | Status |
 |---|---|---|---|
-| P0 | New Next.js CI candidate test | GitHub Actions job completes: install, DB dry-run, tests, typecheck, lint, build | PENDING |
-| P0 | Identify the actual production host/project | Confirm correct Render workspace/service and auto-deploy status; verify commit deployed and HTTP health | BLOCKED: workspace confirmation |
+| P0 | Next.js CI candidate test | Repair scheduler test for absent Vercel cron; rerun all steps including typecheck, lint and build | REPAIR IN REVIEW |
+| P0 | Verify production health | Render workspace confirmed; only service FPLVORTEX, Docker from main, deployment for `c1a574bf` reported `live`; verify application HTTP health | DEPLOYMENT VERIFIED / HTTP PENDING |
 | P0 | Architecture decision | Resolve root Vite vs `1_APP_dashboard` Next source ownership, code-sharing, migration and rollback | OPEN |
 | P0 | Stage 02 product/UX/API contracts | Canonical `PRODUCT.md`, `DESIGN.md`, `UX-CONTRACT.md`, source contracts; approve route ownership | OPEN |
 | P0 | Supabase staging integration | Set up staging DB, Auth/RLS and admin role; migrate plans safely | OPEN |

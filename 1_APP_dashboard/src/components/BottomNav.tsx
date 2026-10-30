@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { getSavedTeamId } from "@/lib/helpers";
 
 const HomeIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
@@ -46,12 +44,6 @@ const PulseIcon = (
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [teamId, setTeamId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setTeamId(getSavedTeamId());
-  }, [pathname]);
-
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, active: pathname === "/" },
     { href: "/review", label: "GW Review", icon: PulseIcon, active: pathname.startsWith("/review") },

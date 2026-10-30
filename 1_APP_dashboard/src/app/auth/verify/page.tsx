@@ -9,7 +9,7 @@ export default function VerifyEmailPage() {
     if (sent.current) return;
     sent.current = true;
     const token = new URLSearchParams(window.location.search).get("token");
-    if (!token) { setMessage("Verification link is missing its token."); return; }
+    if (!token) { queueMicrotask(() => setMessage("Verification link is missing its token.")); return; }
     void fetch("/api/auth/verify", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }),
     }).then(async (response) => {
