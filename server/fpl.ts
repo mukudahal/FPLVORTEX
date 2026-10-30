@@ -291,6 +291,11 @@ function normalizeEntry(
     startedEvent,
     favouriteTeamId: root.favourite_team === null || root.favourite_team === undefined ? null : numberValue(root.favourite_team),
     overallRank: root.summary_overall_rank === null ? null : numberValue(root.summary_overall_rank),
+    previousOverallRank: (() => {
+      const prev = historyPayload?.current?.find((row) => numberValue(row.event, 0) === history.event - 1);
+      const rank = numberValue(prev?.overall_rank, 0);
+      return rank > 0 ? rank : null;
+    })(),
     overallPoints: root.summary_overall_points === null ? null : numberValue(root.summary_overall_points),
     freeTransfers,
     currentEvent: history.event,

@@ -386,6 +386,8 @@ export interface EntryData {
   startedEvent: number;
   favouriteTeamId: number | null;
   overallRank: number | null;
+  /** Prior completed GW overall rank, from official FPL history; null if unverified. */
+  previousOverallRank?: number | null;
   overallPoints: number | null;
   freeTransfers: number;
   currentEvent: number;

@@ -163,6 +163,11 @@ export async function fetchEntry(
       startedEvent,
       favouriteTeamId: archived.root.favourite_team ?? null,
       overallRank: archived.root.summary_overall_rank ?? null,
+      previousOverallRank: (() => {
+        const previous = archived.history?.current?.find((row) => numberValue(row.event, 0) === targetGw - 1);
+        const rank = numberValue(previous?.overall_rank, 0);
+        return rank > 0 ? rank : null;
+      })(),
       overallPoints: archived.root.summary_overall_points ?? null,
       currentEvent: numberValue(history.event, snapshot.meta.currentEventId),
       activeChip,

@@ -7388,3 +7388,78 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .topbar__sync { height: 35px; font-size: 11px; min-width: 89px; }
   .topbar__utilities { gap: 6px; }
 }
+
+/* Compact two-row FPL review scoreboard: one editable ID row and one full-width metrics row. */
+.vx-card.vx-card--review-compact { padding: 10px 12px; gap: 0; }
+.vx-squad-scorebox {
+  display: grid; grid-template-rows: auto auto;
+  border: 1.5px solid #e6b85b; border-radius: 12px;
+  background: linear-gradient(115deg, rgba(46,39,26,.85), rgba(15,19,42,.95) 36%, rgba(30,26,46,.95));
+  box-shadow: 0 0 0 1px rgba(236,190,89,.11), inset 0 1px 0 rgba(255,226,148,.12);
+  overflow: visible; margin-bottom: 7px;
+}
+.vx-squad-scorebox__top {
+  display:flex; align-items:center; flex-wrap:nowrap; gap:6px; min-height:37px;
+  padding:4px 7px; border-bottom:1px solid rgba(243,193,95,.5);
+}
+.vx-squad-scorebox__id-label {
+  color:#ffdb8c; font-size:10px; font-weight:950; letter-spacing:.075em;
+  white-space:nowrap;
+}
+.vx-squad-scorebox__top input {
+  min-width:65px; width:95px; height:28px; padding:3px 7px;
+  background:#10182f; border:1px solid rgba(247,200,104,.64); border-radius:6px;
+  color:#fff; font:inherit; font-size:12px; font-weight:850; outline:0;
+}
+.vx-squad-scorebox__top input:focus { border-color:#5bf5d6;box-shadow:0 0 0 2px rgba(91,245,214,.2); }
+.vx-squad-scorebox__top input::placeholder {color:#cad3e4;font-size:9px;}
+.vx-squad-scorebox__enter {
+  height:28px; min-width:66px; display:inline-flex; align-items:center; justify-content:center; gap:3px;
+  border:1px solid #ffd579; border-radius:6px;
+  background:linear-gradient(105deg,#af6c18,#e1a02b); color:#fff; font-size:10px;
+  font-weight:950; cursor:pointer; white-space:nowrap;
+}
+.vx-squad-scorebox__enter:hover:not(:disabled) {filter:brightness(1.15);}
+.vx-squad-scorebox__enter:disabled {opacity:.6;cursor:wait;}
+.vx-squad-scorebox__team {flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+.vx-squad-scorebox__team strong {font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vx-squad-scorebox__team small {font-size:8px;color:#ffdc91;}
+.vx-squad-scorebox__top .vx-view-toggle {flex-shrink:0;padding:2px;}
+.vx-squad-scorebox__top .vx-view-toggle button {width:24px;height:23px;}
+.vx-squad-scorebox__metrics {
+  display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-height:51px;
+  gap:0;padding:3px 4px;
+}
+.vx-score-metric {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  min-width:0; padding:3px 2px;
+  border-right:1px solid rgba(236,190,89,.44);
+  text-align:center;
+}
+.vx-score-metric:last-child {border-right:0;}
+.vx-score-metric span {color:#ffe9be;font-size:9px;font-weight:950;letter-spacing:.04em;white-space:nowrap;}
+.vx-score-metric strong {font-size:clamp(12px,1.3vw,18px);line-height:1.1;font-weight:950;color:#f7fafc;white-space:nowrap; font-variant-numeric:tabular-nums;}
+.vx-score-metric.is-points strong {color:#5bf5d6;}
+.vx-score-metric.is-average strong {color:#ffdc79;}
+.vx-score-metric.is-previous strong {color:#d0d9ff;}
+.vx-score-metric.is-rank strong {color:#fff;}
+.vx-score-metric.is-bank strong {color:#f1b5ff;}
+.vx-score-metric.is-ft strong {color:#8ce9ff;}
+.vx-score-metric.is-change.is-up strong {color:#4ef5a3;text-shadow:0 0 8px rgba(48,232,119,.4);}
+.vx-score-metric.is-change.is-down strong {color:#ff6972;text-shadow:0 0 8px rgba(255,70,80,.3);}
+.vx-score-metric.is-change.is-same strong {color:#fff;}
+.vx-squad-scorebox__error {margin:5px 0 6px;padding:5px 8px;border-radius:6px;background:rgba(235,65,80,.14);color:#ffb8bd;font-size:11px;}
+.vx-squad-scorebox__empty {display:flex;align-items:center;justify-content:center;gap:8px;padding:30px 12px;text-align:center;color:var(--text-secondary);font-size:12px;}
+.vx-card--review-compact .save-table-bar {padding:1px 3px 3px;}
+.vx-review-artwork {margin:10px 0;border:1px solid rgba(231,183,81,.42);border-radius:11px;padding:7px;}
+.vx-review-artwork > summary {color:#f5d58c;font-size:11px;font-weight:900;letter-spacing:.05em;cursor:pointer;}
+.vx-review-artwork .hero.hero--compact {margin-top:8px;}
+@media (max-width:700px) {
+  .vx-card.vx-card--review-compact {padding:7px;}
+  .vx-squad-scorebox__top {gap:4px;padding:3px 5px;}
+  .vx-squad-scorebox__top input {width:76px;min-width:50px;font-size:11px;}
+  .vx-squad-scorebox__enter {min-width:55px;padding:2px 4px;font-size:9px;}
+  .vx-squad-scorebox__team strong {font-size:10px;}
+  .vx-score-metric span {font-size:7px;letter-spacing:0;}
+  .vx-score-metric strong {font-size:clamp(9px,2.5vw,13px);}
+}

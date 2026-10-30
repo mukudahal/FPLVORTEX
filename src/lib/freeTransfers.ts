@@ -9,6 +9,7 @@ import {
 export interface RawEntryHistoryRow {
   event?: unknown;
   event_transfers?: unknown;
+  overall_rank?: unknown;
 }
 
 export interface RawEntryChipPlay {

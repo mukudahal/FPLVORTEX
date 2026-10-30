@@ -63,6 +63,7 @@ import type {
   VideoItem,
 } from '../lib/types';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
+import { rankMovement } from '../lib/rankMovement';
 import { ClubBadge } from './ClubBadge';
 import { InjuryDetailModal } from './InjuryDetailModal';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -220,6 +221,7 @@ export function CommandCenter({
 }: CommandCenterProps) {
   const videoTrackRef = useRef<HTMLDivElement | null>(null);
   const topInputRef = useRef<HTMLInputElement | null>(null);
+  const pitchInputRef = useRef<HTMLInputElement | null>(null);
 
   const reviewEventId = entry?.currentEvent ?? snapshot.meta.currentEventId ?? 8;
   const nextEventId = snapshot.meta.nextEventId || 9;
@@ -278,6 +280,12 @@ export function CommandCenter({
   }, []);
 
   const reviewEventObj = snapshot.gameweeks.find((event) => event.id === reviewEventId);
+  const currentOverallRank = entry && entry.history.overallRank > 0
+    ? entry.history.overallRank
+    : entry?.overallRank && entry.overallRank > 0 ? entry.overallRank : null;
+  const previousOverallRank = entry?.previousOverallRank && entry.previousOverallRank > 0
+    ? entry.previousOverallRank : null;
+  const movement = rankMovement(currentOverallRank, previousOverallRank);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const teamMap = useMemo(() => new Map(snapshot.teams.map((t) => [t.id, t])), [snapshot.teams]);
 
@@ -810,194 +818,6 @@ export function CommandCenter({
   return (
     <div className="page page--command">
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
-      {mode === 'review' && (
-      <section className="hero hero--compact" aria-label="Review squad and captain highlights">
-        <div className="hero__noise" />
-        <div className="hero__content hero__content--compact">
-
-          {/* PROMINENT TOP FPL TEAM ID CONNECT BAR */}
-          <form className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
-            <div className="vx-top-id-bar__field">
-              <label htmlFor="fpl-team-id-top" className="vx-top-id-bar__label">
-                <UserCheck size={16} />
-                <span>FPL Team ID</span>
-              </label>
-              <TeamIdInput
-                ref={topInputRef}
-                id="fpl-team-id-top"
-                value={teamInput}
-                onChange={setTeamInput}
-                recentTeams={recentTeams}
-                onRemoveRecent={onRemoveRecentTeam}
-                maskWhenBlurred={hasLinkedTeam}
-                onSelectRecent={(selectedId) => {
-                  setTeamInput(selectedId);
-                  onTeamIdChange?.(selectedId);
-                }}
-              />
-            </div>
-            <button type="submit" className="button button--primary" disabled={entryLoading}>
-              {entryLoading ? 'Loading…' : hasLinkedTeam ? 'Reload Squad' : 'Load Squad & Review'}
-            </button>
-            {hasLinkedTeam && (
-              <button
-                type="button"
-                className="button button--ghost"
-                onClick={() => {
-                  setTeamInput('');
-                  onTeamIdChange?.('');
-                }}
-                title="Disconnect current FPL Team ID"
-              >
-                Change / Clear
-              </button>
-            )}
-          </form>
-
-          {recentTeams.length > 0 && (
-            <div className="vx-saved-ids-strip" aria-label="Saved FPL Squads">
-              <span className="vx-saved-ids-strip__label">
-                <Clock size={12} /> Saved Squads:
-              </span>
-              {recentTeams.slice(0, 8).map((item, idx) => {
-                const isCurrent = teamId.trim() === item.id;
-                return (
-                  <button
-                    type="button"
-                    key={item.id}
-                    className={classNames('vx-saved-id-chip', isCurrent && 'is-active')}
-                    onClick={() => {
-                      setTeamInput(item.id);
-                      onTeamIdChange?.(item.id);
-                    }}
-                    title={item.teamName || `Saved Squad ${idx + 1}`}
-                  >
-                    <strong>{item.teamName || `Saved Squad ${idx + 1}`}</strong>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {entryError && (
-            <p className="vx-top-id-error" role="alert">
-              <AlertTriangle size={14} /> {entryError}
-            </p>
-          )}
-
-        </div>
-
-        {/* Artwork preserved in the dedicated Review tab */}
-        <div className="hero__visual hero__visual--compact hero__visual--artistic">
-          <div className="vortex-orb vortex-orb--compact vortex-orb--artistic" aria-hidden="true">
-            <span className="vortex-orb__aurora" />
-            <span className="vortex-orb__ring vortex-orb__ring--one" />
-            <span className="vortex-orb__ring vortex-orb__ring--two" />
-            <span className="vortex-orb__ring vortex-orb__ring--three" />
-            <div className="vortex-orb__core vortex-orb__core--premium vortex-orb__core--artistic">
-              <div className="vortex-orb__crest-halo">
-                <img
-                  src={BRAND_LION_SRC}
-                  alt=""
-                  className="vortex-orb__crest"
-                  width={68}
-                  height={68}
-                />
-              </div>
-              <span className="vortex-orb__gw">GW{nextEventId}</span>
-              <strong className="vortex-orb__pts">{heroOrbXp.toFixed(1)}</strong>
-              <small className="vortex-orb__caption">Projected XI pts</small>
-            </div>
-          </div>
-
-          {captain && (
-            <button
-              type="button"
-              className="float-card float-card--captain float-card--premium float-card--artistic float-card--interactive"
-              onClick={() => {
-                setSelectedInjuryPlayer(null);
-                setSelectedCardPlayer(captain);
-              }}
-              title={`Click to view ${captain.fullName} FPL VORTEX player card`}
-            >
-              <div className="float-card__row">
-                <div className="float-card__portrait-halo">
-                  <PlayerAvatar
-                    code={captain.code}
-                    teamCode={captain.team.code}
-                    name={captain.name}
-                    fullName={captain.fullName}
-                    teamShort={captain.team.shortName}
-                    position={captain.position}
-                    size="lg"
-                  />
-                </div>
-                <div className="float-card__copy">
-                  <span className="float-card__label float-card__label--captain">
-                    <Crown size={14} /> #1 CAPTAIN
-                  </span>
-                  <div className="float-card__title-row">
-                    <div className="float-card__title">{captain.name}</div>
-                    <ClubBadge
-                      teamCode={captain.team.code}
-                      shortName={captain.team.shortName}
-                      teamName={captain.team.name}
-                      size="sm"
-                    />
-                  </div>
-                  <div className="float-card__meta-pills">
-                    <span className="float-card__xp-pill">{(captain.projection * 2).toFixed(1)} 2× xPts</span>
-                    <span className="float-card__sub-pill">£{captain.price.toFixed(1)}m</span>
-                  </div>
-                </div>
-              </div>
-            </button>
-          )}
-
-          {bestFixture && (
-            <button
-              type="button"
-              className="float-card float-card--fixture float-card--premium float-card--artistic float-card--interactive"
-              onClick={() => onNavigate('fixtures')}
-              title={`Explore ${bestFixture.team.name} 5-GW fixture run`}
-            >
-              <div className="float-card__row">
-                <div className="float-card__crest-halo">
-                  <ClubBadge
-                    teamCode={bestFixture.team.code}
-                    shortName={bestFixture.team.shortName}
-                    teamName={bestFixture.team.name}
-                    size="lg"
-                  />
-                </div>
-                <div className="float-card__copy">
-                  <span className="float-card__label float-card__label--fixture">
-                    <Flame size={14} /> BEST 5-GW RUN
-                  </span>
-                  <div className="float-card__title">{bestFixture.team.name}</div>
-                  <div className="float-card__meta-pills">
-                    <span className="float-card__ease-pill">VORTEX index</span>
-                    <span className="float-card__fdr-avg">{avgFor(bestFixture.team.id, bestFixture.cells)?.toFixed(2) ?? '—'} FDR</span>
-                  </div>
-                  <div className="float-card__fdr-strip" aria-hidden="true">
-                    {bestFixture.cells.slice(0, 5).map((cell) => {
-                      const value = overallFor(bestFixture.team.id, cell.event);
-                      const tone = fdrPillTone(value ?? 3, value === null);
-                      return (
-                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)} style={value === null ? undefined : { background: difficultyColor(value), color: '#071a1b' }}>
-                          {cell.isBlank ? '—' : cell.label.split(' ')[0]}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </button>
-          )}
-        </div>
-      </section>
-      )}
-
       {/* ==================== GAMEWEEK REVIEW CONTROL BAR ==================== */}
       {mode === 'review' && (
       <section className="vx-gw-bar" aria-label="Gameweek review controls">
@@ -1059,124 +879,54 @@ export function CommandCenter({
       {/* ==================== 2. UPPER 3-COLUMN VORTEX HUB (IMAGE 1 — STAYS AT TOP!) ==================== */}
       <section className="vx-hub-upper" aria-label="Squad review pitch, fixtures and projected goals">
         {/* COLUMN 1: GATED ON TOP FPL TEAM ID BAR -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
-        <article className="panel vx-card vx-card--pitch">
-          {!hasLinkedTeam ? (
-            <div className="vx-pitch-gate">
-              <div className="vx-pitch-gate__badge">
-                <img src={BRAND_LION_SRC} alt="FPL VORTEX" width={58} height={58} />
-              </div>
-              <span className="panel__eyebrow">SQUAD PITCH & GAMEWEEK {reviewEventId} REVIEW</span>
-              <h3>Open REVIEW to enter your FPL Team ID and unlock your pitch</h3>
-              <p>
-                Use the <strong>FPL Team ID</strong> field in REVIEW (no password needed) to load your
-                15-player starting XI & bench, Review Gameweek {reviewEventId} points, overall rank, and tap any
-                player for their full FPL VORTEX stats card.
-              </p>
-
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={() => {
-                  if (topInputRef.current) {
-                    topInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    topInputRef.current.focus();
-                  } else {
-                    onNavigate('review');
-                  }
-                }}
-              >
-                <UserCheck size={16} /> Open REVIEW · Connect Team
+        <article className="panel vx-card vx-card--pitch vx-card--review-compact">
+          <div className="vx-squad-scorebox">
+            <form className="vx-squad-scorebox__top" onSubmit={handleTeamSubmit} aria-label="Load FPL team and gameweek pitch">
+              <label htmlFor="fpl-review-team-id" className="vx-squad-scorebox__id-label">TEAM ID</label>
+              <input
+                ref={pitchInputRef}
+                id="fpl-review-team-id"
+                type="text"
+                inputMode="numeric"
+                pattern="[1-9][0-9]{0,11}"
+                autoComplete="off"
+                value={teamInput}
+                onChange={(event) => setTeamInput(event.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="ENTER FPL ID"
+                aria-label="FPL Team ID"
+              />
+              <button type="submit" className="vx-squad-scorebox__enter" disabled={entryLoading || !teamInput.trim()} title="Sync this manager from the FPL API and load their gameweek pitch">
+                {entryLoading ? 'SYNCING…' : 'ENTER'} <ArrowRight size={15} />
               </button>
-
-              <div className="vx-pitch-gate__note">
-                <strong>Where is my FPL ID?</strong> Open <em>fantasy.premierleague.com</em> → <em>Points</em>. Your
-                ID is the number in <code>/entry/…/event/…</code>.
+              <div className="vx-squad-scorebox__team" title={entry?.teamName || 'Load any official FPL manager ID'}>
+                <strong>{entryLoading ? 'LOADING SQUAD…' : entry?.teamName || 'YOUR SQUAD'}</strong>
+                {entry && entry.provenance?.kind !== 'official' && (entry.source === 'snapshot' || entry.source === 'offline') && (
+                  <small>ARCHIVED / DEMO DATA · NOT LIVE</small>
+                )}
               </div>
+              <div className="vx-view-toggle" role="group" aria-label="Squad view">
+                <button type="button" className={classNames(squadView === 'pitch' && 'is-active')} onClick={() => setSquadView('pitch')} title="Pitch view" aria-label="Pitch view"><LayoutGrid size={15} /></button>
+                <button type="button" className={classNames(squadView === 'table' && 'is-active')} onClick={() => setSquadView('table')} title="Table view" aria-label="Table view"><List size={15} /></button>
+              </div>
+            </form>
+            <div className="vx-squad-scorebox__metrics" aria-label="Official FPL manager and gameweek statistics">
+              <div className="vx-score-metric is-points"><span>GW{entry?.currentEvent ?? reviewEventId} PTS</span><strong>{entry ? formatNumber(entry.history.points) : '—'}</strong></div>
+              <div className="vx-score-metric is-average"><span>GW{entry?.currentEvent ?? reviewEventId} AVG</span><strong>{entry && reviewEventObj?.averageEntryScore != null ? formatNumber(reviewEventObj.averageEntryScore) : '—'}</strong></div>
+              <div className="vx-score-metric is-previous"><span>PREV RANK</span><strong>{previousOverallRank ? formatNumber(previousOverallRank) : '—'}</strong></div>
+              <div className={classNames('vx-score-metric is-change', `is-${movement.direction}`)}><span>+/− RANK</span><strong>{movement.direction === 'up' ? '▲' : movement.direction === 'down' ? '▼' : '—'} {movement.delta == null ? '—' : movement.direction === 'same' ? '0' : formatNumber(Math.abs(movement.delta))}</strong></div>
+              <div className="vx-score-metric is-rank"><span>RANK</span><strong>{currentOverallRank ? formatNumber(currentOverallRank) : '—'}</strong></div>
+              <div className="vx-score-metric is-bank"><span>ITB</span><strong>{entry ? `£${(entry.history.bank / 10).toFixed(1)}m` : '—'}</strong></div>
+              <div className="vx-score-metric is-ft"><span>FT</span><strong>{entry ? formatNumber(entry.freeTransfers) : '—'}</strong></div>
+            </div>
+          </div>
+          {entryError && <p className="vx-squad-scorebox__error" role="alert">{entryError}</p>}
+          {!hasLinkedTeam ? (
+            <div className="vx-squad-scorebox__empty">
+              <UserCheck size={18} />
+              Enter your FPL Team ID above and select ENTER to load the official Gameweek Review soccer pitch.
             </div>
           ) : (
             <>
-              <header className="vx-card__header vx-pitch-header">
-                <div className="vx-pitch-header__identity">
-                  <strong>{entry!.teamName}</strong>
-                  {entry!.provenance?.kind !== 'official' && (entry!.source === 'snapshot' || entry!.source === 'offline') && (
-                    <small role="status">{entry!.provenance?.kind === 'demo' ? 'DEMO SQUAD' : 'ARCHIVED SQUAD'} — not a verified current FPL team; archive date unknown.</small>
-                  )}
-                  <button
-                    type="button"
-                    className="vx-team-id-trigger"
-                    onClick={() => {
-                      if (topInputRef.current) topInputRef.current.focus();
-                      else onNavigate('review');
-                    }}
-                    title="Change FPL Team ID at top"
-                  >
-                    <span>Team ID: {entry!.id}</span>
-                    <Pencil size={12} />
-                  </button>
-                </div>
-
-                <div className="vx-pitch-header__center">
-                  <strong>
-                    {isReviewMode ? entry!.history.points : pitchLineup.totalXp.toFixed(1)}
-                  </strong>
-                  <span>
-                    {isReviewMode ? `GW ${selectedGw} Review Pts` : `GW ${selectedGw} xP`}
-                  </span>
-                </div>
-
-                <div className="vx-pitch-header__actions">
-                  <button type="button" className="vx-inline-link" onClick={() => onNavigate('optimizer')}>
-                    Plan team <ArrowRight size={14} />
-                  </button>
-                  <div className="vx-view-toggle" role="group" aria-label="Squad view">
-                    <button
-                      type="button"
-                      className={classNames(squadView === 'pitch' && 'is-active')}
-                      onClick={() => setSquadView('pitch')}
-                      aria-label="Pitch view"
-                      title="Pitch view"
-                    >
-                      <LayoutGrid size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      className={classNames(squadView === 'table' && 'is-active')}
-                      onClick={() => setSquadView('table')}
-                      aria-label="Table view"
-                      title="Table view"
-                    >
-                      <List size={15} />
-                    </button>
-                  </div>
-                </div>
-              </header>
-
-              {/* 5-STAT REVIEW GAMEWEEK DATA STRIP */}
-              <div className="vx-review-strip" aria-label="Review gameweek summary">
-                <div>
-                  <strong>{entry!.history.points}</strong>
-                  <small>GW {entry!.currentEvent} Pts</small>
-                </div>
-                <div>
-                  <strong>{reviewEventObj?.averageEntryScore || '—'}</strong>
-                  <small>GW {entry!.currentEvent} Avg</small>
-                </div>
-                <div>
-                  <strong>{entry!.overallRank ? formatCompact(entry!.overallRank) : '—'}</strong>
-                  <small>Overall Rank</small>
-                </div>
-                <div>
-                  <strong>{pitchLineup.nextGwXp.toFixed(1)}</strong>
-                  <small>GW {nextEventId} xP</small>
-                </div>
-                <div>
-                  <strong>
-                    {entry!.freeTransfers} FT · £{(entry!.history.bank / 10).toFixed(1)}m
-                  </strong>
-                  <small>Transfers & Bank</small>
-                </div>
-              </div>
-
               {squadView === 'pitch' ? (
                 <>
                 <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-pitch-gw${selectedGw}.png`} onSave={savePitch} onError={message => onToast(message, 'error')} /></div>
@@ -1525,6 +1275,201 @@ export function CommandCenter({
           </footer>
         </article>
       </section>
+
+      {mode === 'review' && (
+        <details className="vx-review-artwork">
+          <summary>CAPTAIN ARTWORK · SQUAD HIGHLIGHTS</summary>
+      {mode === 'review' && (
+      <section className="hero hero--compact" aria-label="Review squad and captain highlights">
+        <div className="hero__noise" />
+        <div className="hero__content hero__content--compact">
+
+          {/* PROMINENT TOP FPL TEAM ID CONNECT BAR */}
+          <form className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
+            <div className="vx-top-id-bar__field">
+              <label htmlFor="fpl-team-id-top" className="vx-top-id-bar__label">
+                <UserCheck size={16} />
+                <span>FPL Team ID</span>
+              </label>
+              <TeamIdInput
+                ref={topInputRef}
+                id="fpl-team-id-top"
+                value={teamInput}
+                onChange={setTeamInput}
+                recentTeams={recentTeams}
+                onRemoveRecent={onRemoveRecentTeam}
+                maskWhenBlurred={hasLinkedTeam}
+                onSelectRecent={(selectedId) => {
+                  setTeamInput(selectedId);
+                  onTeamIdChange?.(selectedId);
+                }}
+              />
+            </div>
+            <button type="submit" className="button button--primary" disabled={entryLoading}>
+              {entryLoading ? 'Loading…' : hasLinkedTeam ? 'Reload Squad' : 'Load Squad & Review'}
+            </button>
+            {hasLinkedTeam && (
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  setTeamInput('');
+                  onTeamIdChange?.('');
+                }}
+                title="Disconnect current FPL Team ID"
+              >
+                Change / Clear
+              </button>
+            )}
+          </form>
+
+          {recentTeams.length > 0 && (
+            <div className="vx-saved-ids-strip" aria-label="Saved FPL Squads">
+              <span className="vx-saved-ids-strip__label">
+                <Clock size={12} /> Saved Squads:
+              </span>
+              {recentTeams.slice(0, 8).map((item, idx) => {
+                const isCurrent = teamId.trim() === item.id;
+                return (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={classNames('vx-saved-id-chip', isCurrent && 'is-active')}
+                    onClick={() => {
+                      setTeamInput(item.id);
+                      onTeamIdChange?.(item.id);
+                    }}
+                    title={item.teamName || `Saved Squad ${idx + 1}`}
+                  >
+                    <strong>{item.teamName || `Saved Squad ${idx + 1}`}</strong>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {entryError && (
+            <p className="vx-top-id-error" role="alert">
+              <AlertTriangle size={14} /> {entryError}
+            </p>
+          )}
+
+        </div>
+
+        {/* Artwork preserved in the dedicated Review tab */}
+        <div className="hero__visual hero__visual--compact hero__visual--artistic">
+          <div className="vortex-orb vortex-orb--compact vortex-orb--artistic" aria-hidden="true">
+            <span className="vortex-orb__aurora" />
+            <span className="vortex-orb__ring vortex-orb__ring--one" />
+            <span className="vortex-orb__ring vortex-orb__ring--two" />
+            <span className="vortex-orb__ring vortex-orb__ring--three" />
+            <div className="vortex-orb__core vortex-orb__core--premium vortex-orb__core--artistic">
+              <div className="vortex-orb__crest-halo">
+                <img
+                  src={BRAND_LION_SRC}
+                  alt=""
+                  className="vortex-orb__crest"
+                  width={68}
+                  height={68}
+                />
+              </div>
+              <span className="vortex-orb__gw">GW{nextEventId}</span>
+              <strong className="vortex-orb__pts">{heroOrbXp.toFixed(1)}</strong>
+              <small className="vortex-orb__caption">Projected XI pts</small>
+            </div>
+          </div>
+
+          {captain && (
+            <button
+              type="button"
+              className="float-card float-card--captain float-card--premium float-card--artistic float-card--interactive"
+              onClick={() => {
+                setSelectedInjuryPlayer(null);
+                setSelectedCardPlayer(captain);
+              }}
+              title={`Click to view ${captain.fullName} FPL VORTEX player card`}
+            >
+              <div className="float-card__row">
+                <div className="float-card__portrait-halo">
+                  <PlayerAvatar
+                    code={captain.code}
+                    teamCode={captain.team.code}
+                    name={captain.name}
+                    fullName={captain.fullName}
+                    teamShort={captain.team.shortName}
+                    position={captain.position}
+                    size="lg"
+                  />
+                </div>
+                <div className="float-card__copy">
+                  <span className="float-card__label float-card__label--captain">
+                    <Crown size={14} /> #1 CAPTAIN
+                  </span>
+                  <div className="float-card__title-row">
+                    <div className="float-card__title">{captain.name}</div>
+                    <ClubBadge
+                      teamCode={captain.team.code}
+                      shortName={captain.team.shortName}
+                      teamName={captain.team.name}
+                      size="sm"
+                    />
+                  </div>
+                  <div className="float-card__meta-pills">
+                    <span className="float-card__xp-pill">{(captain.projection * 2).toFixed(1)} 2× xPts</span>
+                    <span className="float-card__sub-pill">£{captain.price.toFixed(1)}m</span>
+                  </div>
+                </div>
+              </div>
+            </button>
+          )}
+
+          {bestFixture && (
+            <button
+              type="button"
+              className="float-card float-card--fixture float-card--premium float-card--artistic float-card--interactive"
+              onClick={() => onNavigate('fixtures')}
+              title={`Explore ${bestFixture.team.name} 5-GW fixture run`}
+            >
+              <div className="float-card__row">
+                <div className="float-card__crest-halo">
+                  <ClubBadge
+                    teamCode={bestFixture.team.code}
+                    shortName={bestFixture.team.shortName}
+                    teamName={bestFixture.team.name}
+                    size="lg"
+                  />
+                </div>
+                <div className="float-card__copy">
+                  <span className="float-card__label float-card__label--fixture">
+                    <Flame size={14} /> BEST 5-GW RUN
+                  </span>
+                  <div className="float-card__title">{bestFixture.team.name}</div>
+                  <div className="float-card__meta-pills">
+                    <span className="float-card__ease-pill">VORTEX index</span>
+                    <span className="float-card__fdr-avg">{avgFor(bestFixture.team.id, bestFixture.cells)?.toFixed(2) ?? '—'} FDR</span>
+                  </div>
+                  <div className="float-card__fdr-strip" aria-hidden="true">
+                    {bestFixture.cells.slice(0, 5).map((cell) => {
+                      const value = overallFor(bestFixture.team.id, cell.event);
+                      const tone = fdrPillTone(value ?? 3, value === null);
+                      return (
+                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)} style={value === null ? undefined : { background: difficultyColor(value), color: '#071a1b' }}>
+                          {cell.isBlank ? '—' : cell.label.split(' ')[0]}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </button>
+          )}
+        </div>
+      </section>
+      )}
+
+
+        </details>
+      )}
 
       {/* ==================== 3. LOWER 3-COLUMN INTELLIGENCE GRID (IMAGE 2 TOP) ==================== */}
       <section className="vx-hub-lower" aria-label="Top players, price changes and injuries">
