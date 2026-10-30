@@ -2552,8 +2552,8 @@ kbd { font-family: var(--font); font-size: 9px; font-weight: 800; color: var(--t
   align-items: center;
   justify-content: space-between;
   padding: 8px 14px;
-  background: linear-gradient(92deg, #0ea5e9 0%, #5bf5d6 26%, #7772ff 64%, #ff5bc8 100%);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(108deg, #111C38 0%, #32245F 61%, #143444 100%);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.45);
 }
 .vx-pitch-goal-net {
   width: 74px;
@@ -7119,21 +7119,29 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .fm-sort-pair--avg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fm-sort-pair--win, .forecast-tile--win { grid-template-columns: minmax(52px, 1.55fr) minmax(31px, 1fr); }
 .save-table-bar { display: flex; justify-content: flex-end; padding: 6px 12px; }
-.save-table-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 15px; border: 1px solid #f47a89; border-radius: 8px; background: #cf2540; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
-.save-table-button:hover { background: #a91e35; }
-.save-table-button:focus-visible { outline: 2px solid var(--brand-mint); outline-offset: 2px; }
+.save-table-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 8px 15px; border: 1px solid #a78bfa; border-radius: 9px; background: #6d28d9; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
+.save-table-button:hover { background: #5b21b6; }
+.save-table-button:focus-visible { outline: 3px solid #22d3ee; outline-offset: 3px; }
 .save-table-button:disabled { opacity: .7; cursor: wait; }
+:root[data-theme="light"] .save-table-button { background: #5b21b6; color: #fff; border-color: #5b21b6; }
+:root[data-theme="light"] .save-table-button:hover { background: #4c1d95; }
 
 /* Prepared image: a real user tap lets mobile browsers download or share it. */
-.png-save-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0, 0, 0, .72); }
-.png-save-dialog { width: min(560px, 100%); max-height: 90dvh; overflow: auto; padding: 20px; border-radius: 14px; background: #fff; color: #10243a; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
-.png-save-dialog h2 { margin: 0 0 6px; font-size: 20px; }
-.png-save-dialog p { margin: 0 0 12px; font-size: 14px; }
-.png-save-dialog img { display: block; max-width: 100%; max-height: 48dvh; margin: 0 auto 16px; object-fit: contain; }
+.png-save-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(5, 7, 17, .82); backdrop-filter: blur(8px); }
+.png-save-dialog { width: min(680px, 100%); max-height: 94dvh; overflow: auto; padding: clamp(16px,3vw,24px); border: 1px solid #3e4663; border-radius: 16px; background: #171a2b; color: #f8fafc; box-shadow: 0 24px 65px rgba(0,0,0,.46); }
+.png-save-dialog h2 { margin: 0 0 6px; font-size: 21px; }
+.png-save-dialog p { margin: 0 0 12px; font-size: 14px; color: #c8d0e0; }
+.png-save-dialog img { display: block; width: 100%; max-width: 100%; max-height: 48dvh; aspect-ratio: 16/9; margin: 0 auto 16px; background: #0b0d16; object-fit: contain; border: 1px solid #343b59; border-radius: 10px; }
 .png-save-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.png-save-actions button, .png-save-actions a { display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border: 1px solid #9eacb8; border-radius: 7px; background: #fff; color: #10243a; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
-.png-save-actions .png-save-primary { background: #cf2540; border-color: #cf2540; color: #fff; }
+.png-save-actions button, .png-save-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 14px; border: 1px solid #525c7d; border-radius: 9px; background: #232942; color: #f8fafc; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+.png-save-actions .png-save-primary { background: #6d28d9; border-color: #a78bfa; color: #fff; }
+.png-save-actions button:hover, .png-save-actions a:hover { border-color: #22d3ee; }
+.png-save-actions button:focus-visible, .png-save-actions a:focus-visible { outline: 3px solid #22d3ee; outline-offset: 3px; }
 .png-save-message { margin-top: 10px !important; }
+:root[data-theme="light"] .png-save-dialog { background: #fff; color: #111827; border-color: #cbd5e1; }
+:root[data-theme="light"] .png-save-dialog p { color: #475569; }
+:root[data-theme="light"] .png-save-actions button, :root[data-theme="light"] .png-save-actions a { background: #f1f5f9; color: #111827; border-color: #cbd5e1; }
+:root[data-theme="light"] .png-save-actions .png-save-primary { background: #5b21b6; color: #fff; border-color: #5b21b6; }
 
 /* Focused global header: all pages share one search and theme switch. */
 .topbar { min-height: 76px; padding-block: 10px; gap: 16px; }
@@ -7572,9 +7580,9 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .vx-pitch-save-control .save-table-button {
   display:inline-flex;align-items:center;gap:4px;
   height:27px;min-height:27px;padding:4px 9px;border-radius:7px;
-  color:#fff;border:1px solid #ff829c;
-  background:linear-gradient(115deg,#bd173d,#e73d59);
-  box-shadow:0 3px 8px rgba(132,0,30,.28);
+  color:#fff;border:1px solid #a78bfa;
+  background:linear-gradient(115deg,#5b21b6,#8b5cf6);
+  box-shadow:0 3px 8px rgba(77,29,149,.24);
   font-size:11px;font-weight:950;letter-spacing:.03em;
 }
 .vx-pitch-save-control .save-table-button:hover:not(:disabled) {filter:brightness(1.15);}
