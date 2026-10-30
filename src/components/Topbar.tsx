@@ -43,7 +43,7 @@ export function Topbar({
         <button
           type="button"
           className="topbar__brand-lion"
-          onClick={() => onNavigate('command')}
+          onClick={() => onNavigate('optimizer')}
           aria-label="Go to FPL VORTEX Home"
           title="FPL VORTEX — Home"
         >
