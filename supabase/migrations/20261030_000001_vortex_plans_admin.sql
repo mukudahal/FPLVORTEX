@@ -6,7 +6,9 @@ BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS vortex_private;
 REVOKE ALL ON SCHEMA vortex_private FROM PUBLIC, anon, authenticated;
-GRANT USAGE ON SCHEMA vortex_private TO service_role;
+GRANT USAGE ON SCHEMA vortex_private TO service_role, authenticated;
+-- Schema USAGE allows policy function resolution but does NOT grant access to
+-- admin_grants or any other private table; those grants remain revoked.
 
 -- Admin membership is a private, server-managed capability; clients cannot
 -- INSERT a row to grant themselves access. No client direct table grants.
@@ -22,7 +24,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON vortex_private.admin_grants TO service_r
 
 -- SECURITY DEFINER deliberately queries one fixed private table. Fully
 -- qualify every name and disable user-controlled search_path resolution.
-CREATE OR REPLACE FUNCTION public.vortex_is_admin()
+CREATE OR REPLACE FUNCTION vortex_private.is_vortex_admin()
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -34,8 +36,8 @@ AS $fn$
     WHERE g.user_id = (SELECT auth.uid()) AND g.enabled = true
   );
 $fn$;
-REVOKE ALL ON FUNCTION public.vortex_is_admin() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.vortex_is_admin() TO authenticated, service_role;
+REVOKE ALL ON FUNCTION vortex_private.is_vortex_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION vortex_private.is_vortex_admin() TO authenticated, service_role;
 
 -- A scenario is owned by ONE authenticated user. A manager can have several
 -- independent manual/auto plans; source snapshots and models are versioned.
@@ -161,7 +163,7 @@ CREATE POLICY vortex_revision_owner_create ON public.vortex_scenario_revisions
 DROP POLICY IF EXISTS vortex_admin_runs_read ON public.vortex_admin_data_runs;
 CREATE POLICY vortex_admin_runs_read ON public.vortex_admin_data_runs
   FOR SELECT TO authenticated
-  USING ((SELECT public.vortex_is_admin()));
+  USING ((SELECT vortex_private.is_vortex_admin()));
 -- No client INSERT / UPDATE / DELETE policies for admin jobs, by design.
 
 COMMENT ON TABLE public.vortex_scenarios IS
