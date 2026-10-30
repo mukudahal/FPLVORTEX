@@ -46,8 +46,9 @@ export async function downloadPlayerCardPng(
   const canvas = document.createElement('canvas');
   canvas.width = f.width;
   canvas.height = f.height;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('This browser does not support PNG canvas export.');
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) throw new Error('This browser does not support PNG canvas export.');
+  const ctx: CanvasRenderingContext2D = context;
 
   const bg = ctx.createLinearGradient(0, 0, f.width, f.height);
   bg.addColorStop(0, f.background);
