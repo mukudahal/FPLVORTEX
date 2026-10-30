@@ -8463,3 +8463,20 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 :root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-player-meta strong,.vx-injury-head strong,.vx-price-col) {color:#172b43;}
 :root[data-theme="light"] .page--command :is(.vx-fixture-zone,.vx-inline-link) {color:#17675d;}
 :root[data-theme="light"] .page--command .vx-disclosure__body .vx-injury-copy-trigger {color:#172b43;}
+
+/* Keep Planner controls readable and the fixed navigation clear on small screens. */
+@media (max-width: 700px) {
+  .content { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+  .vx-gw-stepper { max-width: 100%; }
+  .vx-gw-stepper__btn { min-width: 44px; min-height: 44px; }
+  .vx-gw-stepper__select-wrap { min-width: 0; flex: 1 1 auto; }
+  .vx-gw-stepper__select-wrap select { max-width: 100%; min-width: 0; min-height: 44px; }
+  .vx-planner-controls > label { flex: 1 1 110px; min-width: 0; }
+  .vx-planner-controls select { width: 100%; max-width: 100%; min-height: 44px; }
+  .vx-planner-score { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; }
+  .vx-planner-score span { min-width: 0; overflow-wrap: anywhere; }
+  .vx-planner-score strong { display: block; margin: 3px 0 0; overflow-wrap: anywhere; }
+  .vx-planner-gws { min-width: 0; max-width: 100%; }
+  .vx-planner-gws button { min-height: 44px; }
+  .vx-planner-columns, .vx-planner-columns > * { min-width: 0; }
+}
