@@ -8503,3 +8503,22 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .planner-move__player img { width: 30px; height: 30px; object-fit: contain; }
 @media (max-width: 420px) { .planner-week { grid-template-columns: 42px minmax(0, 1fr); } .planner-week > small { grid-column: 2; } }
 .planner-data-notice { margin: 0; color: var(--text-muted); font-size: .85rem; }
+
+/* Compact planner controls and high-contrast section choices. */
+.planner-section-picker .subtab-btn { color: #fff; font-size: 15px; font-weight: 800; text-transform: uppercase; min-height: 54px; border: 2px solid transparent; }
+.planner-section-picker .planner-choice--planner, .planner-section-picker .planner-choice--planner.is-active { background: #08744f; }
+.planner-section-picker .planner-choice--chips, .planner-section-picker .planner-choice--chips.is-active { background: #a54b08; }
+.planner-section-picker .planner-choice--montecarlo, .planner-section-picker .planner-choice--montecarlo.is-active { background: #006d80; }
+.planner-section-picker .subtab-btn.is-active { border-color: #fff; box-shadow: 0 0 0 2px var(--text-primary); }
+.planner-section-picker .subtab-btn:focus-visible, .planner-control-row select:focus-visible { outline: 3px solid var(--brand-mint); outline-offset: 3px; }
+.planner-compact-controls { padding: 12px 14px; }
+.planner-control-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.planner-control-row label { display: grid; gap: 5px; min-width: 0; color: var(--text-primary); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .035em; }
+.planner-control-row select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--panel-soft); color: var(--text-primary); font-size: 15px; font-weight: 700; }
+.planner-strategy-note { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.planner-summary { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px 24px; color: var(--text-primary); font-size: 14px; font-weight: 700; text-transform: uppercase; }
+.planner-summary strong { color: var(--brand-mint); font-size: 18px; }
+.page--optimizer h2, .page--optimizer h3, .page--optimizer h4, .page--optimizer .panel__eyebrow { text-transform: uppercase; }
+.page--optimizer h3 { font-size: max(16px, 1em); }
+.page--optimizer .panel__eyebrow { font-size: 13px; }
+@media (max-width: 800px) { .planner-control-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .planner-summary { justify-content: flex-start; } }

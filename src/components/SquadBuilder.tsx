@@ -1,21 +1,12 @@
-import { SaveTableButton } from './SaveTableButton';
-import type { PngTable } from '../lib/tablePng';
-import { buildFixturePngTables } from '../lib/fixturePng';
-import { makeFixtureForecasts } from '../lib/fixtureForecast';
-import { useDeferredValue, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   CircleDollarSign,
-  Copy,
   Crown,
   Dices,
-  Gauge,
   Layers,
   RefreshCw,
-  RotateCcw,
   ShieldCheck,
-  Sparkles,
-  Users,
   WandSparkles,
 } from 'lucide-react';
 import type {
@@ -24,11 +15,10 @@ import type {
   FixtureRow,
   RiskProfile,
   Snapshot,
-  SquadResult,
 } from '../lib/types';
 import { toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
-import { classNames, formatPercent, formatPrice } from '../lib/format';
+import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
@@ -53,13 +43,6 @@ type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
 
 const DEFAULT_TEMPLATE_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
 
-const PROFILES: Array<{ id: RiskProfile; label: string; hint: string; icon: ReactNode }> = [
-  { id: 'balanced', label: 'Balanced (1.0× Repo)', hint: 'Exact unmodified repository xPts', icon: <Gauge size={15} /> },
-  { id: 'safe', label: 'Safe Floor', hint: 'Availability & high-EO floor protection', icon: <ShieldCheck size={15} /> },
-  { id: 'differential', label: 'Differential', hint: '1 + 0.15 × (1 − EO) anti-template boost', icon: <Sparkles size={15} /> },
-  { id: 'upside', label: 'Ceiling', hint: 'Goal, assist & bonus upside weighting', icon: <WandSparkles size={15} /> },
-];
-
 const CHIP_META: Record<string, { label: string; badge: string; tone: string }> = {
   wildcard: { label: 'Wildcard', badge: 'WC', tone: 'mint' },
   freehit: { label: 'Free Hit', badge: 'FH', tone: 'violet' },
@@ -67,28 +50,11 @@ const CHIP_META: Record<string, { label: string; badge: string; tone: string }> 
   '3xc': { label: 'Triple Captain', badge: 'TC', tone: 'pink' },
 };
 
-function buildSquadText(result: SquadResult, label: string): string {
-  const lines = [
-    `FPL VORTEX (${label}) · ${result.formation} · ${result.projectedPoints.toFixed(1)} projected pts · £${result.cost.toFixed(1)}m`,
-    'STARTERS',
-    ...result.starters.map(
-      (player) =>
-        `${player.position} ${player.name} (${player.team.shortName}) ${player.projection.toFixed(2)} xPts ${player.isCaptain ? '[C]' : ''}${player.isViceCaptain ? '[VC]' : ''}`,
-    ),
-    'BENCH',
-    ...result.bench.map((player) => `${player.position} ${player.name} (${player.team.shortName}) ${player.projection.toFixed(2)} xPts`),
-  ];
-  return lines.join('\n');
-}
-
 export function SquadBuilder({
   snapshot,
   players,
-  fixtureRows,
   entry,
   profile,
-  onProfileChange,
-  onToast,
   onInspectPlayer,
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
@@ -99,19 +65,12 @@ export function SquadBuilder({
   const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
-  const [squadMode, setSquadMode] = useState<'mySquad' | 'autoOptimal'>('mySquad');
-  const [budget, setBudget] = useState(100);
+  const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [lockedIds] = useState<number[]>([]);
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
   const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
-  const [, startTransition] = useTransition();
-
-  const deferredBudget = useDeferredValue(budget);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
-  const fixtureByTeam = useMemo(() => new Map(fixtureRows.map((r) => [r.team.id, r])), [fixtureRows]);
-  const sharedFixtureForecasts = useMemo(() => makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []), [snapshot, fixtureRows]);
-
   const baseEntrySquadIds = useMemo(() => {
     if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
       return entry.picks.map((p) => p.element);
@@ -134,17 +93,16 @@ export function SquadBuilder({
   const autoResult = useMemo(
     () =>
       optimizeSquad(players, {
-        budget: Math.round(deferredBudget * 10),
+        budget: 1000,
         profile,
         lockedIds,
       }),
-    [deferredBudget, lockedIds, players, profile],
+    [lockedIds, players, profile],
   );
 
   const activeSquadIds = useMemo(() => {
-    if (squadMode === 'autoOptimal') return autoResult.squad.map((p) => p.id);
     return customSquadIds.length === 15 ? customSquadIds : baseEntrySquadIds;
-  }, [autoResult.squad, baseEntrySquadIds, customSquadIds, squadMode]);
+  }, [baseEntrySquadIds, customSquadIds]);
 
   const activeSquadPlayers = useMemo(
     () => activeSquadIds.map((id) => playerMap.get(id)).filter((p): p is EnrichedPlayer => Boolean(p)),
@@ -160,18 +118,15 @@ export function SquadBuilder({
   );
 
   const bankTenths = useMemo(() => {
-    if (squadMode === 'autoOptimal') {
-      return Math.max(0, Math.round(deferredBudget * 10) - Math.round(result.cost * 10));
-    }
     const currentSet = new Set(activeSquadIds);
     const baseSet = new Set(baseEntrySquadIds);
     const sellById = new Map((entry?.picks ?? []).map(p => [p.element, p.sellingPrice]));
     const sales = baseEntrySquadIds.filter(id => !currentSet.has(id)).reduce((sum, id) => sum + Math.round((sellById.get(id) ?? playerMap.get(id)?.price ?? 0) * 10), 0);
     const purchases = activeSquadPlayers.filter(p => !baseSet.has(p.id)).reduce((sum, p) => sum + p.cost, 0);
     return (entry?.history.bank ?? 0) + sales - purchases;
-  }, [activeSquadIds, activeSquadPlayers, baseEntrySquadIds, deferredBudget, entry, playerMap, result.cost, squadMode]);
+  }, [activeSquadIds, activeSquadPlayers, baseEntrySquadIds, entry, playerMap]);
 
-  const plannedMoves = squadMode === 'mySquad' ? activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length : 0;
+  const plannedMoves = activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length;
   useEffect(() => {
     setSuggestedPlan(null);
     setReviewSim(null);
@@ -228,30 +183,10 @@ export function SquadBuilder({
     return () => { cancelled = true; worker?.terminate(); };
   }, [activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
 
-  const copySquad = async () => {
-    try {
-      await navigator.clipboard.writeText(
-        buildSquadText(result, squadMode === 'mySquad' ? (entry?.teamName ?? 'My Squad') : 'Auto Optimal XV'),
-      );
-      onToast('Squad copied to clipboard.', 'success');
-    } catch {
-      onToast('Clipboard access was blocked by the browser.', 'error');
-    }
-  };
-
   const transfersUsedCount = activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
-  const hitPoints = squadMode === 'mySquad' ? Math.max(0, transfersUsedCount - freeTransfers) * 4 : 0;
+  const hitPoints = Math.max(0, transfersUsedCount - freeTransfers) * 4;
 
   const activeChipSim = reviewSim?.chipSimulations.find((c) => c.chip === selectedChipPreview) ?? null;
-  const optimizerTables = (): PngTable[] => {
-    const tables: PngTable[] = [buildFixturePngTables(snapshot, snapshot.meta.nextEventId, snapshot.meta.nextEventId + plannerHorizon - 1)[0], { title: 'SUGGESTED TRANSFER TARGETS', headers: ['PLAYER', 'CLUB / POS', 'NEXT 5 FIXTURES', 'PRICE', 'EO%', 'POINTS', 'GW xPTS', 'LEGACY xP'], widths: [155, 100, 260, 70, 65, 70, 75, 80], rows: players.filter(player => !activeSquadIds.includes(player.id)).map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: fixtureByTeam.get(player.teamId)?.cells.map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: formatPrice(player.price) }, { text: formatPercent(player.ownership) }, { text: String(player.totalPoints) }, { text: player.projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(1) }]) }];
-    if (reviewSim) {
-      tables.push({ title: 'CHIP EXPECTED-POINTS MATRIX', headers: ['GW', 'BASE xPTS', 'WILDCARD', 'FREE HIT', 'BENCH BOOST', 'TRIPLE CAPTAIN', 'OPTIMAL CAPTAIN'], widths: [70, 100, 110, 110, 110, 120, 150], rows: reviewSim.chipMatrixByGw.map(row => [{ text: `GW${row.gw}` }, { text: row.baseXPts.toFixed(2) }, { text: row.wildcardGain.toFixed(2) }, { text: row.freehitGain.toFixed(2) }, { text: row.bboostGain.toFixed(2) }, { text: row.tripleCapGain.toFixed(2) }, { text: playerMap.get(reviewSim.chipSimulations.find(c => c.chip === '3xc')?.topGws.find(g => g.gw === row.gw)?.captainId ?? result.captain.id)?.name ?? '—' }]) });
-      tables.push({ title: 'MONTE CARLO · CAPTAIN RISK', headers: ['CAPTAIN', 'MEAN 2×', 'P90 2×', 'HAUL %', 'BLANK %'], widths: [150, 100, 100, 100, 100], rows: reviewSim.monteCarlo.captains.map(cap => [{ text: playerMap.get(cap.id)?.name ?? `#${cap.id}` }, { text: (cap.mean * 2).toFixed(2) }, { text: (cap.p90 * 2).toFixed(1) }, { text: `${(cap.pHaul * 100).toFixed(1)}%` }, { text: `${(cap.pBlank * 100).toFixed(1)}%` }]) });
-    }
-    return tables;
-  };
-
   return (
     <div className="page page--optimizer">
       <div className="planner-section-picker" role="group" aria-label="Planner sections">
@@ -260,7 +195,7 @@ export function SquadBuilder({
           { id: 'chips', label: '2. Chip Strategy & EV Matrix', icon: BarChart3 },
           { id: 'montecarlo', label: `3. Monte Carlo (${simulationDraws.toLocaleString()} Draws)`, icon: Dices },
         ] as const).map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" className={classNames('subtab-btn', subTab === id && 'is-active')}
+          <button key={id} type="button" className={classNames('subtab-btn', `planner-choice--${id}`, subTab === id && 'is-active')}
             aria-expanded={subTab === id} aria-controls={subTab === id ? "planner-section-content" : undefined}
             onClick={() => setSubTab(id)}>
             <Icon size={16} aria-hidden="true" /><span>{label}</span>
@@ -268,93 +203,25 @@ export function SquadBuilder({
         ))}
       </div>
       {subTab && <div id="planner-section-content" className="planner-section-content">
-      <section className="panel optimizer-header-panel">
-        <div className="save-table-bar"><SaveTableButton getTables={optimizerTables} filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} /></div>
-        <div className="optimizer-top-row">
-          <div className="optimizer-mode-pills">
-            <button
-              type="button"
-              className={classNames('button', squadMode === 'mySquad' ? 'button--primary' : 'button--ghost')}
-              onClick={() => setSquadMode('mySquad')}
-            >
-              <Users size={15} /> {entry?.teamName ?? 'Template squad'}
-            </button>
-            <button
-              type="button"
-              className={classNames('button', squadMode === 'autoOptimal' ? 'button--primary' : 'button--ghost')}
-              onClick={() => setSquadMode('autoOptimal')}
-            >
-              <WandSparkles size={15} /> Auto-Build £{budget.toFixed(1)}m XV
-            </button>
-            {squadMode === 'mySquad' && transfersUsedCount > 0 && (
-              <button
-                type="button"
-                className="button button--ghost"
-                onClick={() => {
-                  setCustomSquadIds(baseEntrySquadIds);
-                  onToast('Reset to base GW squad.', 'info');
-                }}
-              >
-                <RotateCcw size={14} /> Reset ({transfersUsedCount} {transfersUsedCount === 1 ? 'move' : 'moves'})
-              </button>
-            )}
-            <button type="button" className="button button--subtle" onClick={copySquad}>
-              <Copy size={15} /> Copy XV
-            </button>
-          </div>
+      <section className="panel planner-compact-controls" aria-label="Planning settings">
+        <div className="planner-control-row">
+          <label>Strategy<select aria-label="Strategy" value={strategyLabel} onChange={e => setStrategyLabel(e.target.value)}>
+            <option value="steady">Steady</option><option value="top10k">Top 10K</option><option value="template">Template</option>
+          </select></label>
+          <label>Simulation draws<select aria-label="Simulation draws" value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))}>
+            <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
+          </select></label>
+          <label>Free transfers<select aria-label="Free transfers available" value={freeTransfers} onChange={e => setFreeTransfers(Number(e.target.value))}>
+            {[0, 1, 2, 3, 4, 5].map(ft => <option key={ft} value={ft}>{ft} FT</option>)}
+          </select></label>
+          <label>Planning horizon<select aria-label="Planning horizon" value={plannerHorizon} onChange={e => setPlannerHorizon(Number(e.target.value))}>
+            {[3, 5, 10].map(gw => <option key={gw} value={gw}>{gw} GW</option>)}
+          </select></label>
+          <label>Decay / GW<select aria-label="Decay per gameweek" value={plannerDecay} onChange={e => setPlannerDecay(Number(e.target.value))}>
+            {[0, 5, 10, 15, 20, 30].map(value => <option key={value} value={value}>{value}%</option>)}
+          </select></label>
         </div>
-
-        <div className="optimizer-controls-inline">
-          <div className="profile-switcher" role="radiogroup" aria-label="Optimization strategy">
-            {PROFILES.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                role="radio"
-                aria-checked={profile === item.id}
-                className={classNames('profile-option', profile === item.id && 'is-active')}
-                onClick={() => startTransition(() => onProfileChange(item.id))}
-              >
-                <span className="profile-option__head">{item.icon} {item.label}</span>
-                <small>{item.hint}</small>
-              </button>
-            ))}
-          </div>
-
-          <div className="ft-budget-controls">
-            <label className="ft-select-box">
-              <span>Simulation draws</span>
-              <select value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))} aria-label="Simulation draws">
-                <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
-              </select>
-            </label>
-            <label className="ft-select-box">
-              <span>Free Transfers</span>
-              <select
-                value={freeTransfers}
-                onChange={(e) => setFreeTransfers(Number(e.target.value))}
-                aria-label="Free transfers available"
-              >
-                {[0, 1, 2, 3, 4, 5].map((ft) => (
-                  <option key={ft} value={ft}>{ft} FT</option>
-                ))}
-              </select>
-            </label>
-            {squadMode === 'autoOptimal' && (
-              <label className="ft-select-box">
-                <span>Budget Cap: {formatPrice(budget)}</span>
-                <input
-                  type="range"
-                  min={84}
-                  max={105}
-                  step={0.5}
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                />
-              </label>
-            )}
-          </div>
-        </div>
+        <p className="planner-strategy-note">Strategy names are labels only for now; they do not change calculations. Current app profile: {profile}.</p>
       </section>
 
       {(simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
@@ -401,10 +268,10 @@ export function SquadBuilder({
       </section>}
 
       {/* ==================== TAB 1: TEAM PLANNER & TRANSFER SOLVER ==================== */}
-      {subTab === 'planner' && (!entry || squadMode === 'autoOptimal') && <p className="planner-data-notice">{squadMode === 'autoOptimal' ? 'Auto-built squad scenario — this is not your FPL team.' : 'Template squad scenario — load your FPL Team ID on Home for a personal starting squad.'} Verify bank and free transfers before acting.</p>}
+      {subTab === 'planner' && !entry && <p className="planner-data-notice">Template squad scenario — load your FPL Team ID on Home for a personal starting squad. Verify bank and free transfers before acting.</p>}
       {subTab === 'planner' && (
         <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} players={players} onInspectPlayer={onInspectPlayer}
-          horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} decay={plannerDecay} onDecayChange={setPlannerDecay}
+          horizon={plannerHorizon} decay={plannerDecay}
           plan={suggestedPlan} onSuggest={() => setSuggestedPlan(reviewSim)} canSuggest={!!reviewSim && !simulationPending} />
       )}
 
