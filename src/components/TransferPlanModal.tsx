@@ -24,6 +24,7 @@ import { difficultyFillStyle } from '../lib/fixtureForecast';
 import { classNames } from '../lib/format';
 import {
   autoPlan,
+  TRANSFER_LAB_HORIZON,
   CHIP_LABEL,
   CHIP_ORDER,
   lineupAt,
@@ -148,9 +149,9 @@ export function TransferPlanModal({
   const [tickerMineOnly, setTickerMineOnly] = useState(false);
 
   // Transfer Lab / Solver controls
-  const [labHorizon, setLabHorizon] = useState(5);
+  const [labHorizon, setLabHorizon] = useState(TRANSFER_LAB_HORIZON);
   const [labAllowHits, setLabAllowHits] = useState(false);
-  const [labPreview, setLabPreview] = useState<{ transfers: TransferMap; steps: AutoStep[] } | null>(null);
+  const [labPreview, setLabPreview] = useState<{ transfers: TransferMap; steps: AutoStep[]; sourcePlan: string } | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -2100,7 +2101,7 @@ export function TransferPlanModal({
                   <div className="vx-tp-pane-card">
                     <h3>Auto-Optimise Transfer Path (VORTEX Model)</h3>
                     <p>
-                      Finds the highest-xPts multi-GW transfer sequence from GW{safeSelectedGw} onward while obeying budget, 3-per-club, and 2026/27 FT rollover rules.
+                      Searches for a legal, high-xPts transfer path (heuristic, not a proven global optimum). Saved transfers and chip selections remain protected; only the chosen lookahead window is planned.
                     </p>
                     <div className="vx-tp-solver-controls">
                       <label>
@@ -2113,6 +2114,7 @@ export function TransferPlanModal({
                           <option value={3}>3 gameweeks</option>
                           <option value={5}>5 gameweeks</option>
                           <option value={8}>8 gameweeks</option>
+                          <option value={10}>10 gameweeks</option>
                         </select>
                       </label>
                       <label className="vx-tp-check">
@@ -2134,7 +2136,7 @@ export function TransferPlanModal({
                           fromIdx: gwIdx,
                           chips: activePlan.chips,
                         });
-                        setLabPreview(result);
+                        setLabPreview({ ...result, sourcePlan: JSON.stringify([activePlan.id, activePlan.transfers, activePlan.chips]) });
                       }}
                     >
                       Run VORTEX Solver from GW{safeSelectedGw}
@@ -2144,7 +2146,7 @@ export function TransferPlanModal({
                       <div className="vx-tp-solver-results">
                         {labPreview.steps.length === 0 ? (
                           <p className="vx-tp-muted-box">
-                            Rolling free transfers is optimal over this window — no move exceeds the threshold.
+                            No additional legal upgrade cleared the threshold. All saved manual transfers are unchanged; this does not prove rolling is globally optimal.
                           </p>
                         ) : (
                           <>
@@ -2166,14 +2168,27 @@ export function TransferPlanModal({
                                 type="button"
                                 className="vx-tp-save-btn"
                                 onClick={() => {
+                                  if (labPreview.sourcePlan !== JSON.stringify([activePlan.id, activePlan.transfers, activePlan.chips])) {
+                                    setLabPreview(null);
+                                    onToast('Manual plan changed since this preview. Rerun the solver before applying.', 'error');
+                                    return;
+                                  }
+                                  const verified = sanitize(planCtx, labPreview.transfers, activePlan.chips);
+                                  if (!planCtx.gws.every(gw =>
+                                    JSON.stringify(verified[gw] ?? []) === JSON.stringify(labPreview.transfers[gw] ?? [])
+                                  )) {
+                                    setLabPreview(null);
+                                    onToast('Solver preview is stale or no longer legal. No manual decisions were changed.', 'error');
+                                    return;
+                                  }
                                   setActivePlan({
                                     ...activePlan,
-                                    transfers: sanitize(planCtx, labPreview.transfers, activePlan.chips),
+                                    transfers: verified,
                                     updatedAt: new Date().toISOString(),
                                   });
                                   setPendingOutIds([]);
                                   setLabPreview(null);
-                                  onToast('Applied VORTEX multi-GW transfer plan.', 'success');
+                                  onToast('Applied legal suggestions without overwriting saved manual transfers.', 'success');
                                 }}
                               >
                                 Apply Plan
