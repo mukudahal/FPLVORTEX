@@ -16,6 +16,7 @@ button{padding:12px 18px;margin:0 12px 16px 0}
 <body>
 <button id="save-pitch" type="button">Create pitch PNG</button>
 <button id="save-table" type="button">Create table PNG</button>
+<button id="save-player" type="button">Create player PNG</button>
 <output id="status" role="status">Ready</output>
 <div id="pitch" aria-label="Sample test pitch">
  <div class="vx-pitch-top-boards">FPL VORTEX · GW 9</div>
@@ -27,7 +28,9 @@ button{padding:12px 18px;margin:0 12px 16px 0}
  </div>
  <div class="vx-pitch-bench"><div class="vx-pitch-player"><span class="vx-pitch-name">Bench A</span></div><div class="vx-pitch-player"><span class="vx-pitch-name">Bench B</span></div></div>
 </div>
+<div id="player-card" aria-label="Synthetic player-card regression fixture" hidden><img class="vx-pcard__portrait-img" src="/player-images/brand/fpl-vortex-lion.jpg" alt="Synthetic test portrait"><span class="vx-pcard__club-crest"><img src="/player-images/brand/fpl-vortex-lion.jpg" alt="Synthetic test crest"></span></div>
 <script type="module">
+import { downloadPlayerCardPng } from '../../src/lib/playerCardPng.ts';
 import { downloadPitchPng } from '../../src/lib/pitchPng.ts';
 import { downloadTablePng } from '../../src/lib/tablePng.ts';
 const status = document.querySelector('#status');
@@ -35,6 +38,21 @@ document.querySelector('#save-pitch').addEventListener('click', async () => {
  status.textContent = 'Preparing pitch…';
  try { await downloadPitchPng(document.querySelector('#pitch'), 'fpl-vortex-pitch-gw9.png'); status.textContent = 'Pitch preview prepared'; }
  catch (error) { status.textContent = 'ERROR: ' + error.message; }
+});
+document.querySelector('#save-player').addEventListener('click', async () => {
+ status.textContent = 'Preparing player…';
+ try {
+  await downloadPlayerCardPng(document.querySelector('#player-card'), {
+   name: 'Synthetic Player', club: 'Test Club', position: 'Midfielder',
+   price: '£8.5M', ownership: '12.0%',
+   stats: [{label:'xG PER 90',value:'0.35'},{label:'xA PER 90',value:'0.20'},
+           {label:'GOALS PER 90',value:'0.40'},{label:'ASSISTS PER 90',value:'0.15'},
+           {label:'CLEAN SHEETS %',value:'25%'},{label:'POINTS PER MATCH',value:'5.0'}],
+   fixtures: [{label:'AAA (H)',rating:2.2},{label:'BBB (A)',rating:3.2},
+              {label:'CCC (H)',rating:4.4},{label:'BLANK',rating:null},{label:'DDD (A)',rating:1.7}],
+  }, 'fpl-vortex-test-player.png');
+  status.textContent = 'Player preview prepared';
+ } catch (error) { status.textContent = 'ERROR: ' + error.message; }
 });
 document.querySelector('#save-table').addEventListener('click', async () => {
  status.textContent = 'Preparing table…';
