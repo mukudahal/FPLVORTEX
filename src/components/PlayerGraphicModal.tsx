@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Calendar,
   Crosshair,
+  Download,
   Footprints,
   Shield,
   Star,
@@ -14,6 +15,7 @@ import {
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames } from '../lib/format';
+import { downloadPlayerCardPng } from '../lib/playerCardPng';
 import { makeFixtureForecasts, overallDifficulty, difficultyFillStyle, type FixtureForecast } from '../lib/fixtureForecast';
 import {
   buildJerseyFallbackSvgDataUri,
@@ -146,6 +148,8 @@ export function PlayerGraphicModal({
   onOpenInjuryDetail,
 }: PlayerGraphicModalProps) {
   const cardRef = useRef<HTMLElement | null>(null);
+  const [savingPng, setSavingPng] = useState(false);
+  const [pngError, setPngError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!player) return undefined;
@@ -266,6 +270,28 @@ export function PlayerGraphicModal({
     { label: 'POINTS PER MATCH', value: pointsPerMatch, icon: <Star size={15} /> },
   ];
 
+  async function savePlayerPng() {
+    if (!player || !cardRef.current || savingPng) return;
+    setSavingPng(true);
+    setPngError(null);
+    try {
+      const slug = player.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+      await downloadPlayerCardPng(cardRef.current, {
+        name: player.fullName || player.name,
+        club: player.team.name,
+        position: POSITION_FULL_LABELS[player.position],
+        price: '£' + player.price.toFixed(1) + 'M',
+        ownership: player.ownership.toFixed(1) + '%',
+        stats: statRows.map(row => ({ label: row.label, value: row.value })),
+        fixtures: nextFiveFixtures.map(fx => ({ label: fx.label, rating: fx.difficulty })),
+      }, 'fpl-vortex-player-' + (slug || String(player.id)) + '.png');
+    } catch (error) {
+      setPngError(error instanceof Error ? error.message : 'Could not create the player PNG.');
+    } finally {
+      setSavingPng(false);
+    }
+  }
+
   const content = (
     <aside
       className="vx-side-popup-dock vx-pcard-overlay"
@@ -278,14 +304,16 @@ export function PlayerGraphicModal({
         aria-modal="false"
         aria-label={`${player.fullName} FPL VORTEX player card`}
       >
-        <button
-          type="button"
-          className="vx-pcard__close"
-          onClick={onClose}
-          aria-label="Close player card"
-        >
-          <X size={18} />
-        </button>
+        <div className="vx-pcard__top-actions" data-pitch-capture-exclude="true">
+          <button type="button" className="vx-pcard__save-png"
+            onClick={() => void savePlayerPng()} disabled={savingPng}
+            aria-label="Save this player card as a 4K PNG">
+            <Download size={16} /> {savingPng ? 'Preparing…' : 'Save PNG'}
+          </button>
+          <button type="button" className="vx-pcard__close" onClick={onClose}
+            aria-label="Close player card"><X size={18} /></button>
+        </div>
+        {pngError && <p className="vx-pcard__png-error" role="alert">{pngError}</p>}
 
         {/* TOP HEADER RIBBONS */}
         <header className="vx-pcard__top-ribbons">
@@ -317,6 +345,8 @@ export function PlayerGraphicModal({
               )}
               <img
                 src={portraitSrc}
+                data-player-code={player.code ?? ''}
+                data-team-code={player.team.code ?? ''}
                 alt={`${player.fullName} portrait`}
                 className="vx-pcard__portrait-img"
                 loading="eager"

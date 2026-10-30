@@ -107,6 +107,17 @@ jobs:
           exit 1
       - name: Exercise existing planner and simulation tabs
         run: node scripts/check-planner-browser.mjs
+      - name: Start isolated PNG rendering fixture
+        run: |
+          npx vite --config tests/browser/vite.config.ts --host 127.0.0.1 --port 5174 > /tmp/vortex-png-vite.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5174/tests/browser/pitch-export.html > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/vortex-png-vite.log
+          exit 1
+      - name: Verify 4K pitch and table PNG downloads in Chromium
+        run: node scripts/check-png-browser.mjs
       - name: Verify automatic production deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/check-planner-deployment.mjs
