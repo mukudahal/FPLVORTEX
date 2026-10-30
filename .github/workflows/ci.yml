@@ -116,3 +116,44 @@ jobs:
           name: planner-browser-evidence
           path: test-results/planner/
           retention-days: 7
+
+
+  next-app-parity:
+    name: Next.js candidate — build and test parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: 1_APP_dashboard
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: 1_APP_dashboard/package-lock.json
+
+      - name: Install Next.js candidate dependencies
+        run: npm ci
+
+      - name: Check migration ordering (no database writes)
+        run: npm run db:migrate:dry-run
+
+      - name: Run existing planner and security unit tests
+        run: npm run test:planning
+
+      - name: Typecheck Next.js candidate
+        run: npm run typecheck
+
+      - name: Lint Next.js candidate
+        run: npm run lint
+
+      - name: Production build without a live database
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://audit:placeholder@127.0.0.1:5432/vortex_audit
+          NEXT_PUBLIC_SITE_URL: https://staging.example.invalid
+          FPL_AI_ENABLED: 'false'
