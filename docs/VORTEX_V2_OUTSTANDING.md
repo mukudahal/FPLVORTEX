@@ -1,48 +1,46 @@
-# FPL VORTEX — V2 Outstanding Work Register
+# FPL VORTEX — V2 outstanding-work register
 
-Updated: 2026-10-30
-Source: GitHub repository `mukudahal/FPLVORTEX`
-Tracking branch: `upgrade/vortex-stage01-next-ci-repair`
-Purpose: concise evidence-based status and unresolved dependencies for each stage.
+**Updated:** 2026-10-30
+**Baseline:** `main` @ `efe59675175c3ce51ebac9402e1d7731e609edb9`
+**Source:** `mukudahal/FPLVORTEX` + confirmed Render `FPLVORTEX` service
+**Tracking work branch:** `upgrade/vortex-stage02-contracts-and-provenance`
 
-## Current release context
+## Verified completed work
 
-- Stage 00 audit and backup branch: COMPLETE.
-- Stage 01 source/architecture comparison and Next.js parity CI job: IMPLEMENTED. Next.js test failure identified; repair under validation.
-- Root baseline `main` CI `41086671032`: PASSED.
-- Post-merge main CI run `41101145630`: FAILED only in the Next.js candidate job; root build, planner browser and Python solver jobs PASSED. Next test run found 111/112 tests passing, failure in `refresh-schedule.test.cjs` because `1_APP_dashboard/vercel.json` deliberately has no scheduled crons. The candidate did not reach typecheck/lint/build in that run.
-- The candidate Next.js app has not been demonstrated to have production parity or working Supabase Auth.
-- Production source is the existing root Vite/Express application as described in README.
-- PR #53 **was merged and auto-deployed** on Render service `FPLVORTEX` to commit `c1a574bf` with status `live`. The deployed root app is unchanged functionally. The current repair PR adjusts the Next.js test to accept explicitly inactive cron configuration; it does not deploy or implement the finished V2 application.
+| Deliverable | Evidence | Status |
+|---|---|---|
+| Stage 00 audit, backup branch, inventory | `backup/pre-v2-upgrade-2026-10-30`; baseline documents | COMPLETE |
+| Stage 01 root + Next independent CI | PRs #53 and #54, passing post-merge CI `41108619456` | COMPLETE |
+| Premium 4K 16:9 PNG export for pitch/player/tables | PR #55, browser downloaded-image checks, main CI `41109333620` | COMPLETE |
+| Current Render production deployment | Render `FPLVORTEX`, commit `efe59675` marked `live` | COMPLETE |
+| Stage 02 product/architecture/UX/data contracts | `PRODUCT.md`, `UX-CONTRACT.md`, ADR, data-source contract, tickets, tested helper | IMPLEMENTED IN BRANCH; CI / MERGE PENDING |
 
-## Outstanding — priority order
+**Truth boundary:** The public site is still the existing Vite/Express application. Passing a Next.js build does not mean the complete 10-GW Next/Supabase platform is deployed. PNG export fixes are live, but future manual and auto planner work remains unfinished.
 
-| Priority | Item | Needed evidence / decision | Status |
-|---|---|---|---|
-| P0 | Next.js CI candidate test | Repair scheduler test for absent Vercel cron; rerun all steps including typecheck, lint and build | REPAIR IN REVIEW |
-| P0 | Verify production health | Render workspace confirmed; only service FPLVORTEX, Docker from main, deployment for `c1a574bf` reported `live`; verify application HTTP health | DEPLOYMENT VERIFIED / HTTP PENDING |
-| P0 | Architecture decision | Resolve root Vite vs `1_APP_dashboard` Next source ownership, code-sharing, migration and rollback | OPEN |
-| P0 | Stage 02 product/UX/API contracts | Canonical `PRODUCT.md`, `DESIGN.md`, `UX-CONTRACT.md`, source contracts; approve route ownership | OPEN |
-| P0 | Supabase staging integration | Set up staging DB, Auth/RLS and admin role; migrate plans safely | OPEN |
-| P0 | DATA tab security | Server-enforced admin login/role, RLS and strict secret boundaries; rotate chat-shared password | OPEN |
-| P0 | FPL scoring/math parity | Official rules and tests across root/Next, 10 GWs, chips, free transfers, blanks/doubles | OPEN |
-| P0 | VORTEX FDR calibration | Historical frozen pre-deadline references; separate attack/defence 1.0–5.0 scale | OPEN |
-| P0 | xPts forecast validation | Minutes states, position events, no leakage, chronological backtests | OPEN |
-| P0 | Full 10-GW planner | Manual changes, cloud save, undo/revision, lineup, captaincy, chip state | OPEN |
-| P0 | Optimizer/Monte Carlo production parity | Valid legal multi-GW actions, chips, benchmark comparisons, async jobs | OPEN |
-| P0 | Odds/data provenance | Quote freshness, licensing, current market match coverage, source-specific fallbacks | OPEN |
-| P1 | Responsive dark/light UX | Compact layouts, contrast, performance; reconcile PR #45 mobile changes | OPEN |
-| P1 | PNG export bug | Review existing PR #43, run real-browser 4K PNG test | OPEN |
-| P1 | Player/fixture/market/news pages | Functional integration, searchable and clear source labels | OPEN |
-| P1 | Performance and security QA | Playwright, DB RLS tests, Core Web Vitals, error/worker recovery, stage gates | OPEN |
-| P1 | Production Next/Vercel cutover | Verified Next build, stage migration, live URL and rollback; explicit release approval | NOT READY |
+## Outstanding — dependency order
 
-## Update protocol
+| Priority | Outstanding implementation | Current status / gate |
+|---|---|---|
+| P0 | Stage 02 source and UX contracts reviewed/CI accepted | IN REVIEW; run unit and cross-app parity on branch |
+| P0 | Stage 03 responsive 10-GW homepage and app shell | NEXT; dark/light + mobile/desktop + keyboard |
+| P0 | Stage 04 trusted FPL pipeline / source timestamps | OPEN; integrate pure helper into verified server endpoints |
+| P0 | Stage 05 authenticated saved plans and Supabase RLS | BLOCKED on staging auth/DB; no live migration |
+| P0 | Protected DATA tab and audited admin operations | BLOCKED on server sessions/roles/RLS; no hardcoded password |
+| P0 | Stage 06 canonical season FPL rules and cross-app parity | OPEN; 2026/27 chips, selling price, banked FT |
+| P0 | Stage 07 licensed/verified market odds and score distributions | OPEN; provider license & quote coverage decision |
+| P0 | Stage 08 calibrated separate Attack/Defence FDR 1.0–5.0 | OPEN; frozen historical reference & backtests |
+| P0 | Stage 09 player minutes and component xPts calibration | OPEN; chronological no-leak tests |
+| P0 | Stage 10 saved/revisioned legal manual ten-GW plans | OPEN; preserve accepted choices, locks, undo |
+| P0 | Stage 11 constraint-aware automatic transfers and chips | OPEN; heuristic/optimal clarity |
+| P0 | Stage 12 paired simulation comparison with async worker | OPEN; progress, cancel, same sampled outcomes |
+| P1 | Stage 13 player/fixture/market/news/methodology parity | OPEN; source badges and functional navigation |
+| P1 | Reconciling draft PR #45 mobile-screen changes | OPEN; compare against canonical Stage 03 work |
+| P1 | Validate 4K PNG visually with real manager/photos on mobile | OPEN as manual-device visual check; automated PNG regression PASSED |
+| P0 | Stage 14 security, model, a11y, perf, browser release QA | OPEN |
+| P0 | Stage 15 staged Next/Supabase/Vercel cutover | NOT READY; explicit release approval needed |
 
-After each development action, report:
-1. Completed and linked GitHub changes / checks.
-2. Current production deployment state: verified / unverified, commit and URL.
-3. Top unfinished tasks by priority and blockers.
-4. Whether release gates remain open.
+## Development update policy
 
-Do not claim a merge, deployment or test result until GitHub or the hosting provider confirms it. Do not silently drop outstanding items after a stage transition.
+In every future update include **completed changes**, **source-linked CI/tests**, **live production commit/Render status**, and **outstanding items** (blocked versus ready), with no misleading claim of deployment or verified odds. Do not silently merge stale PR #43 or expose the previously shared password; require a new private admin credential/MFA before an admin launch.
+
+Roadmap/ticket details: `docs/VORTEX_V2_STAGE02_TICKETS.md`; original plan `docs/VORTEX_V2_UPGRADE_PLAN.md`.
