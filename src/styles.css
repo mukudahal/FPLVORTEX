@@ -8217,3 +8217,198 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   outline: 2px solid #5b4fd4;
   outline-offset: 2px;
 }
+
+@media (min-width: 1280px) {
+  .page--command:not(.page--review) .vx-hub-upper {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(8px, .72vw, 12px);
+    align-items: start;
+  }
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;min-width:0;}
+  .page--command:not(.page--review) .vx-hub-upper > .vx-fixture-rail {grid-column:2;grid-row:1;min-width:0;}
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals {grid-column:3;grid-row:1;min-width:0;}
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch,
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals,
+  .page--command:not(.page--review) .vx-fixture-rail > .vx-card {
+    padding: 6px;
+    min-width: 0;
+  }
+
+  /* Pitch: about 590–700px tall, inclusive of the score ribbon and bench. */
+  .page--command:not(.page--review) .vx-squad-scorebox {margin-bottom: 3px;}
+  .page--command:not(.page--review) .vx-squad-scorebox__top {min-height: 33px;padding:2px 5px;gap:4px;}
+  .page--command:not(.page--review) .vx-squad-scorebox__metrics {min-height:42px;padding:1px 2px;}
+  .page--command:not(.page--review) .vx-score-metric {gap:2px;padding:2px 1px;}
+  .page--command:not(.page--review) .vx-score-metric span {font-size:8px;}
+  .page--command:not(.page--review) .vx-score-metric strong {font-size:clamp(10px,.86vw,15px);}
+  .page--command:not(.page--review) .vx-pitch-top-boards {min-height:32px;padding:3px 7px;gap:4px;}
+  .page--command:not(.page--review) .vx-pitch-top-boards .vx-pitch-board {padding:3px 7px;font-size:10px;}
+  .page--command:not(.page--review) .vx-pitch-top-boards .vx-pitch-board img {width:16px;height:16px;}
+  .page--command:not(.page--review) .vx-pitch-save-control .save-table-button {height:24px;min-height:24px;padding:3px 7px;font-size:10px;}
+  .page--command:not(.page--review) .vx-pitch-goal-net {width:42px;flex-basis:42px;height:9px;}
+
+  /* A genuine 4x1 grid eliminates the long blank turf areas and overlap. */
+  .page--command:not(.page--review) .vx-pitch-formation {
+    /* All four lines must stretch edge-to-edge across the field. */
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:space-between;
+    width:100%;
+    max-width:100%;
+    align-self:stretch;
+    box-sizing:border-box;
+    height:clamp(420px,calc(100svh - 380px),528px);
+    flex:0 0 auto;
+    min-height:0;
+    padding:6px clamp(7px,1vw,13px) 8px;
+    gap:clamp(5px,.7svh,9px);
+  }
+  .page--command:not(.page--review) .vx-pitch-row {
+    display:flex;
+    flex:1 1 0;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    align-items:center;
+    justify-content:space-evenly;
+    min-height:0;
+    height:auto;
+    gap:clamp(3px,.5vw,8px);
+  }
+  .page--command:not(.page--review) .vx-pitch-row > .vx-pitch-player {
+    width:clamp(86px,7vw,112px);
+    max-width:23%;
+    min-width:0;
+    flex:0 1 auto;
+  }
+  .page--command:not(.page--review) .vx-pitch-portrait.player-avatar {
+    width:clamp(64px,7.6svh,84px);
+    height:clamp(65px,8.4svh,88px);
+  }
+  .page--command:not(.page--review) .vx-pitch-portrait.player-avatar img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    object-position:center bottom;
+  }
+  .page--command:not(.page--review) .vx-pitch-xp,
+  .page--command:not(.page--review) .vx-pitch-pos-label {
+    padding:1px 5px;
+    margin-bottom:1px;
+    font-size:9.5px;
+    line-height:1.15;
+  }
+  .page--command:not(.page--review) .vx-pitch-name {
+    padding:2px 3px;
+    font-size:clamp(11px,.85vw,13px);
+    line-height:1.1;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+  }
+  .page--command:not(.page--review) .vx-pitch-fix {
+    padding:2px 3px;
+    font-size:clamp(10px,.77vw,12px);
+    line-height:1.1;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+  }
+  .page--command:not(.page--review) .vx-pitch-armband {width:18px;height:18px;font-size:10px;right:-3px;top:0;}
+  .page--command:not(.page--review) .vx-pitch-avatar-box > .vx-pitch-flag.vx-injury-rect-sign {
+    left:calc(100% - 5px);top:clamp(11px,1.8svh,18px);
+  }
+  .page--command:not(.page--review) .vx-pitch-lines {bottom:103px;}
+  .page--command:not(.page--review) .vx-pitch-box-18 {height:clamp(56px,8svh,72px);}
+  .page--command:not(.page--review) .vx-pitch-box-6 {height:27px;}
+  .page--command:not(.page--review) .vx-pitch-circle {
+    width:74px;height:74px;
+    top:calc(56% - 37px);left:calc(50% - 37px);
+  }
+  .page--command:not(.page--review) .vx-pitch-bench-head {padding:3px 8px 1px;font-size:9px;}
+  .page--command:not(.page--review) .vx-pitch-bench-head strong {font-size:10px;}
+  .page--command:not(.page--review) .vx-pitch-bench {gap:5px;padding:3px 6px 5px;}
+  .page--command:not(.page--review) .vx-pitch-player.vx-pitch-player--bench {
+    width:100%;max-width:100%;min-width:0;padding:0 1px;
+  }
+  .page--command:not(.page--review) .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+    width:clamp(49px,5.8svh,65px);
+    height:clamp(49px,6.3svh,67px);
+  }
+  .page--command:not(.page--review) .vx-pitch-player--bench .vx-pitch-pos-label {font-size:9px;padding:1px 4px;}
+  .page--command:not(.page--review) .vx-pitch-bench-meta {font-size:8.5px;margin-top:1px;}
+
+  /* Results rail: retain all 10 results, compact date banners and model xG. */
+  .page--command:not(.page--review) .vx-fixture-rail {gap:5px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__header {margin-bottom:5px;gap:4px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__header h3 {font-size:14px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__sub {font-size:9px;line-height:1.2;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-fixture-zone {font-size:9px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__scroll {max-height:none;overflow:visible;}
+  .page--command:not(.page--review) .vx-fixture-columns {grid-template-columns:minmax(0,1fr);gap:0;}
+  .page--command:not(.page--review) .vx-fixture-column {gap:2px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-fixture-date-banner {
+    font-size:10px;padding:2px 5px;margin-bottom:1px;line-height:1.15;
+  }
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-item {padding:2px 5px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-row {gap:3px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-team strong {font-size:11px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-team .club-badge {width:18px;height:18px;flex-basis:18px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-pill {font-size:11px;padding:3px 5px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-xg-split-bar {height:4px;margin-top:2px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-xg-labels {margin-top:2px;font-size:10px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-xg-labels span {font-size:9px;}
+
+  /* All 20 rank rows stay readable in the third column with no inner scroll. */
+  .page--command:not(.page--review) .vx-card--goals .vx-card__header {margin-bottom:5px;gap:5px;}
+  .page--command:not(.page--review) .vx-card--goals .vx-card__header h3 {font-size:clamp(12px,.9vw,15px);}
+  .page--command:not(.page--review) .vx-card--goals .vx-card__scroll {max-height:none;overflow:visible;padding-right:0;}
+  .page--command:not(.page--review) .vx-club-bars {gap:0;}
+  .page--command:not(.page--review) .vx-club-bar-row {
+    grid-template-columns:15px 18px 31px minmax(46px,56px) minmax(0,1fr) 39px;
+    gap:clamp(3px,.25vw,5px);
+    min-height:25px;
+    padding:2px 1px;
+    line-height:1.1;
+    border-bottom:1px solid var(--border);
+    border-radius:0;
+  }
+  .page--command:not(.page--review) .vx-club-bar-row .club-badge {width:17px;height:17px;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-row-idx {font-size:10px;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-club-short {font-size:11px;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-club-opp {font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-club-val {font-size:11px;}
+  .page--command:not(.page--review) .vx-card--goals .vx-card__footer {
+    margin-top:5px;padding-top:5px;gap:5px;font-size:9px;
+    flex-wrap:wrap;
+  }
+}
+
+/* Short laptop screens: favor one-view visibility, without shrinking labels below 9px. */
+@media (min-width:1280px) and (max-height:800px) {
+  .page--command:not(.page--review) .vx-gw-bar {min-height:35px;padding-block:3px;margin-bottom:5px;}
+  .page--command:not(.page--review) .vx-pitch-formation {
+    height:clamp(398px,calc(100svh - 365px),445px);
+    padding:4px 7px 5px;
+    gap:3px;
+  }
+  .page--command:not(.page--review) .vx-pitch-row > .vx-pitch-player {width:clamp(80px,6.6vw,100px);}
+  .page--command:not(.page--review) .vx-pitch-portrait.player-avatar {width:56px;height:58px;}
+  .page--command:not(.page--review) .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:45px;height:46px;}
+  .page--command:not(.page--review) .vx-pitch-xp,.page--command:not(.page--review) .vx-pitch-pos-label {font-size:9px;}
+  .page--command:not(.page--review) .vx-pitch-bench {padding:2px 5px 4px;}
+  .page--command:not(.page--review) .vx-pitch-bench-meta {font-size:8px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-item {padding:3px 5px;}
+  .page--command:not(.page--review) .vx-club-bar-row {min-height:23px;padding:1px;}
+}
+
+
+/* Home shares the viewport-fit squad layout; keep the navigation-to-hub gap compact. */
+@media (min-width:1280px) {
+  .content:has(> .page--command) {padding-top:4px;}
+  .page--command .vx-hub-upper {margin-top:2px;}
+  .page--command .vx-gw-bar {margin-bottom:4px;}
+}
