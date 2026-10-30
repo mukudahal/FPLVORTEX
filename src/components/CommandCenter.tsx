@@ -511,6 +511,22 @@ export function CommandCenter({
     return groups;
   }, [gwMatchesAndClubs.matches, viewerTimeZone]);
 
+  // Keep Home's ordinary list. On Review, balance ten results into two columns
+  // of five while repeating a date banner only at the first match on each date.
+  const fixtureColumns = useMemo(() => {
+    const flattened = groupedMatches.flatMap((group) => group.items.map((m) => ({
+      m, dateLabel: group.dateLabel,
+    })));
+    const middle = Math.ceil(flattened.length / 2);
+    const parts = mode === 'review'
+      ? [flattened.slice(0, middle), flattened.slice(middle)]
+      : [flattened];
+    return parts.map((items) => items.map((item, index) => ({
+      ...item,
+      showDate: index === 0 || item.dateLabel !== items[index - 1]?.dateLabel,
+    })));
+  }, [groupedMatches, mode]);
+
   const nextFixtureGroups = useMemo(() => {
     const fixtures = snapshot.fixtures.filter((fx) => fx.event === nextEventId)
       .sort((a, b) => (a.kickoffTime || '9999').localeCompare(b.kickoffTime || '9999'));
@@ -524,6 +540,19 @@ export function CommandCenter({
     }
     return groups;
   }, [snapshot.fixtures, nextEventId, viewerTimeZone]);
+
+  const nextFixtureColumns = useMemo(() => {
+    const flattened = nextFixtureGroups.flatMap((group) => group.fixtures.map((fixture) => ({
+      fixture, dateLabel: group.dateLabel,
+    })));
+    const middle = Math.ceil(flattened.length / 2);
+    return [flattened.slice(0, middle), flattened.slice(middle)].map((items) =>
+      items.map((item, index) => ({
+        ...item,
+        showDate: index === 0 || item.dateLabel !== items[index - 1]?.dateLabel,
+      })),
+    );
+  }, [nextFixtureGroups]);
 
   const sortedClubs = useMemo(() => {
     return [...gwMatchesAndClubs.clubs].sort((a, b) => b[projMetric] - a[projMetric]);
@@ -1122,11 +1151,10 @@ export function CommandCenter({
             </button>
           </header>
 
-          <div className="vx-card__scroll">
-            {groupedMatches.map((group) => (
-              <div key={group.dateLabel} className="vx-fixture-group">
-                <div className="vx-fixture-date-banner">{group.dateLabel}</div>
-                {group.items.map((m) => {
+          <div className="vx-card__scroll vx-fixture-columns">
+            {fixtureColumns.map((column, index) => (
+              <div key={index} className="vx-fixture-column">
+                {column.map(({ m, dateLabel, showDate }) => {
                   const homeShort = m.homeTeam?.shortName ?? 'HOM';
                   const awayShort = m.awayTeam?.shortName ?? 'AWY';
                   const kickoffLabel =
@@ -1145,7 +1173,9 @@ export function CommandCenter({
                   const awayBarColor = CLUB_BAR_COLORS[awayShort] ?? '#7772FF';
 
                   return (
-                    <div key={m.fixture.id} className="vx-match-item">
+                    <div key={m.fixture.id} className="vx-fixture-compact-match">
+                      {showDate && <div className="vx-fixture-date-banner">{dateLabel}</div>}
+                      <div className="vx-match-item">
                       <button
                         type="button"
                         className="vx-match-row"
@@ -1210,6 +1240,7 @@ export function CommandCenter({
                           )}
                         </div>
                       )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1231,10 +1262,11 @@ export function CommandCenter({
             </header>
             {nextFixtureGroups.length === 0 ? (
               <p className="vx-next-fixture-empty">Official FPL has not published GW{nextEventId} fixture times yet.</p>
-            ) : nextFixtureGroups.map((group) => (
-              <div className="vx-next-fixture-date" key={group.dateLabel}>
-                <div className="vx-fixture-date-banner">{group.dateLabel}</div>
-                {group.fixtures.map((fixture) => {
+            ) : (
+              <div className="vx-next-fixture-columns">
+                {nextFixtureColumns.map((column, columnIndex) => (
+                  <div className="vx-next-fixture-column" key={columnIndex}>
+                    {column.map(({ fixture, dateLabel, showDate }) => {
                   const home = teamMap.get(fixture.teamH);
                   const away = teamMap.get(fixture.teamA);
                   const kickoff = fixture.kickoffTime
@@ -1244,7 +1276,9 @@ export function CommandCenter({
                       }).format(new Date(fixture.kickoffTime))
                     : 'TBC';
                   return (
-                    <div className="vx-next-fixture-match" key={fixture.id}>
+                    <div className="vx-next-fixture-date" key={fixture.id}>
+                      {showDate && <div className="vx-fixture-date-banner">{dateLabel}</div>}
+                      <div className="vx-next-fixture-match">
                       <span className="vx-next-fixture-team is-home" title={home?.name ?? ''}>
                         <strong>{home?.name ?? 'Home TBC'}</strong>
                         {home && <ClubBadge teamCode={home.code} shortName={home.shortName} teamName={home.name} size="sm" />}
@@ -1256,11 +1290,14 @@ export function CommandCenter({
                         {away && <ClubBadge teamCode={away.code} shortName={away.shortName} teamName={away.name} size="sm" />}
                         <strong>{away?.name ?? 'Away TBC'}</strong>
                       </span>
+                      </div>
                     </div>
                   );
-                })}
+                    })}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </article>
         )}
         </div>
