@@ -18,6 +18,13 @@ BEGIN
     END IF;
   END LOOP;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vortex_private' AND c.relname = 'admin_grants' AND c.relrowsecurity
+  ) THEN
+    RAISE EXCEPTION 'RLS is disabled on the private admin grants table.';
+  END IF;
+
   SELECT count(*) INTO expected_policies
   FROM pg_policies
   WHERE schemaname = 'public'
