@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-vortex-v3';
+const CACHE_NAME = 'fpl-vortex-v5';
 const OFFLINE_SNAPSHOT = '/data/fpl-snapshot.json';
 const OFFLINE_LEAGUE = '/data/fpl-league-fallback.json';
 const CORE_ASSETS = [
@@ -98,15 +98,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (request.mode === 'navigate') {
-    // A previously visited app can open while Render wakes. Revalidate HTML in
-    // the background; hashed assets keep each cached document version coherent.
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
-      const update = networkFirst(request, '/');
-      event.waitUntil(update.then(() => undefined));
-      return cached ?? update;
-    })());
+    // Fetch the deployed HTML first so an old cached shell cannot display
+    // removed UI text. Keep the existing offline fallback through networkFirst.
+    event.respondWith(networkFirst(request, '/'));
     return;
   }
   event.respondWith(staleWhileRevalidate(request));
