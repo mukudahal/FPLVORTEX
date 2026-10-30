@@ -45,9 +45,10 @@ BEGIN
     RAISE EXCEPTION 'Authenticated user may change immutable revisions or admin diagnostics.';
   END IF;
 
-  IF has_schema_privilege('authenticated','vortex_private','USAGE')
-     OR has_schema_privilege('anon','vortex_private','USAGE') THEN
-    RAISE EXCEPTION 'Private admin schema exposed to client roles.';
+  IF has_schema_privilege('anon','vortex_private','USAGE')
+     OR has_table_privilege('authenticated','vortex_private.admin_grants','SELECT')
+     OR has_table_privilege('authenticated','vortex_private.admin_grants','INSERT') THEN
+    RAISE EXCEPTION 'Private admin grants table or schema is exposed to client roles.';
   END IF;
 
   SELECT p.prosecdef AND EXISTS (
@@ -57,7 +58,7 @@ BEGIN
   INTO function_safe
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public' AND p.proname = 'vortex_is_admin';
+  WHERE n.nspname = 'vortex_private' AND p.proname = 'is_vortex_admin';
   IF function_safe IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'Admin function is not SECURITY DEFINER with sealed search path.';
   END IF;
