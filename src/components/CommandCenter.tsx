@@ -15,7 +15,6 @@ import {
   LayoutGrid,
   List,
   Minus,
-  Pencil,
   Play,
   Shield,
   Star,
@@ -24,7 +23,6 @@ import {
   TrendingUp,
   Trophy,
   UserCheck,
-  Users,
 } from 'lucide-react';
 import type { PendingSwap } from '../App';
 import type { RouteId } from '../hooks/useHashRoute';
