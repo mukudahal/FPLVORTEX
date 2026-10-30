@@ -121,8 +121,8 @@ ALTER TABLE public.vortex_scenarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vortex_scenario_revisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vortex_admin_data_runs ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.vortex_scenarios FROM PUBLIC, anon;
-REVOKE ALL ON public.vortex_scenario_revisions FROM PUBLIC, anon;
+REVOKE ALL ON public.vortex_scenarios FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.vortex_scenario_revisions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.vortex_admin_data_runs FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.vortex_scenarios TO authenticated;
