@@ -4,6 +4,7 @@ import { BRAND_LION_SRC } from '../lib/baseUrl';
 import type { RouteId } from '../hooks/useHashRoute';
 import { useNow } from '../hooks/useNow';
 import { countdown } from '../lib/format';
+import { LocationClockWeather } from './LocationClockWeather';
 import type { Snapshot } from '../lib/types';
 
 interface TopbarProps {
@@ -65,6 +66,7 @@ export function Topbar({
           </div>
           <b aria-label="Time remaining">{remaining.label}</b>
         </div>
+        <LocationClockWeather />
       </div>
 
       <div className="topbar__right">

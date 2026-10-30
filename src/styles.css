@@ -7463,3 +7463,53 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .vx-score-metric span {font-size:7px;letter-spacing:0;}
   .vx-score-metric strong {font-size:clamp(9px,2.5vw,13px);}
 }
+
+/* A readable live local digital clock + optional permission-based °F weather, same fixed-height header. */
+.topbar { height:68px; min-height:68px; max-height:68px; overflow-x:auto; flex-wrap:nowrap; }
+.topbar__left { flex:0 0 auto; flex-wrap:nowrap; }
+.topbar__local-widget {
+  display:flex; align-items:center; gap:5px; flex:0 0 auto; height:52px;
+  padding-left:8px; border-left:1px solid rgba(133,146,214,.35);
+}
+.topbar__local-clock { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:117px; }
+.topbar__local-clock time {
+  display:block; color:#5bf5d6; font-size:20px; line-height:1.04;
+  font-weight:950; font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+  letter-spacing:.045em; text-shadow:0 0 11px rgba(91,245,214,.3);
+}
+.topbar__local-clock small {color:var(--text-secondary);font-size:9px;font-weight:850;letter-spacing:.065em;white-space:nowrap;}
+.topbar__weather {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;
+  min-width:58px; height:55px; padding:2px 4px; border:0; border-radius:8px;
+  background:transparent; color:var(--text-primary); cursor:pointer;
+}
+.topbar__weather:hover { background:rgba(112,112,248,.13); }
+.topbar__weather-icon {display:block; height:22px; color:#ffcc56;}
+.topbar__weather-icon svg {stroke-width:2.1;filter:drop-shadow(0 0 3px rgba(254,211,97,.3));}
+.topbar__weather strong {font-size:13px;line-height:1.08;font-weight:950;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.topbar__weather small {color:var(--text-secondary);font-size:7.5px;line-height:1.1;white-space:nowrap;font-weight:850;}
+.topbar__right {flex:1 1 auto; min-width:0; gap:7px;}
+.topbar__global-search, :root[data-theme="light"] .topbar__global-search {
+  flex:0 1 220px; min-width:137px; max-width:250px; width:220px; height:42px;
+}
+.topbar__global-search {gap:6px;padding-inline:9px;}
+.topbar__global-search input {font-size:11px !important;font-weight:850;min-width:0;}
+.topbar__global-search input::placeholder {font-size:11px;}
+.topbar__sync {min-width:85px;padding-inline:7px;font-size:11px;}
+@media(max-width:1300px) {
+  .topbar {flex-wrap:nowrap;}
+  .topbar__left {flex:0 0 auto;width:auto;}
+  .topbar__right {flex:1 1 auto;width:auto;}
+  .topbar__global-search {flex:0 1 200px;max-width:200px;min-width:134px;}
+}
+@media(max-width:700px) {
+  .topbar {height:68px;min-height:68px;max-height:68px;}
+  .topbar__local-widget {gap:4px;padding-left:6px;}
+  .topbar__local-clock {min-width:103px;}
+  .topbar__local-clock time {font-size:18px;}
+  .topbar__local-clock small {font-size:8px;}
+  .topbar__weather {min-width:49px;}
+  .topbar__global-search {flex:0 0 165px;width:165px;min-width:165px;max-width:165px;}
+  .topbar__global-search input {font-size:9px !important;}
+  .topbar__global-search input::placeholder {font-size:9px;}
+}
