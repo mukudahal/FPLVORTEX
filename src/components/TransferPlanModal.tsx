@@ -964,6 +964,7 @@ export function TransferPlanModal({
   const modalNode = (
     <div
       className="vx-tp-overlay"
+      data-testid="vx-transfer-plans-modal"
       role="dialog"
       aria-modal="true"
       aria-label={view === 'list' ? 'Transfer plans' : activePlan?.name ?? 'Transfer plan editor'}
@@ -1002,6 +1003,7 @@ export function TransferPlanModal({
               <button
                 type="button"
                 className="vx-tp-new-btn"
+                data-testid="vx-tp-new-plan"
                 onClick={handleCreateNewPlan}
                 disabled={plans.length >= MAX_TRANSFER_PLAN_SLOTS}
               >
@@ -1124,7 +1126,7 @@ export function TransferPlanModal({
 
       {/* ==================== VIEW 2 & 3: IMAGE 2 & IMAGE 3 — TRANSFER PLAN WORKSPACE ==================== */}
       {view === 'editor' && activePlan && planCtx && replayState && currentLineup && (
-        <div className="vx-tp-editor-shell">
+        <div className="vx-tp-editor-shell" data-testid="vx-tp-editor-view">
           <header className="vx-tp-editor-topbar">
             <button
               type="button"
