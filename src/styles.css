@@ -7135,44 +7135,1342 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .png-save-actions .png-save-primary { background: #cf2540; border-color: #cf2540; color: #fff; }
 .png-save-message { margin-top: 10px !important; }
 
-/* Phase 1: prevent the shared header, Review and Planner controls competing for
-   horizontal space on narrow screens. Keep desktop layout and data unchanged. */
+/* Focused global header: all pages share one search and theme switch. */
+.topbar { min-height: 76px; padding-block: 10px; gap: 16px; }
+.topbar__left { flex: 0 0 auto; flex-wrap: nowrap; }
+.topbar__right { flex: 1 1 auto; flex-wrap: nowrap; justify-content: flex-end; gap: 14px; min-width: 0; }
+.topbar__global-search {
+  display: flex; align-items: center; gap: 11px; flex: 0 1 520px;
+  min-width: 0; width: min(48vw, 520px); height: 46px; padding: 0 13px;
+  border: 1px solid transparent; border-radius: 15px;
+  background: linear-gradient(#121832, #121832) padding-box,
+              linear-gradient(115deg, #8c7bff, #51efd0 56%, #ffc66d) border-box;
+  box-shadow: 0 0 22px rgba(119, 114, 255, .17), inset 0 1px 0 rgba(255,255,255,.08);
+  transition: box-shadow .2s ease, transform .2s ease;
+  cursor: text;
+}
+:root[data-theme="light"] .topbar__global-search {
+  background: linear-gradient(#fff, #fff) padding-box,
+              linear-gradient(115deg, #7267ef, #16a58c 56%, #e99c37) border-box;
+}
+.topbar__global-search:focus-within, .topbar__global-search:hover {
+  box-shadow: 0 0 24px rgba(81, 239, 208, .25), 0 0 10px rgba(140,123,255,.15);
+}
+.topbar__global-search > svg { color: var(--brand-mint); flex-shrink: 0; }
+.topbar__global-search input {
+  min-width: 0; flex: 1; width: 100%; border: 0; outline: 0; background: transparent;
+  font: inherit; font-size: 13px; color: var(--text-primary);
+}
+.topbar__global-search input::placeholder { color: var(--text-secondary); opacity: 1; }
+.topbar__global-search kbd { white-space: nowrap; border-color: rgba(140,123,255,.38); color: var(--brand-mint); }
+.command-palette { border-color: rgba(140,123,255,.55); box-shadow: 0 30px 88px rgba(14,10,40,.55), 0 0 28px rgba(81,239,208,.12); }
+.command-palette__search { background: linear-gradient(95deg, rgba(119,114,255,.11), rgba(81,239,208,.07)); }
+.command-palette__search input:focus-visible { outline: none; }
+.palette-result:hover, .palette-result.is-active { background: linear-gradient(100deg, rgba(119,114,255,.15), rgba(81,239,208,.09)); border-color: rgba(81,239,208,.38); }
+.palette-result:focus-visible { outline: 2px solid var(--brand-mint); outline-offset: -2px; }
+.palette-result__icon { background: linear-gradient(130deg, rgba(119,114,255,.19), rgba(81,239,208,.13)); }
+@media (max-width: 920px) {
+  .topbar__global-search { display: flex; width: min(45vw, 500px); }
+}
 @media (max-width: 700px) {
-  .topbar__right {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 8px;
+  .topbar { gap: 10px; }
+  .topbar__left { width: 100%; align-items: center; }
+  .topbar__right { width: 100%; gap: 10px; }
+  .topbar__global-search { display: flex; flex: 1 1 auto; width: auto; height: 44px; }
+  .topbar__global-search kbd { display: none; }
+  .topbar__global-search input { font-size: 12px; }
+}
+
+/* 2026-10-29: compact brand-first header shared by every site page */
+.topbar { min-height: 70px; height: auto; padding: 5px 18px; gap: 14px; }
+.topbar__left { display:flex; align-items:center; flex: 0 1 auto; gap: 9px; white-space: nowrap; }
+.topbar__brand-lion,
+.topbar__brand-lion:hover,
+.topbar__brand-lion:focus-visible {
+  display: inline-flex; flex: 0 0 58px; width: 58px; height: 58px;
+  border: none; padding: 0; border-radius: 0;
+  background: transparent; box-shadow: none; transform: none;
+  align-items: center; justify-content: center;
+}
+.topbar__brand-lion .topbar__mobile-lion {
+  width: 58px; height: 58px; background: transparent;
+  border: 0; border-radius: 0; object-fit: contain;
+}
+.topbar__channel { font-size: clamp(17px, 1.5vw, 23px); line-height: 1.02; }
+.topbar__deadline {
+  display: inline-flex; align-items: center; gap: 8px; padding: 3px 0 3px 13px; margin-left: 8px;
+  border-left: 1px solid rgba(140, 123, 255, .38); color: var(--text-primary); min-width: 0;
+}
+.topbar__deadline > svg { flex-shrink:0; color: #ffc66d; }
+.topbar__deadline > div { display:flex; flex-direction:column; gap:2px; }
+.topbar__deadline strong { font-size: 9px; color: #8ff6d9; letter-spacing: .11em; }
+.topbar__deadline small { color: var(--text-secondary); font-size: 10px; }
+.topbar__deadline > b { font-size: 12px; letter-spacing: .015em; color: #ffc66d; font-variant-numeric: tabular-nums; }
+.topbar__right { display:flex; flex:1 1 340px; justify-content:flex-end; align-items:center; gap:10px; min-width:0; }
+.topbar__global-search, :root[data-theme="light"] .topbar__global-search {
+  display:flex; flex: 1 1 320px; width: min(35vw, 470px); max-width:470px; min-width:190px; height:43px;
+  border:1px solid #ff7893; border-radius: 13px;
+  background: linear-gradient(120deg, #8f102a, #c91e40 55%, #9a1535);
+  box-shadow: 0 4px 14px rgba(136, 15, 47, .25), inset 0 1px 0 rgba(255,255,255,.16);
+}
+.topbar__global-search > svg {color:#fff;}
+.topbar__global-search input {color:#fff !important; text-transform:uppercase; font-size:11px; font-weight:800; letter-spacing:.045em;}
+.topbar__global-search input::placeholder {color:#fff !important; opacity:1; text-transform:uppercase;}
+.topbar__global-search kbd {color:#fff; border-color:rgba(255,255,255,.45); background:rgba(30,0,10,.22);}
+.topbar__global-search:focus-within, .topbar__global-search:hover {box-shadow:0 0 0 2px rgba(255,111,144,.26),0 6px 24px rgba(201,30,64,.32);}
+.topbar__utilities {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px; flex:0 0 auto;}
+.topbar__utilities .vortex-theme-switch {height:31px; padding:2px;}
+.topbar__utilities .vortex-theme-switch__opt {width:25px;height:25px;}
+.topbar__sync {
+  display:flex; align-items:center; justify-content:center; gap:4px; width:100%;
+  min-height:21px; padding:2px 5px; border:1px solid rgba(81,239,208,.55);
+  border-radius:6px; background:rgba(21,100,90,.28); color:#8ff6d9;
+  font-size:8px; font-weight:900; letter-spacing:.025em; cursor:pointer;
+}
+.topbar__sync:hover {background:rgba(21,130,110,.45);}
+.topbar__sync:disabled {opacity:.6;cursor:wait;}
+.vortex-route-pills {
+  display:flex; gap:6px; padding:5px 17px 7px; margin:0; width:100%; max-width:none;
+  border:0; border-radius:0; box-shadow:none; background:transparent; overflow-x:auto; scrollbar-width:thin;
+}
+:root[data-theme="light"] .vortex-route-pills {border:0;box-shadow:none;background:transparent;}
+.vortex-route-pill, :root[data-theme="light"] .vortex-route-pill {
+  display:inline-flex; justify-content:center; align-items:center; flex:1 0 auto;
+  min-height:36px; padding:8px 10px; gap:7px; border:1px solid rgba(255,255,255,.24);
+  border-radius:10px; color:#fff; font-size:11px; font-weight:900;
+  letter-spacing:.065em; text-transform:uppercase; box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+}
+.vortex-route-pill:nth-child(7n+1) {background:linear-gradient(135deg,#277cbd,#244779);}
+.vortex-route-pill:nth-child(7n+2) {background:linear-gradient(135deg,#8a4bd1,#6233a2);}
+.vortex-route-pill:nth-child(7n+3) {background:linear-gradient(135deg,#d36a24,#945024);}
+.vortex-route-pill:nth-child(7n+4) {background:linear-gradient(135deg,#118e86,#0c6f67);}
+.vortex-route-pill:nth-child(7n+5) {background:linear-gradient(135deg,#3d70c0,#3853a1);}
+.vortex-route-pill:nth-child(7n+6) {background:linear-gradient(135deg,#a32d65,#7a285e);}
+.vortex-route-pill:nth-child(7n+7) {background:linear-gradient(135deg,#406d57,#305a51);}
+.vortex-route-pill:hover, .vortex-route-pill.is-active {color:#fff;filter:brightness(1.16);border-color:#a5ffed;box-shadow:0 0 0 1px rgba(81,239,208,.55),0 3px 14px rgba(81,239,208,.2);}
+.vortex-route-pill__icon,
+:root[data-theme="light"] .vortex-route-pill:not(.is-active) .vortex-route-pill__icon {color:#fff;}
+.content {padding-top:10px;}
+.mobile-nav.mobile-nav--seven {grid-template-columns:repeat(7,minmax(0,1fr));}
+@media (max-width: 1300px) {
+  .topbar {flex-wrap:wrap;}
+  .topbar__left {flex:1 1 100%;}
+  .topbar__right {flex:1 1 100%; justify-content:flex-start;}
+  .topbar__global-search {width:auto;max-width:none;}
+}
+@media (max-width: 700px) {
+  .topbar {padding:6px 12px;gap:5px;}
+  .topbar__left {width:100%;gap:7px;white-space:normal;}
+  .topbar__brand-lion, .topbar__brand-lion:hover, .topbar__brand-lion:focus-visible {width:53px;height:53px;flex-basis:53px;}
+  .topbar__brand-lion .topbar__mobile-lion {width:53px;height:53px;}
+  .topbar__channel {font-size:16px;}
+  .topbar__deadline {flex:1 1 auto;gap:5px;padding-left:8px;margin-left:0;}
+  .topbar__deadline > svg {display:none;}
+  .topbar__deadline strong {font-size:8px;}
+  .topbar__deadline small {font-size:8px;}
+  .topbar__deadline > b {font-size:10px;}
+  .topbar__right {width:100%;gap:6px;}
+  .topbar__global-search {display:flex;min-width:0;height:38px;padding:0 8px;}
+  .topbar__global-search input {font-size:9px;}
+  .vortex-route-pills {padding:5px 9px 7px;gap:5px;}
+  .vortex-route-pill {min-height:34px;font-size:10px;padding:7px 8px;}
+  .mobile-nav.mobile-nav--seven {grid-template-columns:repeat(7,minmax(0,1fr));padding-inline:2px;}
+  .mobile-nav.mobile-nav--seven button {font-size:8px;min-width:0;min-height:42px;gap:2px;padding:4px 1px;}
+  .mobile-nav.mobile-nav--seven button svg {width:16px;height:16px;}
+}
+
+/* Header alignment correction: all controls on a single row, without touching other pages. */
+.topbar {
+  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center;
+  min-height: 68px; height: auto; padding: 5px 14px; gap: 11px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+.topbar::-webkit-scrollbar { display: none; }
+.topbar__left {
+  display: flex; width: auto; flex: 0 0 auto; flex-wrap: nowrap;
+  align-items: center; gap: 9px; white-space: nowrap;
+}
+.topbar__brand-lion, .topbar__brand-lion:hover, .topbar__brand-lion:focus-visible {
+  width: 58px; height: 58px; flex: 0 0 58px; padding: 0; border: 0;
+  border-radius: 0; background: transparent; box-shadow: none;
+}
+.topbar__brand-lion .topbar__mobile-lion {
+  display: block !important; width: 58px; height: 58px; border: 0;
+  border-radius: 0; object-fit: contain; background: transparent;
+}
+.topbar__channel {
+  font-size: clamp(20px, 1.9vw, 26px); font-weight: 950;
+  line-height: 1; letter-spacing: .058em; white-space: nowrap;
+  text-shadow: 0 1px 9px rgba(121, 126, 255, .24);
+}
+.topbar__channel strong { text-shadow: 0 0 15px rgba(81, 239, 208, .35); }
+.topbar__deadline {
+  display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  margin-left: 4px; padding: 7px 11px; border: 1px solid #ff7995; border-radius: 11px;
+  background: linear-gradient(110deg, #ac1235, #d51b42);
+  box-shadow: 0 3px 12px rgba(164, 23, 52, .27);
+  color: #fff; white-space: nowrap;
+}
+.topbar__deadline > svg { color: #fff; flex: 0 0 auto; }
+.topbar__deadline > div { display: flex; flex-direction: column; gap: 2px; }
+.topbar__deadline strong { color: #fff; font-size: 12px; font-weight: 950; letter-spacing: .07em; line-height: 1.05; text-shadow: 0 1px 4px rgba(42, 0, 13, .4); }
+.topbar__deadline small { color: #fff; font-size: 11.5px; font-weight: 800; line-height: 1.1; letter-spacing: .01em; }
+.topbar__deadline > b {
+  color: #fff; font-size: 13px; font-weight: 950; font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 1px 4px rgba(42, 0, 13, .3);
+  padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, .4);
+}
+.topbar__right {
+  display: flex; flex: 1 1 auto; width: auto; min-width: 0; flex-wrap: nowrap;
+  align-items: center; justify-content: flex-end; gap: 9px;
+}
+.topbar__global-search, :root[data-theme="light"] .topbar__global-search {
+  display: flex; width: auto; min-width: 180px; max-width: 430px; flex: 1 1 300px;
+  height: 42px; border: 1px solid transparent; border-radius: 12px;
+  background: linear-gradient(#10162d, #10162d) padding-box,
+              linear-gradient(110deg, #8379fc, #50e3d0, #c0a0fd) border-box;
+  box-shadow: 0 2px 12px rgba(81, 84, 189, .16);
+}
+.topbar__global-search:hover, .topbar__global-search:focus-within {
+  box-shadow: 0 0 0 2px rgba(110, 110, 239, .2), 0 4px 18px rgba(81, 239, 208, .16);
+}
+.topbar__global-search > svg { color: #79f9df; }
+.topbar__global-search input, :root[data-theme="light"] .topbar__global-search input {
+  color: #fff !important; font-size: 13px; font-weight: 850; letter-spacing: .025em; line-height: 1;
+}
+.topbar__global-search input::placeholder { color: #f1f3ff !important; opacity: 1; font-weight: 850; }
+.topbar__global-search kbd {
+  color: #e4fffb; border-color: rgba(136, 126, 255, .52);
+  background: rgba(104, 88, 205, .25); font-size: 11.5px; font-weight: 900;
+}
+.topbar__utilities {
+  display: flex; flex: 0 0 auto; flex-direction: row; align-items: center;
+  justify-content: center; gap: 9px; width: auto;
+}
+.topbar__sync {
+  display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
+  width: auto; min-width: 96px; height: 38px; padding: 0 10px;
+  font-size: 12px; font-weight: 950; letter-spacing: .035em; border-radius: 10px;
+  text-shadow: 0 0 8px rgba(81, 239, 208, .17);
+}
+.topbar__utilities .vortex-theme-switch {
+  flex: 0 0 auto; height: 38px; padding: 3px; border-radius: 999px;
+}
+.topbar__utilities .vortex-theme-switch__opt { width: 30px; height: 30px; }
+.topbar__utilities .vortex-theme-switch__opt:last-child svg {
+  color: #ffdd46; stroke-width: 2.4;
+  filter: drop-shadow(0 0 4px rgba(255, 203, 43, .58));
+}
+.topbar__utilities .vortex-theme-switch.is-light .vortex-theme-switch__opt:last-child {
+  background: rgba(255, 199, 47, .18); box-shadow: 0 0 0 1px rgba(255, 206, 54, .5);
+}
+@media (max-width: 1300px) {
+  .topbar { flex-wrap: nowrap; }
+  .topbar__left { flex: 0 0 auto; width: auto; }
+  .topbar__right { flex: 1 1 auto; width: auto; justify-content: flex-end; }
+  .topbar__global-search { max-width: 430px; }
+}
+@media (max-width: 700px) {
+  .topbar { flex-wrap: nowrap; padding: 5px 9px; gap: 8px; }
+  .topbar__left { flex: 0 0 auto; width: auto; white-space: nowrap; gap: 6px; }
+  .topbar__brand-lion, .topbar__brand-lion:hover, .topbar__brand-lion:focus-visible {
+    width: 52px; height: 52px; flex-basis: 52px;
   }
-  .topbar__page-label { min-width: 0; }
-  .topbar__page-label h1 { white-space: normal; overflow-wrap: anywhere; }
-  .topbar__page-label p { overflow-wrap: anywhere; }
-  .topbar__right > .icon-button { min-width: 44px; min-height: 44px; }
-  .vortex-theme-switch { min-height: 44px; }
+  .topbar__brand-lion .topbar__mobile-lion { width: 52px; height: 52px; }
+  .topbar__channel { font-size: 18px; letter-spacing: .025em; }
+  .topbar__deadline { flex: 0 0 auto; margin-left: 0; gap: 5px; padding: 6px 8px; }
+  .topbar__deadline > svg { display: none; }
+  .topbar__deadline strong { font-size: 10.5px; }
+  .topbar__deadline small { font-size: 10px; }
+  .topbar__deadline > b { font-size: 11.5px; padding-left: 5px; }
+  .topbar__right { flex: 0 0 auto; width: auto; gap: 7px; }
+  .topbar__global-search { flex: 0 0 220px; width: 220px; min-width: 220px; max-width: 220px; height: 38px; }
+  .topbar__global-search input { font-size: 12px; }
+  .topbar__sync { height: 35px; font-size: 11px; min-width: 89px; }
+  .topbar__utilities { gap: 6px; }
+}
+
+/* Compact two-row FPL review scoreboard: one editable ID row and one full-width metrics row. */
+.vx-card.vx-card--review-compact { padding: 10px 12px; gap: 0; }
+.vx-squad-scorebox {
+  display: grid; grid-template-rows: auto auto;
+  border: 1.5px solid #e6b85b; border-radius: 12px;
+  background: linear-gradient(115deg, rgba(46,39,26,.85), rgba(15,19,42,.95) 36%, rgba(30,26,46,.95));
+  box-shadow: 0 0 0 1px rgba(236,190,89,.11), inset 0 1px 0 rgba(255,226,148,.12);
+  overflow: visible; margin-bottom: 7px;
+}
+.vx-squad-scorebox__top {
+  display:flex; align-items:center; flex-wrap:nowrap; gap:6px; min-height:37px;
+  padding:4px 7px; border-bottom:1px solid rgba(243,193,95,.5);
+}
+.vx-squad-scorebox__id-label {
+  color:#ffdb8c; font-size:10px; font-weight:950; letter-spacing:.075em;
+  white-space:nowrap;
+}
+.vx-squad-scorebox__top input {
+  min-width:65px; width:95px; height:28px; padding:3px 7px;
+  background:#10182f; border:1px solid rgba(247,200,104,.64); border-radius:6px;
+  color:#fff; font:inherit; font-size:12px; font-weight:850; outline:0;
+}
+.vx-squad-scorebox__top input:focus { border-color:#5bf5d6;box-shadow:0 0 0 2px rgba(91,245,214,.2); }
+.vx-squad-scorebox__top input::placeholder {color:#cad3e4;font-size:9px;}
+.vx-squad-scorebox__enter {
+  height:28px; min-width:66px; display:inline-flex; align-items:center; justify-content:center; gap:3px;
+  border:1px solid #ffd579; border-radius:6px;
+  background:linear-gradient(105deg,#af6c18,#e1a02b); color:#fff; font-size:10px;
+  font-weight:950; cursor:pointer; white-space:nowrap;
+}
+.vx-squad-scorebox__enter:hover:not(:disabled) {filter:brightness(1.15);}
+.vx-squad-scorebox__enter:disabled {opacity:.6;cursor:wait;}
+.vx-squad-scorebox__team {flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+.vx-squad-scorebox__team strong {font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vx-squad-scorebox__team small {font-size:8px;color:#ffdc91;}
+.vx-squad-scorebox__top .vx-view-toggle {flex-shrink:0;padding:2px;}
+.vx-squad-scorebox__top .vx-view-toggle button {width:24px;height:23px;}
+.vx-squad-scorebox__metrics {
+  display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-height:51px;
+  gap:0;padding:3px 4px;
+}
+.vx-score-metric {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  min-width:0; padding:3px 2px;
+  border-right:1px solid rgba(236,190,89,.44);
+  text-align:center;
+}
+.vx-score-metric:last-child {border-right:0;}
+.vx-score-metric span {color:#ffe9be;font-size:9px;font-weight:950;letter-spacing:.04em;white-space:nowrap;}
+.vx-score-metric strong {font-size:clamp(12px,1.3vw,18px);line-height:1.1;font-weight:950;color:#f7fafc;white-space:nowrap; font-variant-numeric:tabular-nums;}
+.vx-score-metric.is-points strong {color:#5bf5d6;}
+.vx-score-metric.is-average strong {color:#ffdc79;}
+.vx-score-metric.is-previous strong {color:#d0d9ff;}
+.vx-score-metric.is-rank strong {color:#fff;}
+.vx-score-metric.is-bank strong {color:#f1b5ff;}
+.vx-score-metric.is-ft strong {color:#8ce9ff;}
+.vx-score-metric.is-change.is-up strong {color:#4ef5a3;text-shadow:0 0 8px rgba(48,232,119,.4);}
+.vx-score-metric.is-change.is-down strong {color:#ff6972;text-shadow:0 0 8px rgba(255,70,80,.3);}
+.vx-score-metric.is-change.is-same strong {color:#fff;}
+.vx-squad-scorebox__error {margin:5px 0 6px;padding:5px 8px;border-radius:6px;background:rgba(235,65,80,.14);color:#ffb8bd;font-size:11px;}
+.vx-squad-scorebox__empty {display:flex;align-items:center;justify-content:center;gap:8px;padding:30px 12px;text-align:center;color:var(--text-secondary);font-size:12px;}
+.vx-card--review-compact .save-table-bar {padding:1px 3px 3px;}
+.vx-review-artwork {margin:10px 0;border:1px solid rgba(231,183,81,.42);border-radius:11px;padding:7px;}
+.vx-review-artwork > summary {color:#f5d58c;font-size:11px;font-weight:900;letter-spacing:.05em;cursor:pointer;}
+.vx-review-artwork .hero.hero--compact {margin-top:8px;}
+@media (max-width:700px) {
+  .vx-card.vx-card--review-compact {padding:7px;}
+  .vx-squad-scorebox__top {gap:4px;padding:3px 5px;}
+  .vx-squad-scorebox__top input {width:76px;min-width:50px;font-size:11px;}
+  .vx-squad-scorebox__enter {min-width:55px;padding:2px 4px;font-size:9px;}
+  .vx-squad-scorebox__team strong {font-size:10px;}
+  .vx-score-metric span {font-size:7px;letter-spacing:0;}
+  .vx-score-metric strong {font-size:clamp(9px,2.5vw,13px);}
+}
+
+/* A readable live local digital clock + optional permission-based °F weather, same fixed-height header. */
+.topbar { height:68px; min-height:68px; max-height:68px; overflow-x:auto; flex-wrap:nowrap; }
+.topbar__left { flex:0 0 auto; flex-wrap:nowrap; }
+.topbar__local-widget {
+  display:flex; align-items:center; gap:5px; flex:0 0 auto; height:52px;
+  padding-left:8px; border-left:1px solid rgba(133,146,214,.35);
+}
+.topbar__local-clock { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:117px; }
+.topbar__local-clock time {
+  display:block; color:#5bf5d6; font-size:20px; line-height:1.04;
+  font-weight:950; font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+  letter-spacing:.045em; text-shadow:0 0 11px rgba(91,245,214,.3);
+}
+.topbar__local-clock small {color:var(--text-secondary);font-size:9px;font-weight:850;letter-spacing:.065em;white-space:nowrap;}
+.topbar__weather {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;
+  min-width:58px; height:55px; padding:2px 4px; border:0; border-radius:8px;
+  background:transparent; color:var(--text-primary); cursor:pointer;
+}
+.topbar__weather:hover { background:rgba(112,112,248,.13); }
+.topbar__weather-icon {display:block; height:22px; color:#ffcc56;}
+.topbar__weather-icon svg {stroke-width:2.1;filter:drop-shadow(0 0 3px rgba(254,211,97,.3));}
+.topbar__weather strong {font-size:13px;line-height:1.08;font-weight:950;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.topbar__weather small {color:var(--text-secondary);font-size:7.5px;line-height:1.1;white-space:nowrap;font-weight:850;}
+.topbar__right {flex:1 1 auto; min-width:0; gap:7px;}
+.topbar__global-search, :root[data-theme="light"] .topbar__global-search {
+  flex:0 1 220px; min-width:137px; max-width:250px; width:220px; height:42px;
+}
+.topbar__global-search {gap:6px;padding-inline:9px;}
+.topbar__global-search input {font-size:11px !important;font-weight:850;min-width:0;}
+.topbar__global-search input::placeholder {font-size:11px;}
+.topbar__sync {min-width:85px;padding-inline:7px;font-size:11px;}
+@media(max-width:1300px) {
+  .topbar {flex-wrap:nowrap;}
+  .topbar__left {flex:0 0 auto;width:auto;}
+  .topbar__right {flex:1 1 auto;width:auto;}
+  .topbar__global-search {flex:0 1 200px;max-width:200px;min-width:134px;}
+}
+@media(max-width:700px) {
+  .topbar {height:68px;min-height:68px;max-height:68px;}
+  .topbar__local-widget {gap:4px;padding-left:6px;}
+  .topbar__local-clock {min-width:103px;}
+  .topbar__local-clock time {font-size:18px;}
+  .topbar__local-clock small {font-size:8px;}
+  .topbar__weather {min-width:49px;}
+  .topbar__global-search {flex:0 0 165px;width:165px;min-width:165px;max-width:165px;}
+  .topbar__global-search input {font-size:9px !important;}
+  .topbar__global-search input::placeholder {font-size:9px;}
+}
+
+/* 2026-10-29: Premium two-column Review. All other modules retain their layout. */
+.page--review .vx-gw-bar {
+  min-height: 40px; margin: 3px 0 8px; padding: 5px 12px;
+  gap: 8px; border-radius: 11px; flex-wrap: nowrap;
+}
+.page--review .vx-gw-bar__left {gap: 7px;flex-wrap: nowrap;}
+.page--review .vx-gw-bar__left > strong {font-size: 12px;}
+.page--review .vx-gw-stepper {gap: 4px;}
+.page--review .vx-gw-stepper__btn {width: 28px;height: 28px;border-radius: 7px;}
+.page--review .vx-gw-stepper__select-wrap select {font-size: 11px;padding: 5px 27px 5px 8px;}
+.page--review .vx-hub-upper {
+  display:grid; grid-template-columns:minmax(0,1.14fr) minmax(0,.86fr);
+  gap:9px; margin-top:0; align-items:start;
+}
+.page--review .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;}
+.page--review .vx-hub-upper > .vx-fixture-rail {
+  display:flex;flex-direction:column;gap:8px;min-width:0;grid-column:2;grid-row:1;
+}
+.page--review .vx-hub-upper > .vx-card--goals {grid-column:1 / -1;}
+.page--review .vx-card.vx-card--review-compact,
+.page--review .vx-fixture-rail > .vx-card {
+  padding:7px; border-radius:12px; min-width:0;
+  background:linear-gradient(145deg, rgba(18,25,51,.96), rgba(13,17,37,.96));
+  border:1px solid rgba(132,118,246,.4);
+}
+.page--review .vx-squad-scorebox {margin-bottom:4px;}
+.page--review .vx-squad-scorebox__top {gap:4px;padding:3px 6px;min-height:35px;}
+.page--review .vx-squad-scorebox__top input {width:78px;min-width:62px;}
+.page--review .vx-squad-scorebox__enter {min-width:59px;padding-inline:5px;}
+.page--review .vx-squad-scorebox__team {min-width:50px;max-width:170px;}
+.page--review .vx-squad-scorebox__team strong {font-size:11px;}
+.vx-manager-total {
+  display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;white-space:nowrap;
+  min-height:27px;padding:3px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.4);
+  font-size:9px;font-weight:850;letter-spacing:.02em;
+  box-shadow:0 1px 9px rgba(0,0,0,.17);
+}
+.vx-manager-total strong {font-size:13px;font-weight:950;line-height:1;font-variant-numeric:tabular-nums;}
+.vx-manager-total.is-up {background:linear-gradient(110deg,#4cf5a2,#b5ffcd);color:#062d1c;border-color:#9cf7bb;}
+.vx-manager-total.is-down {background:linear-gradient(110deg,#d62648,#fb5573);color:#fff;border-color:#ff8ca1;}
+.vx-manager-total.is-same,.vx-manager-total.is-unknown {background:#1c2442;color:#ffdda0;border-color:#a99050;}
+.page--review .vx-squad-scorebox__metrics {min-height:45px;padding:2px;}
+.page--review .vx-score-metric {gap:2px;padding:2px 1px;}
+.page--review .vx-score-metric span {font-size:8px;}
+.page--review .vx-score-metric strong {font-size:clamp(11px,1vw,16px);}
+.page--review .vx-card--pitch .vx-soccer-pitch {
+  flex:none; width:100%; margin:0; border-radius:9px; border-color:rgba(91,245,214,.55);
+}
+.page--review .vx-pitch-top-boards {min-height:35px;padding:4px 7px;gap:3px;}
+.page--review .vx-pitch-board {padding:3px 7px;font-size:10px;gap:4px;}
+.page--review .vx-pitch-goal-net {width:44px;height:10px;flex:0 0 44px;}
+.vx-pitch-board__right {display:flex;justify-content:flex-end;align-items:center;gap:6px;min-width:0;}
+.vx-pitch-board__right .vx-pitch-board {font-weight:900;min-width:0;}
+.vx-pitch-board__right .vx-pitch-board span {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vx-pitch-save-control {display:flex;align-items:center;flex:0 0 auto;}
+.vx-pitch-save-control .save-table-button {
+  display:inline-flex;align-items:center;gap:4px;
+  height:27px;min-height:27px;padding:4px 9px;border-radius:7px;
+  color:#fff;border:1px solid #ff829c;
+  background:linear-gradient(115deg,#bd173d,#e73d59);
+  box-shadow:0 3px 8px rgba(132,0,30,.28);
+  font-size:11px;font-weight:950;letter-spacing:.03em;
+}
+.vx-pitch-save-control .save-table-button:hover:not(:disabled) {filter:brightness(1.15);}
+.page--review .vx-pitch-formation {padding:6px 5px 6px;gap:5px;}
+.page--review .vx-pitch-player {width:76px;max-width:23%;}
+.page--review .vx-pitch-portrait.player-avatar {width:52px;height:52px;}
+.page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:43px;height:43px;}
+.page--review .vx-pitch-xp, .page--review .vx-pitch-pos-label {font-size:9px;padding:1px 5px;}
+.page--review .vx-pitch-name {font-size:10px;padding:2px 3px;line-height:1.15;}
+.page--review .vx-pitch-fix {font-size:9px;padding:2px 3px;line-height:1.15;}
+.page--review .vx-pitch-armband {width:18px;height:18px;font-size:10px;}
+.page--review .vx-pitch-bench-head {padding:4px 7px 1px;font-size:9px;}
+.page--review .vx-pitch-bench-head strong {font-size:10px;}
+.page--review .vx-pitch-bench {gap:4px;padding:3px 5px 6px;}
+.page--review .vx-pitch-bench-meta {font-size:8px;margin-top:2px;}
+.page--review .vx-fixture-rail .vx-card__header {margin-bottom:6px;gap:5px;}
+.page--review .vx-fixture-rail .vx-card__header h3 {font-size:13px;}
+.page--review .vx-fixture-rail .vx-card__sub {font-size:9px;line-height:1.35;}
+.page--review .vx-fixture-rail .vx-inline-link {font-size:10px;}
+.page--review .vx-fixture-rail .vx-card__scroll {
+  max-height:none;overflow:visible;flex:none;padding:0;
+}
+.page--review .vx-fixture-group {gap:4px;margin-bottom:7px;}
+.page--review .vx-fixture-date-banner {
+  padding:4px 7px;font-size:10px;border-radius:7px;
+  color:#f5f8ff;letter-spacing:.035em;
+}
+.page--review .vx-match-item {padding:5px 7px;border-radius:8px;}
+.page--review .vx-match-row {gap:5px;}
+.page--review .vx-match-pill {font-size:10px;padding:3px 6px;}
+.page--review .vx-match-team strong {font-size:10px;}
+.page--review .vx-match-team svg {width:12px;height:12px;}
+.page--review .vx-xg-split-bar {margin-top:3px;height:3px;}
+.page--review .vx-xg-labels {margin-top:2px;font-size:9.5px;}
+.page--review .vx-xg-labels span {font-size:9px;}
+.vx-fixture-zone {
+  display:block;color:#8bf9e0;font-size:9px;font-weight:800;
+  margin-top:2px;letter-spacing:.025em;
+}
+.page--review .vx-card--next-fixtures {border-color:rgba(248,198,107,.65)!important;}
+.page--review .vx-card--next-fixtures .vx-card__header {margin-bottom:5px;}
+.vx-next-fixture-date {display:flex;flex-direction:column;gap:4px;margin-bottom:7px;}
+.vx-next-fixture-date:last-child {margin-bottom:0;}
+.vx-next-fixture-match {
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;gap:5px;padding:4px 6px;min-height:33px;
+  border:1px solid rgba(121,128,204,.32);border-radius:7px;
+  background:linear-gradient(120deg,rgba(39,51,79,.7),rgba(28,30,56,.75));
+}
+.vx-next-fixture-team {display:flex;align-items:center;gap:3px;min-width:0;}
+.vx-next-fixture-team.is-home {justify-content:flex-end;text-align:right;}
+.vx-next-fixture-team strong {color:var(--text-primary);font-size:10px;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vx-next-fixture-team .club-badge {flex-shrink:0;}
+.vx-next-fixture-time {
+  white-space:nowrap;color:#0a1724;border:1px solid rgba(255,219,131,.8);
+  background:linear-gradient(110deg,#ffda89,#ffe5a9);
+  font-variant-numeric:tabular-nums;font-weight:950;font-size:10px;padding:3px 6px;border-radius:7px;
+}
+.vx-next-fixture-empty {color:var(--text-secondary);font-size:11px;}
+@media(max-width:1020px) {
+  .page--review .vx-hub-upper {grid-template-columns:1fr;gap:9px;}
+  .page--review .vx-hub-upper > .vx-card--pitch,
+  .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:1;grid-row:auto;}
+  .page--review .vx-hub-upper > .vx-card--goals {grid-column:1;}
+}
+@media(max-width:620px) {
+  .page--review .vx-squad-scorebox__top {flex-wrap:wrap;}
+  .page--review .vx-squad-scorebox__team {flex:1 1 88px;}
+  .page--review .vx-score-metric span {font-size:7px;}
+  .page--review .vx-score-metric strong {font-size:10px;}
+  .page--review .vx-pitch-board__right {gap:3px;}
+  .page--review .vx-pitch-board {font-size:8px;padding:2px 4px;}
+  .page--review .vx-pitch-save-control .save-table-button {font-size:9px;padding:3px 6px;}
+  .page--review .vx-pitch-goal-net {display:none;}
+}
+
+/* REVIEW pitch recovery: restore the original cutout portraits and spacing.
+   The previous compact 52px bust overrides caused crowded cards and overlap. */
+.page--review .vx-hub-upper {
+  grid-template-columns: minmax(0, 1.22fr) minmax(0, .78fr);
+  column-gap: 10px;
+  align-items: start;
+}
+.page--review .vx-hub-upper > .vx-card--pitch {
+  min-width: 0;
+}
+.page--review .vx-pitch-formation {
+  padding: 12px 8px 14px;
+  gap: 10px;
+}
+.page--review .vx-pitch-row {
+  gap: 6px;
+  align-items: flex-end;
+}
+.page--review .vx-pitch-player {
+  width: 84px;
+  max-width: 23%;
+}
+.page--review .vx-pitch-player.vx-pitch-player--bench {
+  width: 100%;
+  max-width: 100%;
+}
+.page--review .vx-pitch-portrait.player-avatar {
+  width: 68px;
+  height: 70px;
+}
+.page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+  width: 58px;
+  height: 60px;
+}
+.page--review .vx-pitch-xp,
+.page--review .vx-pitch-pos-label {
+  padding: 2px 7px;
+  font-size: 10px;
+}
+.page--review .vx-pitch-name {
+  padding: 3px 5px;
+  font-size: 11.5px;
+  line-height: normal;
+}
+.page--review .vx-pitch-fix {
+  padding: 3px 5px;
+  font-size: 10.5px;
+  line-height: normal;
+}
+.page--review .vx-pitch-armband {
+  width: 21px;
+  height: 21px;
+  font-size: 11px;
+}
+.page--review .vx-pitch-bench-head {
+  padding: 6px 12px 2px;
+  font-size: 10.5px;
+}
+.page--review .vx-pitch-bench-head strong {font-size: 11.5px;}
+.page--review .vx-pitch-bench {gap: 8px; padding: 6px 8px 11px;}
+.page--review .vx-pitch-bench-meta {font-size: 10px; margin-top: 3px;}
+.page--review .vx-pitch-top-boards {padding: 7px 11px; min-height: 43px;}
+.page--review .vx-pitch-top-boards .vx-pitch-board {padding: 3px 8px; font-size: 10px;}
+.page--review .vx-pitch-goal-net {width: 55px; flex-basis: 55px;}
+/* The fitness badge belongs beside the player's right shoulder,
+   not over the player's face or the score bubble. */
+.page--review .vx-pitch-avatar-box > .vx-pitch-flag.vx-injury-rect-sign {
+  left: calc(100% - 5px);
+  top: 19px;
+  transform: none;
+  z-index: 6;
+}
+.page--review .vx-pitch-avatar-box > .vx-pitch-flag.vx-injury-rect-sign:hover {
+  transform: translateY(-1px);
+}
+/* Results tiles: two equal columns, with half the fixtures in each.
+   Cyan treatment is scoped to Review; fixture data remain untouched. */
+.page--review .vx-fixture-rail {
+  gap: 8px;
+}
+.page--review .vx-fixture-rail > .vx-card--fixtures,
+.page--review .vx-fixture-rail > .vx-card--next-fixtures {
+  background: linear-gradient(135deg, rgba(16, 80, 88, .52), rgba(15, 24, 55, .98) 45%);
+  border: 1px solid rgba(71, 235, 216, .7) !important;
+  box-shadow: inset 0 1px 0 rgba(151, 255, 242, .13), 0 4px 18px rgba(8, 112, 134, .1);
+}
+.page--review .vx-fixture-rail .vx-card__header {margin-bottom: 6px;}
+.page--review .vx-fixture-rail .vx-card__header h3 {
+  font-size: 13px;
+  color: #88fff2;
+  letter-spacing: .025em;
+}
+.page--review .vx-fixture-rail .vx-card__sub {font-size: 9px;}
+.page--review .vx-fixture-rail .vx-fixture-zone {font-size: 9px;}
+.page--review .vx-fixture-columns,
+.page--review .vx-next-fixture-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 7px;
+  align-items: start;
+  width: 100%;
+}
+.page--review .vx-fixture-column,
+.page--review .vx-next-fixture-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.page--review .vx-fixture-compact-match,
+.page--review .vx-next-fixture-date {min-width: 0;}
+.page--review .vx-fixture-rail .vx-fixture-date-banner {
+  padding: 3px 5px;
+  margin-bottom: 3px;
+  background: linear-gradient(105deg, rgba(24, 209, 199, .32), rgba(60, 110, 223, .24));
+  border: 1px solid rgba(113, 251, 226, .55);
+  color: #a8fff4;
+  font-size: 9px;
+  border-radius: 6px;
+  text-align: center;
+}
+.page--review .vx-fixture-rail .vx-match-item {
+  padding: 5px 5px 4px;
+  border: 1px solid rgba(81, 227, 217, .39);
+  border-radius: 7px;
+  background: rgba(17, 56, 68, .5);
+}
+.page--review .vx-fixture-rail .vx-match-team {min-width: 0;gap: 2px;}
+.page--review .vx-fixture-rail .vx-match-team strong {
+  font-size: 9px; min-width: 0; white-space: nowrap;
+}
+.page--review .vx-fixture-rail .vx-match-row {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 2px; align-items:center;
+}
+.page--review .vx-fixture-rail .vx-match-pill {
+  padding: 2px 3px;
+  border-radius: 5px;
+  font-size: 10px; white-space: nowrap;
+}
+.page--review .vx-fixture-rail .vx-match-team .club-badge {
+  width: 16px; height: 16px; flex: 0 0 16px;
+}
+.page--review .vx-fixture-rail .vx-match-chevron {display:none;}
+.page--review .vx-fixture-rail .vx-xg-split-bar {height: 3px; margin-top: 4px;}
+.page--review .vx-fixture-rail .vx-xg-labels {margin-top: 3px; font-size: 10px;gap: 3px;}
+.page--review .vx-fixture-rail .vx-xg-labels span {
+  min-width: 0; text-overflow: ellipsis; overflow: hidden;
+  white-space: nowrap; font-size: 8px;
+}
+.page--review .vx-next-fixture-columns {margin-top: 2px;}
+.page--review .vx-next-fixture-match {
+  padding: 3px 3px; min-height: 27px; gap: 2px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  background: rgba(24, 78, 86, .43);
+  border-color: rgba(86, 211, 204, .28);
+}
+.page--review .vx-next-fixture-team {gap:2px;}
+.page--review .vx-next-fixture-team strong {
+  font-size: 9px; max-width: 62px; min-width: 0;
+}
+.page--review .vx-next-fixture-time {
+  padding: 2px 3px; font-size: 9px;
+  white-space: nowrap; border-radius: 5px;
+}
+.page--review .vx-next-fixture-team .club-badge {width:15px;height:15px;flex:0 0 15px;}
+@media (max-width: 1120px) {
+  .page--review .vx-hub-upper {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page--review .vx-hub-upper > .vx-card--pitch,
+  .page--review .vx-hub-upper > .vx-fixture-rail,
+  .page--review .vx-hub-upper > .vx-card--goals {
+    grid-column: 1; grid-row: auto;
+  }
+  .page--review .vx-fixture-columns,
+  .page--review .vx-next-fixture-columns {column-gap: 12px;}
+  .page--review .vx-fixture-rail .vx-match-team strong,
+  .page--review .vx-next-fixture-team strong {font-size: 11px;}
+  .page--review .vx-next-fixture-team strong {max-width: none;}
+}
+@media (max-width: 520px) {
+  .page--review .vx-fixture-columns,
+  .page--review .vx-next-fixture-columns {grid-template-columns:1fr;}
+  .page--review .vx-fixture-rail .vx-fixture-date-banner {font-size: 10px;}
+  .page--review .vx-pitch-avatar-box > .vx-pitch-flag.vx-injury-rect-sign {
+    left: calc(100% - 17px);top: 24px;
+  }
+}
+
+/* Review hub: reference-inspired balanced 3-column layout; site header/theme unchanged. */
+@media (min-width: 1180px) {
+  .page--review .vx-hub-upper {
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(0, .91fr) minmax(0, .91fr);
+    align-items: start;
+    gap: 14px;
+  }
+  .page--review .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:2;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-card--goals {grid-column:3;grid-row:1;min-width:0;}
+  .page--review .vx-fixture-columns {grid-template-columns: 1fr;gap:0;}
+  .page--review .vx-fixture-column {gap:5px;}
+  .page--review .vx-fixture-rail .vx-card__header h3 {font-size:15px;}
+  .page--review .vx-fixture-rail .vx-match-team strong {font-size:11px;}
+  .page--review .vx-fixture-rail .vx-match-pill {font-size:12px;padding:5px 8px;}
+  .page--review .vx-fixture-rail .vx-match-team .club-badge {width:20px;height:20px;flex-basis:20px;}
+  .page--review .vx-fixture-rail .vx-match-item {padding:8px 7px;}
+  .page--review .vx-fixture-rail .vx-xg-split-bar {height:5px;margin-top:7px;}
+  .page--review .vx-fixture-rail .vx-xg-labels,.page--review .vx-fixture-rail .vx-xg-labels span {font-size:10.5px;}
+}
+/* Uncramped pitch; preserves existing portraits, injury flags, captain badges and real points. */
+.page--review .vx-pitch-formation {gap:18px;padding:18px 10px 22px;}
+.page--review .vx-pitch-row {justify-content:space-around;gap:10px;min-height:110px;}
+.page--review .vx-pitch-player {width:clamp(78px,7.5vw,108px);max-width:23%;flex-shrink:0;}
+.page--review .vx-pitch-portrait.player-avatar {width:clamp(65px,6.1vw,88px);height:clamp(68px,6.5vw,92px);}
+.page--review .vx-pitch-name {font-size:clamp(11px,.95vw,14px);line-height:1.22;overflow-wrap:anywhere;}
+.page--review .vx-pitch-fix {font-size:clamp(10px,.85vw,12px);}
+.page--review .vx-pitch-bench {grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.page--review .vx-pitch-player.vx-pitch-player--bench {min-width:0;max-width:100%;}
+.page--review .vx-card--goals .vx-card__header h3 {font-size:clamp(13px,1.05vw,17px);}
+@media(max-width:1179px) {
+ .page--review .vx-hub-upper {grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ .page--review .vx-hub-upper > .vx-card--pitch {grid-column:1/-1;grid-row:1;}
+ .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:1;grid-row:2;}
+ .page--review .vx-hub-upper > .vx-card--goals {grid-column:2;grid-row:2;}
+ .page--review .vx-fixture-columns {grid-template-columns:1fr;}
+}
+@media(max-width:700px) {
+ .page--review .vx-hub-upper {grid-template-columns:minmax(0,1fr);}
+ .page--review .vx-hub-upper > .vx-card--pitch,.page--review .vx-hub-upper > .vx-fixture-rail,.page--review .vx-hub-upper > .vx-card--goals {grid-column:1;grid-row:auto;}
+ .page--review .vx-pitch-formation {gap:8px;padding:8px 4px 10px;}
+ .page--review .vx-pitch-row {min-height:85px;gap:3px;}
+ .page--review .vx-pitch-player {width:22%;max-width:22%;}
+ .page--review .vx-pitch-portrait.player-avatar {width:clamp(43px,13vw,70px);height:clamp(48px,14vw,75px);}
+}
+
+
+/* REVIEW 2026-10-29 — viewport-fit pitch + three-column scoreboard.
+   Only the Review route is affected. The old 110px minimum pitch rows
+   and 18px formation gaps made a single-screen view mathematically impossible.
+   Use a height-aware 4-row formation rather than CSS transform/zoom, so
+   controls, points, badges and exported pitch preserve their real layout. */
+@media (min-width: 1280px) {
+  .page--review .vx-hub-upper {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(8px, .72vw, 12px);
+    align-items: start;
+  }
+  .page--review .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:2;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-card--goals {grid-column:3;grid-row:1;min-width:0;}
+  .page--review .vx-hub-upper > .vx-card--pitch,
+  .page--review .vx-hub-upper > .vx-card--goals,
+  .page--review .vx-fixture-rail > .vx-card {
+    padding: 6px;
+    min-width: 0;
+  }
+
+  /* Pitch: about 590–700px tall, inclusive of the score ribbon and bench. */
+  .page--review .vx-squad-scorebox {margin-bottom: 3px;}
+  .page--review .vx-squad-scorebox__top {min-height: 33px;padding:2px 5px;gap:4px;}
+  .page--review .vx-squad-scorebox__metrics {min-height:42px;padding:1px 2px;}
+  .page--review .vx-score-metric {gap:2px;padding:2px 1px;}
+  .page--review .vx-score-metric span {font-size:8px;}
+  .page--review .vx-score-metric strong {font-size:clamp(10px,.86vw,15px);}
+  .page--review .vx-pitch-top-boards {min-height:32px;padding:3px 7px;gap:4px;}
+  .page--review .vx-pitch-top-boards .vx-pitch-board {padding:3px 7px;font-size:10px;}
+  .page--review .vx-pitch-top-boards .vx-pitch-board img {width:16px;height:16px;}
+  .page--review .vx-pitch-save-control .save-table-button {height:24px;min-height:24px;padding:3px 7px;font-size:10px;}
+  .page--review .vx-pitch-goal-net {width:42px;flex-basis:42px;height:9px;}
+
+  /* A genuine 4x1 grid eliminates the long blank turf areas and overlap. */
+  .page--review .vx-pitch-formation {
+    /* All four lines must stretch edge-to-edge across the field. */
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:space-between;
+    width:100%;
+    max-width:100%;
+    align-self:stretch;
+    box-sizing:border-box;
+    height:clamp(420px,calc(100svh - 380px),528px);
+    flex:0 0 auto;
+    min-height:0;
+    padding:6px clamp(7px,1vw,13px) 8px;
+    gap:clamp(5px,.7svh,9px);
+  }
+  .page--review .vx-pitch-row {
+    display:flex;
+    flex:1 1 0;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    align-items:center;
+    justify-content:space-evenly;
+    min-height:0;
+    height:auto;
+    gap:clamp(3px,.5vw,8px);
+  }
+  .page--review .vx-pitch-row > .vx-pitch-player {
+    width:clamp(86px,7vw,112px);
+    max-width:23%;
+    min-width:0;
+    flex:0 1 auto;
+  }
+  .page--review .vx-pitch-portrait.player-avatar {
+    width:clamp(64px,7.6svh,84px);
+    height:clamp(65px,8.4svh,88px);
+  }
+  .page--review .vx-pitch-portrait.player-avatar img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    object-position:center bottom;
+  }
+  .page--review .vx-pitch-xp,
+  .page--review .vx-pitch-pos-label {
+    padding:1px 5px;
+    margin-bottom:1px;
+    font-size:9.5px;
+    line-height:1.15;
+  }
+  .page--review .vx-pitch-name {
+    padding:2px 3px;
+    font-size:clamp(11px,.85vw,13px);
+    line-height:1.1;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+  }
+  .page--review .vx-pitch-fix {
+    padding:2px 3px;
+    font-size:clamp(10px,.77vw,12px);
+    line-height:1.1;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+  }
+  .page--review .vx-pitch-armband {width:18px;height:18px;font-size:10px;right:-3px;top:0;}
+  .page--review .vx-pitch-avatar-box > .vx-pitch-flag.vx-injury-rect-sign {
+    left:calc(100% - 5px);top:clamp(11px,1.8svh,18px);
+  }
+  .page--review .vx-pitch-lines {bottom:103px;}
+  .page--review .vx-pitch-box-18 {height:clamp(56px,8svh,72px);}
+  .page--review .vx-pitch-box-6 {height:27px;}
+  .page--review .vx-pitch-circle {
+    width:74px;height:74px;
+    top:calc(56% - 37px);left:calc(50% - 37px);
+  }
+  .page--review .vx-pitch-bench-head {padding:3px 8px 1px;font-size:9px;}
+  .page--review .vx-pitch-bench-head strong {font-size:10px;}
+  .page--review .vx-pitch-bench {gap:5px;padding:3px 6px 5px;}
+  .page--review .vx-pitch-player.vx-pitch-player--bench {
+    width:100%;max-width:100%;min-width:0;padding:0 1px;
+  }
+  .page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+    width:clamp(49px,5.8svh,65px);
+    height:clamp(49px,6.3svh,67px);
+  }
+  .page--review .vx-pitch-player--bench .vx-pitch-pos-label {font-size:9px;padding:1px 4px;}
+  .page--review .vx-pitch-bench-meta {font-size:8.5px;margin-top:1px;}
+
+  /* Results rail: retain all 10 results, compact date banners and model xG. */
+  .page--review .vx-fixture-rail {gap:5px;}
+  .page--review .vx-fixture-rail .vx-card__header {margin-bottom:5px;gap:4px;}
+  .page--review .vx-fixture-rail .vx-card__header h3 {font-size:14px;}
+  .page--review .vx-fixture-rail .vx-card__sub {font-size:9px;line-height:1.2;}
+  .page--review .vx-fixture-rail .vx-fixture-zone {font-size:9px;}
+  .page--review .vx-fixture-rail .vx-card__scroll {max-height:none;overflow:visible;}
+  .page--review .vx-fixture-columns {grid-template-columns:minmax(0,1fr);gap:0;}
+  .page--review .vx-fixture-column {gap:2px;}
+  .page--review .vx-fixture-rail .vx-fixture-date-banner {
+    font-size:10px;padding:2px 5px;margin-bottom:1px;line-height:1.15;
+  }
+  .page--review .vx-fixture-rail .vx-match-item {padding:2px 5px;}
+  .page--review .vx-fixture-rail .vx-match-row {gap:3px;}
+  .page--review .vx-fixture-rail .vx-match-team strong {font-size:11px;}
+  .page--review .vx-fixture-rail .vx-match-team .club-badge {width:18px;height:18px;flex-basis:18px;}
+  .page--review .vx-fixture-rail .vx-match-pill {font-size:11px;padding:3px 5px;}
+  .page--review .vx-fixture-rail .vx-xg-split-bar {height:4px;margin-top:2px;}
+  .page--review .vx-fixture-rail .vx-xg-labels {margin-top:2px;font-size:10px;}
+  .page--review .vx-fixture-rail .vx-xg-labels span {font-size:9px;}
+
+  /* All 20 rank rows stay readable in the third column with no inner scroll. */
+  .page--review .vx-card--goals .vx-card__header {margin-bottom:5px;gap:5px;}
+  .page--review .vx-card--goals .vx-card__header h3 {font-size:clamp(12px,.9vw,15px);}
+  .page--review .vx-card--goals .vx-card__scroll {max-height:none;overflow:visible;padding-right:0;}
+  .page--review .vx-club-bars {gap:0;}
+  .page--review .vx-club-bar-row {
+    grid-template-columns:15px 18px 31px minmax(46px,56px) minmax(0,1fr) 39px;
+    gap:clamp(3px,.25vw,5px);
+    min-height:25px;
+    padding:2px 1px;
+    line-height:1.1;
+    border-bottom:1px solid var(--border);
+    border-radius:0;
+  }
+  .page--review .vx-club-bar-row .club-badge {width:17px;height:17px;}
+  .page--review .vx-club-bar-row .vx-row-idx {font-size:10px;}
+  .page--review .vx-club-bar-row .vx-club-short {font-size:11px;}
+  .page--review .vx-club-bar-row .vx-club-opp {font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .page--review .vx-club-bar-row .vx-club-val {font-size:11px;}
+  .page--review .vx-card--goals .vx-card__footer {
+    margin-top:5px;padding-top:5px;gap:5px;font-size:9px;
+    flex-wrap:wrap;
+  }
+}
+
+/* Short laptop screens: favor one-view visibility, without shrinking labels below 9px. */
+@media (min-width:1280px) and (max-height:800px) {
+  .page--review .vx-gw-bar {min-height:35px;padding-block:3px;margin-bottom:5px;}
+  .page--review .vx-pitch-formation {
+    height:clamp(398px,calc(100svh - 365px),445px);
+    padding:4px 7px 5px;
+    gap:3px;
+  }
+  .page--review .vx-pitch-row > .vx-pitch-player {width:clamp(80px,6.6vw,100px);}
+  .page--review .vx-pitch-portrait.player-avatar {width:56px;height:58px;}
+  .page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:45px;height:46px;}
+  .page--review .vx-pitch-xp,.page--review .vx-pitch-pos-label {font-size:9px;}
+  .page--review .vx-pitch-bench {padding:2px 5px 4px;}
+  .page--review .vx-pitch-bench-meta {font-size:8px;}
+  .page--review .vx-fixture-rail .vx-match-item {padding:3px 5px;}
+  .page--review .vx-club-bar-row {min-height:23px;padding:1px;}
+}
+
+/* Tablet and mobile remain in the existing responsive, scrollable layout. */
+
+
+/* 2026-10-29 SUN / LIGHT THEME — HOME TEXT VISIBILITY REPAIR
+   Contrast overrides only: do not invert text on dark pitch, player artwork,
+   result badges, route tabs or the dark-red deadline/search controls.
+   Preserve the existing 3-column layout and typography scale. */
+:root[data-theme="light"] {
+  --text-secondary: #43516b;
+  --text-muted: #53617b;
+}
+
+/* The weather temperature was literally white on a transparent/light header;
+   the clock and Sync label also used near-white mint on a light surface. */
+:root[data-theme="light"] .topbar__weather strong {
+  color: #16324c;
+  text-shadow: none;
+}
+:root[data-theme="light"] .topbar__weather small,
+:root[data-theme="light"] .topbar__local-clock small {
+  color: #42546c;
+}
+:root[data-theme="light"] .topbar__local-clock time {
+  color: #096857;
+  text-shadow: none;
+}
+:root[data-theme="light"] .topbar__sync {
+  background: #e3f8f1;
+  border-color: #167a69;
+  color: #095c4b;
+  text-shadow: none;
+}
+:root[data-theme="light"] .topbar__sync:hover:not(:disabled) {
+  background: #d1f2e7;
+}
+:root[data-theme="light"] .vortex-theme-switch__opt {
+  color: #526179;
+}
+:root[data-theme="light"] .topbar__utilities .vortex-theme-switch__opt:last-child svg {
+  color: #9a5805;
+  filter: none;
+}
+
+/* Home panels are light, while the squad score ribbon and pitch stay dark.
+   Scope text corrections to the white panels, not the green/dark player cards. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-card__header h3,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-club-short,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-club-val,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-xg-labels strong,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-player-meta strong,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-injury-head strong,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td:not(.is-positive):not(.is-negative),
+:root[data-theme="light"] .page--command:not(.page--review) .vx-compact-table td {
+  color: #15273c;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-card__sub,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-club-opp,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-xg-labels span,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-odds-source-badge,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-player-meta small,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-injury-copy small,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table th button,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-compact-table th,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-card__footer {
+  color: #44546e;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-row-idx,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-injury-head span,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-price-dash {
+  color: #53617b;
+}
+
+
+/* Preserve the up/down semantics of transfer numbers on white backgrounds. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td.is-positive {
+  color: #08745b;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table td.is-negative {
+  color: #ad1d45;
+}
+
+/* Completion/fixture chips were pale mint on an almost white background. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-match-pill.is-finished {
+  color: #076b57;
+  border-color: #62bea0;
+  background: #e5f8f0;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-xg-split-bar {
+  background: #dae5f0;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-icon-mint {
+  color: #087463;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-icon-amber {
+  color: #99600e;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-icon-pink {
+  color: #a72462;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-transfer-table th button:hover,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-inline-link:hover {
+  color: #4c3bb6;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-clickable-row:hover {
+  background: rgba(69, 83, 142, 0.065);
+}
+
+/* Error text sits on the outer white squad panel, NOT the dark score ribbon. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-squad-scorebox__error {
+  background: #fff0f2;
+  color: #a31a39;
+  border: 1px solid #f1b9c6;
+}
+
+/* YouTube strip headings and links are dark on the light-card background.
+   Video duration badges keep their dark background and white text. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-videos-strip__handle-link,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-video-pill__channel-link,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-video-pill__title-btn:hover strong {
+  color: #4d3bb7;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-videos-strip .vx-card__sub,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-video-pill__copy small {
+  color: #4c5b75;
+}
+
+/* Input controls and visible focus states should be obvious in Sun mode. */
+:root[data-theme="light"] .page--command:not(.page--review) .vx-mini-select,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-seg-pills button:not(.is-active) {
+  color: #344660;
+}
+:root[data-theme="light"] .page--command:not(.page--review) .vx-mini-select:focus-visible,
+:root[data-theme="light"] .page--command:not(.page--review) .vx-seg-pills button:focus-visible {
+  outline: 2px solid #5b4fd4;
+  outline-offset: 2px;
+}
+
+@media (min-width: 1280px) {
+  .page--command:not(.page--review) .vx-hub-upper {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(8px, .72vw, 12px);
+    align-items: start;
+  }
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;min-width:0;}
+  .page--command:not(.page--review) .vx-hub-upper > .vx-fixture-rail {grid-column:2;grid-row:1;min-width:0;}
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals {grid-column:3;grid-row:1;min-width:0;}
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch,
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals,
+  .page--command:not(.page--review) .vx-fixture-rail > .vx-card {
+    padding: 6px;
+    min-width: 0;
+  }
+
+  /* Pitch: about 590–700px tall, inclusive of the score ribbon and bench. */
+  .page--command:not(.page--review) .vx-squad-scorebox {margin-bottom: 3px;}
+  .page--command:not(.page--review) .vx-squad-scorebox__top {min-height: 33px;padding:2px 5px;gap:4px;}
+  .page--command:not(.page--review) .vx-squad-scorebox__metrics {min-height:42px;padding:1px 2px;}
+  .page--command:not(.page--review) .vx-score-metric {gap:2px;padding:2px 1px;}
+  .page--command:not(.page--review) .vx-score-metric span {font-size:8px;}
+  .page--command:not(.page--review) .vx-score-metric strong {font-size:clamp(10px,.86vw,15px);}
+  .page--command:not(.page--review) .vx-pitch-top-boards {min-height:32px;padding:3px 7px;gap:4px;}
+  .page--command:not(.page--review) .vx-pitch-top-boards .vx-pitch-board {padding:3px 7px;font-size:10px;}
+  .page--command:not(.page--review) .vx-pitch-top-boards .vx-pitch-board img {width:16px;height:16px;}
+  .page--command:not(.page--review) .vx-pitch-save-control .save-table-button {height:24px;min-height:24px;padding:3px 7px;font-size:10px;}
+  .page--command:not(.page--review) .vx-pitch-goal-net {width:42px;flex-basis:42px;height:9px;}
+
+  /* A genuine 4x1 grid eliminates the long blank turf areas and overlap. */
+  .page--command:not(.page--review) .vx-pitch-formation {
+    /* All four lines must stretch edge-to-edge across the field. */
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:space-between;
+    width:100%;
+    max-width:100%;
+    align-self:stretch;
+    box-sizing:border-box;
+    height:clamp(420px,calc(100svh - 380px),528px);
+    flex:0 0 auto;
+    min-height:0;
+    padding:6px clamp(7px,1vw,13px) 8px;
+    gap:clamp(5px,.7svh,9px);
+  }
+  .page--command:not(.page--review) .vx-pitch-row {
+    display:flex;
+    flex:1 1 0;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    align-items:center;
+    justify-content:space-evenly;
+    min-height:0;
+    height:auto;
+    gap:clamp(3px,.5vw,8px);
+  }
+  .page--command:not(.page--review) .vx-pitch-row > .vx-pitch-player {
+    width:clamp(86px,7vw,112px);
+    max-width:23%;
+    min-width:0;
+    flex:0 1 auto;
+  }
+  .page--command:not(.page--review) .vx-pitch-portrait.player-avatar {
+    width:clamp(64px,7.6svh,84px);
+    height:clamp(65px,8.4svh,88px);
+  }
+  .page--command:not(.page--review) .vx-pitch-portrait.player-avatar img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    object-position:center bottom;
+  }
+  .page--command:not(.page--review) .vx-pitch-xp,
+  .page--command:not(.page--review) .vx-pitch-pos-label {
+    padding:1px 5px;
+    margin-bottom:1px;
+    font-size:9.5px;
+    line-height:1.15;
+  }
+  .page--command:not(.page--review) .vx-pitch-name {
+    padding:2px 3px;
+    font-size:clamp(11px,.85vw,13px);
+    line-height:1.1;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+  }
+  .page--command:not(.page--review) .vx-pitch-fix {
+    padding:2px 3px;
+    font-size:clamp(10px,.77vw,12px);
+    line-height:1.1;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    overflow:hidden;
+  }
+  .page--command:not(.page--review) .vx-pitch-armband {width:18px;height:18px;font-size:10px;right:-3px;top:0;}
+  .page--command:not(.page--review) .vx-pitch-avatar-box > .vx-pitch-flag.vx-injury-rect-sign {
+    left:calc(100% - 5px);top:clamp(11px,1.8svh,18px);
+  }
+  .page--command:not(.page--review) .vx-pitch-lines {bottom:103px;}
+  .page--command:not(.page--review) .vx-pitch-box-18 {height:clamp(56px,8svh,72px);}
+  .page--command:not(.page--review) .vx-pitch-box-6 {height:27px;}
+  .page--command:not(.page--review) .vx-pitch-circle {
+    width:74px;height:74px;
+    top:calc(56% - 37px);left:calc(50% - 37px);
+  }
+  .page--command:not(.page--review) .vx-pitch-bench-head {padding:3px 8px 1px;font-size:9px;}
+  .page--command:not(.page--review) .vx-pitch-bench-head strong {font-size:10px;}
+  .page--command:not(.page--review) .vx-pitch-bench {gap:5px;padding:3px 6px 5px;}
+  .page--command:not(.page--review) .vx-pitch-player.vx-pitch-player--bench {
+    width:100%;max-width:100%;min-width:0;padding:0 1px;
+  }
+  .page--command:not(.page--review) .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+    width:clamp(49px,5.8svh,65px);
+    height:clamp(49px,6.3svh,67px);
+  }
+  .page--command:not(.page--review) .vx-pitch-player--bench .vx-pitch-pos-label {font-size:9px;padding:1px 4px;}
+  .page--command:not(.page--review) .vx-pitch-bench-meta {font-size:8.5px;margin-top:1px;}
+
+  /* Results rail: retain all 10 results, compact date banners and model xG. */
+  .page--command:not(.page--review) .vx-fixture-rail {gap:5px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__header {margin-bottom:5px;gap:4px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__header h3 {font-size:14px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__sub {font-size:9px;line-height:1.2;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-fixture-zone {font-size:9px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-card__scroll {max-height:none;overflow:visible;}
+  .page--command:not(.page--review) .vx-fixture-columns {grid-template-columns:minmax(0,1fr);gap:0;}
+  .page--command:not(.page--review) .vx-fixture-column {gap:2px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-fixture-date-banner {
+    font-size:10px;padding:2px 5px;margin-bottom:1px;line-height:1.15;
+  }
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-item {padding:2px 5px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-row {gap:3px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-team strong {font-size:11px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-team .club-badge {width:18px;height:18px;flex-basis:18px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-pill {font-size:11px;padding:3px 5px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-xg-split-bar {height:4px;margin-top:2px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-xg-labels {margin-top:2px;font-size:10px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-xg-labels span {font-size:9px;}
+
+  /* All 20 rank rows stay readable in the third column with no inner scroll. */
+  .page--command:not(.page--review) .vx-card--goals .vx-card__header {margin-bottom:5px;gap:5px;}
+  .page--command:not(.page--review) .vx-card--goals .vx-card__header h3 {font-size:clamp(12px,.9vw,15px);}
+  .page--command:not(.page--review) .vx-card--goals .vx-card__scroll {max-height:none;overflow:visible;padding-right:0;}
+  .page--command:not(.page--review) .vx-club-bars {gap:0;}
+  .page--command:not(.page--review) .vx-club-bar-row {
+    grid-template-columns:15px 18px 31px minmax(46px,56px) minmax(0,1fr) 39px;
+    gap:clamp(3px,.25vw,5px);
+    min-height:25px;
+    padding:2px 1px;
+    line-height:1.1;
+    border-bottom:1px solid var(--border);
+    border-radius:0;
+  }
+  .page--command:not(.page--review) .vx-club-bar-row .club-badge {width:17px;height:17px;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-row-idx {font-size:10px;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-club-short {font-size:11px;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-club-opp {font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .page--command:not(.page--review) .vx-club-bar-row .vx-club-val {font-size:11px;}
+  .page--command:not(.page--review) .vx-card--goals .vx-card__footer {
+    margin-top:5px;padding-top:5px;gap:5px;font-size:9px;
+    flex-wrap:wrap;
+  }
+}
+
+/* Short laptop screens: favor one-view visibility, without shrinking labels below 9px. */
+@media (min-width:1280px) and (max-height:800px) {
+  .page--command:not(.page--review) .vx-gw-bar {min-height:35px;padding-block:3px;margin-bottom:5px;}
+  .page--command:not(.page--review) .vx-pitch-formation {
+    height:clamp(398px,calc(100svh - 365px),445px);
+    padding:4px 7px 5px;
+    gap:3px;
+  }
+  .page--command:not(.page--review) .vx-pitch-row > .vx-pitch-player {width:clamp(80px,6.6vw,100px);}
+  .page--command:not(.page--review) .vx-pitch-portrait.player-avatar {width:56px;height:58px;}
+  .page--command:not(.page--review) .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:45px;height:46px;}
+  .page--command:not(.page--review) .vx-pitch-xp,.page--command:not(.page--review) .vx-pitch-pos-label {font-size:9px;}
+  .page--command:not(.page--review) .vx-pitch-bench {padding:2px 5px 4px;}
+  .page--command:not(.page--review) .vx-pitch-bench-meta {font-size:8px;}
+  .page--command:not(.page--review) .vx-fixture-rail .vx-match-item {padding:3px 5px;}
+  .page--command:not(.page--review) .vx-club-bar-row {min-height:23px;padding:1px;}
+}
+
+
+/* Home shares the viewport-fit squad layout; keep the navigation-to-hub gap compact. */
+@media (min-width:1280px) {
+  .content:has(> .page--command) {padding-top:4px;}
+  .page--command .vx-hub-upper {margin-top:2px;}
+  .page--command .vx-gw-bar {margin-bottom:4px;}
+}
+
+@media (min-width:1280px) {
+  /* Reserve space for the score ribbon, pitch boards and complete substitutes. */
+  .page--command:not(.page--review) .vx-pitch-formation {
+    height:clamp(398px,calc(100svh - 430px),490px);
+  }
+}
+
+/* Expandable intelligence sections sit immediately below the squad hub. */
+.page--command .vx-hub-disclosures {
+  display:flex; flex-direction:column; gap:8px; margin-top:8px;
+}
+.page--command .vx-hub-disclosures > .vx-disclosure {
+  display:block; padding:0; order:0; min-width:0; border-radius:14px;
+}
+.vx-disclosure__summary {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:15px 18px; cursor:pointer; list-style:none; color:var(--text-primary);
+}
+.vx-disclosure__summary::-webkit-details-marker {display:none;}
+.vx-disclosure__summary h3 {margin:0;font-size:17px;font-weight:800;}
+.vx-disclosure__summary:focus-visible {outline:2px solid var(--accent);outline-offset:-3px;border-radius:12px;}
+.vx-disclosure__chevron {flex-shrink:0;transition:transform .18s ease;}
+.vx-disclosure[open] > summary .vx-disclosure__chevron {transform:rotate(180deg);}
+.vx-disclosure[open] > summary {border-bottom:1px solid var(--border);}
+.vx-disclosure__body {padding:14px 18px 16px;min-width:0;}
+.vx-disclosure__body > .vx-card__header {justify-content:flex-end;margin-bottom:8px;}
+.vx-disclosure__body .vx-card__scroll {max-height:none;overflow-y:visible;}
+.vx-disclosure__body .vx-transfer-scroll-x {overflow-x:auto;}
+@media(max-width:700px) {
+  .vx-disclosure__summary {padding:13px;}
+  .vx-disclosure__summary h3 {font-size:15px;}
+  .vx-disclosure__body {padding:10px;}
+}
+/* Sun mode uses dark text and deep accents on all light dashboard surfaces. */
+:root[data-theme="light"] .page--command .vx-hub-disclosures {
+  --text-primary:#172b43; --text-secondary:#40536c; --text-muted:#52657b;
+  --brand-mint:#087260; --brand-amber:#87520b; --brand-pink:#ac245b;
+  --success:#08684d; --danger:#ad2046;
+  color:#172b43;
+}
+:root[data-theme="light"] .page--command .vx-disclosure__summary {color:#172b43;background:#f5f8fd;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary h3 {color:#172b43;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary .vx-icon-mint {color:#087260;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary .vx-icon-amber {color:#87520b;}
+:root[data-theme="light"] .page--command .vx-disclosure__summary .vx-icon-pink {color:#ac245b;}
+:root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-inline-link,.vx-top-score,.vx-price-col--current) {color:#075e52;}
+:root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-player-meta small,.vx-injury-copy small,.vx-row-idx,.vx-card__footer,.vx-card__sub) {color:#40536c;}
+:root[data-theme="light"] .page--command .vx-disclosure__body :is(.vx-player-meta strong,.vx-injury-head strong,.vx-price-col) {color:#172b43;}
+:root[data-theme="light"] .page--command :is(.vx-fixture-zone,.vx-inline-link) {color:#17675d;}
+:root[data-theme="light"] .page--command .vx-disclosure__body .vx-injury-copy-trigger {color:#172b43;}
+
+/* Keep Planner controls readable and the fixed navigation clear on small screens. */
+@media (max-width: 700px) {
   .content { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
-  .vx-gw-bar, .vx-gw-bar__left, .vx-gw-bar__right { min-width: 0; }
-  .vx-gw-bar { padding: 12px; }
   .vx-gw-stepper { max-width: 100%; }
   .vx-gw-stepper__btn { min-width: 44px; min-height: 44px; }
   .vx-gw-stepper__select-wrap { min-width: 0; flex: 1 1 auto; }
   .vx-gw-stepper__select-wrap select { max-width: 100%; min-width: 0; min-height: 44px; }
-  .vx-pitch-header {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-  }
-  .vx-pitch-header__identity > strong { overflow-wrap: anywhere; }
-  .vx-pitch-header__center { grid-column: 1; grid-row: 2; align-items: flex-start; }
-  .vx-pitch-header__actions { grid-column: 2; grid-row: 1 / span 2; }
-  .vx-view-toggle button { min-width: 44px; min-height: 44px; }
-  .vx-review-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .vx-review-strip > div { min-width: 0; }
-  .vx-review-strip strong, .vx-review-strip small {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-    overflow-wrap: anywhere;
-    line-height: 1.25;
-  }
   .vx-planner-controls > label { flex: 1 1 110px; min-width: 0; }
   .vx-planner-controls select { width: 100%; max-width: 100%; min-height: 44px; }
   .vx-planner-score { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; }
@@ -7181,13 +8479,4 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .vx-planner-gws { min-width: 0; max-width: 100%; }
   .vx-planner-gws button { min-height: 44px; }
   .vx-planner-columns, .vx-planner-columns > * { min-width: 0; }
-}
-@media (max-width: 700px) {
-  .hero--compact { grid-template-columns: minmax(0, 1fr); }
-  .hero--compact .hero__content, .hero--compact .hero__visual { min-width: 0; max-width: 100%; }
-}
-/* Between mobile navigation and wide desktop, let header controls wrap rather
-   than pushing the page wider than the viewport. */
-@media (min-width: 1181px) and (max-width: 1550px) {
-  .topbar__right { flex: 1 1 0; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
 }

@@ -10,7 +10,8 @@ import type {
   VideoItem,
   VideosResponse,
 } from '../src/lib/types.ts';
-import { clamp, numberValue, round } from '../src/lib/format.ts';
+import { numberValue, round } from '../src/lib/format.ts';
+import { filenameProjectionDate } from '../src/lib/projectionFreshness.ts';
 
 const BENCHMARK_REL_PATH =
   process.env.VORTEX_BENCHMARK_CSV_PATH ?? '3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv';
@@ -169,28 +170,21 @@ export async function loadRepoBenchmarkIndex(): Promise<Map<number, ParsedCsvPla
   return map;
 }
 
+/** Missing GW data is unavailable, never a repeat of the first or last imported GW. */
 function resolveGwMetric(metricMap: Map<number, number>, targetGw: number): number | null {
-  if (!metricMap.size) return null;
-  if (metricMap.has(targetGw)) return metricMap.get(targetGw) ?? null;
-  const gws = [...metricMap.keys()].sort((a, b) => a - b);
-  const clampedGw = clamp(targetGw, gws[0], gws[gws.length - 1]);
-  return metricMap.get(clampedGw) ?? null;
+  return metricMap.get(targetGw) ?? null;
 }
 
+/** Report a five-GW imported total only when every exact GW has an imported value. */
 function resolveHorizonSum(metricMap: Map<number, number>, startGw: number, horizon = 5): number | null {
-  if (!metricMap.size) return null;
-  const gws = [...metricMap.keys()].sort((a, b) => a - b);
+  if (!Number.isInteger(horizon) || horizon <= 0) return null;
   let total = 0;
-  let found = 0;
   for (let offset = 0; offset < horizon; offset += 1) {
-    const gw = clamp(startGw + offset, gws[0], gws[gws.length - 1]);
-    const val = metricMap.get(gw);
-    if (val !== undefined) {
-      total += val;
-      found += 1;
-    }
+    const val = metricMap.get(startGw + offset);
+    if (val === undefined) return null;
+    total += val;
   }
-  return found > 0 ? round(total, 2) : null;
+  return round(total, 2);
 }
 
 function mapToRecord(metricMap: Map<number, number>): Record<number, number> {
@@ -219,7 +213,7 @@ async function loadRepoVideosArchive(): Promise<{
     cachedVideosArchive = {
       channelId: parsed.channelId ?? DEFAULT_CHANNEL_ID,
       channelTitle: parsed.channelTitle ?? 'FPL VORTEX',
-      capturedAt: parsed.capturedAt ?? new Date().toISOString(),
+      capturedAt: parsed.capturedAt ?? '',
       videos: Array.isArray(parsed.videos) ? parsed.videos : [],
     };
     return cachedVideosArchive;
@@ -227,7 +221,7 @@ async function loadRepoVideosArchive(): Promise<{
     cachedVideosArchive = {
       channelId: DEFAULT_CHANNEL_ID,
       channelTitle: 'FPL VORTEX',
-      capturedAt: new Date().toISOString(),
+      capturedAt: '',
       videos: [],
     };
     return cachedVideosArchive;
@@ -274,12 +268,17 @@ export async function getRepoVideos(): Promise<VideosResponse> {
       }
       if (liveVideos.length > 0) {
         const seen = new Set(liveVideos.map((v) => v.id));
-        const merged = [...liveVideos, ...archive.videos.filter((v) => !seen.has(v.id))];
+        const archivedItems = archive.videos.filter((v) => !seen.has(v.id));
+        const merged = [...liveVideos, ...archivedItems];
         const result: VideosResponse = {
           channelId,
           channelTitle: archive.channelTitle,
-          capturedAt: new Date().toISOString(),
-          source: 'live',
+          capturedAt: archive.capturedAt,
+          archiveCapturedAt: archive.capturedAt,
+          feedCheckedAt: new Date().toISOString(),
+          liveFeedItems: liveVideos.length,
+          archivedItems: archivedItems.length,
+          source: archivedItems.length ? 'mixed' : 'live',
           videos: merged,
         };
         liveVideosCache = { value: result, expiresAt: Date.now() + 30 * 60_000 };
@@ -294,6 +293,10 @@ export async function getRepoVideos(): Promise<VideosResponse> {
     channelTitle: archive.channelTitle,
     capturedAt: archive.capturedAt,
     source: 'repository',
+    archiveCapturedAt: archive.capturedAt,
+    feedCheckedAt: null,
+    liveFeedItems: 0,
+    archivedItems: archive.videos.length,
     videos: archive.videos,
   };
   liveVideosCache = { value: fallback, expiresAt: Date.now() + 5 * 60_000 };
@@ -305,21 +308,22 @@ export async function getRepoBenchmarks(targetEventId = 9): Promise<RepoBenchmar
   const horizonEvents = Array.from({ length: 5 }, (_, offset) => targetEventId + offset);
   const players: RepoBenchmarkRow[] = [];
   for (const row of index.values()) {
-    const expectedMinutes = resolveGwMetric(row.xmins, targetEventId) ?? 0;
-    const expectedPoints = resolveGwMetric(row.xpts, targetEventId) ?? 0;
-    const horizon5Points = resolveHorizonSum(row.xpts, targetEventId, 5) ?? expectedPoints * 5;
+    const expectedMinutes = resolveGwMetric(row.xmins, targetEventId);
+    const expectedPoints = resolveGwMetric(row.xpts, targetEventId);
+    const horizon5Points = resolveHorizonSum(row.xpts, targetEventId, 5);
     players.push({
       fplId: row.fplId,
       name: row.name,
       team: row.team,
       position: row.position,
       price: row.price,
-      expectedMinutes: round(expectedMinutes, 1),
-      expectedPoints: round(expectedPoints, 2),
-      horizon5Points: round(horizon5Points, 2),
+      expectedMinutes: expectedMinutes === null ? null : round(expectedMinutes, 1),
+      expectedPoints: expectedPoints === null ? null : round(expectedPoints, 2),
+      horizon5Points,
     });
   }
-  players.sort((a, b) => b.expectedPoints - a.expectedPoints || b.horizon5Points - a.horizon5Points);
+  players.sort((a, b) => (b.expectedPoints ?? -1) - (a.expectedPoints ?? -1) ||
+    (b.horizon5Points ?? -1) - (a.horizon5Points ?? -1));
   return {
     sourceFile: BENCHMARK_REL_PATH,
     targetEventId,
@@ -331,9 +335,14 @@ export async function getRepoBenchmarks(targetEventId = 9): Promise<RepoBenchmar
 
 export async function getRepoMeta(): Promise<RepoDataMeta> {
   const [benchmarks, videos] = await Promise.all([loadRepoBenchmarkIndex(), loadRepoVideosArchive()]);
+  const projectionGameweeks = [...new Set([...benchmarks.values()].flatMap(player => [
+    ...player.xpts.keys(), ...player.xmins.keys(),
+  ]))].sort((a, b) => a - b);
   return {
     benchmarkFile: BENCHMARK_REL_PATH,
     benchmarkPlayers: benchmarks.size,
+    projectionFileDate: filenameProjectionDate(BENCHMARK_REL_PATH),
+    projectionGameweeks,
     videosFile: VIDEOS_REL_PATH,
     videosCount: videos.videos.length,
     channelId: videos.channelId,
@@ -345,7 +354,7 @@ export async function getRepoMeta(): Promise<RepoDataMeta> {
 }
 
 /**
- * Tier-1 Authoritative Repository Data Adapter:
+ * Dated imported repository data adapter (not a live or authoritative projection feed):
  * Preserves live/current official FPL player identity, club, position, and prices (`price`, `cost`),
  * while enriching GW7-GW16 model projections (`gwProjections`, `gwExpectedMinutes`) from
  * `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`.

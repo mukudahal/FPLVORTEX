@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fetchFplJson } from '../server/http.ts';
 import { normalizeSnapshot, type RawFplData } from '../server/normalize.ts';
+import { assertFreshSnapshot } from '../server/snapshotValidation.ts';
 
 type RawRecord = Record<string, any>;
 
@@ -33,6 +34,7 @@ async function main(): Promise<void> {
     servedAt: generatedAt,
   });
   const output = path.resolve(process.cwd(), process.env.VORTEX_SNAPSHOT_PATH ?? 'public/data/fpl-snapshot.json');
+  assertFreshSnapshot(snapshot);
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(snapshot)}\n`, 'utf8');
   const sizeKb = Math.round((Buffer.byteLength(JSON.stringify(snapshot)) / 1024) * 10) / 10;
@@ -45,3 +47,4 @@ main().catch((error) => {
   console.error('Snapshot refresh failed:', error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
+

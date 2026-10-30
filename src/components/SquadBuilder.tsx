@@ -39,7 +39,7 @@ import { parsePlayerInjuryDetails, toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, MAX_PLAYERS_PER_CLUB, optimizeSquad } from '../lib/optimize';
-import { runFplReviewSimulation } from '../lib/repoModel/fplReviewSimulator';
+import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlannerOverview } from './PlannerOverview';
@@ -207,6 +207,12 @@ export function SquadBuilder({
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
   const [plannerHorizon, setPlannerHorizon] = useState(5);
+  const [plannerDecay, setPlannerDecay] = useState(15);
+  const [simulationDraws, setSimulationDraws] = useState(3000);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
+  const [simulationPending, setSimulationPending] = useState(false);
+  const [simulationError, setSimulationError] = useState<string | null>(null);
   const [squadMode, setSquadMode] = useState<'mySquad' | 'autoOptimal'>('mySquad');
   const [budget, setBudget] = useState(100);
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
@@ -235,7 +241,7 @@ export function SquadBuilder({
   }, [entry, playerMap, players]);
 
   useEffect(() => {
-    if (entry?.freeTransfers) setFreeTransfers(entry.freeTransfers);
+    if (entry?.freeTransfers !== undefined) setFreeTransfers(entry.freeTransfers);
   }, [entry?.freeTransfers]);
 
   const baseSquadSignature = baseEntrySquadIds.join(',');
@@ -277,28 +283,70 @@ export function SquadBuilder({
     if (squadMode === 'autoOptimal') {
       return Math.max(0, Math.round(deferredBudget * 10) - Math.round(result.cost * 10));
     }
-    const baseCost = baseEntrySquadIds.reduce((s, id) => s + (playerMap.get(id)?.cost ?? 0), 0);
-    const totalCap = baseCost + (entry?.history.bank ?? 4);
-    const currentCost = activeSquadPlayers.reduce((s, p) => s + p.cost, 0);
-    return totalCap - currentCost;
-  }, [activeSquadPlayers, baseEntrySquadIds, deferredBudget, entry?.history.bank, playerMap, result.cost, squadMode]);
+    const currentSet = new Set(activeSquadIds);
+    const baseSet = new Set(baseEntrySquadIds);
+    const sellById = new Map((entry?.picks ?? []).map(p => [p.element, p.sellingPrice]));
+    const sales = baseEntrySquadIds.filter(id => !currentSet.has(id)).reduce((sum, id) => sum + Math.round((sellById.get(id) ?? playerMap.get(id)?.price ?? 0) * 10), 0);
+    const purchases = activeSquadPlayers.filter(p => !baseSet.has(p.id)).reduce((sum, p) => sum + p.cost, 0);
+    return (entry?.history.bank ?? 0) + sales - purchases;
+  }, [activeSquadIds, activeSquadPlayers, baseEntrySquadIds, deferredBudget, entry, playerMap, result.cost, squadMode]);
 
-  // Run full FPLReview-style multi-GW Transfer + Half-Season Chip EV Matrix + 3,000-draw Monte Carlo
-  const reviewSim = useMemo(() => {
-    if (players.length < 15 || activeSquadIds.length < 15) return null;
-    return runFplReviewSimulation({
-      players,
-      currentSquadIds: activeSquadIds,
-      bankTenths: Math.max(0, bankTenths),
-      freeTransfersNow: freeTransfers,
-      nextGw: snapshot.meta.nextEventId,
-      horizon: 6,
-      repoFixtures: toRepoFixtures(snapshot.fixtures),
-      repoTeams: toRepoTeams(snapshot.teams),
-      repoElements: snapshot.players.map(toRepoElement),
-      draws: 3000,
-    });
-  }, [activeSquadIds, bankTenths, freeTransfers, players, snapshot]);
+  const plannedMoves = squadMode === 'mySquad' ? activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length : 0;
+  useEffect(() => {
+    if (!advancedOpen) return;
+    setReviewSim(null);
+    setSimulationError(null);
+    setSimulationPending(false);
+    if (players.length < 15 || activeSquadIds.length !== 15) {
+      setSimulationError('Load a complete 15-player squad to simulate.');
+      return;
+    }
+    if (bankTenths < 0) {
+      setSimulationError('Squad exceeds the available budget. Undo a transfer or reset the squad.');
+      return;
+    }
+    setSimulationPending(true);
+    const input: PlannerSimulationInput = {
+      players, currentSquadIds: activeSquadIds, bankTenths,
+      freeTransfersNow: Math.max(0, freeTransfers - plannedMoves),
+      initialHitCost: Math.max(0, plannedMoves - freeTransfers) * 4,
+      initialFreeTransfersBeforeScenario: freeTransfers,
+      nextGw: snapshot.meta.nextEventId, horizon: plannerHorizon, decay: 1 - plannerDecay / 100,
+      repoFixtures: toRepoFixtures(snapshot.fixtures), repoTeams: toRepoTeams(snapshot.teams),
+      repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
+      lockedIds: lockedIds.filter(id => activeSquadIds.includes(id)),
+      chipsUsed: entry ? entry.chipsUsed : [], chipHistoryKnown: entry ? entry.chipsUsed !== undefined : true,
+      startedEvent: entry?.startedEvent,
+      sellingPrices: Object.fromEntries(activeSquadIds.map(id => {
+        const pick = entry?.picks.find(p => p.element === id);
+        return [id, Math.round((pick?.sellingPrice ?? playerMap.get(id)?.price ?? 0) * 10)];
+      })),
+      dataNotice: entry ? (entry.provenance?.kind === 'official' && !snapshot.meta.stale ? 'Team and snapshot loaded from the connected FPL data sources; projections remain model estimates.' : 'Archived or cached team/data: verify the current squad and chips before acting.') : 'Template squad scenario; load your FPL Team ID for personal chip availability.',
+    };
+    let worker: Worker | null = null;
+    let cancelled = false;
+    try {
+      worker = new Worker(new URL('../workers/planner.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string }>) => {
+        if (cancelled) return;
+        setSimulationPending(false);
+        if (event.data.result) setReviewSim(event.data.result);
+        else setSimulationError(event.data.error ?? 'Simulation failed. Refresh and try again.');
+        worker?.terminate();
+      };
+      worker.onerror = () => {
+        if (cancelled) return;
+        setSimulationPending(false);
+        setSimulationError('Simulation could not finish. Reload the page and try again.');
+        worker?.terminate();
+      };
+      worker.postMessage(input);
+    } catch {
+      setSimulationPending(false);
+      setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
+    }
+    return () => { cancelled = true; worker?.terminate(); };
+  }, [advancedOpen, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
 
   // Clickable automatic column sorting (following `7_skills/fpl-team-planner.skill`)
   const handleSortBy = (key: PoolSortKey) => {
@@ -458,8 +506,8 @@ export function SquadBuilder({
 
   return (
     <div className="page page--optimizer">
-      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} onToast={onToast} horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} />
-      <details className="vx-planner-legacy">
+      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} onToast={onToast} horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} decay={plannerDecay} onDecayChange={setPlannerDecay} />
+      <details className="vx-planner-legacy" onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
         <summary>Advanced tools · transfers & chips</summary>
       {/* Sub-navigation bar: Team Planner | Chip Strategy (FPLReview style) | Monte Carlo (3,000 Draws) */}
       <section className="panel optimizer-header-panel">
@@ -494,7 +542,7 @@ export function SquadBuilder({
               onClick={() => setSubTab('montecarlo')}
             >
               <Dices size={16} />
-              <span>3. Monte Carlo (3,000 Draws)</span>
+              <span>3. Monte Carlo ({simulationDraws.toLocaleString()} Draws)</span>
             </button>
           </div>
 
@@ -551,13 +599,19 @@ export function SquadBuilder({
 
           <div className="ft-budget-controls">
             <label className="ft-select-box">
+              <span>Simulation draws</span>
+              <select value={simulationDraws} onChange={event => setSimulationDraws(Number(event.target.value))} aria-label="Simulation draws">
+                {[3000, 10000].map(draws => <option key={draws} value={draws}>{draws.toLocaleString()} draws</option>)}
+              </select>
+            </label>
+            <label className="ft-select-box">
               <span>Free Transfers</span>
               <select
                 value={freeTransfers}
                 onChange={(e) => setFreeTransfers(Number(e.target.value))}
                 aria-label="Free transfers available"
               >
-                {[1, 2, 3, 4, 5].map((ft) => (
+                {[0, 1, 2, 3, 4, 5].map((ft) => (
                   <option key={ft} value={ft}>{ft} FT</option>
                 ))}
               </select>
@@ -579,6 +633,10 @@ export function SquadBuilder({
         </div>
       </section>
 
+      {(simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
+        <div className="panel__header"><div><span className="panel__eyebrow">{simulationPending ? 'RUNNING SIMULATION' : 'SIMULATION UNAVAILABLE'}</span><h3>{simulationPending ? 'Comparing legal transfer and chip paths…' : simulationError}</h3></div></div>
+      </section>}
+
       <section className="stat-grid stat-grid--optimizer">
         <StatCard
           label={`GW${snapshot.meta.nextEventId} XI Projection`}
@@ -596,8 +654,8 @@ export function SquadBuilder({
         />
         <StatCard
           label="Solver Recommendation"
-          value={reviewSim ? reviewSim.recommendedDecision : 'ROLL'}
-          detail={reviewSim ? reviewSim.winner.label : 'Computing exact B&B'}
+          value={reviewSim ? reviewSim.recommendedDecision : '—'}
+          detail={reviewSim ? reviewSim.winner.label : simulationError ? 'Check squad and budget' : 'Calculating transfer paths'}
           icon={<Crown size={18} />}
           tone="amber"
         />
@@ -637,10 +695,11 @@ export function SquadBuilder({
                   <h4>{opt.label}</h4>
                   <p>{opt.why}</p>
                   <div className="option-card__foot">
-                    <span>6-GW Horizon: <strong>{opt.horizonXPts.toFixed(1)} xPts</strong></span>
+                    <span>{reviewSim.gws.length}-GW Horizon: <strong>{opt.horizonXPts.toFixed(1)} xPts</strong></span>
                     <button
                       type="button"
                       className="button button--ghost button--sm"
+                      disabled={simulationPending || (opt.id !== 'roll' && opt.transfers.length === 0)}
                       onClick={() => applySolverOption(opt.id as 'roll' | 'transfer1' | 'transfer2')}
                     >
                       Load on pitch
@@ -941,6 +1000,10 @@ export function SquadBuilder({
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
       {subTab === 'chips' && reviewSim && (
         <div className="chips-strategy-stack">
+          <section className="panel" aria-label="Joint chip schedule">
+            <div className="panel__header"><div><span className="panel__eyebrow">TRANSFER + CHIP PLAN</span><h3>{reviewSim.strategy.schedule.length ? reviewSim.strategy.schedule.map(use => `${({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[use.chip]} GW${use.gw}`).join(' · ') : 'Keep chips available and re-evaluate before the deadline'}</h3></div><span className="badge badge--mint">{reviewSim.strategy.expectedPoints.toFixed(1)} model xPts</span></div>
+            <p>GW{reviewSim.strategy.horizon[0]}–GW{reviewSim.strategy.horizon.at(-1)} · {reviewSim.strategy.gain >= 0 ? '+' : ''}{reviewSim.strategy.gain.toFixed(1)} undiscounted xPts versus the no-chip transfer path. Weeks below show legal budgets, hits and Free Hit restoration. This is an approximate plan; rank gains are not guaranteed.</p>
+          </section>
           <section className="chip-cards-grid" aria-label="Half-season chip valuations">
             {reviewSim.chipSimulations.map((chip) => {
               const meta = CHIP_META[chip.chip] ?? { label: chip.chip, badge: 'CHIP', tone: 'violet' };
@@ -949,11 +1012,16 @@ export function SquadBuilder({
                 <article
                   key={chip.chip}
                   className={classNames('panel chip-sim-card', isSelected && 'chip-sim-card--active')}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`Preview ${meta.label}`}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc'); } }}
                   onClick={() => setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc')}
                 >
                   <div className="chip-sim-card__head">
                     <span className={`badge badge--${meta.tone}`}>{meta.badge} · {meta.label}</span>
-                    <small>Half-1 expires GW{chip.expiresGw}</small>
+                    <small>{chip.available ? `Expires GW${chip.expiresGw}` : chip.usedGw ? `Used GW${chip.usedGw}` : 'Availability unverified'}</small>
                   </div>
                   <div className="chip-sim-card__kpis">
                     <div>
@@ -980,7 +1048,7 @@ export function SquadBuilder({
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">CHIP HORIZON EV MATRIX</span>
-                <h3>Net expected points gained vs free-transfer baseline across GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
+                <h3>Diagnostic chip gains · WC uses a 3-GW hold-squad reference · GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
               </div>
               <span className="badge badge--mint">2026/27 Half-Season Chip Rules</span>
             </div>
@@ -1012,16 +1080,16 @@ export function SquadBuilder({
                         <td><strong>GW{row.gw}</strong></td>
                         <td className="mono-num">{row.baseXPts.toFixed(2)}</td>
                         <td className={classNames('chip-ev-cell', wcBest && 'is-peak')}>
-                          +{row.wildcardGain.toFixed(2)} {wcBest && <em>★ Peak</em>}
+                          {row.wildcardGain >= 0 ? '+' : ''}{row.wildcardGain.toFixed(2)} {wcBest && <em>★ Peak</em>}
                         </td>
                         <td className={classNames('chip-ev-cell', fhBest && 'is-peak')}>
-                          +{row.freehitGain.toFixed(2)} {fhBest && <em>★ Peak</em>}
+                          {row.freehitGain >= 0 ? '+' : ''}{row.freehitGain.toFixed(2)} {fhBest && <em>★ Peak</em>}
                         </td>
                         <td className={classNames('chip-ev-cell', bbBest && 'is-peak')}>
-                          +{row.bboostGain.toFixed(2)} {bbBest && <em>★ Peak</em>}
+                          {row.bboostGain >= 0 ? '+' : ''}{row.bboostGain.toFixed(2)} {bbBest && <em>★ Peak</em>}
                         </td>
                         <td className={classNames('chip-ev-cell', tcBest && 'is-peak')}>
-                          +{row.tripleCapGain.toFixed(2)} {tcBest && <em>★ Peak</em>}
+                          {row.tripleCapGain >= 0 ? '+' : ''}{row.tripleCapGain.toFixed(2)} {tcBest && <em>★ Peak</em>}
                         </td>
                         <td>
                           {capPlayer ? (
@@ -1085,7 +1153,7 @@ export function SquadBuilder({
                         <strong>{p.name}</strong>
                         <small>{p.team.shortName} · {formatPrice(p.price)}</small>
                         <span className="squad-mini-card__xp">
-                          {((p.gwProjections?.[activeChipSim.bestPitch!.gw] ?? p.projection) * (isCap ? (activeChipSim.chip === '3xc' ? 3 : 2) : 1)).toFixed(2)}
+                          {((reviewSim.forecastByGw[activeChipSim.bestPitch!.gw]?.[p.id] ?? 0) * (isCap ? (activeChipSim.chip === '3xc' ? 3 : 2) : 1)).toFixed(2)}
                         </span>
                       </div>
                     );
@@ -1097,22 +1165,22 @@ export function SquadBuilder({
             <section className="panel">
               <div className="panel__header">
                 <div>
-                  <span className="panel__eyebrow">6-GAMEWEEK HORIZON ROLLOUT</span>
+                  <span className="panel__eyebrow">{reviewSim.strategy.horizon.length}-GAMEWEEK CHIP PLAN</span>
                   <h3>Projected XI & FT trajectory</h3>
                 </div>
                 <RefreshCw size={16} />
               </div>
               <div className="rollout-list">
-                {reviewSim.multiGwRollout.map((step) => {
+                {reviewSim.strategy.weeks.map((step) => {
                   const cap = playerMap.get(step.lineup.captainId);
                   return (
                     <div key={step.gw} className="rollout-row">
                       <span className="badge badge--violet">GW{step.gw}</span>
                       <div>
                         <strong>{step.lineup.formation} · Captain {cap?.name ?? '—'}</strong>
-                        <small>{step.ftAvailable} FT available · Bench {step.lineup.benchXPts.toFixed(1)} xPts</small>
+                        <small>{step.ftBefore} → {step.ftAfter} FT · {step.chip ? ({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[step.chip] : step.moves.length ? step.moves.map(move => `${playerMap.get(move.outId)?.name} → ${playerMap.get(move.inId)?.name}`).join(', ') : 'Roll'} · Bank {formatPrice(step.bankAfter / 10)} · Hit −{step.hitCost}</small>
                       </div>
-                      <strong className="score-pill is-elite">{step.lineup.totalXPts.toFixed(2)} xPts</strong>
+                      <strong className="score-pill is-elite">{step.netXPts.toFixed(2)} xPts</strong>
                     </div>
                   );
                 })}
@@ -1133,7 +1201,7 @@ export function SquadBuilder({
                 </span>
                 <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Strategy Outcome Distributions</h3>
               </div>
-              <span className="badge badge--mint">Auto-Sub + VC + NegBin DEFCON</span>
+              <span className="badge badge--mint">Auto-sub + VC + chip & hit replay</span>
             </div>
 
             <div className="mc-paths-list">
@@ -1155,14 +1223,20 @@ export function SquadBuilder({
                         </small>
                       </div>
                       <div className="mc-range-row__badges">
+                        {path.id === reviewSim.monteCarlo.recommendedPathId && <span className="badge badge--mint">Recommended plan</span>}
                         {path.probBeatsHold !== null && (
                           <span className={classNames('badge', path.probBeatsHold >= 0.5 ? 'badge--mint' : 'badge--violet')}>
-                            {(path.probBeatsHold * 100).toFixed(1)}% Win vs Hold
+                            {(path.probBeatsHold * 100).toFixed(1)}% Beat unchanged squad
                           </span>
                         )}
                         <strong className="score-pill is-elite">Mean {path.mean.toFixed(1)} pts</strong>
                       </div>
                     </div>
+                    <small>{path.deltaMean === null ? 'Unchanged-squad baseline' : `Net gain ${path.deltaMean >= 0 ? '+' : ''}${path.deltaMean.toFixed(1)} pts · paired 80% gain range ${path.deltaP10?.toFixed(1)} to ${path.deltaP90?.toFixed(1)} · ties ${((path.probDrawsHold ?? 0) * 100).toFixed(1)}%`}</small>
+                    {path.vsReference && <small>
+                      Versus best transfer plan (chips saved): {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
+                      {' '}Win share sampling interval (95%): {(path.vsReference.winProbability95[0] * 100).toFixed(1)}–{(path.vsReference.winProbability95[1] * 100).toFixed(1)}%; model uncertainty is additional.
+                    </small>}
                     <div className="mc-range-track" aria-hidden="true">
                       <div className="mc-range-band" style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
                       <span className="mc-range-mean" style={{ left: `${meanPct}%` }} />
@@ -1178,7 +1252,7 @@ export function SquadBuilder({
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">GW{reviewSim.nextGw} CAPTAINCY VARIANCE</span>
-                  <h3>2× Captaincy haul & blank probabilities</h3>
+                  <h3>Captain score risk · means and ceiling shown at 2×</h3>
                 </div>
                 <Crown size={17} />
               </div>
@@ -1189,8 +1263,8 @@ export function SquadBuilder({
                       <th>Captain</th>
                       <th>Mean (2×)</th>
                       <th>P90 Ceiling (2×)</th>
-                      <th>P(Haul ≥ 9 pts)</th>
-                      <th>P(Blank ≤ 2 pts)</th>
+                      <th>P(Player ≥ 9 pts)</th>
+                      <th>P(Player ≤ 2 pts)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1250,3 +1324,4 @@ export function SquadBuilder({
     </div>
   );
 }
+

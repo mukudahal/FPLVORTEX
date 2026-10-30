@@ -18,7 +18,7 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   const benchmarks = await getRepoBenchmarks(8);
   assert.equal(benchmarks.count, 667);
   assert.deepEqual(benchmarks.horizonEvents, [8, 9, 10, 11, 12]);
-  assert.ok(benchmarks.players[0].expectedPoints > 5);
+  assert.ok((benchmarks.players[0].expectedPoints ?? 0) > 5);
 
   const rawSnapshot = JSON.parse(
     await readFile(path.resolve(process.cwd(), 'public/data/fpl-snapshot.json'), 'utf8'),
@@ -27,6 +27,8 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   assert.equal(enrichedSnapshot.players.length, 667);
   assert.equal(enrichedSnapshot.meta.exampleEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.benchmarkPlayers, 667);
+  assert.equal(enrichedSnapshot.meta.repoData?.projectionFileDate, '2026-10-15');
+  assert.deepEqual(enrichedSnapshot.meta.repoData?.projectionGameweeks, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
   assert.equal(enrichedSnapshot.meta.repoData?.configuredEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.seasonRules, REPO_SEASON_RULES_2026_27.season);
 
@@ -38,10 +40,49 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
   assert.ok((haaland.repoHorizon5Xpts ?? 0) > 25);
 });
 
+test('never backfills future imported xPts/xMins from GW16 or invents 5GW coverage', async () => {
+  const beyond = await getRepoBenchmarks(17);
+  assert.deepEqual(beyond.horizonEvents, [17, 18, 19, 20, 21]);
+  assert.equal(beyond.count, 667);
+  for (const row of beyond.players) {
+    assert.equal(row.expectedPoints, null);
+    assert.equal(row.expectedMinutes, null);
+    assert.equal(row.horizon5Points, null);
+  }
+
+  const lastWeek = await getRepoBenchmarks(16);
+  assert.ok(lastWeek.players.some(row => row.expectedPoints !== null));
+  assert.ok(lastWeek.players.every(row => row.horizon5Points === null));
+
+  const snapshot = JSON.parse(
+    await readFile(path.resolve(process.cwd(), 'public/data/fpl-snapshot.json'), 'utf8'),
+  ) as Snapshot;
+  const future = structuredClone(snapshot);
+  future.meta.nextEventId = 17;
+  const futureEnriched = await enrichSnapshotWithRepoData(future);
+  const haaland = futureEnriched.players.find(p => p.id === 411);
+  assert.ok(haaland);
+  assert.equal(haaland.repoBenchmarkXpts, null);
+  assert.equal(haaland.repoExpectedMinutes, null);
+  assert.equal(haaland.repoHorizon5Xpts, null);
+  assert.equal(haaland.gwProjections?.[16], 7.91);
+  assert.equal(haaland.gwProjections?.[17], undefined);
+
+  const partial = structuredClone(snapshot);
+  partial.meta.nextEventId = 15;
+  const partialHaaland = (await enrichSnapshotWithRepoData(partial)).players.find(p => p.id === 411);
+  assert.ok(partialHaaland);
+  assert.ok((partialHaaland.repoBenchmarkXpts ?? 0) > 0);
+  assert.equal(partialHaaland.repoHorizon5Xpts, null);
+});
+
 test('loads @FPLVORTEX channel briefings from site/ui/videos.json', async () => {
   const videos = await getRepoVideos();
   assert.equal(videos.channelId, 'UCDU7nEIN72xoiR3NtxCT6CQ');
   assert.ok(videos.videos.length >= 25);
+  assert.equal(videos.source, 'repository');
+  assert.equal(videos.feedCheckedAt, null);
+  assert.equal(videos.archivedItems, videos.videos.length);
   assert.match(videos.videos[0].url, /^https:\/\/www\.youtube\.com\/watch\?v=/);
 });
 
@@ -59,6 +100,8 @@ test('keeps manager Team ID secret by default and serves offline demo entry & cl
 
   const demoEntry = await getEntry('999999');
   assert.equal(demoEntry.id, 999999);
+  assert.equal(demoEntry.provenance?.kind, 'demo');
+  assert.equal(demoEntry.provenance?.requestedIdVerified, false);
   assert.equal(demoEntry.teamName, 'Template XI');
   assert.equal(demoEntry.freeTransfers, 2);
   assert.equal(demoEntry.picks.length, 15);
@@ -69,7 +112,19 @@ test('keeps manager Team ID secret by default and serves offline demo entry & cl
   const league = await getLeague('314');
   assert.equal(league.id, 314);
   assert.equal(league.name, 'Overall');
+  assert.equal(league.provenance?.kind, 'archived');
   assert.ok(league.standings.length >= 50);
+});
+
+test('invalid and unrelated team IDs never inherit the archived template squad', async () => {
+  await assert.rejects(() => getEntry('0'), /valid positive numeric FPL Team ID/);
+  await assert.rejects(() => getEntry('000999999'), /valid positive numeric FPL Team ID/);
+  await assert.rejects(() => getEntry('234567'), /no matching verified archive exists/);
+});
+
+test('an unavailable league ID cannot receive the archived Overall standings', async () => {
+  await assert.rejects(() => getLeague('0'), /valid positive classic league ID/);
+  await assert.rejects(() => getLeague('123456789'), /No other league was substituted/);
 });
 
 test('preserves brand-kit font, tokens, repo assets, and default dark theme configuration', async () => {

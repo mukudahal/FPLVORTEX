@@ -40,6 +40,21 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # Passive read-only check of the currently deployed Render service. No secrets,
+      # paid feed refreshes, deployments or fixture state changes are performed.
+      - name: Audit current production bookmaker coverage (read-only)
+        continue-on-error: true
+        run: node scripts/audit-live-odds.mjs
+
+      # P4: inspect live Render endpoints without changing state or disclosing names.
+      - name: Audit live manager, league, video and snapshot provenance (read-only)
+        continue-on-error: true
+        run: node scripts/audit-live-source-integrity.mjs
+
+      - name: Measure current production loading (read-only)
+        continue-on-error: true
+        run: node scripts/audit-live-loading.mjs
+
       - name: Verify offline snapshot
         run: |
           node -e "const s=require('./public/data/fpl-snapshot.json'); if(!s.players?.length||!s.fixtures?.length) process.exit(1); console.log('Snapshot OK:',s.players.length,'players');"
@@ -65,3 +80,39 @@ jobs:
       - run: python -m pip install -r fpl_solver/requirements.txt
       - run: python -m pytest -q fpl_solver/tests
       - run: python -m fpl_solver.examples.run_example > /dev/null
+
+
+  planner-browser:
+    name: Planner browser and worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Start production server
+        run: |
+          NODE_ENV=production npm start > /tmp/vortex-planner-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/vortex-planner-server.log
+          exit 1
+      - name: Exercise existing planner and simulation tabs
+        run: node scripts/check-planner-browser.mjs
+      - name: Verify automatic production deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/check-planner-deployment.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: planner-browser-evidence
+          path: test-results/planner/
+          retention-days: 7

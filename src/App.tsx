@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { BrainCircuit, CalendarDays, ClipboardList, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
 import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
 import { BRAND_LION_SRC } from './lib/baseUrl';
 import type { RouteId } from './hooks/useHashRoute';
@@ -25,18 +25,19 @@ import {
 } from './lib/recentTeamIds';
 import { CommandCenter } from './components/CommandCenter';
 import { CommandPalette } from './components/CommandPalette';
-import { FixtureMatrix } from './components/FixtureMatrix';
 import { InjuryDetailModal } from './components/InjuryDetailModal';
-import { LeagueIntel } from './components/LeagueIntel';
 import { LoadingScreen } from './components/LoadingScreen';
-import { Methodology } from './components/Methodology';
 import { PlayerGraphicModal } from './components/PlayerGraphicModal';
-import { PlayerLab } from './components/PlayerLab';
 import { XBrandLogo, YouTubeBrandLogo } from './components/SocialIcons';
-import { SquadBuilder } from './components/SquadBuilder';
 import { Toast } from './components/Toast';
 import { Topbar } from './components/Topbar';
 import { YOUTUBE_CHANNEL_URL } from './components/YouTubePlayerModal';
+
+const FixtureMatrix = lazy(() => import('./components/FixtureMatrix').then(m => ({ default: m.FixtureMatrix })));
+const LeagueIntel = lazy(() => import('./components/LeagueIntel').then(m => ({ default: m.LeagueIntel })));
+const Methodology = lazy(() => import('./components/Methodology').then(m => ({ default: m.Methodology })));
+const PlayerLab = lazy(() => import('./components/PlayerLab').then(m => ({ default: m.PlayerLab })));
+const SquadBuilder = lazy(() => import('./components/SquadBuilder').then(m => ({ default: m.SquadBuilder })));
 
 type ToastTone = 'success' | 'error' | 'info';
 interface ToastState {
@@ -50,22 +51,16 @@ export interface PendingSwap {
 }
 
 const ROUTE_PILLS: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
-  { id: 'command', label: 'Command Center', icon: Gauge },
-  { id: 'optimizer', label: 'Squad Optimizer', icon: WandSparkles },
-  { id: 'players', label: 'Player Lab', icon: Users },
-  { id: 'fixtures', label: 'Fixture Matrix', icon: CalendarDays },
-  { id: 'league', label: 'League Intel', icon: Trophy },
-  { id: 'method', label: 'Model & Rules', icon: BrainCircuit },
+  { id: 'command', label: 'HOME', icon: Gauge },
+  { id: 'review', label: 'REVIEW', icon: ClipboardList },
+  { id: 'optimizer', label: 'PLANNER', icon: WandSparkles },
+  { id: 'players', label: 'PLAYERS', icon: Users },
+  { id: 'fixtures', label: 'FIXTURES', icon: CalendarDays },
+  { id: 'league', label: 'LEAGUE', icon: Trophy },
+  { id: 'method', label: 'METHOD', icon: BrainCircuit },
 ];
 
-const MOBILE_NAV: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
-  { id: 'command', label: 'Home', icon: Gauge },
-  { id: 'optimizer', label: 'Planner', icon: WandSparkles },
-  { id: 'players', label: 'Players', icon: Users },
-  { id: 'fixtures', label: 'Fixtures', icon: CalendarDays },
-  { id: 'league', label: 'League', icon: Trophy },
-  { id: 'method', label: 'Model', icon: BrainCircuit },
-];
+const MOBILE_NAV = ROUTE_PILLS;
 
 export default function App() {
   const { snapshot, loading, refreshing, error, lastSuccessAt, refresh } = useVortexData();
@@ -85,6 +80,8 @@ export default function App() {
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySyncNonce, setEntrySyncNonce] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchRevision, setSearchRevision] = useState(0);
   const [playerQuery, setPlayerQuery] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [globalCardPlayer, setGlobalCardPlayer] = useState<EnrichedPlayer | null>(null);
@@ -215,13 +212,19 @@ export default function App() {
   );
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
-  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    setSearchQuery('');
+  }, []);
   const toggleTheme = useCallback(() => setTheme((current) => (current === 'dark' ? 'light' : 'dark')), [setTheme]);
   const handleRefresh = useCallback(() => {
     setEntrySyncNonce((n) => n + 1);
     void refresh(true);
   }, [refresh]);
-  const selectPlayer = useCallback((query: string) => setPlayerQuery(query), []);
+  const selectPlayer = useCallback((query: string) => {
+    setPlayerQuery(query);
+    setSearchRevision((revision) => revision + 1);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -364,6 +367,7 @@ export default function App() {
     case 'players':
       page = (
         <PlayerLab
+          key={searchRevision}
           snapshot={snapshot}
           players={players}
           teams={snapshot.teams}
@@ -415,9 +419,11 @@ export default function App() {
         />
       );
       break;
+    case 'review':
     default:
       page = (
         <CommandCenter
+          mode={route === 'review' ? 'review' : 'home'}
           snapshot={snapshot}
           entry={effectiveEntry}
           entryLoading={entryLoading}
@@ -438,9 +444,6 @@ export default function App() {
             navigate('players');
           }}
           onNavigate={navigate}
-          onOpenPalette={openPalette}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
           onToast={showToast}
         />
       );
@@ -450,50 +453,36 @@ export default function App() {
     <div className="app-shell">
       <div className="app-main">
         <Topbar
-          route={route}
           snapshot={snapshot}
           refreshing={refreshing}
-          lastSuccessAt={lastSuccessAt}
+          onRefresh={handleRefresh}
           theme={theme}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           onToggleTheme={toggleTheme}
           onOpenPalette={openPalette}
-          onRefresh={handleRefresh}
           onNavigate={navigate}
         />
+        <nav className="vortex-route-pills" aria-label="Main navigation">
+          {ROUTE_PILLS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = route === tab.id;
+            return (
+              <button
+                type="button"
+                key={tab.id}
+                className={`vortex-route-pill ${isActive ? 'is-active' : ''}`}
+                onClick={() => navigate(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <Icon size={16} className="vortex-route-pill__icon" />
+                <span className="vortex-route-pill__label">{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
         <main className="content" id="main-content">
-          <nav className="vortex-route-pills" aria-label="Module tabs">
-            {ROUTE_PILLS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = route === tab.id;
-              const chipText =
-                tab.id === 'command'
-                  ? `GW${snapshot.meta.nextEventId}`
-                  : tab.id === 'optimizer'
-                    ? '15 XI'
-                    : tab.id === 'players'
-                      ? String(players.length)
-                      : tab.id === 'fixtures'
-                        ? '10 GW'
-                        : tab.id === 'league'
-                          ? effectiveEntry
-                            ? 'Linked'
-                            : 'Scan'
-                          : 'Live';
-              return (
-                <button
-                  type="button"
-                  key={tab.id}
-                  className={`vortex-route-pill ${isActive ? 'is-active' : ''}`}
-                  onClick={() => navigate(tab.id)}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <Icon size={15} className="vortex-route-pill__icon" />
-                  <span className="vortex-route-pill__label">{tab.label}</span>
-                  <span className="vortex-route-pill__chip">{chipText}</span>
-                </button>
-              );
-            })}
-          </nav>
+
 
           {error && (
             <div className="data-warning" role="status">
@@ -502,7 +491,7 @@ export default function App() {
               <button type="button" onClick={handleRefresh}>Retry live connection</button>
             </div>
           )}
-          {page}
+          <Suspense fallback={<LoadingScreen />}>{page}</Suspense>
           <footer className="app-footer">
             <div className="app-footer__brand-social">
               <img src={BRAND_LION_SRC} alt="" className="app-footer__lion" width={26} height={26} />
@@ -533,7 +522,7 @@ export default function App() {
         </main>
       </div>
 
-      <nav className="mobile-nav mobile-nav--six" aria-label="Mobile navigation">
+      <nav className="mobile-nav mobile-nav--seven" aria-label="Mobile navigation">
         {MOBILE_NAV.map((item) => {
           const Icon = item.icon;
           return (
@@ -583,6 +572,8 @@ export default function App() {
 
       <CommandPalette
         open={paletteOpen}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
         onClose={closePalette}
         players={players}
         snapshot={snapshot}
@@ -593,3 +584,4 @@ export default function App() {
     </div>
   );
 }
+

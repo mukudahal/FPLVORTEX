@@ -9,19 +9,20 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
+import { mirroredSnapshotState } from '../src/lib/snapshotFreshness.ts';
 import {
   computeDynamicFreeTransfers,
+  normalizeChipHistory,
   resolveSquadPurchaseAndSellingPrices,
   type RawEntryHistoryPayload,
 } from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
-import { optimizeSquad } from '../src/lib/optimize.ts';
-import { fetchFplJson, UpstreamHttpError } from './http.ts';
+import { auditNormalizedPlayers } from '../src/lib/playerDataQuality.ts';
+import { fetchFplJson, UpstreamHttpError, isNumericId } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
 import { enrichFixturesWithLiveOdds } from './odds.ts';
 import { enrichWithMatchHistory } from './matchHistory.ts';
 import {
-  CONFIGURED_REPO_ENTRY_ID,
   CONFIGURED_REPO_ENTRY_NAME,
   enrichSnapshotWithRepoData,
   REPO_SEASON_RULES_2026_27,
@@ -67,25 +68,15 @@ function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
-/**
- * A snapshot mirrored from a published deployment (`scripts/mirror-upstream.ts`) is already
- * upstream-enriched (official FPL payload + bookmaker odds). While it is still inside the
- * freshness window we serve it as healthy cached data instead of flagging an offline fallback.
- */
-function mirroredSnapshotState(raw: Snapshot): { source: DataSource; upstreamOk: boolean; stale: boolean } {
-  const generatedAt = Date.parse(raw.meta.generatedAt ?? '');
-  const fresh = Boolean(raw.meta.mirroredFrom) && Number.isFinite(generatedAt) && Date.now() - generatedAt < MIRROR_FRESH_MS;
-  return fresh ? { source: 'cache', upstreamOk: true, stale: false } : { source: 'snapshot', upstreamOk: false, stale: true };
-}
-
 async function loadOfflineSnapshot(options: { skipOdds?: boolean } = {}): Promise<Snapshot> {
   const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
   const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
-  const mirroredState = mirroredSnapshotState(raw);
+  const mirroredState = mirroredSnapshotState(raw.meta, MIRROR_FRESH_MS);
   const markedOffline: Snapshot = {
     ...raw,
     meta: {
       ...raw.meta,
+      playerDataQuality: raw.meta.playerDataQuality ?? auditNormalizedPlayers(raw.players, raw.teams, raw.meta.generatedAt),
       source: mirroredState.source,
       servedAt: new Date().toISOString(),
       upstreamOk: mirroredState.upstreamOk,
@@ -301,80 +292,22 @@ function normalizeEntry(
     startedEvent,
     favouriteTeamId: root.favourite_team === null || root.favourite_team === undefined ? null : numberValue(root.favourite_team),
     overallRank: root.summary_overall_rank === null ? null : numberValue(root.summary_overall_rank),
+    previousOverallRank: (() => {
+      const prev = historyPayload?.current?.find((row) => numberValue(row.event, 0) === history.event - 1);
+      const rank = numberValue(prev?.overall_rank, 0);
+      return rank > 0 ? rank : null;
+    })(),
     overallPoints: root.summary_overall_points === null ? null : numberValue(root.summary_overall_points),
     freeTransfers,
     currentEvent: history.event,
     activeChip,
+    chipsUsed: normalizeChipHistory(historyPayload),
     history,
     picks: normalizedPicks,
     players,
     projectedPoints: Math.round(projectedPoints * 10) / 10,
     squadValue: history.value / 10,
     source,
-    generatedAt: new Date().toISOString(),
-  };
-}
-
-function buildOfflineSyntheticEntry(
-  numericId: number,
-  snapshot: Snapshot,
-  enriched: ReturnType<typeof enrichPlayers>,
-): EntryData {
-  const isRepoManager = CONFIGURED_REPO_ENTRY_ID !== null && numericId === CONFIGURED_REPO_ENTRY_ID;
-  const profiles = ['balanced', 'safe', 'differential', 'upside'] as const;
-  const profile = isRepoManager ? 'balanced' : profiles[numericId % profiles.length];
-  const optimized = optimizeSquad(enriched, { budget: 1000, profile });
-  const ordered = [...optimized.starters, ...optimized.bench];
-  const picks: EntryPick[] = ordered.map((player, index) => {
-    const prices = resolveSquadPurchaseAndSellingPrices(player);
-    return {
-      element: player.id,
-      position: index + 1,
-      multiplier: player.isCaptain ? 2 : index < 11 ? 1 : 0,
-      isCaptain: player.isCaptain,
-      isViceCaptain: player.isViceCaptain,
-      purchasePrice: prices.purchasePrice,
-      sellingPrice: prices.sellingPrice,
-    };
-  });
-  const eventPoints = ordered.reduce((sum, player, index) => {
-    const mult = player.isCaptain ? 2 : index < 11 ? 1 : 0;
-    return sum + player.eventPoints * mult;
-  }, 0);
-  const benchPoints = optimized.bench.reduce((sum, player) => sum + player.eventPoints, 0);
-  const valueTenths = Math.round(optimized.cost * 10);
-  const bankTenths = Math.max(0, 1000 - valueTenths);
-  const totalPoints = Math.max(eventPoints, Math.round(eventPoints * Math.max(1, snapshot.meta.currentEventId * 0.72)));
-  const overallRank = isRepoManager ? 237000 : 45000 + ((numericId * 7919) % 420000);
-  return {
-    id: numericId,
-    name: isRepoManager ? 'Muku Dahal' : `Manager #${numericId}`,
-    teamName: isRepoManager ? CONFIGURED_REPO_ENTRY_NAME : `Offline Squad #${numericId}`,
-    region: 'Offline snapshot',
-    startedEvent: 1,
-    favouriteTeamId: 1,
-    overallRank,
-    overallPoints: totalPoints,
-    freeTransfers: computeDynamicFreeTransfers({ startedEvent: 1, singleGwEventTransfers: 0 }),
-    currentEvent: snapshot.meta.currentEventId,
-    activeChip: null,
-    history: {
-      event: snapshot.meta.currentEventId,
-      points: eventPoints,
-      totalPoints,
-      rank: Math.max(1000, Math.round(overallRank * 0.85)),
-      overallRank,
-      bank: bankTenths,
-      value: valueTenths,
-      eventTransfers: 0,
-      eventTransfersCost: 0,
-      pointsOnBench: benchPoints,
-    },
-    picks,
-    players: ordered,
-    projectedPoints: optimized.projectedPoints,
-    squadValue: optimized.cost,
-    source: 'snapshot',
     generatedAt: new Date().toISOString(),
   };
 }
@@ -405,6 +338,7 @@ export interface GetEntryOptions {
 }
 
 export async function getEntry(id: string, options?: GetEntryOptions): Promise<EntryData> {
+  if (!isNumericId(id)) throw new UpstreamHttpError('Enter a valid positive numeric FPL Team ID.', 400);
   const requestedGw =
     options?.gameweek && Number.isFinite(options.gameweek) && options.gameweek >= 1 && options.gameweek <= 38
       ? Math.round(options.gameweek)
@@ -479,6 +413,10 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       postLockTransfersUsed,
       latestTransferInCostByElement,
     );
+    if (numberValue(root.id) !== Number(id)) {
+      throw new UpstreamHttpError('Official FPL entry identity did not match the requested Team ID.', 502);
+    }
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     result.recentTransfers = recentTransfers;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
@@ -513,14 +451,24 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     }
     const fallbackFile = await loadOfflineLeagueFallback();
     const archived = fallbackFile.entries?.[id];
-    const fallbackResult = archived
-      ? normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null)
-      : buildOfflineSyntheticEntry(numberValue(id, 999999), snapshot, enriched);
+    if (!archived || numberValue(archived.root.id) !== Number(id)) {
+      throw new UpstreamHttpError(
+        `Official FPL team #${id} is unavailable; no matching verified archive exists. No demo team was substituted.`,
+        503,
+      );
+    }
+    const fallbackResult = normalizeEntry(archived.root, archived.picks, snapshot, enriched, 'snapshot', archived.history ?? null);
+    fallbackResult.provenance = {
+      kind: id === '999999' ? 'demo' : 'archived',
+      requestedIdVerified: false,
+      sourceCapturedAt: null,
+    };
     return writeCache(cacheKey, fallbackResult, 120_000);
   }
 }
 
 export async function getLeague(id: string): Promise<LeagueData> {
+  if (!isNumericId(id)) throw new UpstreamHttpError('Enter a valid positive classic league ID.', 400);
   const cached = readCache<LeagueData>(`league:${id}`);
   if (cached) {
     return {
@@ -531,28 +479,33 @@ export async function getLeague(id: string): Promise<LeagueData> {
   }
   try {
     const raw = await fetchFplJson<RawRecord>(`/leagues-classic/${id}/standings/`, { retries: 1 });
+    if (numberValue(raw.league?.id) !== Number(id)) {
+      throw new UpstreamHttpError('Official FPL league identity did not match the requested ID.', 502);
+    }
     const result = normalizeLeaguePayload(raw, id, 'live');
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     return writeCache(`league:${id}`, result, PROFILE_TTL);
   } catch (error) {
     if (error instanceof UpstreamHttpError && error.status === 404) {
       throw new UpstreamHttpError(`Classic league ID ${id} was not found.`, 404);
     }
     const fallbackFile = await loadOfflineLeagueFallback();
-    const archived = fallbackFile.leagues?.[id] ?? fallbackFile.leagues?.['314'];
-    if (archived) {
-      const fallbackResult = normalizeLeaguePayload(
-        id === '314' ? archived : { ...archived, league: { ...archived.league, id: numberValue(id), name: `Classic League #${id} (offline snapshot)` } },
-        id,
-        'snapshot',
+    const archived = fallbackFile.leagues?.[id];
+    if (!archived || numberValue(archived.league?.id) !== Number(id)) {
+      throw new UpstreamHttpError(
+        `Classic league #${id} is unavailable; no matching standings archive exists. No other league was substituted.`,
+        503,
       );
-      return writeCache(`league:${id}`, fallbackResult, 120_000);
     }
-    throw error;
+    const fallbackResult = normalizeLeaguePayload(archived, id, 'snapshot');
+    fallbackResult.provenance = { kind: 'archived', requestedIdVerified: false, sourceCapturedAt: null };
+    return writeCache(`league:${id}`, fallbackResult, 120_000);
   }
 }
 
 export async function getHealth(): Promise<Record<string, unknown>> {
-  const snapshot = await getSnapshot();
+  // Readiness must not wait on external FPL or bookmaker requests.
+  const snapshot = await getSnapshotFast();
   return {
     ok: true,
     service: 'fpl-vortex',
@@ -573,3 +526,4 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     node: process.version,
   };
 }
+

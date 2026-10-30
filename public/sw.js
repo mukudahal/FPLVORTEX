@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-vortex-v2';
+const CACHE_NAME = 'fpl-vortex-v5';
 const OFFLINE_SNAPSHOT = '/data/fpl-snapshot.json';
 const OFFLINE_LEAGUE = '/data/fpl-league-fallback.json';
 const CORE_ASSETS = [
@@ -36,20 +36,41 @@ async function networkFirst(request, fallbackPath) {
     if (response.ok) cache.put(request, response.clone()).catch(() => undefined);
     return response;
   } catch {
+    if (['/api/health', '/api/status'].includes(new URL(request.url).pathname)) {
+      return new Response(JSON.stringify({ ok: false, error: 'Health could not be verified online.' }), {
+        status: 503, headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const cached = await cache.match(request);
-    if (cached) return cached;
+    if (cached) return markCachedSnapshot(request, cached);
     if (fallbackPath) {
       const fallback = await cache.match(fallbackPath);
       if (fallback) {
-        return new Response(fallback.body, {
+        return markCachedSnapshot(request, new Response(fallback.body, {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'X-Vortex-Offline': 'snapshot' },
-        });
+        }));
       }
     }
     return new Response(JSON.stringify({ error: 'Offline and no cached response is available.' }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function markCachedSnapshot(request, response) {
+  if (new URL(request.url).pathname !== '/api/vortex/snapshot') return response;
+  try {
+    const data = await response.json();
+    data.meta = { ...data.meta, source: 'offline', stale: true, upstreamOk: false,
+      servedAt: new Date().toISOString() };
+    return new Response(JSON.stringify(data), {
+      status: 200, headers: { 'Content-Type': 'application/json', 'X-Vortex-Offline': 'snapshot' },
+    });
+  } catch {
+    return new Response(JSON.stringify({ error: 'Cached snapshot is invalid.' }), {
+      status: 503, headers: { 'Content-Type': 'application/json' },
     });
   }
 }
@@ -72,13 +93,16 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) {
-    const fallback = url.pathname.includes('/snapshot') || url.pathname.includes('/health') ? OFFLINE_SNAPSHOT : undefined;
+    const fallback = url.pathname === '/api/vortex/snapshot' ? OFFLINE_SNAPSHOT : undefined;
     event.respondWith(networkFirst(request, fallback));
     return;
   }
   if (request.mode === 'navigate') {
+    // Fetch the deployed HTML first so an old cached shell cannot display
+    // removed UI text. Keep the existing offline fallback through networkFirst.
     event.respondWith(networkFirst(request, '/'));
     return;
   }
   event.respondWith(staleWhileRevalidate(request));
 });
+

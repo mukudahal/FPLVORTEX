@@ -13,6 +13,8 @@ export interface RawMarketQuote {
   oddsOver?: number | null;
   oddsUnder?: number | null;
   updatedAt?: string;
+  quoteTimeSource?: 'bookmaker' | 'unknown';
+  retrievedAt?: string;
 }
 
 function clamp(v: number, lo: number, hi: number): number {

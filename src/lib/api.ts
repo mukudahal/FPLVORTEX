@@ -3,6 +3,7 @@ import { withBase } from './baseUrl';
 import { numberValue } from './format';
 import {
   computeDynamicFreeTransfers,
+  normalizeChipHistory,
   resolveSquadPurchaseAndSellingPrices,
   type RawEntryHistoryPayload,
 } from './freeTransfers';
@@ -49,7 +50,9 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 
 export async function fetchSnapshot(signal?: AbortSignal): Promise<Snapshot> {
   try {
-    return await getJson<Snapshot>(withBase('api/vortex/snapshot'), signal);
+    const timeout = AbortSignal.timeout(8_000);
+    return await getJson<Snapshot>(withBase('api/vortex/snapshot'),
+      signal ? AbortSignal.any([signal, timeout]) : timeout);
   } catch (error) {
     if (signal?.aborted || (error instanceof ApiRequestError && error.status === 400 && error.isJsonError)) throw error;
     return fetchOfflineSnapshot(signal);
@@ -95,6 +98,7 @@ export async function fetchEntry(
   signal?: AbortSignal,
   options?: { refresh?: boolean; gw?: number },
 ): Promise<EntryData> {
+  if (!/^[1-9]\d{0,11}$/.test(id)) throw new ApiRequestError('Enter a valid positive numeric FPL Team ID.', 400, true);
   try {
     const params = new URLSearchParams();
     if (options?.refresh) params.set('refresh', '1');
@@ -111,9 +115,10 @@ export async function fetchEntry(
       fetchOfflineSnapshot(signal),
       getJson<RawLeagueFallback>(withBase('data/fpl-league-fallback.json'), signal),
     ]);
-    const firstArchivedKey = fallback.entries ? Object.keys(fallback.entries)[0] : undefined;
-    const archived = fallback.entries?.[id] ?? (firstArchivedKey ? fallback.entries?.[firstArchivedKey] : undefined);
-    if (!archived) throw error;
+    const archived = fallback.entries?.[id];
+    if (!archived || numberValue(archived.root.id) !== Number(id)) {
+      throw new ApiRequestError(`FPL Team #${id} could not be verified. No matching offline squad exists; another manager's archive was not loaded.`, 503, true);
+    }
     const enriched = enrichPlayers(snapshot, 'balanced');
     const playerIndex = new Map(enriched.map((player) => [player.id, player]));
     const picks = (Array.isArray(archived.picks.picks) ? archived.picks.picks : []).map((pick: Record<string, any>) => {
@@ -142,7 +147,6 @@ export async function fetchEntry(
     }, 0);
     const history = archived.picks.entry_history ?? {};
     const targetGw = options?.gw ?? numberValue(history.event, snapshot.meta.currentEventId);
-    const isExactArchive = Boolean(fallback.entries?.[id]);
     const startedEvent = numberValue(archived.root.started_event, 1);
     const activeChip = archived.picks.active_chip ?? null;
     const freeTransfers = computeDynamicFreeTransfers({
@@ -154,17 +158,21 @@ export async function fetchEntry(
     });
     return {
       id: numberValue(id, numberValue(archived.root.id)),
-      name: isExactArchive
-        ? `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim()
-        : `Manager #${id}`,
-      teamName: isExactArchive ? String(archived.root.name ?? 'FPLVORTEX') : `Squad #${id}`,
+      name: `${archived.root.player_first_name ?? ''} ${archived.root.player_last_name ?? ''}`.trim(),
+      teamName: String(archived.root.name ?? 'Archived squad'),
       region: String(archived.root.player_region_name ?? 'Worldwide'),
       startedEvent,
       favouriteTeamId: archived.root.favourite_team ?? null,
       overallRank: archived.root.summary_overall_rank ?? null,
+      previousOverallRank: (() => {
+        const previous = archived.history?.current?.find((row) => numberValue(row.event, 0) === targetGw - 1);
+        const rank = numberValue(previous?.overall_rank, 0);
+        return rank > 0 ? rank : null;
+      })(),
       overallPoints: archived.root.summary_overall_points ?? null,
       currentEvent: numberValue(history.event, snapshot.meta.currentEventId),
       activeChip,
+      chipsUsed: normalizeChipHistory(archived.history),
       freeTransfers,
       history: {
         event: targetGw,
@@ -184,11 +192,13 @@ export async function fetchEntry(
       squadValue: numberValue(history.value) / 10,
       source: 'offline',
       generatedAt: new Date().toISOString(),
+      provenance: { kind: id === '999999' ? 'demo' : 'archived', requestedIdVerified: false, sourceCapturedAt: null },
     };
   }
 }
 
 export async function fetchLeague(id: string, signal?: AbortSignal): Promise<LeagueData> {
+  if (!/^[1-9]\d{0,11}$/.test(id)) throw new ApiRequestError('Enter a valid positive classic league ID.', 400, true);
   try {
     return await getJson<LeagueData>(withBase(`api/vortex/league/${encodeURIComponent(id)}`), signal);
   } catch (error) {
@@ -196,8 +206,10 @@ export async function fetchLeague(id: string, signal?: AbortSignal): Promise<Lea
       throw error;
     }
     const fallback = await getJson<RawLeagueFallback>(withBase('data/fpl-league-fallback.json'), signal);
-    const archived = fallback.leagues?.[id] ?? fallback.leagues?.['314'];
-    if (!archived) throw error;
+    const archived = fallback.leagues?.[id];
+    if (!archived || numberValue(archived.league?.id) !== Number(id)) {
+      throw new ApiRequestError(`Classic league #${id} is unavailable; no matching offline standings exist. No unrelated league was substituted.`, 503, true);
+    }
     return {
       id: numberValue(archived.league?.id, numberValue(id)),
       name: String(archived.league?.name ?? `League ${id}`),
@@ -214,6 +226,7 @@ export async function fetchLeague(id: string, signal?: AbortSignal): Promise<Lea
       })),
       source: 'offline',
       generatedAt: new Date().toISOString(),
+      provenance: { kind: 'archived', requestedIdVerified: false, sourceCapturedAt: null },
     };
   }
 }
@@ -221,8 +234,11 @@ export async function fetchLeague(id: string, signal?: AbortSignal): Promise<Lea
 export async function fetchVideos(signal?: AbortSignal): Promise<VideosResponse> {
   try {
     return await getJson<VideosResponse>(withBase('api/vortex/videos'), signal);
-  } catch {
-    return getJson<VideosResponse>(withBase('data/vortex-videos.json'), signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const fallback = await getJson<VideosResponse>(withBase('data/vortex-videos.json'), signal);
+    // A static build's export is not a currently checked YouTube RSS feed.
+    return { ...fallback, source: 'static-export', feedCheckedAt: null };
   }
 }
 
@@ -266,4 +282,5 @@ export async function deleteSavedTeamOnServer(id: string): Promise<void> {
     // Ignore offline/static errors; client storage is updated synchronously.
   }
 }
+
 

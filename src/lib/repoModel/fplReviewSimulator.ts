@@ -11,6 +11,7 @@ import type {
   OptimizerTransferMove,
 } from './dashboardTypes';
 import { clamp } from '../format';
+import { selectOptimalXI } from './scoring';
 import { runMonteCarlo, MC_DRAWS, mixSeed, type McPath, type McPlayerGw } from './monteCarlo';
 import { computePlayerXPts, computePositionPriors } from './xpts';
 import type { Fixture as RepoFixture, MonteCarloSummary, SlimElement, SlimTeam } from './types';
@@ -57,44 +58,13 @@ export function solveLineupTS(
   benchBoost = false,
   tripleCaptain = false,
 ): LineupSolution {
-  const gks = squadIds.filter((id) => byId.get(id)?.type === 1).sort((a, b) => (gwXPts[b] ?? 0) - (gwXPts[a] ?? 0));
-  const defs = squadIds.filter((id) => byId.get(id)?.type === 2).sort((a, b) => (gwXPts[b] ?? 0) - (gwXPts[a] ?? 0));
-  const mids = squadIds.filter((id) => byId.get(id)?.type === 3).sort((a, b) => (gwXPts[b] ?? 0) - (gwXPts[a] ?? 0));
-  const fwds = squadIds.filter((id) => byId.get(id)?.type === 4).sort((a, b) => (gwXPts[b] ?? 0) - (gwXPts[a] ?? 0));
-
-  const startGk = gks[0] ?? squadIds[0] ?? 0;
-  const benchGk = gks[1] ?? gks[0] ?? 0;
-
-  const mandatory = [...defs.slice(0, 3), ...mids.slice(0, 2), ...fwds.slice(0, 1)];
-  const flex = [...defs.slice(3), ...mids.slice(2), ...fwds.slice(1)].sort(
-    (a, b) => (gwXPts[b] ?? 0) - (gwXPts[a] ?? 0),
-  );
-  const starters = [startGk, ...mandatory, ...flex.slice(0, 4)];
-  const bench = [benchGk, ...flex.slice(4)];
-
-  const sortedStarters = [...starters].sort((a, b) => (gwXPts[b] ?? 0) - (gwXPts[a] ?? 0));
-  const captainId = sortedStarters[0] ?? startGk;
-  const viceId = sortedStarters[1] ?? captainId;
-
-  const xiXPts = starters.reduce((sum, id) => sum + (gwXPts[id] ?? 0), 0);
-  const capExtra = (gwXPts[captainId] ?? 0) * (tripleCaptain ? 2 : 1);
-  const benchXPts = bench.reduce((sum, id) => sum + (gwXPts[id] ?? 0), 0);
-  const totalXPts = xiXPts + capExtra + (benchBoost ? benchXPts : 0);
-
-  const dCnt = starters.filter((id) => byId.get(id)?.type === 2).length;
-  const mCnt = starters.filter((id) => byId.get(id)?.type === 3).length;
-  const fCnt = starters.filter((id) => byId.get(id)?.type === 4).length;
-
+  const lu = selectOptimalXI(squadIds, id => byId.get(id)?.type ?? 0, id => gwXPts[id] ?? 0);
+  const captainId = lu.captain ?? 0;
+  const capExtra = lu.capXp * (tripleCaptain ? 2 : 1);
   return {
-    starters,
-    bench,
-    captainId,
-    viceId,
-    xiXPts: round2(xiXPts),
-    captainXPts: round2(capExtra),
-    benchXPts: round2(benchXPts),
-    totalXPts: round2(totalXPts),
-    formation: `${dCnt}-${mCnt}-${fCnt}`,
+    starters: lu.starters, bench: lu.bench, captainId, viceId: lu.vice ?? captainId,
+    xiXPts: round2(lu.xi), captainXPts: round2(capExtra), benchXPts: round2(lu.benchXp),
+    totalXPts: round2(lu.xi + capExtra + (benchBoost ? lu.benchXp : 0)), formation: lu.formation,
   };
 }
 
@@ -110,7 +80,7 @@ function squadObjective(
 }
 
 /**
- * Exact 0/1/2-transfer solver ported from `1_APP_dashboard/src/lib/solver.py` (`solve_k_transfers_exact`).
+ * Shortlisted 0/1/2-transfer search ported from `1_APP_dashboard/src/lib/solver.py` (`solve_k_transfers_exact`).
  */
 export function solveKTransfersExactTS(
   currentSquad: number[],
@@ -223,7 +193,7 @@ export function solveKTransfersExactTS(
 }
 
 /**
- * Constrained 15-man full-squad ILP construction + swap refinement ported verbatim
+ * Constrained 15-player greedy construction + local swap refinement adapted
  * from `1_APP_dashboard/src/lib/solver.py` (`solve_full_squad`).
  */
 export function solveFullSquadTS(

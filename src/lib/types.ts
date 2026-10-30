@@ -43,6 +43,10 @@ export interface FixtureMarketOdds {
   provider: 'the-odds-api' | 'football-data' | 'espn';
   bookmaker: string;
   updatedAt: string;
+  /** A genuine bookmaker quote time, or unknown when the feed exposes only retrieval time. */
+  quoteTimeSource?: 'bookmaker' | 'unknown';
+  /** When FPL VORTEX fetched the quote feed; never presented as a bookmaker quote time. */
+  retrievedAt?: string;
   oddsHome: number;
   oddsDraw: number;
   oddsAway: number;
@@ -60,6 +64,10 @@ export interface FixtureMarketOdds {
 }
 
 export interface MarketOddsMeta {
+  /** All current, unsettled fixtures in the next three GWs, not the entire season. */
+  next3Coverage?: import('./marketCoverage').MarketCoverageReport;
+  /** Provider fetch diagnostics contain no API keys and do not prove bookmaker quotes are current. */
+  feedDiagnostics?: Array<{ provider: string; access: 'configured' | 'not-configured' | 'public'; fetched: boolean; parsedRows: number }>;
   status: 'live' | 'partial' | 'fallback';
   provider: string;
   matchedFixtures: number;
@@ -155,6 +163,10 @@ export interface VerifiedEvidenceNote {
 export interface RepoDataMeta {
   benchmarkFile: string;
   benchmarkPlayers: number;
+  /** Date inferred from CSV filename, not a verified publication timestamp. */
+  projectionFileDate?: string | null;
+  /** Distinct GWs with imported values, not full per-player coverage. */
+  projectionGameweeks?: number[];
   videosFile: string;
   videosCount: number;
   channelId: string;
@@ -162,6 +174,30 @@ export interface RepoDataMeta {
   configuredEntryName: string;
   seasonRules: string;
   verifiedNotes?: VerifiedEvidenceNote[];
+}
+
+export type PlayerDataQualitySource = 'official-bootstrap' | 'normalized-snapshot';
+export interface PlayerDataQuality {
+  source: PlayerDataQualitySource;
+  status: 'checked' | 'incomplete' | 'unverified';
+  /** Local normalization/snapshot time, not the last upstream player-field update. */
+  observedAt: string;
+  /** FPL bootstrap does not provide an aggregate last-modified timestamp. */
+  sourceUpdatedAt: null;
+  playerCount: number;
+  validIds: number;
+  uniqueIds: number;
+  validTeamRefs: number;
+  validPrices: number;
+  validOwnership: number;
+  validStatuses: number;
+  validChanceValues: number;
+  /** Empty news is valid; these fields count advisory text and dates only. */
+  newsItems: number;
+  datedNewsItems: number;
+  undatedNewsItems: number;
+  invalidNewsDates: number;
+  latestNewsAddedAt: string | null;
 }
 
 export interface SnapshotMeta {
@@ -183,6 +219,8 @@ export interface SnapshotMeta {
   fallbackNotice?: string;
   repoData?: RepoDataMeta;
   oddsMeta?: MarketOddsMeta;
+  /** Read-only coverage/provenance audit; never mutates player inputs or forecast scores. */
+  playerDataQuality?: PlayerDataQuality;
   /** Set when the snapshot file was mirrored from a published deployment (`npm run data:mirror`). */
   mirroredFrom?: string;
   mirroredAt?: string;
@@ -348,10 +386,14 @@ export interface EntryData {
   startedEvent: number;
   favouriteTeamId: number | null;
   overallRank: number | null;
+  /** Prior completed GW overall rank, from official FPL history; null if unverified. */
+  previousOverallRank?: number | null;
   overallPoints: number | null;
   freeTransfers: number;
   currentEvent: number;
   activeChip: string | null;
+  /** Official played-chip history. Undefined means the upstream history could not be verified. */
+  chipsUsed?: Array<{ name: string; event: number }>;
   history: EntryHistory;
   picks: EntryPick[];
   players: EnrichedPlayer[];
@@ -360,6 +402,12 @@ export interface EntryData {
   recentTransfers?: EntryTransferRecord[];
   source: DataSource;
   generatedAt: string;
+  /** Archive and demo records are not the user's verified current FPL team. */
+  provenance?: {
+    kind: 'official' | 'archived' | 'demo';
+    requestedIdVerified: boolean;
+    sourceCapturedAt: string | null;
+  };
 }
 
 export interface LeagueStanding {
@@ -380,6 +428,12 @@ export interface LeagueData {
   standings: LeagueStanding[];
   source: DataSource;
   generatedAt: string;
+  /** Explicitly separate genuine FPL league standings from a dated local archive. */
+  provenance?: {
+    kind: 'official' | 'archived';
+    requestedIdVerified: boolean;
+    sourceCapturedAt: string | null;
+  };
 }
 
 export interface VideoItem {
@@ -393,8 +447,13 @@ export interface VideoItem {
 export interface VideosResponse {
   channelId: string;
   channelTitle: string;
+  /** Original archive capture; NOT a successful RSS check or video publication date. */
   capturedAt: string;
-  source: 'live' | 'repository';
+  source: 'live' | 'repository' | 'mixed' | 'static-export';
+  archiveCapturedAt?: string;
+  feedCheckedAt?: string | null;
+  liveFeedItems?: number;
+  archivedItems?: number;
   videos: VideoItem[];
 }
 
@@ -404,9 +463,11 @@ export interface RepoBenchmarkRow {
   team: string;
   position: Position;
   price: number;
-  expectedMinutes: number;
-  expectedPoints: number;
-  horizon5Points: number;
+  /** Null when the target GW has no imported value; never back/forward filled. */
+  expectedMinutes: number | null;
+  expectedPoints: number | null;
+  /** Null unless all five consecutive GWs have imported xPts values. */
+  horizon5Points: number | null;
 }
 
 export interface RepoBenchmarksResponse {

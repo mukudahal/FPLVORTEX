@@ -1,4 +1,3 @@
-import { toBlob } from 'html-to-image';
 import { savePngBlob } from './savePng';
 
 /** Try the exact displayed image first, then the app's same-origin photo proxy. */
@@ -29,11 +28,14 @@ async function imageDataUrl(img: HTMLImageElement): Promise<string> {
 
 /** Capture the actual visible pitch, including all players and the bench, without site controls. */
 export async function downloadPitchPng(pitch: HTMLElement, filename: string): Promise<void> {
-  const width = pitch.offsetWidth, height = pitch.offsetHeight;
+  const { toBlob } = await import('html-to-image');
+  const width = pitch.offsetWidth, height = Math.max(pitch.offsetHeight, pitch.scrollHeight);
   if (!width || !height || !pitch.parentElement) throw new Error('The pitch is not ready to save.');
   const clone = pitch.cloneNode(true) as HTMLElement;
   Object.assign(clone.style, { position: 'fixed', left: '-20000px', top: '0', width: `${width}px`, height: `${height}px`, minWidth: `${width}px`, maxWidth: `${width}px`, margin: '0', pointerEvents: 'none' });
   clone.setAttribute('aria-hidden', 'true');
+  // The red Save control is a UI action, not part of the exported artwork.
+  clone.querySelectorAll('[data-pitch-capture-exclude]').forEach((control) => control.remove());
   pitch.parentElement.appendChild(clone);
   try {
     const originals = [...pitch.querySelectorAll('img')];
@@ -51,3 +53,4 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     clone.remove();
   }
 }
+

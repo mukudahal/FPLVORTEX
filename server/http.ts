@@ -58,5 +58,5 @@ export async function fetchFplJson<T>(path: string, options: FetchOptions = {}):
 }
 
 export function isNumericId(value: string): boolean {
-  return /^\d{1,12}$/.test(value);
+  return /^[1-9]\d{0,11}$/.test(value);
 }

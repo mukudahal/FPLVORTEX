@@ -1,6 +1,8 @@
 import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import type { Snapshot } from '../lib/types';
 import { classNames, relativeTime } from '../lib/format';
+import { snapshotSourceLabel } from '../lib/projectionFreshness';
+import { getSnapshotFreshness, snapshotFreshnessNotice } from '../lib/snapshotFreshness';
 
 interface SourcePillProps {
   snapshot: Snapshot | null;
@@ -11,11 +13,10 @@ interface SourcePillProps {
 }
 
 export function SourcePill({ snapshot, refreshing, lastSuccessAt, onRefresh, compact = false }: SourcePillProps) {
-  const source = snapshot?.meta.source ?? 'offline';
-  const healthy = snapshot?.meta.upstreamOk && !snapshot.meta.stale;
-  const label = source === 'live' || source === 'cache' ? 'LIVE SYNC' : source === 'snapshot' ? 'SNAPSHOT' : 'OFFLINE';
+  const healthy = Boolean(snapshot?.meta.upstreamOk && !snapshot.meta.mirroredFrom && getSnapshotFreshness(snapshot.meta).status === 'recent');
+  const label = snapshotSourceLabel(snapshot?.meta);
   return (
-    <div className={classNames('source-pill', compact && 'source-pill--compact')} title={snapshot?.meta.generatedAt}>
+    <div className={classNames('source-pill', compact && 'source-pill--compact')} title={snapshot ? snapshotFreshnessNotice(snapshot.meta) : 'No snapshot available'}>
       <span className={classNames('source-pill__dot', healthy ? 'is-live' : 'is-stale')} />
       <span className="source-pill__label">{label}</span>
       {!compact && (

@@ -8,6 +8,7 @@ import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './
 import { createImageDownloadRouter } from './imageDownloads.ts';
 import { isNumericId, UpstreamHttpError } from './http.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
+import { marketCoverage } from '../src/lib/marketCoverage.ts';
 import {
   PL_BADGE_BASE,
   PL_PHOTO_BASE_CURRENT,
@@ -35,7 +36,7 @@ app.use((_req, res, next) => {
   if (process.env.VORTEX_FRAME_OPTIONS) {
     res.setHeader('X-Frame-Options', process.env.VORTEX_FRAME_OPTIONS);
   }
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   next();
 });
 
@@ -231,6 +232,8 @@ app.get('/api/vortex/odds', asyncRoute(async (req, res) => {
     oddsMeta: snapshot.meta.oddsMeta ?? null,
     matchedCount: fixtures.filter((f) => f.marketOdds !== null).length,
     totalFixtures: fixtures.length,
+    nextThreeGameweeks: marketCoverage(snapshot.fixtures, targetGw),
+    feedDiagnostics: snapshot.meta.oddsMeta?.feedDiagnostics ?? [],
     fixtures,
   });
 }));

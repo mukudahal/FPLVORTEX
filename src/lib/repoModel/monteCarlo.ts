@@ -52,6 +52,8 @@ export interface McPath {
   id: string;
   label: string;
   hitCost: number;
+  /** Additional per-gameweek hits for a sequential plan; deducted in that week only. */
+  hitAt?: (gw: number) => number;
   lineupAt: (gw: number) => McLineup | null;
   chipAt?: (gw: number) => PlanningChip | undefined;
 }
@@ -62,6 +64,8 @@ export interface McOptions {
   paths: McPath[];
   holdId: string;
   recommendedId: string;
+  /** Additional paired comparison, e.g. chips versus the best no-chip plan. */
+  referenceId?: string;
   playerAt: (pid: number, gw: number) => McPlayerGw | null;
   draws?: number;
   seed: number;
@@ -319,6 +323,7 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
   if (opts.gws.length < 1 || opts.gws.length > 38 || new Set(opts.gws).size !== opts.gws.length || opts.gws.some((gw) => !Number.isInteger(gw) || gw < 1 || gw > 38)) throw new RangeError("Invalid gameweek horizon.");
   if (!opts.paths.length || new Set(opts.paths.map((path) => path.id)).size !== opts.paths.length) throw new RangeError("Invalid or duplicate scenario identifiers.");
   if (!opts.paths.some((path) => path.id === opts.holdId)) throw new RangeError("Missing hold scenario.");
+  if (opts.referenceId && !opts.paths.some(path => path.id === opts.referenceId)) throw new RangeError('Missing reference scenario.');
   if (opts.gws.some((gw, index) => index > 0 && gw <= opts.gws[index - 1])) throw new RangeError("Gameweeks must be chronological.");
   if (!opts.paths.some(path => path.id === opts.recommendedId) || opts.paths.some(path => !Number.isFinite(path.hitCost) || path.hitCost < 0)) throw new RangeError("Invalid recommended path or hit cost.");
   calibrateProbability(0.5, opts.calibrationSlope ?? 1);
@@ -363,7 +368,9 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
     const series: Float64Array[] = [];
     const total = new Float64Array(draws).fill(-path.hitCost);
     for (const gw of gws) {
-      const arr = new Float64Array(draws);
+      const weeklyHit = path.hitAt?.(gw) ?? 0;
+      if (!Number.isFinite(weeklyHit) || weeklyHit < 0) throw new RangeError('Invalid weekly transfer hit.');
+      const arr = new Float64Array(draws).fill(-weeklyHit);
       const lineup = path.lineupAt(gw);
       if (lineup) {
         const ids = [...lineup.starters, ...lineup.bench];
@@ -374,10 +381,11 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
             pts: (id) => sims.get(id)?.pts[i] ?? 0,
             played: (id) => (sims.get(id)?.played[i] ?? 0) === 1,
             position: (id) => pos.get(id) ?? 0,
-          }, path.chipAt?.(gw));
+          }, path.chipAt?.(gw)) - weeklyHit;
           total[i] += arr[i];
         }
       }
+      if (!lineup && weeklyHit) for (let i = 0; i < draws; i++) total[i] -= weeklyHit;
       series.push(arr);
     }
     perGw.set(path.id, series);
@@ -429,6 +437,31 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       });
     }
 
+    const reference = opts.referenceId ? totals.get(opts.referenceId) : undefined;
+    const vsReference = reference && path.id !== opts.referenceId ? (() => {
+      const delta = Float64Array.from(total, (value, i) => value - reference[i]);
+      const sortedDelta = sortedCopy(delta);
+      const average = delta.reduce((sum, value) => sum + value, 0) / draws;
+      let wins = 0, ties = 0, squared = 0;
+      for (const value of delta) {
+        if (value > 1e-9) wins++;
+        else if (Math.abs(value) <= 1e-9) ties++;
+        squared += (value - average) ** 2;
+      }
+      const probability = wins / draws;
+      const z = 1.959963984540054;
+      const denominator = 1 + z * z / draws;
+      const center = (probability + z * z / (2 * draws)) / denominator;
+      const radius = z * Math.sqrt(probability * (1 - probability) / draws + z * z / (4 * draws * draws)) / denominator;
+      return {
+        referenceId: opts.referenceId!, deltaMean: r2(average),
+        deltaP10: r2(quantile(sortedDelta, 0.1)), deltaP90: r2(quantile(sortedDelta, 0.9)),
+        probWin: probability, probTie: ties / draws, probLoss: (draws - wins - ties) / draws,
+        winProbability95: [Math.max(0, center - radius), Math.min(1, center + radius)] as [number, number],
+        meanStandardError: Math.sqrt(squared / (draws - 1) / draws),
+      };
+    })() : undefined;
+
     return {
       id: path.id,
       label: path.label,
@@ -448,6 +481,7 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       probDrawsHold,
       perGw: gws.map((gw, j) => band(gw, (perGw.get(path.id) as Float64Array[])[j])),
       cumDelta,
+      ...(vsReference ? { vsReference } : {}),
     };
   });
 
@@ -500,3 +534,4 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
     ],
   };
 }
+

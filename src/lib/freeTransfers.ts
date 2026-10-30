@@ -9,6 +9,7 @@ import {
 export interface RawEntryHistoryRow {
   event?: unknown;
   event_transfers?: unknown;
+  overall_rank?: unknown;
 }
 
 export interface RawEntryChipPlay {
@@ -161,4 +162,16 @@ export function resolveSquadPurchaseAndSellingPrices(
     purchasePrice: purchaseTenths / 10,
     sellingPrice: sellingTenths / 10,
   };
+}
+
+/** Normalize verified history; undefined must not silently become four available chips. */
+export function normalizeChipHistory(payload?: RawEntryHistoryPayload | null): Array<{ name: string; event: number }> | undefined {
+  if (!Array.isArray(payload?.chips)) return undefined;
+  const officialNames: Record<PlanningChip, string> = { wc: 'wildcard', fh: 'freehit', bb: 'bboost', tc: '3xc' };
+  return payload.chips.flatMap(use => {
+    const chip = mapOfficialChipToPlanningChip(use.name);
+    const event = Number(use.event);
+    return chip && Number.isInteger(event) && event >= 1 && event <= 38
+      ? [{ name: officialNames[chip], event }] : [];
+  });
 }
