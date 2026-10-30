@@ -26,6 +26,7 @@ import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlannerOverview } from './PlannerOverview';
 import { StatCard } from './StatCard';
+import { TransferPlanModal } from './TransferPlanModal';
 
 interface SquadBuilderProps {
   snapshot: Snapshot;
@@ -55,9 +56,12 @@ export function SquadBuilder({
   players,
   entry,
   profile,
+  onToast,
   onInspectPlayer,
+  onInspectInjury,
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
+  const [transferPlansOpen, setTransferPlansOpen] = useState(false);
   const [plannerHorizon, setPlannerHorizon] = useState(5);
   const [plannerDecay, setPlannerDecay] = useState(15);
   const [simulationDraws, setSimulationDraws] = useState<number>(MC_DRAWS);
@@ -196,7 +200,12 @@ export function SquadBuilder({
         ] as const).map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" className={classNames('subtab-btn', `planner-choice--${id}`, subTab === id && 'is-active')}
             aria-expanded={subTab === id} aria-controls={subTab === id ? "planner-section-content" : undefined}
-            onClick={() => setSubTab(id)}>
+            onClick={() => {
+              setSubTab(id);
+              if (id === 'planner') {
+                setTransferPlansOpen(true);
+              }
+            }}>
             <Icon size={16} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
@@ -596,6 +605,18 @@ export function SquadBuilder({
         </div>
       )}
       </div>}
+      <TransferPlanModal
+        open={transferPlansOpen}
+        onClose={() => setTransferPlansOpen(false)}
+        snapshot={snapshot}
+        players={players}
+        fallbackSquadIds={activeSquadIds}
+        entry={entry}
+        defaultFreeTransfers={freeTransfers}
+        onToast={onToast}
+        onInspectPlayer={onInspectPlayer}
+        onInspectInjury={onInspectInjury}
+      />
     </div>
   );
 }

@@ -1,7 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { makeFixtureForecasts, meanForecast, provisionalOpportunityIndices, overallDifficulty, difficultyColor } from '../src/lib/fixtureForecast.ts';
+import {
+  cleanSheetColor,
+  cleanSheetFillStyle,
+  difficultyColor,
+  difficultyFillStyle,
+  makeFixtureForecasts,
+  meanForecast,
+  overallDifficulty,
+  projectedGoalsColor,
+  projectedGoalsFillStyle,
+  provisionalOpportunityIndices,
+  VORTEX_FILL_COLORS,
+} from '../src/lib/fixtureForecast.ts';
 import type { Snapshot, FixtureMarketOdds } from '../src/lib/types.ts';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -114,7 +126,40 @@ test('fixture tiles use distinct columns and shared colours for VORTEX and marke
     const projections = renderToStaticMarkup(React.createElement(ForecastTile, { item, mode: 'projections', showLabels: true }));
     assert.match(projections, new RegExp(item.goals.toFixed(2)));
     assert.match(projections, new RegExp(`${Math.round(item.cleanSheet * 100)}%`));
+    assert.match(projections, new RegExp(projectedGoalsColor(item.goals)));
+    assert.match(projections, new RegExp(cleanSheetColor(item.cleanSheet)));
     assert.equal((projections.match(/forecast-tile__value/g) ?? []).length, 2);
   }
-  assert.equal(new Set([1, 2, 3, 4, 5].map(difficultyColor)).size, 5);
+  assert.equal(new Set([2.0, 3.1, 3.8, 4.6].map(difficultyColor)).size, 4);
 });
+
+test('VORTEX 4-band colour thresholds and white-on-red / black-on-other text rules match specification', () => {
+  // FDR: 0-2.8 Green, 2.9-3.4 Cyan, 3.5-4.2 Orange, >4.2-5 Red
+  assert.deepEqual(difficultyFillStyle(0), { background: VORTEX_FILL_COLORS.green, color: '#000000' });
+  assert.deepEqual(difficultyFillStyle(2.8), { background: VORTEX_FILL_COLORS.green, color: '#000000' });
+  assert.deepEqual(difficultyFillStyle(2.9), { background: VORTEX_FILL_COLORS.cyan, color: '#000000' });
+  assert.deepEqual(difficultyFillStyle(3.4), { background: VORTEX_FILL_COLORS.cyan, color: '#000000' });
+  assert.deepEqual(difficultyFillStyle(3.5), { background: VORTEX_FILL_COLORS.orange, color: '#000000' });
+  assert.deepEqual(difficultyFillStyle(4.2), { background: VORTEX_FILL_COLORS.orange, color: '#000000' });
+  assert.deepEqual(difficultyFillStyle(4.25), { background: VORTEX_FILL_COLORS.red, color: '#ffffff' });
+  assert.deepEqual(difficultyFillStyle(5.0), { background: VORTEX_FILL_COLORS.red, color: '#ffffff' });
+
+  // Projected Goals: 0-0.9 Red, 1-1.3 Cyan, >1.3-1.9 Orange, >1.9 Green
+  assert.deepEqual(projectedGoalsFillStyle(0.45), { background: VORTEX_FILL_COLORS.red, color: '#ffffff' });
+  assert.deepEqual(projectedGoalsFillStyle(0.9), { background: VORTEX_FILL_COLORS.red, color: '#ffffff' });
+  assert.deepEqual(projectedGoalsFillStyle(1.0), { background: VORTEX_FILL_COLORS.cyan, color: '#000000' });
+  assert.deepEqual(projectedGoalsFillStyle(1.3), { background: VORTEX_FILL_COLORS.cyan, color: '#000000' });
+  assert.deepEqual(projectedGoalsFillStyle(1.4), { background: VORTEX_FILL_COLORS.orange, color: '#000000' });
+  assert.deepEqual(projectedGoalsFillStyle(1.9), { background: VORTEX_FILL_COLORS.orange, color: '#000000' });
+  assert.deepEqual(projectedGoalsFillStyle(1.95), { background: VORTEX_FILL_COLORS.green, color: '#000000' });
+
+  // Clean Sheet %: <=25% Red, 26-30% Orange, 31-35% Cyan, >35% Green
+  assert.deepEqual(cleanSheetFillStyle(0.18), { background: VORTEX_FILL_COLORS.red, color: '#ffffff' });
+  assert.deepEqual(cleanSheetFillStyle(0.25), { background: VORTEX_FILL_COLORS.red, color: '#ffffff' });
+  assert.deepEqual(cleanSheetFillStyle(0.26), { background: VORTEX_FILL_COLORS.orange, color: '#000000' });
+  assert.deepEqual(cleanSheetFillStyle(0.30), { background: VORTEX_FILL_COLORS.orange, color: '#000000' });
+  assert.deepEqual(cleanSheetFillStyle(0.31), { background: VORTEX_FILL_COLORS.cyan, color: '#000000' });
+  assert.deepEqual(cleanSheetFillStyle(0.35), { background: VORTEX_FILL_COLORS.cyan, color: '#000000' });
+  assert.deepEqual(cleanSheetFillStyle(0.36), { background: VORTEX_FILL_COLORS.green, color: '#000000' });
+});
+

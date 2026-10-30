@@ -14,7 +14,7 @@ import {
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { classNames } from '../lib/format';
-import { makeFixtureForecasts, overallDifficulty, difficultyColor, type FixtureForecast } from '../lib/fixtureForecast';
+import { makeFixtureForecasts, overallDifficulty, difficultyFillStyle, type FixtureForecast } from '../lib/fixtureForecast';
 import {
   buildJerseyFallbackSvgDataUri,
   getPlayerPhotoCandidates,
@@ -403,7 +403,7 @@ export function PlayerGraphicModal({
 
             <div className="vx-pcard__fixtures-grid">
               {nextFiveFixtures.map((fx) => (
-                <div key={fx.key} className="vx-pcard__fix-item" style={fx.difficulty === null ? undefined : { backgroundColor: difficultyColor(fx.difficulty), color: "#071a1b", borderRadius: 8 }}>
+                <div key={fx.key} className="vx-pcard__fix-item" style={fx.difficulty === null ? undefined : { ...difficultyFillStyle(fx.difficulty), borderRadius: 8 }}>
                   <strong className="vx-pcard__fix-opp">{fx.label}</strong>
                   <div className="vx-pcard__fix-crest">
                     {fx.oppTeam ? (
@@ -417,7 +417,7 @@ export function PlayerGraphicModal({
                       <span className="vx-pcard__fix-blank">—</span>
                     )}
                   </div>
-                  <span className={classNames('vx-pcard__fdr-pill', fx.difficulty === null && 'is-fdr-blank')} style={fx.difficulty === null ? undefined : { background: difficultyColor(fx.difficulty), color: '#071a1b' }} title="VORTEX average attack and defence index">
+                  <span className={classNames('vx-pcard__fdr-pill', fx.difficulty === null && 'is-fdr-blank')} style={fx.difficulty === null ? undefined : difficultyFillStyle(fx.difficulty)} title="VORTEX average attack and defence index">
                     {fx.difficulty === null ? '—' : fx.difficulty.toFixed(2)}
                   </span>
                 </div>
@@ -429,16 +429,16 @@ export function PlayerGraphicModal({
           <footer className="vx-pcard__fdr-legend" aria-label="Fixture Difficulty Rating legend">
             <strong className="vx-pcard__fdr-title">FDR: VORTEX (PROVISIONAL)</strong>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(2), color: "#071a1b" }}>2</em> Easy
+              <em className="vx-pcard__fdr-dot" style={difficultyFillStyle(2.0)}>≤2.8</em> Easy
             </span>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(3), color: "#071a1b" }}>3</em> Normal
+              <em className="vx-pcard__fdr-dot" style={difficultyFillStyle(3.1)}>3.4</em> Moderate
             </span>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(4), color: "#071a1b" }}>4</em> Hard
+              <em className="vx-pcard__fdr-dot" style={difficultyFillStyle(3.8)}>4.2</em> Hard
             </span>
             <span className="vx-pcard__legend-item">
-              <em className="vx-pcard__fdr-dot" style={{ background: difficultyColor(5), color: "#071a1b" }}>5</em> Very Hard
+              <em className="vx-pcard__fdr-dot" style={difficultyFillStyle(4.6)}>5</em> Very Hard
             </span>
           </footer>
         </div>

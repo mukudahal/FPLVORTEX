@@ -20,6 +20,24 @@ export interface FixtureForecast {
   source: ForecastSource;
 }
 
+export const VORTEX_FILL_COLORS = {
+  green: '#40d99c',
+  cyan: '#45c8ce',
+  orange: '#f59e42',
+  red: '#d62849',
+  neutral: '#9bacba',
+} as const;
+
+export interface VortexFillStyle {
+  background: string;
+  color: '#ffffff' | '#000000';
+}
+
+/** Red fills use White text; all other fills (Green, Cyan, Orange, Neutral) use Black text. */
+export function fillTextColor(background: string): '#ffffff' | '#000000' {
+  return background.toLowerCase() === VORTEX_FILL_COLORS.red ? '#ffffff' : '#000000';
+}
+
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 /** Fixed illustrative mapping only; NOT a calibrated or historical percentile FDR. */
 export function provisionalOpportunityIndices(goals: number, cleanSheet: number) {
@@ -76,13 +94,71 @@ export function meanForecast(items: readonly FixtureForecast[], metric: 'attackI
   return items.reduce((sum, item) => sum + item[metric], 0) / items.length;
 }
 
-/** Shared colour scale; low is easier, high is harder. */
+/**
+ * Shared FDR colour scale across the model (low is easier, high is harder):
+ * 0 - 2.8: Green, 2.9 - 3.4: Cyan, 3.5 - 4.2: Orange, 4.2 - 5: Red.
+ */
 export function difficultyColor(value: number): string {
-  // Five discrete, solid bands are shared across every fixture view.
-  if (!Number.isFinite(value)) return '#9bacba';
-  const bands = ['#40d99c', '#45c8ce', '#eed35e', '#efa859', '#ed7781'];
-  return bands[Math.max(0, Math.min(4, Math.round(value) - 1))];
+  if (!Number.isFinite(value)) return VORTEX_FILL_COLORS.neutral;
+  if (value <= 2.85) return VORTEX_FILL_COLORS.green;
+  if (value <= 3.45) return VORTEX_FILL_COLORS.cyan;
+  if (value <= 4.2) return VORTEX_FILL_COLORS.orange;
+  return VORTEX_FILL_COLORS.red;
 }
+
+export function difficultyTextColor(value: number): '#ffffff' | '#000000' {
+  return fillTextColor(difficultyColor(value));
+}
+
+export function difficultyFillStyle(value: number): VortexFillStyle {
+  const background = difficultyColor(value);
+  return { background, color: fillTextColor(background) };
+}
+
+/**
+ * Projected Goals colour scale (high is easier / better):
+ * 0 - 0.9: Red, 1 - 1.3: Cyan, 1.3 - 1.9: Orange, > 1.9: Green.
+ */
+export function projectedGoalsColor(goals: number): string {
+  if (!Number.isFinite(goals)) return VORTEX_FILL_COLORS.neutral;
+  if (goals < 1.0) return VORTEX_FILL_COLORS.red;
+  if (goals <= 1.3) return VORTEX_FILL_COLORS.cyan;
+  if (goals <= 1.9) return VORTEX_FILL_COLORS.orange;
+  return VORTEX_FILL_COLORS.green;
+}
+
+export function projectedGoalsTextColor(goals: number): '#ffffff' | '#000000' {
+  return fillTextColor(projectedGoalsColor(goals));
+}
+
+export function projectedGoalsFillStyle(goals: number): VortexFillStyle {
+  const background = projectedGoalsColor(goals);
+  return { background, color: fillTextColor(background) };
+}
+
+/**
+ * Clean Sheet Odds Percentage colour scale (high is easier / better):
+ * Up to 25%: Red, 26 - 30%: Orange, 31 - 35%: Cyan, > 35%: Green.
+ * Evaluates on the rounded integer percentage of `cleanSheetProb` in [0, 1].
+ */
+export function cleanSheetColor(cleanSheetProb: number): string {
+  if (!Number.isFinite(cleanSheetProb)) return VORTEX_FILL_COLORS.neutral;
+  const pct = Math.round(cleanSheetProb * 100);
+  if (pct <= 25) return VORTEX_FILL_COLORS.red;
+  if (pct <= 30) return VORTEX_FILL_COLORS.orange;
+  if (pct <= 35) return VORTEX_FILL_COLORS.cyan;
+  return VORTEX_FILL_COLORS.green;
+}
+
+export function cleanSheetTextColor(cleanSheetProb: number): '#ffffff' | '#000000' {
+  return fillTextColor(cleanSheetColor(cleanSheetProb));
+}
+
+export function cleanSheetFillStyle(cleanSheetProb: number): VortexFillStyle {
+  const background = cleanSheetColor(cleanSheetProb);
+  return { background, color: fillTextColor(background) };
+}
+
 /** Overall display index, equally weighted attack and defence; not official FDR. */
 export function overallDifficulty(item: Pick<FixtureForecast, 'attackIndex' | 'defenceIndex'>): number {
   return (item.attackIndex + item.defenceIndex) / 2;
