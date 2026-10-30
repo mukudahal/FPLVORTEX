@@ -7134,3 +7134,60 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .png-save-actions button, .png-save-actions a { display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border: 1px solid #9eacb8; border-radius: 7px; background: #fff; color: #10243a; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
 .png-save-actions .png-save-primary { background: #cf2540; border-color: #cf2540; color: #fff; }
 .png-save-message { margin-top: 10px !important; }
+
+/* Phase 1: prevent the shared header, Review and Planner controls competing for
+   horizontal space on narrow screens. Keep desktop layout and data unchanged. */
+@media (max-width: 700px) {
+  .topbar__right {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar__page-label { min-width: 0; }
+  .topbar__page-label h1 { white-space: normal; overflow-wrap: anywhere; }
+  .topbar__page-label p { overflow-wrap: anywhere; }
+  .topbar__right > .icon-button { min-width: 44px; min-height: 44px; }
+  .vortex-theme-switch { min-height: 44px; }
+  .content { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+  .vx-gw-bar, .vx-gw-bar__left, .vx-gw-bar__right { min-width: 0; }
+  .vx-gw-bar { padding: 12px; }
+  .vx-gw-stepper { max-width: 100%; }
+  .vx-gw-stepper__btn { min-width: 44px; min-height: 44px; }
+  .vx-gw-stepper__select-wrap { min-width: 0; flex: 1 1 auto; }
+  .vx-gw-stepper__select-wrap select { max-width: 100%; min-width: 0; min-height: 44px; }
+  .vx-pitch-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .vx-pitch-header__identity > strong { overflow-wrap: anywhere; }
+  .vx-pitch-header__center { grid-column: 1; grid-row: 2; align-items: flex-start; }
+  .vx-pitch-header__actions { grid-column: 2; grid-row: 1 / span 2; }
+  .vx-view-toggle button { min-width: 44px; min-height: 44px; }
+  .vx-review-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vx-review-strip > div { min-width: 0; }
+  .vx-review-strip strong, .vx-review-strip small {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+  .vx-planner-controls > label { flex: 1 1 110px; min-width: 0; }
+  .vx-planner-controls select { width: 100%; max-width: 100%; min-height: 44px; }
+  .vx-planner-score { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; }
+  .vx-planner-score span { min-width: 0; overflow-wrap: anywhere; }
+  .vx-planner-score strong { display: block; margin: 3px 0 0; overflow-wrap: anywhere; }
+  .vx-planner-gws { min-width: 0; max-width: 100%; }
+  .vx-planner-gws button { min-height: 44px; }
+  .vx-planner-columns, .vx-planner-columns > * { min-width: 0; }
+}
+@media (max-width: 700px) {
+  .hero--compact { grid-template-columns: minmax(0, 1fr); }
+  .hero--compact .hero__content, .hero--compact .hero__visual { min-width: 0; max-width: 100%; }
+}
+/* Between mobile navigation and wide desktop, let header controls wrap rather
+   than pushing the page wider than the viewport. */
+@media (min-width: 1181px) and (max-width: 1550px) {
+  .topbar__right { flex: 1 1 0; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+}
