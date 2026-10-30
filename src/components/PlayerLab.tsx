@@ -1,4 +1,4 @@
-import { makeFixtureForecasts, difficultyColor, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
+import { makeFixtureForecasts, difficultyFillStyle, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -47,7 +47,7 @@ export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts }: {
     const opponent = teamById.get(opponentId);
     const label = opponent?.shortName ?? `T${opponentId}`;
     const forecast = (forecasts.get(`${teamId}:${cell.event}`) ?? []).find(item => item.fixture.id === fixture.id);
-    const style = forecast ? { background: difficultyColor(overallDifficulty(forecast)), color: '#071a1b' } : undefined;
+    const style = forecast ? difficultyFillStyle(overallDifficulty(forecast)) : undefined;
     return <span key={fixture.id} className="fdr-chip" style={style} title={`GW${cell.event}: ${opponent?.name ?? label} (${home ? 'H' : 'A'})`} aria-label={`GW${cell.event}: ${opponent?.name ?? label}, ${home ? 'home' : 'away'}`}><strong>{label}</strong><small>({home ? 'H' : 'A'})</small></span>;
   })}</>;
 }

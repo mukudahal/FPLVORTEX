@@ -37,6 +37,69 @@ try {
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: 'test-results/planner/team-plan-desktop.png', fullPage: true });
+
+  // Verify Fix 1 -> Fix 2 -> Fix 3 in the Transfer Plans popup window
+  await page.getByRole('button', { name: /1\. Team Planner & Solver/ }).click();
+  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ timeout: 15000 });
+  await page.getByText('Transfer plans', { exact: true }).waitFor();
+  await page.getByText('0 of 10 plan slots used', { exact: true }).waitFor();
+  await page.getByText('Create your first plan', { exact: true }).waitFor();
+  await page.screenshot({ path: 'test-results/planner/fix1-transfer-plans.png' });
+
+  // Fix 2: Click New + -> opens full VORTEX Transfer Plan editor with NEXT 5 fixtures
+  await page.locator('[data-testid="vx-tp-new-plan"]').click();
+  await page.locator('[data-testid="vx-tp-editor-view"]').waitFor({ timeout: 15000 });
+  assert.equal(await page.locator('.vx-tp-pitch-card').count(), 15, 'Should render 15 squad cards (11 XI + 4 bench)');
+  assert.ok(await page.getByText('NEXT 5', { exact: true }).isVisible(), 'Right player table must show NEXT 5 header');
+  assert.equal(await page.locator('.vx-tp-player-row').first().locator('.vx-tp-next5-chip').count(), 5, 'Each player row shows Next 5 fixtures');
+  await page.screenshot({ path: 'test-results/planner/fix2-workspace.png' });
+
+  // Fix 3: Click a player on the pitch -> "+ / <Name> / Replace" slot & position filter
+  await page.locator('.vx-tp-formation .vx-tp-pitch-card').nth(4).click();
+  await page.locator('.vx-tp-replace-slot').first().waitFor({ timeout: 10000 });
+  assert.equal(await page.locator('.vx-tp-replace-slot').count(), 1, 'Clicked pitch player becomes + / Replace slot');
+  await page.screenshot({ path: 'test-results/planner/fix3-replace-slot.png' });
+
+  // Select first eligible unowned replacement from the right-hand VORTEX xPts table
+  const candidateRow = page.locator('.vx-tp-player-row:not(.is-in-squad):not(.is-pending-out):not(.is-over-budget)').first();
+  await candidateRow.click();
+  assert.equal(await page.locator('.vx-tp-replace-slot').count(), 0, 'Replacement fills the pitch slot');
+  assert.equal(await page.locator('.vx-tp-pitch-card').count(), 15, 'Squad returns to 15 active players');
+
+  // Save & Exit -> returns to Transfer plans list showing 1 of 10 plan slots used, then close modal
+  await page.getByRole('button', { name: /Save & Exit/ }).click();
+  await page.getByText('1 of 10 plan slots used', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Close transfer plans window' }).click();
+  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ state: 'detached' });
+
+  // Fix 4: Verify VORTEX 4-band fill & White-on-Red / Black-on-other text contrast on Fixture Matrix
+  await page.goto((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/#/fixtures', { waitUntil: 'domcontentloaded' });
+  await page.locator('.forecast-tile').first().waitFor({ timeout: 30000 });
+  const contrastReport = await page.evaluate(() => {
+    const cells = Array.from(document.querySelectorAll('.forecast-tile__opponent, .forecast-tile__value, .fm-overall-value, .fm-average-value'));
+    let redChecked = 0;
+    let otherChecked = 0;
+    for (const el of cells) {
+      const cs = getComputedStyle(el);
+      const bg = cs.backgroundColor;
+      const target = el.querySelector('strong') ?? el;
+      const fg = getComputedStyle(target).color;
+      if (bg === 'rgb(214, 40, 73)') {
+        if (fg !== 'rgb(255, 255, 255)') return { ok: false, bg, fg };
+        redChecked += 1;
+      } else if (bg === 'rgb(64, 217, 156)' || bg === 'rgb(69, 200, 206)' || bg === 'rgb(245, 158, 66)') {
+        if (fg !== 'rgb(0, 0, 0)') return { ok: false, bg, fg };
+        otherChecked += 1;
+      }
+    }
+    return { ok: true, redChecked, otherChecked };
+  });
+  assert.equal(contrastReport.ok, true, `Unexpected tile text colour: ${JSON.stringify(contrastReport)}`);
+  assert.ok(contrastReport.otherChecked > 0, 'Expected non-red VORTEX fill bands on Fixture Matrix');
+  await page.screenshot({ path: 'test-results/planner/fix4-fixture-matrix.png' });
+
+  await page.goto((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/#/optimizer', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /1\. Team Planner & Solver/ }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: /3. Monte Carlo/ }).click();
   await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
@@ -60,10 +123,16 @@ try {
   const bodyWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(bodyWidth <= 406, 'Planner should keep page-level overflow within the narrow viewport');
   await page.getByRole('button', { name: /1. Team Planner/ }).click();
+  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: 'Close transfer plans window' }).click();
+  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ state: 'detached' });
   assert.equal(await page.locator('.vx-soccer-pitch').first().getAttribute('class'), pitchClass);
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).focus();
   assert.ok(await page.getByRole('button', { name: /1. Team Planner & Solver/ }).evaluate(el => el === document.activeElement));
   await page.keyboard.press('Enter');
+  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ state: 'detached' });
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'The selected section stays open');
   assert.deepEqual(failures, [], 'No uncaught page or worker errors');
   // A fresh session with a blocked module-worker must recover into an explicit error state.

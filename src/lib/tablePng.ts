@@ -1,6 +1,7 @@
+import { fillTextColor } from './fixtureForecast';
 import { savePngBlob } from './savePng';
 /** Data-only canvas export: no DOM, web fonts, remote images, navigation or controls. */
-export interface PngCell { text: string; color?: string }
+export interface PngCell { text: string; color?: string; textColor?: string }
 export interface PngTable { title: string; headers: string[]; widths: number[]; rows: PngCell[][] }
 
 type Block = { table: PngTable; rows: PngCell[][]; offset: number };
@@ -89,7 +90,7 @@ export async function downloadTablePng(tables: PngTable[], filename: string): Pr
         row.forEach((cell, i) => {
           const w = block.table.widths[i]; ctx.fillStyle = cell.color ?? (r % 2 ? '#eef4f7' : '#ffffff'); ctx.fillRect(cx, ry, w, rh);
           ctx.strokeStyle = '#cbd9e2'; ctx.lineWidth = 1; ctx.strokeRect(cx, ry, w, rh);
-          ctx.font = '14px Arial, sans-serif'; ctx.fillStyle = '#10243a';
+          ctx.font = '14px Arial, sans-serif'; ctx.fillStyle = cell.textColor ?? (cell.color ? fillTextColor(cell.color) : '#10243a');
           block.rowLines[r][i].forEach((line, n) => ctx.fillText(line, cx + 6, ry + 18 + n * lineHeight)); cx += w;
         });
         ry += rh;

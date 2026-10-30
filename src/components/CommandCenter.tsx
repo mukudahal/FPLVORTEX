@@ -1,4 +1,13 @@
-import { makeFixtureForecasts, fixtureCellIndex, difficultyColor } from '../lib/fixtureForecast';
+import {
+  cleanSheetColor,
+  cleanSheetFillStyle,
+  difficultyColor,
+  difficultyFillStyle,
+  fixtureCellIndex,
+  makeFixtureForecasts,
+  projectedGoalsColor,
+  projectedGoalsFillStyle,
+} from '../lib/fixtureForecast';
 import { marketCoverage, fixtureQuoteNotice } from '../lib/marketCoverage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -829,7 +838,7 @@ export function CommandCenter({
           />
         </div>
         <strong className="vx-pitch-name">{p.name}</strong>
-        <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)} style={fx.isBlank ? undefined : { background: difficultyColor(fx.difficulty), color: '#071a1b' }}>{fx.label}</span>
+        <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)} style={fx.isBlank ? undefined : difficultyFillStyle(fx.difficulty)}>{fx.label}</span>
         {isBench && (
           <span className="vx-pitch-bench-meta">
             {p.team.shortName} · £{p.price.toFixed(1)}m
@@ -1110,7 +1119,7 @@ export function CommandCenter({
                               {isBench ? `B${idx - 10} · ${p.position}` : p.position}
                             </td>
                             <td>
-                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', tone, `is-${tone}`)} style={fx.isBlank ? undefined : { background: difficultyColor(fx.difficulty), color: '#071a1b' }}>
+                              <span className={classNames('vx-pitch-fix vx-pitch-fix--inline', tone, `is-${tone}`)} style={fx.isBlank ? undefined : difficultyFillStyle(fx.difficulty)}>
                                 {fx.label}
                               </span>
                             </td>
@@ -1312,7 +1321,7 @@ export function CommandCenter({
                 {projMetric === 'goals' ? (mode === 'review' ? 'Review Goals' : 'Projected Goals') : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
               </h3>
             </div>
-            <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2) }, { text: `${Math.round(club.cs * 100)}%` }, { text: `${Math.round(club.win * 100)}%` }]) }]} />
+            <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2), color: projectedGoalsColor(club.goals) }, { text: `${Math.round(club.cs * 100)}%`, color: cleanSheetColor(club.cs) }, { text: `${Math.round(club.win * 100)}%`, color: difficultyColor(1 + 4 * (1 - club.win)) }]) }]} />
             <div className="vx-seg-pills" role="group" aria-label="Club projection metric">
               <button
                 type="button"
@@ -1342,6 +1351,12 @@ export function CommandCenter({
             {sortedClubs.map((club, index) => {
               const val = club[projMetric];
               const pctWidth = Math.max(4, (val / maxClubVal) * 100);
+              const fillStyle =
+                projMetric === 'goals'
+                  ? projectedGoalsFillStyle(club.goals)
+                  : projMetric === 'cs'
+                    ? cleanSheetFillStyle(club.cs)
+                    : difficultyFillStyle(1 + 4 * (1 - club.win));
               return (
                 <div key={club.teamId} className="vx-club-bar-row">
                   <span className="vx-row-idx">{index + 1}.</span>
@@ -1349,10 +1364,10 @@ export function CommandCenter({
                   <strong className="vx-club-short">{club.shortName}</strong>
                   <small className="vx-club-opp">{club.oppLabel}</small>
                   <div className="vx-bar-track" aria-hidden="true">
-                    <span className="vx-bar-fill" style={{ width: `${pctWidth}%` }} />
+                    <span className="vx-bar-fill" style={{ width: `${pctWidth}%`, background: fillStyle.background }} />
                   </div>
-                  <strong className="vx-club-val mono-num">
-                    {projMetric === 'goals' ? val.toFixed(2) : `${(val * 100).toFixed(0)}%`}
+                  <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>
+                    {projMetric === 'goals' ? val.toFixed(2) : `${Math.round(val * 100)}%`}
                   </strong>
                 </div>
               );
@@ -1572,7 +1587,7 @@ export function CommandCenter({
                       const value = overallFor(bestFixture.team.id, cell.event);
                       const tone = fdrPillTone(value ?? 3, value === null);
                       return (
-                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)} style={value === null ? undefined : { background: difficultyColor(value), color: '#071a1b' }}>
+                        <span key={cell.event} className={classNames('float-card__fdr-chip', tone)} style={value === null ? undefined : difficultyFillStyle(value)}>
                           {cell.isBlank ? '—' : cell.label.split(' ')[0]}
                         </span>
                       );
