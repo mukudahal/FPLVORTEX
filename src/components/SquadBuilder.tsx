@@ -23,6 +23,8 @@ import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import { ClubBadge } from './ClubBadge';
+import { TeamIdInput } from './TeamIdInput';
+import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlannerOverview } from './PlannerOverview';
 import { StatCard } from './StatCard';
@@ -33,6 +35,11 @@ interface SquadBuilderProps {
   players: EnrichedPlayer[];
   fixtureRows: FixtureRow[];
   entry?: EntryData | null;
+  teamId: string;
+  recentTeams: RecentTeamEntry[];
+  entryLoading: boolean;
+  entryError: string | null;
+  onLoadTeam: (id: string) => void;
   profile: RiskProfile;
   onProfileChange: (profile: RiskProfile) => void;
   onToast: (message: string, tone?: 'success' | 'error' | 'info') => void;
@@ -55,12 +62,18 @@ export function SquadBuilder({
   snapshot,
   players,
   entry,
+  teamId,
+  recentTeams,
+  entryLoading,
+  entryError,
+  onLoadTeam,
   profile,
   onToast,
   onInspectPlayer,
   onInspectInjury,
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
+  const [draftTeamId, setDraftTeamId] = useState(teamId);
   const [transferPlansOpen, setTransferPlansOpen] = useState(false);
   const [plannerHorizon, setPlannerHorizon] = useState(10);
   const [plannerDecay, setPlannerDecay] = useState(15);
@@ -209,6 +222,22 @@ export function SquadBuilder({
             <Icon size={16} aria-hidden="true" /><span>{label}</span>
           </button>
         ))}
+        <form className="planner-team-link" aria-label="Load official FPL team for planning"
+          aria-busy={entryLoading} noValidate onSubmit={(event) => {
+            event.preventDefault();
+            if (/^[1-9]\d{0,11}$/.test(draftTeamId.trim())) onLoadTeam(draftTeamId.trim());
+          }}>
+          <label htmlFor="planner-fpl-team-id">{entry ? `TEAM #${entry.id}` : 'LOAD YOUR FPL TEAM'}</label>
+          <div className="planner-team-link__controls">
+            <TeamIdInput id="planner-fpl-team-id" value={draftTeamId} onChange={setDraftTeamId}
+              onSelectRecent={onLoadTeam} recentTeams={recentTeams}
+              ariaLabel="FPL Team ID" maskWhenBlurred />
+            <button type="submit" disabled={entryLoading || !/^[1-9]\d{0,11}$/.test(draftTeamId.trim())}>
+              {entryLoading ? 'Loading…' : 'Load team'}
+            </button>
+          </div>
+          {entryError && <span className="planner-team-link__error" role="alert">{entryError}</span>}
+        </form>
       </div>
       {subTab && <div id="planner-section-content" className="planner-section-content">
       {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
