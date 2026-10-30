@@ -38,6 +38,15 @@ BEGIN
     RAISE EXCEPTION 'Anonymous role has data access.';
   END IF;
 
+  IF has_table_privilege('authenticated','public.vortex_scenarios','TRUNCATE')
+     OR has_table_privilege('authenticated','public.vortex_scenarios','REFERENCES')
+     OR has_table_privilege('authenticated','public.vortex_scenarios','TRIGGER')
+     OR has_table_privilege('authenticated','public.vortex_scenario_revisions','TRUNCATE')
+     OR has_table_privilege('authenticated','public.vortex_scenario_revisions','REFERENCES')
+     OR has_table_privilege('authenticated','public.vortex_scenario_revisions','TRIGGER') THEN
+    RAISE EXCEPTION 'Unsafe Supabase default table grants still exist.';
+  END IF;
+
   IF has_table_privilege('authenticated','public.vortex_scenario_revisions','UPDATE')
      OR has_table_privilege('authenticated','public.vortex_scenario_revisions','DELETE')
      OR has_table_privilege('authenticated','public.vortex_admin_data_runs','INSERT')
