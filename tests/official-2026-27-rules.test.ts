@@ -5,6 +5,8 @@ import {
   validateSeasonChipPlan, validateSquad, type SquadCandidate,
 } from '../src/lib/repoModel/seasonRules.ts';
 import { projectedTotal } from '../src/lib/repoModel/scoring.ts';
+import { replay, type PlanCtx } from '../src/lib/repoModel/planEngine.ts';
+import type { PlanPlayer } from '../src/lib/repoModel/planTypes.ts';
 
 /**
  * Official 2026/27 FPL rule regression.
@@ -97,4 +99,40 @@ test('Triple Captain and Bench Boost add precisely one extra captain or bench va
   assert.equal(projectedTotal(40, 6, 12), 46);
   assert.equal(projectedTotal(40, 6, 12, 'tc'), 52);
   assert.equal(projectedTotal(40, 6, 12, 'bb'), 58);
+});
+
+
+test('Free Hit is temporary: next GW restores previous squad, purchase basis and bank', () => {
+  const players = new Map<number, PlanPlayer>();
+  for (let id = 1; id <= 17; id++) {
+    players.set(id, {
+      id, code: id, name: 'P' + id, team: (id % 6) + 1, type: 2,
+      cost: id === 16 ? 40 : id === 17 ? 60 : 50,
+      status: 'a', news: '', chance: 100, owned: 0, form: 0, net: 0,
+      pen: null, fk: null, ck: null, xp: [0, 0, 0],
+    });
+  }
+  const ctx: PlanCtx = {
+    players, gws: [9, 10, 11],
+    baseSquad: Array.from({ length: 15 }, (_, index) => index + 1),
+    bank0: 100, sell0: Object.fromEntries(Array.from({ length: 15 }, (_, i) => [i + 1, 50])),
+    freeNow: 3,
+  };
+  const transfers = {
+    9: [{ out: 1, in: 16 }], // £5.0m -> £4.0m, temporary
+    10: [{ out: 2, in: 17 }], // £5.0m -> £6.0m, permanent
+  };
+  const temporary = replay(ctx, transfers, 9, { 9: 'fh' });
+  assert.equal(temporary.squad.includes(16), true);
+  assert.equal(temporary.squad.includes(1), false);
+  assert.equal(temporary.bank, 110);
+  assert.equal(temporary.ledger[0].hit, 0);
+  assert.equal(temporary.ledger[0].ftAfter, 3);
+  const restored = replay(ctx, transfers, 10, { 9: 'fh' });
+  assert.equal(restored.squad.includes(16), false, 'FH player must not persist into next GW');
+  assert.equal(restored.squad.includes(1), true, 'Original player must be restored');
+  assert.equal(restored.squad.includes(17), true, 'Next GW permanent transfer is kept');
+  assert.equal(restored.bank, 90, 'FH budget gains must be undone before next transfer');
+  assert.equal(restored.buy.has(16), false, 'Temporary purchase price must not persist');
+  assert.equal(restored.ledger[1].ftBefore, 3);
 });
