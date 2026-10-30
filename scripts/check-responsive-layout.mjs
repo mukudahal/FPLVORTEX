@@ -1,6 +1,8 @@
 /** Phase 1 UI acceptance only. Demo/stress fixtures are never production recommendations. */
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import assert from 'node:assert/strict';
 
 const base = process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000';
@@ -13,6 +15,18 @@ const pageErrors = [];
 const observations = [];
 page.on('pageerror', error => pageErrors.push(error.message));
 await mkdir(directory, { recursive: true });
+
+// Obtain the existing archived demo through the actual normaliser in an offline
+// subprocess. Never assume a numeric test ID is an unregistered public manager.
+const { stdout } = await promisify(execFile)(process.execPath, [
+  '--import', 'tsx', '--input-type=module', '-e',
+  "import {getEntry,getSnapshot} from './server/fpl.ts'; const snapshot=await getSnapshot(); const entry=await getEntry('999999'); process.stdout.write('LAYOUT_FIXTURE='+JSON.stringify({snapshot,entry}));",
+], { env: { ...process.env, VORTEX_OFFLINE: '1' }, maxBuffer: 5_000_000 });
+const fixture = JSON.parse(stdout.slice(stdout.lastIndexOf('LAYOUT_FIXTURE=') + 'LAYOUT_FIXTURE='.length));
+assert.equal(fixture.entry.provenance.kind, 'demo');
+assert.equal(fixture.entry.teamName, 'Template XI');
+await context.route('**/api/vortex/snapshot*', route => route.fulfill({ json: fixture.snapshot }));
+await context.route('**/api/vortex/entry/999999*', route => route.fulfill({ json: fixture.entry }));
 
 await context.addInitScript(() => {
   localStorage.setItem('vortex:linkedManagerId', JSON.stringify('999999'));
@@ -94,7 +108,7 @@ try {
   await page.locator('.vx-squad-scorebox__team strong').filter({ hasText: 'Template XI' }).waitFor({ timeout: 60000 });
   for (const width of widths) {
     await page.setViewportSize({ width, height: width < 768 ? 900 : 1080 });
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await inspect(`review-${width}`, { metrics: true });
     await capture(`review-${width}`);
     await capture(`review-summary-${width}`, page.locator('.vx-squad-scorebox'));
@@ -102,7 +116,7 @@ try {
       const columns = await page.locator('.vx-squad-scorebox__metrics').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
       assert.equal(columns, 7, 'Desktop retains the seven-metric row');
     }
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
     const clearance = await page.evaluate(() => {
       const nav = document.querySelector('.mobile-nav'), footer = document.querySelector('.app-footer');
       return !nav || !nav.getClientRects().length || !footer ? true : footer.getBoundingClientRect().bottom <= nav.getBoundingClientRect().top;
@@ -126,9 +140,7 @@ try {
   assert.equal(await page.locator('.vx-review-artwork').evaluate(el => el.open), false);
 
   // Stress values are test-only and explicitly retain demo provenance.
-  const response = await fetch(`${base}/api/vortex/entry/999999`);
-  assert.ok(response.ok);
-  const stressEntry = await response.json();
+  const stressEntry = structuredClone(fixture.entry);
   stressEntry.teamName = 'Layout test — a long manager team name that must wrap safely';
   stressEntry.history.overallRank = 9999999;
   stressEntry.previousOverallRank = 12345678;
@@ -148,7 +160,7 @@ try {
   await page.locator('.vx-planner-overview').waitFor({ timeout: 60000 });
   for (const width of widths) {
     await page.setViewportSize({ width, height: width < 768 ? 900 : 1080 });
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await inspect(`planner-${width}`);
     await capture(`planner-${width}`);
   }
@@ -175,7 +187,7 @@ try {
   await page.getByRole('switch', { name: 'Switch to light theme' }).click();
   for (const width of [375, 1920]) {
     await page.setViewportSize({ width, height: 1080 });
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await inspect(`planner-light-${width}`, { controls: true });
     await capture(`planner-light-${width}`);
   }

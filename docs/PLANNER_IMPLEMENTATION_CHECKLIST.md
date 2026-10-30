@@ -58,6 +58,7 @@ Status describes the audited baseline, not a claim that missing components have 
 - [x] Baseline TypeScript and 119 repository tests pass.
 - [ ] Repair shell header, Review metrics and Planner wrapping in `src/styles.css` only; preserve desktop geometry above 1180px.
 - [ ] Repair existing saved-ID touch/keyboard actions in `TeamIdInput.tsx`; do not change manager data retrieval.
+- [x] Declare existing form handlers as validation owners and provide shared standards/WebKit scrollbar adapters. Strict static UI audit now reports zero findings; runtime acceptance remains separately required.
 - [ ] Run project-owned Chromium checks at 320, 375, 390, 414, 768, 1280 and 1920px; include dark/light, long metric/name content, keyboard disclosures and failure/loading states.
 - [ ] Upload screenshots and machine-readable layout assertions as review evidence.
 - [ ] Verify no forecast, scoring, budget, transfer, chip or simulation source changed in this phase.

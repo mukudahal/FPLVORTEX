@@ -40,6 +40,10 @@
   --topbar-height: 84px;
   --content-max: 1560px;
   --font: 'Inter Variable', Inter, sans-serif;
+  --scrollbar-thumb: rgba(140, 128, 255, 0.28);
+  --scrollbar-thumb-hover: rgba(140, 128, 255, 0.48);
+  --scrollbar-thumb-active: rgba(140, 128, 255, 0.68);
+  --scrollbar-track: transparent;
 }
 
 :root[data-theme="light"] {
@@ -112,8 +116,12 @@ h1, h2, h3, h4, p { margin: 0; }
 ul { margin: 0; padding: 0; }
 ::selection { background: rgba(119, 114, 255, 0.4); color: #fff; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(140, 128, 255, 0.28); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+* { scrollbar-width: auto; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover); }
+::-webkit-scrollbar-thumb:active { background-color: var(--scrollbar-thumb-active); }
+@media (forced-colors: active) { * { scrollbar-color: auto; } }
 :focus-visible { outline: 2px solid var(--brand-mint); outline-offset: 3px; }
 .skip-link { position: fixed; left: 16px; top: -60px; z-index: 999; background: var(--brand-mint); color: #071018; padding: 10px 16px; border-radius: 10px; font-weight: 800; transition: top .2s; }
 .skip-link:focus { top: 16px; }

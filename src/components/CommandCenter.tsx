@@ -930,7 +930,7 @@ export function CommandCenter({
         {/* COLUMN 1: GATED ON TOP FPL TEAM ID BAR -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
         <article className="panel vx-card vx-card--pitch vx-card--review-compact">
           <div className="vx-squad-scorebox">
-            <form className="vx-squad-scorebox__top" onSubmit={handleTeamSubmit} aria-label="Load FPL team and gameweek pitch">
+            <form noValidate className="vx-squad-scorebox__top" onSubmit={handleTeamSubmit} aria-label="Load FPL team and gameweek pitch">
               <label htmlFor="fpl-review-team-id" className="vx-squad-scorebox__id-label">TEAM ID</label>
               <input
                 ref={pitchInputRef}
@@ -1404,7 +1404,7 @@ export function CommandCenter({
         <div className="hero__content hero__content--compact">
 
           {/* PROMINENT TOP FPL TEAM ID CONNECT BAR */}
-          <form className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
+          <form noValidate className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
             <div className="vx-top-id-bar__field">
               <label htmlFor="fpl-team-id-top" className="vx-top-id-bar__label">
                 <UserCheck size={16} />

@@ -34,6 +34,8 @@ This inventory records existing owners, not a claim that all legacy behaviour is
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 | --- | --- | --- | --- | --- |
 | Select/Listbox | Native selects; `TeamIdInput.tsx` for saved managers | Existing Planner controls and owner requirements | Platform-owned native popups; saved-manager combobox | `scripts/check-responsive-layout.mjs` keyboard and geometry checks; full advanced search arrives in Phase 2 |
-| Form | Existing owner handlers in `CommandCenter.tsx`, `LeagueIntel.tsx`, `App.tsx` | Manager-ID validation and new starting-state policy | Existing manager lookup only in Phase 1 | Existing type/unit checks; legacy native-validation ownership is a Phase 2 gap |
-| Scrollbar | `src/styles.css` | Canonical runtime stylesheet | Table/tab internal scroll; natural document scroll | Responsive overflow checks; standards-based theme coverage is an existing audit gap |
+| Form | Existing owner handlers in `CommandCenter.tsx`, `LeagueIntel.tsx`, `App.tsx` | Manager-ID validation and new starting-state policy | Existing manager lookup only in Phase 1 | Existing handlers own validation through `noValidate`; confirmed account state remains a Phase 2 requirement |
+| Scrollbar | `src/styles.css` | Canonical runtime stylesheet | Table/tab internal scroll; natural document scroll | Responsive overflow checks and standards/WebKit theme adapters with forced-colour fallback |
 | Toast | `src/components/Toast.tsx` and `App.tsx` | Existing shared feedback owner | Success, error, info | Existing component integration; no new feedback variant in Phase 1 |
+
+Scrollbar adapters share `--scrollbar-thumb`, hover/active variants and `--scrollbar-track` from the runtime stylesheet. The base thumb and transparent track retain their previous palette; standards-based properties and forced-colours handling extend browser support. Existing lookup forms delegate validation to their existing handlers rather than browser bubbles; their data retrieval and model inputs are not changed.
