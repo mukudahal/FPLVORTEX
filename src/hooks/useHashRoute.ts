@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export const ROUTES = ['command', 'optimizer', 'players', 'fixtures', 'league', 'method'] as const;
+export const ROUTES = ['command', 'review', 'optimizer', 'players', 'fixtures', 'league', 'method'] as const;
 export type RouteId = (typeof ROUTES)[number];
 
 function routeFromHash(): RouteId {

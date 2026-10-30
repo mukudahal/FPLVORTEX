@@ -17,23 +17,18 @@ import {
   Minus,
   Pencil,
   Play,
-  RefreshCw,
   Shield,
-  Sparkles,
   Star,
   Stethoscope,
-  Target,
   TrendingDown,
   TrendingUp,
   Trophy,
   UserCheck,
   Users,
-  WandSparkles,
 } from 'lucide-react';
 import type { PendingSwap } from '../App';
 import type { RouteId } from '../hooks/useHashRoute';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
-import { useNow } from '../hooks/useNow';
 import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
 import { downloadPitchPng } from '../lib/pitchPng';
@@ -49,7 +44,6 @@ import {
 import { applyHistoricalStrengths, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import {
   classNames,
-  countdown,
   formatCompact,
   formatNumber,
   formatPrice,
@@ -89,6 +83,7 @@ interface CommandCenterProps {
   insights: ReturnType<typeof buildInsights>;
   fixtureRows: FixtureRow[];
   initialVideos?: VideoItem[];
+  mode?: 'home' | 'review';
   profile: RiskProfile;
   teamId?: string;
   recentTeams?: RecentTeamEntry[];
@@ -96,9 +91,6 @@ interface CommandCenterProps {
   onTeamIdChange?: (id: string) => void;
   onSelectPlayer?: (query: string) => void;
   onNavigate: (route: RouteId) => void;
-  onOpenPalette: () => void;
-  onRefresh: () => void;
-  refreshing: boolean;
   onPlayVideo?: (video?: VideoItem | null) => void;
   onToast?: (message: string, tone?: 'success' | 'error' | 'info') => void;
 }
@@ -218,17 +210,14 @@ export function CommandCenter({
   insights,
   fixtureRows,
   initialVideos,
+  mode = 'home',
   teamId = '',
   recentTeams = [],
   onRemoveRecentTeam,
   onTeamIdChange,
   onNavigate,
-  onOpenPalette,
-  onRefresh,
-  refreshing,
   onToast = message => window.alert(message),
 }: CommandCenterProps) {
-  const now = useNow(1000);
   const videoTrackRef = useRef<HTMLDivElement | null>(null);
   const topInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -288,9 +277,7 @@ export function CommandCenter({
     return () => controller.abort();
   }, []);
 
-  const nextEvent = snapshot.gameweeks.find((event) => event.id === nextEventId);
   const reviewEventObj = snapshot.gameweeks.find((event) => event.id === reviewEventId);
-  const deadline = useMemo(() => countdown(nextEvent?.deadlineTime), [nextEvent?.deadlineTime, now]);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const teamMap = useMemo(() => new Map(snapshot.teams.map((t) => [t.id, t])), [snapshot.teams]);
 
@@ -823,13 +810,10 @@ export function CommandCenter({
   return (
     <div className="page page--command">
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
-      <section className="hero hero--compact" aria-labelledby="hero-title">
+      {mode === 'review' && (
+      <section className="hero hero--compact" aria-label="Review squad and captain highlights">
         <div className="hero__noise" />
         <div className="hero__content hero__content--compact">
-          <div className="eyebrow">
-            <Sparkles size={14} /> FPL VORTEX · @FPLVORTEX · {snapshot.meta.season}
-          </div>
-          <h2 id="hero-title">Every transfer, captain and fixture — pulled into focus.</h2>
 
           {/* PROMINENT TOP FPL TEAM ID CONNECT BAR */}
           <form className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
@@ -901,33 +885,9 @@ export function CommandCenter({
             </p>
           )}
 
-          <div className="hero__actions hero__actions--compact">
-            <button type="button" className="button button--primary" onClick={() => onNavigate('optimizer')}>
-              <WandSparkles size={17} /> Planner, Chips & Simulation <ArrowRight size={16} />
-            </button>
-            <button type="button" className="button button--ghost" onClick={onOpenPalette}>
-              <Target size={17} /> Search {formatNumber(snapshot.players.length)} players
-            </button>
-          </div>
-
-          <div className="hero__trust hero__trust--premium">
-            <span>
-              <Users size={16} /> <strong>{formatNumber(snapshot.players.length)}</strong> Premier League players
-            </span>
-            <span>
-              <Clock size={16} /> GW{nextEventId} deadline <strong>{deadline.label}</strong>
-            </span>
-            {hasLinkedTeam && entry && (
-              <span>
-                <Trophy size={16} /> <strong>{entry.teamName}</strong> · OR{' '}
-                <strong>{entry.overallRank ? formatNumber(entry.overallRank) : '—'}</strong> ·{' '}
-                <strong>{entry.freeTransfers} FT</strong>
-              </span>
-            )}
-          </div>
         </div>
 
-        {/* PREMIUM RIGHT VISUAL ORB + COLORFUL ARTISTIC HERO SHOWCASE CARDS */}
+        {/* Artwork preserved in the dedicated Review tab */}
         <div className="hero__visual hero__visual--compact hero__visual--artistic">
           <div className="vortex-orb vortex-orb--compact vortex-orb--artistic" aria-hidden="true">
             <span className="vortex-orb__aurora" />
@@ -1036,9 +996,11 @@ export function CommandCenter({
           )}
         </div>
       </section>
+      )}
 
       {/* ==================== GAMEWEEK REVIEW CONTROL BAR ==================== */}
-      <section className="vx-gw-bar" aria-label="Gameweek review and sync controls">
+      {mode === 'review' && (
+      <section className="vx-gw-bar" aria-label="Gameweek review controls">
         <div className="vx-gw-bar__left">
           <span className="vx-gw-bar__dot" />
           <strong>Gameweek Review</strong>
@@ -1091,18 +1053,8 @@ export function CommandCenter({
           </button>
         </div>
 
-        <div className="vx-gw-bar__right">
-          <button
-            type="button"
-            className="button button--subtle button--sm"
-            onClick={onRefresh}
-            disabled={refreshing || entryLoading}
-          >
-            <RefreshCw size={14} className={classNames((refreshing || entryLoading) && 'spin')} />{' '}
-            {refreshing || entryLoading ? 'Syncing…' : 'Sync Official FPL'}
-          </button>
-        </div>
       </section>
+      )}
 
       {/* ==================== 2. UPPER 3-COLUMN VORTEX HUB (IMAGE 1 — STAYS AT TOP!) ==================== */}
       <section className="vx-hub-upper" aria-label="Squad review pitch, fixtures and projected goals">
@@ -1114,9 +1066,9 @@ export function CommandCenter({
                 <img src={BRAND_LION_SRC} alt="FPL VORTEX" width={58} height={58} />
               </div>
               <span className="panel__eyebrow">SQUAD PITCH & GAMEWEEK {reviewEventId} REVIEW</span>
-              <h3>Enter your FPL Team ID above to unlock your Review Pitch</h3>
+              <h3>Open REVIEW to enter your FPL Team ID and unlock your pitch</h3>
               <p>
-                Use the <strong>FPL Team ID</strong> bar at the top of the page (no password needed) to load your
+                Use the <strong>FPL Team ID</strong> field in REVIEW (no password needed) to load your
                 15-player starting XI & bench, Review Gameweek {reviewEventId} points, overall rank, and tap any
                 player for their full FPL VORTEX stats card.
               </p>
@@ -1125,11 +1077,15 @@ export function CommandCenter({
                 type="button"
                 className="button button--primary"
                 onClick={() => {
-                  topInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  topInputRef.current?.focus();
+                  if (topInputRef.current) {
+                    topInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    topInputRef.current.focus();
+                  } else {
+                    onNavigate('review');
+                  }
                 }}
               >
-                <UserCheck size={16} /> Go to Top FPL Team ID Box
+                <UserCheck size={16} /> Open REVIEW · Connect Team
               </button>
 
               <div className="vx-pitch-gate__note">
@@ -1148,7 +1104,10 @@ export function CommandCenter({
                   <button
                     type="button"
                     className="vx-team-id-trigger"
-                    onClick={() => topInputRef.current?.focus()}
+                    onClick={() => {
+                      if (topInputRef.current) topInputRef.current.focus();
+                      else onNavigate('review');
+                    }}
                     title="Change FPL Team ID at top"
                   >
                     <span>Team ID: {entry!.id}</span>

@@ -37,12 +37,13 @@ interface CommandPaletteProps {
 }
 
 const PAGE_ITEMS: Array<{ id: RouteId; label: string; subLabel: string; keywords: string; icon: ReactNode }> = [
-  { id: 'command', label: 'Command Center', subLabel: 'Home · Gameweek review, captain picks, prices, transfers, injuries & videos', keywords: 'dashboard home overview captaincy goals projections clean sheets news updates injury video price market', icon: <Gauge size={17} /> },
-  { id: 'optimizer', label: 'Squad Optimizer', subLabel: 'Team planner · Squad, transfers, chips, wildcard & Monte Carlo', keywords: 'planner squad builder pitch wildcard free hit bench boost triple captain transfer team fdr', icon: <WandSparkles size={17} /> },
-  { id: 'players', label: 'Player Lab', subLabel: 'All FPL players · Search, compare, expected points & player stats', keywords: 'players stats footballers player lab compare positions xpts xg injuries ownership', icon: <Users size={17} /> },
-  { id: 'fixtures', label: 'Fixture Matrix', subLabel: 'All clubs · Fixtures, difficulty ratings, goals & clean-sheet odds', keywords: 'fixture fdr matrix schedule odds win probability clean sheet cs%', icon: <CalendarDays size={17} /> },
-  { id: 'league', label: 'League Intel', subLabel: 'Your FPL team · Manager ID, mini-leagues, rivals & standings', keywords: 'connect team manager id league rivals standings ranking score', icon: <Trophy size={17} /> },
-  { id: 'method', label: 'Model & Automation', subLabel: 'Methods · Data sources, prediction models & automation', keywords: 'methodology model source data provenance calibration forecast automate explanation', icon: <BrainCircuit size={17} /> },
+  { id: 'command', label: 'HOME', subLabel: 'Dashboard · Fixtures, projections, transfers, injuries & videos', keywords: 'dashboard home overview goals projections clean sheets news updates injury video price market', icon: <Gauge size={17} /> },
+  { id: 'review', label: 'REVIEW', subLabel: 'Gameweek review · Team ID, squad, captain picks & saved squad highlights', keywords: 'gameweek deadline review squad connect team id captain pitch saved squad', icon: <CalendarDays size={17} /> },
+  { id: 'optimizer', label: 'PLANNER', subLabel: 'Team planner · Squad, transfers, chips, wildcard & Monte Carlo', keywords: 'planner squad builder pitch wildcard free hit bench boost triple captain transfer team fdr', icon: <WandSparkles size={17} /> },
+  { id: 'players', label: 'PLAYERS', subLabel: 'All FPL players · Search, compare, expected points & player stats', keywords: 'players stats footballers player lab compare positions xpts xg injuries ownership', icon: <Users size={17} /> },
+  { id: 'fixtures', label: 'FIXTURES', subLabel: 'All clubs · Fixtures, difficulty ratings, goals & clean-sheet odds', keywords: 'fixture fdr matrix schedule odds win probability clean sheet cs%', icon: <CalendarDays size={17} /> },
+  { id: 'league', label: 'LEAGUE', subLabel: 'Your FPL team · Manager ID, mini-leagues, rivals & standings', keywords: 'connect team manager id league rivals standings ranking score', icon: <Trophy size={17} /> },
+  { id: 'method', label: 'METHOD', subLabel: 'Methods · Data sources, prediction models & automation', keywords: 'methodology model source data provenance calibration forecast automate explanation', icon: <BrainCircuit size={17} /> },
 ];
 
 export function CommandPalette({ open, query, onQueryChange, onClose, players, snapshot, onNavigate, onSelectPlayer }: CommandPaletteProps) {
