@@ -115,9 +115,9 @@ export function TeamPlanner({ initialTeamId, embedded = false }: {initialTeamId?
     if (!storageKey) return;
     try {
       const raw = window.localStorage.getItem(storageKey);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the saved draft once per team
       if (raw) {
-        setTransfersState(JSON.parse(raw) as TransferMap);
+        const storedTransfers = JSON.parse(raw) as TransferMap;
+        queueMicrotask(() => setTransfersState(storedTransfers));
       } else if (teamId) {
         const older = readLocal(teamId);
         const migrated = older ? older.data.transfers : null;
