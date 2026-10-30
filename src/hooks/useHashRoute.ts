@@ -5,7 +5,7 @@ export type RouteId = (typeof ROUTES)[number];
 
 function routeFromHash(): RouteId {
   const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-  return (ROUTES as readonly string[]).includes(hash) ? (hash as RouteId) : 'command';
+  return (ROUTES as readonly string[]).includes(hash) ? (hash as RouteId) : 'optimizer';
 }
 
 export function useHashRoute(): [RouteId, (route: RouteId) => void] {
