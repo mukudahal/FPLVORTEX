@@ -14,9 +14,6 @@ import {
 } from './lib/api';
 import { buildInsights, enrichPlayers } from './lib/analytics';
 import { buildFixtureMatrix } from './lib/fixtures';
-import { importedProjectionsNotice } from './lib/projectionFreshness';
-import { snapshotFreshnessNotice } from './lib/snapshotFreshness';
-import { auditNormalizedPlayers, playerDataQualityNotice } from './lib/playerDataQuality';
 import {
   RECENT_TEAM_IDS_KEY,
   mergeRecentTeamLists,
@@ -499,9 +496,6 @@ export default function App() {
             })}
           </nav>
 
-          <div className="data-warning" role="status" aria-label="FPL data and imported projection status">
-            <span>{snapshotFreshnessNotice(snapshot.meta)} {importedProjectionsNotice(snapshot.meta.repoData)} {playerDataQualityNotice(snapshot.meta.playerDataQuality ?? auditNormalizedPlayers(snapshot.players, snapshot.teams, snapshot.meta.generatedAt))}</span>
-          </div>
           {error && (
             <div className="data-warning" role="status">
               <span className="pulse-dot is-stale" />
