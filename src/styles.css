@@ -8480,3 +8480,26 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .vx-planner-gws button { min-height: 44px; }
   .vx-planner-columns, .vx-planner-columns > * { min-width: 0; }
 }
+
+/* Three direct Planner choices; each reveals its own results below. */
+.planner-section-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.planner-section-picker .subtab-btn { width: 100%; min-height: 52px; padding: 12px 14px; justify-content: flex-start; text-align: left; border: 1px solid var(--border); background: var(--panel-soft); line-height: 1.35; }
+.planner-section-picker .subtab-btn.is-active { border-color: var(--brand-mint); }
+.planner-section-content { display: grid; gap: 14px; margin-top: 14px; min-width: 0; }
+@media (max-width: 800px) { .planner-section-picker { grid-template-columns: minmax(0, 1fr); } }
+
+/* One pitch and its suggested path, with gameweek choices updating the same view. */
+.planner-recommendations { min-width: 0; align-self: start; display: grid; gap: 12px; }
+.planner-recommendations h3, .planner-recommendations p { margin: 0; }
+.planner-recommendations p { color: var(--text-muted); line-height: 1.5; }
+.planner-suggest { width: 100%; min-height: 48px; justify-content: center; }
+.planner-recommendations__notice { font-size: .8rem; }
+.planner-week-list { display: grid; gap: 8px; }
+.planner-week { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 10px; color: inherit; text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-soft); cursor: pointer; }
+.planner-week.is-active { border-color: var(--brand-mint); }
+.planner-week > small { white-space: nowrap; }
+.planner-move { display: flex; flex-wrap: wrap; gap: 5px 12px; align-items: center; margin: 4px 0; }
+.planner-move__player { display: inline-flex; gap: 5px; align-items: center; min-width: 0; }
+.planner-move__player img { width: 30px; height: 30px; object-fit: contain; }
+@media (max-width: 420px) { .planner-week { grid-template-columns: 42px minmax(0, 1fr); } .planner-week > small { grid-column: 2; } }
+.planner-data-notice { margin: 0; color: var(--text-muted); font-size: .85rem; }

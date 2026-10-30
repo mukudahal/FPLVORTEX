@@ -1,25 +1,18 @@
-import { ForecastTile } from './ForecastTile';
 import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
 import { buildFixturePngTables } from '../lib/fixturePng';
 import { makeFixtureForecasts } from '../lib/fixtureForecast';
 import { useDeferredValue, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
-  AlertTriangle,
-  ArrowUpDown,
   BarChart3,
-  Check,
   CircleDollarSign,
   Copy,
   Crown,
   Dices,
   Gauge,
   Layers,
-  Lock,
-  LockOpen,
   RefreshCw,
   RotateCcw,
-  Search,
   ShieldCheck,
   Sparkles,
   Users,
@@ -29,17 +22,16 @@ import type {
   EnrichedPlayer,
   EntryData,
   FixtureRow,
-  Position,
   RiskProfile,
   Snapshot,
-  SquadPlayer,
   SquadResult,
 } from '../lib/types';
-import { parsePlayerInjuryDetails, toRepoElement } from '../lib/analytics';
+import { toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
-import { evaluateSquad, formationRisk, MAX_PLAYERS_PER_CLUB, optimizeSquad } from '../lib/optimize';
+import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
+import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlannerOverview } from './PlannerOverview';
@@ -58,7 +50,6 @@ interface SquadBuilderProps {
 }
 
 type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
-type PoolSortKey = 'optaXP5Gw' | 'projection' | 'horizon5' | 'easeSum5' | 'price' | 'ownership' | 'totalPoints' | 'name';
 
 const DEFAULT_TEMPLATE_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
 
@@ -76,15 +67,6 @@ const CHIP_META: Record<string, { label: string; badge: string; tone: string }> 
   '3xc': { label: 'Triple Captain', badge: 'TC', tone: 'pink' },
 };
 
-function Constraint({ ok, children }: { ok: boolean; children: ReactNode }) {
-  return (
-    <div className={classNames('constraint', ok && 'is-ok')}>
-      <span>{ok ? <Check size={13} /> : <AlertTriangle size={13} />}</span>
-      {children}
-    </div>
-  );
-}
-
 function buildSquadText(result: SquadResult, label: string): string {
   const lines = [
     `FPL VORTEX (${label}) · ${result.formation} · ${result.projectedPoints.toFixed(1)} projected pts · £${result.cost.toFixed(1)}m`,
@@ -99,101 +81,6 @@ function buildSquadText(result: SquadResult, label: string): string {
   return lines.join('\n');
 }
 
-interface PitchPlayerCardProps {
-  player: SquadPlayer;
-  locked: boolean;
-  selectedForSwap: boolean;
-  onToggleLock: (id: number) => void;
-  onSelectForSwap: (id: number) => void;
-  onInspectPlayer?: (player: EnrichedPlayer) => void;
-  onInspectInjury?: (player: EnrichedPlayer) => void;
-  compact?: boolean;
-}
-
-function PitchPlayerCard({
-  player,
-  locked,
-  selectedForSwap,
-  onToggleLock,
-  onSelectForSwap,
-  onInspectPlayer,
-  onInspectInjury,
-  compact = false,
-}: PitchPlayerCardProps) {
-  const hasFlag = player.status !== 'a' || (player.chance !== null && player.chance < 100);
-  const injuryInfo = hasFlag ? parsePlayerInjuryDetails(player) : null;
-
-  return (
-    <article
-      className={classNames(
-        'pitch-player',
-        compact && 'pitch-player--compact',
-        !player.isStarter && 'is-bench',
-        selectedForSwap && 'is-selected-swap',
-      )}
-      onClick={() => onSelectForSwap(player.id)}
-    >
-      <button
-        type="button"
-        className={classNames('pitch-player__lock', locked && 'is-locked')}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleLock(player.id);
-        }}
-        aria-label={`${locked ? 'Unlock' : 'Lock'} ${player.name}`}
-        title={locked ? 'Unlock player' : 'Lock player in Auto-Build'}
-      >
-        {locked ? <Lock size={11} /> : <LockOpen size={11} />}
-      </button>
-      {injuryInfo && (
-        <button
-          type="button"
-          className={classNames('vx-pitch-flag vx-injury-rect-sign pitch-player__injury-flag', `is-${injuryInfo.severity}`)}
-          data-injury-trigger="1"
-          onClick={(e) => {
-            e.stopPropagation();
-            onInspectInjury?.(player);
-          }}
-          aria-label={`${player.name} injury details: ${injuryInfo.injuryType}`}
-          title={`${injuryInfo.injuryType} · ${injuryInfo.expectedReturn} — Click for full injury report`}
-        >
-          <AlertTriangle size={10} />
-          <span>!</span>
-        </button>
-      )}
-      {player.isCaptain && <span className="pitch-player__badge is-captain" title="Captain"><Crown size={10} /> C</span>}
-      {player.isViceCaptain && <span className="pitch-player__badge is-vice" title="Vice-captain">V</span>}
-      <button
-        type="button"
-        className="pitch-player__avatar-btn"
-        data-player-card-trigger="1"
-        onClick={(e) => {
-          e.stopPropagation();
-          onInspectPlayer?.(player);
-        }}
-        title={`Click ${player.name} image for FPL VORTEX player card`}
-      >
-        <PlayerAvatar
-          code={player.code}
-          teamCode={player.team.code}
-          name={player.name}
-          fullName={player.fullName}
-          teamShort={player.team.shortName}
-          position={player.position}
-          size={compact ? 'sm' : 'md'}
-        />
-      </button>
-      <div className="pitch-player__info">
-        <strong>{player.name}</strong>
-        <small>{player.team.shortName} · {formatPrice(player.price)}</small>
-      </div>
-      <span className="pitch-player__projection">
-        {(player.projection * (player.isCaptain ? 2 : 1)).toFixed(2)}
-      </span>
-    </article>
-  );
-}
-
 export function SquadBuilder({
   snapshot,
   players,
@@ -203,31 +90,24 @@ export function SquadBuilder({
   onProfileChange,
   onToast,
   onInspectPlayer,
-  onInspectInjury,
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
   const [plannerHorizon, setPlannerHorizon] = useState(5);
   const [plannerDecay, setPlannerDecay] = useState(15);
-  const [simulationDraws, setSimulationDraws] = useState(3000);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [simulationDraws, setSimulationDraws] = useState<number>(MC_DRAWS);
+  const [suggestedPlan, setSuggestedPlan] = useState<PlannerSimulationOutput | null>(null);
   const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [squadMode, setSquadMode] = useState<'mySquad' | 'autoOptimal'>('mySquad');
   const [budget, setBudget] = useState(100);
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
-  const [lockedIds, setLockedIds] = useState<number[]>([]);
+  const [lockedIds] = useState<number[]>([]);
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
-  const [selectedOutId, setSelectedOutId] = useState<number | null>(null);
-  const [poolQuery, setPoolQuery] = useState('');
-  const [poolPos, setPoolPos] = useState<'ALL' | Position>('ALL');
-  const [sortKey, setSortKey] = useState<PoolSortKey>('optaXP5Gw');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
   const [, startTransition] = useTransition();
 
   const deferredBudget = useDeferredValue(budget);
-  const deferredQuery = useDeferredValue(poolQuery);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const fixtureByTeam = useMemo(() => new Map(fixtureRows.map((r) => [r.team.id, r])), [fixtureRows]);
   const sharedFixtureForecasts = useMemo(() => makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []), [snapshot, fixtureRows]);
@@ -293,7 +173,7 @@ export function SquadBuilder({
 
   const plannedMoves = squadMode === 'mySquad' ? activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length : 0;
   useEffect(() => {
-    if (!advancedOpen) return;
+    setSuggestedPlan(null);
     setReviewSim(null);
     setSimulationError(null);
     setSimulationPending(false);
@@ -346,124 +226,7 @@ export function SquadBuilder({
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
     return () => { cancelled = true; worker?.terminate(); };
-  }, [advancedOpen, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
-
-  // Clickable automatic column sorting (following `7_skills/fpl-team-planner.skill`)
-  const handleSortBy = (key: PoolSortKey) => {
-    if (sortKey === key) {
-      setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
-    } else {
-      setSortKey(key);
-      setSortDir(key === 'name' ? 'asc' : 'desc');
-    }
-  };
-
-  const selectedOutPlayer = selectedOutId ? playerMap.get(selectedOutId) ?? null : null;
-
-  const sortedPool = useMemo(() => {
-    const needle = deferredQuery.trim().toLowerCase();
-    const activeSet = new Set(activeSquadIds);
-    const effectiveFilterPos = selectedOutPlayer ? selectedOutPlayer.position : poolPos;
-
-    const list = players.filter((p) => {
-      if (activeSet.has(p.id)) return false;
-      if (effectiveFilterPos !== 'ALL' && p.position !== effectiveFilterPos) return false;
-      if (needle) {
-        const hay = `${p.name} ${p.fullName} ${p.team.name} ${p.team.shortName}`.toLowerCase();
-        if (!hay.includes(needle)) return false;
-      }
-      return true;
-    });
-
-    const dir = sortDir === 'asc' ? 1 : -1;
-    list.sort((a, b) => {
-      let cmp = 0;
-      switch (sortKey) {
-        case 'name':
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case 'easeSum5':
-          cmp = a.modelBreakdown.fiveGwEaseScore - b.modelBreakdown.fiveGwEaseScore;
-          break;
-        case 'price':
-          cmp = a.cost - b.cost;
-          break;
-        case 'ownership':
-          cmp = a.ownership - b.ownership;
-          break;
-        case 'totalPoints':
-          cmp = a.totalPoints - b.totalPoints;
-          break;
-        case 'projection':
-          cmp = a.projection - b.projection;
-          break;
-        case 'horizon5':
-          cmp = a.horizon5Projection - b.horizon5Projection;
-          break;
-        case 'optaXP5Gw':
-        default:
-          cmp = a.modelBreakdown.optaXP5Gw - b.modelBreakdown.optaXP5Gw;
-          break;
-      }
-      if (cmp !== 0) return cmp * dir;
-      return b.modelBreakdown.optaXP5Gw - a.modelBreakdown.optaXP5Gw;
-    });
-    return list;
-  }, [activeSquadIds, deferredQuery, players, poolPos, selectedOutPlayer, sortDir, sortKey]);
-
-  const swapInPlayer = (incoming: EnrichedPlayer) => {
-    const currentIds = [...activeSquadIds];
-    let outId = selectedOutId;
-    if (!outId || playerMap.get(outId)?.position !== incoming.position) {
-      // Pick lowest-projected unlocked player in same position
-      const candidatesOut = currentIds
-        .map((id) => playerMap.get(id))
-        .filter((p): p is EnrichedPlayer => p !== undefined && p.position === incoming.position && !lockedIds.includes(p.id))
-        .sort((a, b) => a.projection - b.projection);
-      outId = candidatesOut[0]?.id ?? null;
-    }
-    if (!outId) {
-      onToast(`Unlock a ${incoming.position} first before swapping.`, 'info');
-      return;
-    }
-    const outP = playerMap.get(outId);
-    if (!outP) return;
-
-    // Validate <= 3 per club
-    const clubCountAfter = currentIds
-      .filter((id) => id !== outId)
-      .filter((id) => playerMap.get(id)?.teamId === incoming.teamId).length;
-    if (clubCountAfter >= MAX_PLAYERS_PER_CLUB) {
-      onToast(`Max 3 players from ${incoming.team.shortName} allowed.`, 'error');
-      return;
-    }
-
-    const nextIds = currentIds.map((id) => (id === outId ? incoming.id : id));
-    setSquadMode('mySquad');
-    setCustomSquadIds(nextIds);
-    setSelectedOutId(null);
-    onToast(`Swapped ${outP.name} → ${incoming.name} (${incoming.projection >= outP.projection ? '+' : ''}${(incoming.projection - outP.projection).toFixed(2)} xPts).`, 'success');
-  };
-
-  const applySolverOption = (optionId: 'roll' | 'transfer1' | 'transfer2') => {
-    if (!reviewSim) return;
-    const nextSq =
-      optionId === 'transfer2' ? reviewSim.squad2 : optionId === 'transfer1' ? reviewSim.squad1 : reviewSim.squad0;
-    setSquadMode('mySquad');
-    setCustomSquadIds(nextSq);
-    onToast(`Applied ${optionId === 'roll' ? 'Roll (0 moves)' : optionId === 'transfer1' ? 'Optimal 1-FT move' : 'Optimal 2-move plan'} to pitch.`, 'success');
-  };
-
-  const toggleLock = (id: number) => {
-    setLockedIds((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= 8) {
-        onToast('You can lock up to 8 players at once.', 'info');
-        return current;
-      }
-      return [...current, id];
-    });
-  };
+  }, [activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
 
   const copySquad = async () => {
     try {
@@ -476,21 +239,6 @@ export function SquadBuilder({
     }
   };
 
-  const clubCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const player of result.squad) {
-      counts.set(player.team.shortName, (counts.get(player.team.shortName) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [result.squad]);
-
-  const maxPerClubUsed = Math.max(0, ...clubCounts.map(([, count]) => count));
-  const startersByPosition = {
-    GKP: result.starters.filter((player) => player.position === 'GKP'),
-    DEF: result.starters.filter((player) => player.position === 'DEF'),
-    MID: result.starters.filter((player) => player.position === 'MID'),
-    FWD: result.starters.filter((player) => player.position === 'FWD'),
-  };
   const transfersUsedCount = activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
   const hitPoints = squadMode === 'mySquad' ? Math.max(0, transfersUsedCount - freeTransfers) * 4 : 0;
 
@@ -506,53 +254,30 @@ export function SquadBuilder({
 
   return (
     <div className="page page--optimizer">
-      <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} onToast={onToast} horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} decay={plannerDecay} onDecayChange={setPlannerDecay} />
-      <details className="vx-planner-legacy" onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
-        <summary>Advanced tools · transfers & chips</summary>
-      {/* Sub-navigation bar: Team Planner | Chip Strategy (FPLReview style) | Monte Carlo (3,000 Draws) */}
+      <div className="planner-section-picker" role="group" aria-label="Planner sections">
+        {([
+          { id: 'planner', label: '1. Team Planner & Solver', icon: Layers },
+          { id: 'chips', label: '2. Chip Strategy & EV Matrix', icon: BarChart3 },
+          { id: 'montecarlo', label: `3. Monte Carlo (${simulationDraws.toLocaleString()} Draws)`, icon: Dices },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button key={id} type="button" className={classNames('subtab-btn', subTab === id && 'is-active')}
+            aria-expanded={subTab === id} aria-controls={subTab === id ? "planner-section-content" : undefined}
+            onClick={() => setSubTab(id)}>
+            <Icon size={16} aria-hidden="true" /><span>{label}</span>
+          </button>
+        ))}
+      </div>
+      {subTab && <div id="planner-section-content" className="planner-section-content">
       <section className="panel optimizer-header-panel">
         <div className="save-table-bar"><SaveTableButton getTables={optimizerTables} filename="fpl-vortex-optimizer-tables.png" onError={message => onToast(message, 'error')} /></div>
         <div className="optimizer-top-row">
-          <div className="subtab-bar" role="tablist" aria-label="Optimizer & simulation modes">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={subTab === 'planner'}
-              className={classNames('subtab-btn', subTab === 'planner' && 'is-active')}
-              onClick={() => setSubTab('planner')}
-            >
-              <Layers size={16} />
-              <span>1. Team Planner & Solver</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={subTab === 'chips'}
-              className={classNames('subtab-btn', subTab === 'chips' && 'is-active')}
-              onClick={() => setSubTab('chips')}
-            >
-              <BarChart3 size={16} />
-              <span>2. Chip Strategy & EV Matrix</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={subTab === 'montecarlo'}
-              className={classNames('subtab-btn', subTab === 'montecarlo' && 'is-active')}
-              onClick={() => setSubTab('montecarlo')}
-            >
-              <Dices size={16} />
-              <span>3. Monte Carlo ({simulationDraws.toLocaleString()} Draws)</span>
-            </button>
-          </div>
-
           <div className="optimizer-mode-pills">
             <button
               type="button"
               className={classNames('button', squadMode === 'mySquad' ? 'button--primary' : 'button--ghost')}
               onClick={() => setSquadMode('mySquad')}
             >
-              <Users size={15} /> {entry?.teamName ?? 'My Squad'}
+              <Users size={15} /> {entry?.teamName ?? 'Template squad'}
             </button>
             <button
               type="button"
@@ -567,7 +292,6 @@ export function SquadBuilder({
                 className="button button--ghost"
                 onClick={() => {
                   setCustomSquadIds(baseEntrySquadIds);
-                  setSelectedOutId(null);
                   onToast('Reset to base GW squad.', 'info');
                 }}
               >
@@ -600,8 +324,8 @@ export function SquadBuilder({
           <div className="ft-budget-controls">
             <label className="ft-select-box">
               <span>Simulation draws</span>
-              <select value={simulationDraws} onChange={event => setSimulationDraws(Number(event.target.value))} aria-label="Simulation draws">
-                {[3000, 10000].map(draws => <option key={draws} value={draws}>{draws.toLocaleString()} draws</option>)}
+              <select value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))} aria-label="Simulation draws">
+                <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
               </select>
             </label>
             <label className="ft-select-box">
@@ -637,7 +361,7 @@ export function SquadBuilder({
         <div className="panel__header"><div><span className="panel__eyebrow">{simulationPending ? 'RUNNING SIMULATION' : 'SIMULATION UNAVAILABLE'}</span><h3>{simulationPending ? 'Comparing legal transfer and chip paths…' : simulationError}</h3></div></div>
       </section>}
 
-      <section className="stat-grid stat-grid--optimizer">
+      {subTab !== 'planner' && <section className="stat-grid stat-grid--optimizer">
         <StatCard
           label={`GW${snapshot.meta.nextEventId} XI Projection`}
           value={`${(result.projectedPoints - hitPoints).toFixed(1)} pts`}
@@ -664,7 +388,7 @@ export function SquadBuilder({
           value={
             reviewSim?.recommendedChipDecision.bestFutureChip
               ? `${reviewSim.recommendedChipDecision.action} · ${CHIP_META[reviewSim.recommendedChipDecision.bestFutureChip]?.badge ?? ''} GW${reviewSim.recommendedChipDecision.bestFutureGw}`
-              : 'HOLD CHIPS'
+              : reviewSim ? 'HOLD CHIPS' : '—'
           }
           detail={
             reviewSim
@@ -674,327 +398,14 @@ export function SquadBuilder({
           icon={<ShieldCheck size={18} />}
           tone="blue"
         />
-      </section>
+      </section>}
 
       {/* ==================== TAB 1: TEAM PLANNER & TRANSFER SOLVER ==================== */}
+      {subTab === 'planner' && (!entry || squadMode === 'autoOptimal') && <p className="planner-data-notice">{squadMode === 'autoOptimal' ? 'Auto-built squad scenario — this is not your FPL team.' : 'Template squad scenario — load your FPL Team ID on Home for a personal starting squad.'} Verify bank and free transfers before acting.</p>}
       {subTab === 'planner' && (
-        <>
-          {reviewSim && (
-            <section className="option-cards-grid" aria-label="Roll vs transfer solver comparison">
-              {reviewSim.options.map((opt) => (
-                <article
-                  key={opt.id}
-                  className={classNames('panel option-card', opt.winner && 'option-card--winner')}
-                >
-                  <div className="option-card__head">
-                    <span className={classNames('badge', opt.winner ? 'badge--mint' : 'badge--violet')}>
-                      {opt.winner ? '★ Engine Winner' : opt.action}
-                    </span>
-                    <strong>{opt.nextGwXPts.toFixed(2)} GW xPts</strong>
-                  </div>
-                  <h4>{opt.label}</h4>
-                  <p>{opt.why}</p>
-                  <div className="option-card__foot">
-                    <span>{reviewSim.gws.length}-GW Horizon: <strong>{opt.horizonXPts.toFixed(1)} xPts</strong></span>
-                    <button
-                      type="button"
-                      className="button button--ghost button--sm"
-                      disabled={simulationPending || (opt.id !== 'roll' && opt.transfers.length === 0)}
-                      onClick={() => applySolverOption(opt.id as 'roll' | 'transfer1' | 'transfer2')}
-                    >
-                      Load on pitch
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </section>
-          )}
-
-          <div className="planner-workspace">
-            {/* Left column (14/24): Sortable Player Pool Table (`7_skills/fpl-team-planner.skill`) */}
-            <section className="panel planner-pool-panel" aria-label="Suggested transfer targets">
-              <div className="panel__header">
-                <div>
-                  <span className="panel__eyebrow">
-                    SUGGESTED TARGETS · {selectedOutPlayer ? `REPLACING ${selectedOutPlayer.name.toUpperCase()} (${selectedOutPlayer.position})` : 'ALL POSITIONS'}
-                  </span>
-                  <h3>Click any column heading to sort ({sortedPool.length} available)</h3>
-                </div>
-                {selectedOutPlayer && (
-                  <button type="button" className="button button--ghost button--sm" onClick={() => setSelectedOutId(null)}>
-                    Clear {selectedOutPlayer.name} filter
-                  </button>
-                )}
-              </div>
-
-              <div className="planner-pool-filters">
-                <label className="search-input search-input--compact">
-                  <Search size={15} />
-                  <input
-                    type="search"
-                    value={poolQuery}
-                    onChange={(e) => setPoolQuery(e.target.value)}
-                    placeholder="Filter player or club…"
-                  />
-                </label>
-                <div className="pos-pills">
-                  {(['ALL', 'GKP', 'DEF', 'MID', 'FWD'] as const).map((pos) => (
-                    <button
-                      key={pos}
-                      type="button"
-                      className={classNames(
-                        'pos-pill',
-                        (selectedOutPlayer ? selectedOutPlayer.position === pos : poolPos === pos) && 'is-active',
-                      )}
-                      onClick={() => {
-                        setSelectedOutId(null);
-                        setPoolPos(pos);
-                      }}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="planner-table-scroll">
-                <table className="planner-pool-table">
-                  <thead>
-                    <tr>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('name')}>
-                          Player <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('easeSum5')}>
-                          Next 5 Fixtures <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('price')}>
-                          £ <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('ownership')}>
-                          EO% <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('totalPoints')}>
-                          Pts <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('projection')}>
-                          GW xP <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>
-                        <button type="button" className="sortable-th" onClick={() => handleSortBy('optaXP5Gw')}>
-                          Opta xP <ArrowUpDown size={11} />
-                        </button>
-                      </th>
-                      <th>Move</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPool.slice(0, 35).map((player) => {
-                      const fxRow = fixtureByTeam.get(player.teamId);
-                      const poolFlag =
-                        player.status !== 'a' || (player.chance !== null && player.chance < 100)
-                          ? parsePlayerInjuryDetails(player)
-                          : null;
-                      return (
-                        <tr
-                          key={player.id}
-                          className="vx-clickable-row"
-                          data-player-card-trigger="1"
-                          onClick={() => onInspectPlayer?.(player)}
-                        >
-                          <td>
-                            <div className="player-cell player-cell--avatar">
-                              <PlayerAvatar
-                                code={player.code}
-                                teamCode={player.team.code}
-                                name={player.name}
-                                fullName={player.fullName}
-                                teamShort={player.team.shortName}
-                                position={player.position}
-                                size="sm"
-                              />
-                              <div>
-                                <div className="vx-name-with-flag">
-                                  <strong>{player.name}</strong>
-                                  {poolFlag && (
-                                    <button
-                                      type="button"
-                                      className={classNames('vx-injury-rect vx-injury-rect--sm', `is-${poolFlag.severity}`)}
-                                      data-injury-trigger="1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onInspectInjury?.(player);
-                                      }}
-                                    >
-                                      <AlertTriangle size={10} />
-                                      <span>{poolFlag.badgeText}</span>
-                                    </button>
-                                  )}
-                                </div>
-                                <small>{player.team.shortName} · {player.position}</small>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="fixchip-row">
-                              {(fxRow?.cells ?? []).map(cell => {
-                                const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? [];
-                                return items.length ? items.map(item => <ForecastTile key={item.fixture.id} item={item} mode="difficulty" showLabels />) : <span key={cell.event} className="optimizer-fixture-blank" title={`GW${cell.event}: ${cell.label}`}>—</span>;
-                              })}
-                            </div>
-                          </td>
-                          <td className="mono-num">{formatPrice(player.price)}</td>
-                          <td className="mono-num">{formatPercent(player.ownership)}</td>
-                          <td className="mono-num">{player.totalPoints}</td>
-                          <td><strong className="score-pill is-strong">{player.projection.toFixed(2)}</strong></td>
-                          <td><strong className="score-pill is-elite">{player.modelBreakdown.optaXP5Gw.toFixed(1)}</strong></td>
-                          <td>
-                            <button
-                              type="button"
-                              className="button button--subtle button--xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                swapInPlayer(player);
-                              }}
-                            >
-                              Swap in
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* Right column (10/24): Resized Interactive Pitch & Constraints */}
-            <section className="pitch-panel planner-pitch-panel" aria-label="Squad pitch view">
-              <div className="pitch-panel__header">
-                <div>
-                  <span className="panel__eyebrow">
-                    {squadMode === 'mySquad'
-                      ? entry
-                        ? `${entry.teamName.toUpperCase()} PITCH`
-                        : 'TEMPLATE XV PITCH'
-                      : 'OPTIMAL XV PITCH'}{' '}
-                    · {result.formation}
-                  </span>
-                  <h3>Click any player to filter replacements</h3>
-                </div>
-                <div className="pitch-panel__badges">
-                  <span className="badge badge--mint">C: {result.captain.name}</span>
-                  <span className="badge badge--violet">VC: {result.viceCaptain.name}</span>
-                </div>
-              </div>
-
-              <div className="pitch pitch--planner">
-                <div className="pitch__halfway" />
-                <div className="pitch__circle" />
-                <div className="pitch__box pitch__box--top" />
-                <div className="pitch__box pitch__box--bottom" />
-
-                <div className="pitch__row pitch__row--gkp">
-                  {startersByPosition.GKP.map((player) => (
-                    <PitchPlayerCard
-                      key={player.id}
-                      player={player}
-                      locked={lockedIds.includes(player.id)}
-                      selectedForSwap={selectedOutId === player.id}
-                      onToggleLock={toggleLock}
-                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
-                      onInspectPlayer={onInspectPlayer}
-                      onInspectInjury={onInspectInjury}
-                    />
-                  ))}
-                </div>
-                <div className="pitch__row">
-                  {startersByPosition.DEF.map((player) => (
-                    <PitchPlayerCard
-                      key={player.id}
-                      player={player}
-                      locked={lockedIds.includes(player.id)}
-                      selectedForSwap={selectedOutId === player.id}
-                      onToggleLock={toggleLock}
-                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
-                      onInspectPlayer={onInspectPlayer}
-                      onInspectInjury={onInspectInjury}
-                    />
-                  ))}
-                </div>
-                <div className="pitch__row">
-                  {startersByPosition.MID.map((player) => (
-                    <PitchPlayerCard
-                      key={player.id}
-                      player={player}
-                      locked={lockedIds.includes(player.id)}
-                      selectedForSwap={selectedOutId === player.id}
-                      onToggleLock={toggleLock}
-                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
-                      onInspectPlayer={onInspectPlayer}
-                      onInspectInjury={onInspectInjury}
-                    />
-                  ))}
-                </div>
-                <div className="pitch__row pitch__row--fwd">
-                  {startersByPosition.FWD.map((player) => (
-                    <PitchPlayerCard
-                      key={player.id}
-                      player={player}
-                      locked={lockedIds.includes(player.id)}
-                      selectedForSwap={selectedOutId === player.id}
-                      onToggleLock={toggleLock}
-                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
-                      onInspectPlayer={onInspectPlayer}
-                      onInspectInjury={onInspectInjury}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="bench">
-                <div className="bench__header">
-                  <span>BENCH ORDER</span>
-                  <small>Auto-sub priority · click image for card or card to swap</small>
-                </div>
-                <div className="bench__players">
-                  {result.bench.map((player) => (
-                    <PitchPlayerCard
-                      key={player.id}
-                      player={player}
-                      locked={lockedIds.includes(player.id)}
-                      selectedForSwap={selectedOutId === player.id}
-                      onToggleLock={toggleLock}
-                      onSelectForSwap={(id) => setSelectedOutId((cur) => (cur === id ? null : id))}
-                      onInspectPlayer={onInspectPlayer}
-                      onInspectInjury={onInspectInjury}
-                      compact
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="constraint-list constraint-list--inline">
-                <Constraint ok={result.squad.length === 15}>15 players (2-5-5-3)</Constraint>
-                <Constraint ok={bankTenths >= 0}>
-                  {bankTenths >= 0 ? `Within budget (${formatPrice(bankTenths / 10)} ITB)` : `Over budget by ${formatPrice(Math.abs(bankTenths) / 10)}`}
-                </Constraint>
-                <Constraint ok={maxPerClubUsed <= MAX_PLAYERS_PER_CLUB}>Max {maxPerClubUsed}/3 per club</Constraint>
-              </div>
-            </section>
-          </div>
-        </>
+        <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} players={players} onInspectPlayer={onInspectPlayer}
+          horizon={plannerHorizon} onHorizonChange={setPlannerHorizon} decay={plannerDecay} onDecayChange={setPlannerDecay}
+          plan={suggestedPlan} onSuggest={() => setSuggestedPlan(reviewSim)} canSuggest={!!reviewSim && !simulationPending} />
       )}
 
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
@@ -1320,7 +731,7 @@ export function SquadBuilder({
           </div>
         </div>
       )}
-      </details>
+      </div>}
     </div>
   );
 }
