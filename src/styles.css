@@ -7513,3 +7513,140 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .topbar__global-search input {font-size:9px !important;}
   .topbar__global-search input::placeholder {font-size:9px;}
 }
+
+/* 2026-10-29: Premium two-column Review. All other modules retain their layout. */
+.page--review .vx-gw-bar {
+  min-height: 40px; margin: 3px 0 8px; padding: 5px 12px;
+  gap: 8px; border-radius: 11px; flex-wrap: nowrap;
+}
+.page--review .vx-gw-bar__left {gap: 7px;flex-wrap: nowrap;}
+.page--review .vx-gw-bar__left > strong {font-size: 12px;}
+.page--review .vx-gw-stepper {gap: 4px;}
+.page--review .vx-gw-stepper__btn {width: 28px;height: 28px;border-radius: 7px;}
+.page--review .vx-gw-stepper__select-wrap select {font-size: 11px;padding: 5px 27px 5px 8px;}
+.page--review .vx-hub-upper {
+  display:grid; grid-template-columns:minmax(0,1.14fr) minmax(0,.86fr);
+  gap:9px; margin-top:0; align-items:start;
+}
+.page--review .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;}
+.page--review .vx-hub-upper > .vx-fixture-rail {
+  display:flex;flex-direction:column;gap:8px;min-width:0;grid-column:2;grid-row:1;
+}
+.page--review .vx-hub-upper > .vx-card--goals {grid-column:1 / -1;}
+.page--review .vx-card.vx-card--review-compact,
+.page--review .vx-fixture-rail > .vx-card {
+  padding:7px; border-radius:12px; min-width:0;
+  background:linear-gradient(145deg, rgba(18,25,51,.96), rgba(13,17,37,.96));
+  border:1px solid rgba(132,118,246,.4);
+}
+.page--review .vx-squad-scorebox {margin-bottom:4px;}
+.page--review .vx-squad-scorebox__top {gap:4px;padding:3px 6px;min-height:35px;}
+.page--review .vx-squad-scorebox__top input {width:78px;min-width:62px;}
+.page--review .vx-squad-scorebox__enter {min-width:59px;padding-inline:5px;}
+.page--review .vx-squad-scorebox__team {min-width:50px;max-width:170px;}
+.page--review .vx-squad-scorebox__team strong {font-size:11px;}
+.vx-manager-total {
+  display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;white-space:nowrap;
+  min-height:27px;padding:3px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.4);
+  font-size:9px;font-weight:850;letter-spacing:.02em;
+  box-shadow:0 1px 9px rgba(0,0,0,.17);
+}
+.vx-manager-total strong {font-size:13px;font-weight:950;line-height:1;font-variant-numeric:tabular-nums;}
+.vx-manager-total.is-up {background:linear-gradient(110deg,#4cf5a2,#b5ffcd);color:#062d1c;border-color:#9cf7bb;}
+.vx-manager-total.is-down {background:linear-gradient(110deg,#d62648,#fb5573);color:#fff;border-color:#ff8ca1;}
+.vx-manager-total.is-same,.vx-manager-total.is-unknown {background:#1c2442;color:#ffdda0;border-color:#a99050;}
+.page--review .vx-squad-scorebox__metrics {min-height:45px;padding:2px;}
+.page--review .vx-score-metric {gap:2px;padding:2px 1px;}
+.page--review .vx-score-metric span {font-size:8px;}
+.page--review .vx-score-metric strong {font-size:clamp(11px,1vw,16px);}
+.page--review .vx-card--pitch .vx-soccer-pitch {
+  flex:none; width:100%; margin:0; border-radius:9px; border-color:rgba(91,245,214,.55);
+}
+.page--review .vx-pitch-top-boards {min-height:35px;padding:4px 7px;gap:3px;}
+.page--review .vx-pitch-board {padding:3px 7px;font-size:10px;gap:4px;}
+.page--review .vx-pitch-goal-net {width:44px;height:10px;flex:0 0 44px;}
+.vx-pitch-board__right {display:flex;justify-content:flex-end;align-items:center;gap:6px;min-width:0;}
+.vx-pitch-board__right .vx-pitch-board {font-weight:900;min-width:0;}
+.vx-pitch-board__right .vx-pitch-board span {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vx-pitch-save-control {display:flex;align-items:center;flex:0 0 auto;}
+.vx-pitch-save-control .save-table-button {
+  display:inline-flex;align-items:center;gap:4px;
+  height:27px;min-height:27px;padding:4px 9px;border-radius:7px;
+  color:#fff;border:1px solid #ff829c;
+  background:linear-gradient(115deg,#bd173d,#e73d59);
+  box-shadow:0 3px 8px rgba(132,0,30,.28);
+  font-size:11px;font-weight:950;letter-spacing:.03em;
+}
+.vx-pitch-save-control .save-table-button:hover:not(:disabled) {filter:brightness(1.15);}
+.page--review .vx-pitch-formation {padding:6px 5px 6px;gap:5px;}
+.page--review .vx-pitch-player {width:76px;max-width:23%;}
+.page--review .vx-pitch-portrait.player-avatar {width:52px;height:52px;}
+.page--review .vx-pitch-player--bench .vx-pitch-portrait.player-avatar {width:43px;height:43px;}
+.page--review .vx-pitch-xp, .page--review .vx-pitch-pos-label {font-size:9px;padding:1px 5px;}
+.page--review .vx-pitch-name {font-size:10px;padding:2px 3px;line-height:1.15;}
+.page--review .vx-pitch-fix {font-size:9px;padding:2px 3px;line-height:1.15;}
+.page--review .vx-pitch-armband {width:18px;height:18px;font-size:10px;}
+.page--review .vx-pitch-bench-head {padding:4px 7px 1px;font-size:9px;}
+.page--review .vx-pitch-bench-head strong {font-size:10px;}
+.page--review .vx-pitch-bench {gap:4px;padding:3px 5px 6px;}
+.page--review .vx-pitch-bench-meta {font-size:8px;margin-top:2px;}
+.page--review .vx-fixture-rail .vx-card__header {margin-bottom:6px;gap:5px;}
+.page--review .vx-fixture-rail .vx-card__header h3 {font-size:13px;}
+.page--review .vx-fixture-rail .vx-card__sub {font-size:9px;line-height:1.35;}
+.page--review .vx-fixture-rail .vx-inline-link {font-size:10px;}
+.page--review .vx-fixture-rail .vx-card__scroll {
+  max-height:none;overflow:visible;flex:none;padding:0;
+}
+.page--review .vx-fixture-group {gap:4px;margin-bottom:7px;}
+.page--review .vx-fixture-date-banner {
+  padding:4px 7px;font-size:10px;border-radius:7px;
+  color:#f5f8ff;letter-spacing:.035em;
+}
+.page--review .vx-match-item {padding:5px 7px;border-radius:8px;}
+.page--review .vx-match-row {gap:5px;}
+.page--review .vx-match-pill {font-size:10px;padding:3px 6px;}
+.page--review .vx-match-team strong {font-size:10px;}
+.page--review .vx-match-team svg {width:12px;height:12px;}
+.page--review .vx-xg-split-bar {margin-top:3px;height:3px;}
+.page--review .vx-xg-labels {margin-top:2px;font-size:9.5px;}
+.page--review .vx-xg-labels span {font-size:9px;}
+.vx-fixture-zone {
+  display:block;color:#8bf9e0;font-size:9px;font-weight:800;
+  margin-top:2px;letter-spacing:.025em;
+}
+.page--review .vx-card--next-fixtures {border-color:rgba(248,198,107,.65)!important;}
+.page--review .vx-card--next-fixtures .vx-card__header {margin-bottom:5px;}
+.vx-next-fixture-date {display:flex;flex-direction:column;gap:4px;margin-bottom:7px;}
+.vx-next-fixture-date:last-child {margin-bottom:0;}
+.vx-next-fixture-match {
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;gap:5px;padding:4px 6px;min-height:33px;
+  border:1px solid rgba(121,128,204,.32);border-radius:7px;
+  background:linear-gradient(120deg,rgba(39,51,79,.7),rgba(28,30,56,.75));
+}
+.vx-next-fixture-team {display:flex;align-items:center;gap:3px;min-width:0;}
+.vx-next-fixture-team.is-home {justify-content:flex-end;text-align:right;}
+.vx-next-fixture-team strong {color:var(--text-primary);font-size:10px;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vx-next-fixture-team .club-badge {flex-shrink:0;}
+.vx-next-fixture-time {
+  white-space:nowrap;color:#0a1724;border:1px solid rgba(255,219,131,.8);
+  background:linear-gradient(110deg,#ffda89,#ffe5a9);
+  font-variant-numeric:tabular-nums;font-weight:950;font-size:10px;padding:3px 6px;border-radius:7px;
+}
+.vx-next-fixture-empty {color:var(--text-secondary);font-size:11px;}
+@media(max-width:1020px) {
+  .page--review .vx-hub-upper {grid-template-columns:1fr;gap:9px;}
+  .page--review .vx-hub-upper > .vx-card--pitch,
+  .page--review .vx-hub-upper > .vx-fixture-rail {grid-column:1;grid-row:auto;}
+  .page--review .vx-hub-upper > .vx-card--goals {grid-column:1;}
+}
+@media(max-width:620px) {
+  .page--review .vx-squad-scorebox__top {flex-wrap:wrap;}
+  .page--review .vx-squad-scorebox__team {flex:1 1 88px;}
+  .page--review .vx-score-metric span {font-size:7px;}
+  .page--review .vx-score-metric strong {font-size:10px;}
+  .page--review .vx-pitch-board__right {gap:3px;}
+  .page--review .vx-pitch-board {font-size:8px;padding:2px 4px;}
+  .page--review .vx-pitch-save-control .save-table-button {font-size:9px;padding:3px 6px;}
+  .page--review .vx-pitch-goal-net {display:none;}
+}

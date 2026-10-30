@@ -284,6 +284,13 @@ export function CommandCenter({
   const previousOverallRank = entry?.previousOverallRank && entry.previousOverallRank > 0
     ? entry.previousOverallRank : null;
   const movement = rankMovement(currentOverallRank, previousOverallRank);
+  const managerTotalPoints = entry?.overallPoints ?? entry?.history.totalPoints ?? null;
+  // The visitor's browser timezone follows its configured local time (including DST).
+  const viewerTimeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
+  const viewerZoneLabel = useMemo(() => (
+    new Intl.DateTimeFormat('en-US', { timeZone: viewerTimeZone, timeZoneName: 'short' })
+      .formatToParts(new Date()).find((part) => part.type === 'timeZoneName')?.value || viewerTimeZone
+  ), [viewerTimeZone]);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const teamMap = useMemo(() => new Map(snapshot.teams.map((t) => [t.id, t])), [snapshot.teams]);
 
@@ -491,6 +498,7 @@ export function CommandCenter({
             weekday: 'long',
             day: 'numeric',
             month: 'long',
+            timeZone: viewerTimeZone,
           }).format(new Date(m.fixture.kickoffTime))
         : 'Kickoff TBC';
       const last = groups[groups.length - 1];
@@ -501,7 +509,21 @@ export function CommandCenter({
       }
     }
     return groups;
-  }, [gwMatchesAndClubs.matches]);
+  }, [gwMatchesAndClubs.matches, viewerTimeZone]);
+
+  const nextFixtureGroups = useMemo(() => {
+    const fixtures = snapshot.fixtures.filter((fx) => fx.event === nextEventId)
+      .sort((a, b) => (a.kickoffTime || '9999').localeCompare(b.kickoffTime || '9999'));
+    const groups: Array<{ dateLabel: string; fixtures: typeof fixtures }> = [];
+    const fmt = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: viewerTimeZone });
+    for (const fixture of fixtures) {
+      const dateLabel = fixture.kickoffTime ? fmt.format(new Date(fixture.kickoffTime)) : 'Kickoff TBC';
+      const group = groups[groups.length - 1];
+      if (group?.dateLabel === dateLabel) group.fixtures.push(fixture);
+      else groups.push({ dateLabel, fixtures: [fixture] });
+    }
+    return groups;
+  }, [snapshot.fixtures, nextEventId, viewerTimeZone]);
 
   const sortedClubs = useMemo(() => {
     return [...gwMatchesAndClubs.clubs].sort((a, b) => b[projMetric] - a[projMetric]);
@@ -814,7 +836,7 @@ export function CommandCenter({
           };
 
   return (
-    <div className="page page--command">
+    <div className={classNames('page page--command', mode === 'review' && 'page--review')}>
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
       {/* ==================== GAMEWEEK REVIEW CONTROL BAR ==================== */}
       {mode === 'review' && (
@@ -902,6 +924,14 @@ export function CommandCenter({
                   <small>ARCHIVED / DEMO DATA · NOT LIVE</small>
                 )}
               </div>
+              {managerTotalPoints !== null && (
+                <span
+                  className={classNames('vx-manager-total', `is-${movement.direction}`)}
+                  title={movement.direction === 'up' ? 'Overall rank improved since previous GW' : movement.direction === 'down' ? 'Overall rank declined since previous GW' : 'Official total FPL points; rank direction not yet verified'}
+                >
+                  <span>TOTAL</span> <strong>{formatNumber(managerTotalPoints)}</strong> <span>PTS</span>
+                </span>
+              )}
               <div className="vx-view-toggle" role="group" aria-label="Squad view">
                 <button type="button" className={classNames(squadView === 'pitch' && 'is-active')} onClick={() => setSquadView('pitch')} title="Pitch view" aria-label="Pitch view"><LayoutGrid size={15} /></button>
                 <button type="button" className={classNames(squadView === 'table' && 'is-active')} onClick={() => setSquadView('table')} title="Table view" aria-label="Table view"><List size={15} /></button>
@@ -927,7 +957,6 @@ export function CommandCenter({
             <>
               {squadView === 'pitch' ? (
                 <>
-                <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-pitch-gw${selectedGw}.png`} onSave={savePitch} onError={message => onToast(message, 'error')} /></div>
                 <div className="vx-soccer-pitch" ref={homePitchRef}>
                   <div className="vx-pitch-top-boards">
                     <div className="vx-pitch-board">
@@ -935,14 +964,19 @@ export function CommandCenter({
                       <span>FPL VORTEX</span>
                     </div>
                     <div className="vx-pitch-goal-net" aria-hidden="true" />
-                    <a
-                      href="https://www.youtube.com/@Fplvortex"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="vx-pitch-board vx-pitch-board--link"
-                    >
-                      <span>@FPLVORTEX · GW {selectedGw}</span>
-                    </a>
+                    <div className="vx-pitch-board__right">
+                      <a
+                        href="https://www.youtube.com/@Fplvortex"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="vx-pitch-board vx-pitch-board--link"
+                      >
+                        <span>@FPLVORTEX · GW {selectedGw}</span>
+                      </a>
+                      <div className="vx-pitch-save-control" data-pitch-capture-exclude="true">
+                        <SaveTableButton filename={`fpl-vortex-pitch-gw${selectedGw}.png`} onSave={savePitch} onError={message => onToast(message, 'error')} />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="vx-pitch-turf">
@@ -1068,7 +1102,8 @@ export function CommandCenter({
           )}
         </article>
 
-        {/* COLUMN 2: GW FIXTURES CARD */}
+        {/* Right rail: current GW results + date-grouped next GW kickoffs. */}
+        <div className="vx-fixture-rail">
         <article className="panel vx-card vx-card--fixtures">
           <header className="vx-card__header">
             <div>
@@ -1080,6 +1115,7 @@ export function CommandCenter({
                     ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
                     : 'VORTEX model · no verified bookmaker prices'}
               </small>
+              <span className="vx-fixture-zone">Match dates / kickoff: {viewerZoneLabel} · local</span>
             </div>
             <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
               All matches <ArrowRight size={14} />
@@ -1100,7 +1136,8 @@ export function CommandCenter({
                         ? new Intl.DateTimeFormat('en-GB', {
                             hour: '2-digit',
                             minute: '2-digit',
-                            hour12: false,
+                            hour12: true,
+                            timeZone: viewerTimeZone,
                           }).format(new Date(m.fixture.kickoffTime))
                         : 'TBC';
                   const isExpanded = expandedFixtureId === m.fixture.id;
@@ -1180,6 +1217,53 @@ export function CommandCenter({
             ))}
           </div>
         </article>
+
+        {mode === 'review' && (
+          <article className="panel vx-card vx-card--next-fixtures" aria-label={`Next gameweek ${nextEventId} fixtures in local time`}>
+            <header className="vx-card__header">
+              <div>
+                <h3>NEXT GW{nextEventId} · FIXTURES</h3>
+                <small className="vx-card__sub">Kickoff in {viewerZoneLabel} · your local time</small>
+              </div>
+              <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
+                All fixtures <ArrowRight size={14} />
+              </button>
+            </header>
+            {nextFixtureGroups.length === 0 ? (
+              <p className="vx-next-fixture-empty">Official FPL has not published GW{nextEventId} fixture times yet.</p>
+            ) : nextFixtureGroups.map((group) => (
+              <div className="vx-next-fixture-date" key={group.dateLabel}>
+                <div className="vx-fixture-date-banner">{group.dateLabel}</div>
+                {group.fixtures.map((fixture) => {
+                  const home = teamMap.get(fixture.teamH);
+                  const away = teamMap.get(fixture.teamA);
+                  const kickoff = fixture.kickoffTime
+                    ? new Intl.DateTimeFormat('en-US', {
+                        hour: 'numeric', minute: '2-digit', hour12: true,
+                        timeZone: viewerTimeZone,
+                      }).format(new Date(fixture.kickoffTime))
+                    : 'TBC';
+                  return (
+                    <div className="vx-next-fixture-match" key={fixture.id}>
+                      <span className="vx-next-fixture-team is-home" title={home?.name ?? ''}>
+                        <strong>{home?.name ?? 'Home TBC'}</strong>
+                        {home && <ClubBadge teamCode={home.code} shortName={home.shortName} teamName={home.name} size="sm" />}
+                      </span>
+                      <time className="vx-next-fixture-time" dateTime={fixture.kickoffTime ?? undefined}>
+                        {kickoff}
+                      </time>
+                      <span className="vx-next-fixture-team is-away" title={away?.name ?? ''}>
+                        {away && <ClubBadge teamCode={away.code} shortName={away.shortName} teamName={away.name} size="sm" />}
+                        <strong>{away?.name ?? 'Away TBC'}</strong>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </article>
+        )}
+        </div>
 
         {/* COLUMN 3: GW PROJECTED GOALS / CS% / WIN% CARD */}
         <article className="panel vx-card vx-card--goals">
