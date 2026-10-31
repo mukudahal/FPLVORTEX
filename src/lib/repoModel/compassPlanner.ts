@@ -11,6 +11,7 @@ import { computePlayerXPts, computePositionPriors } from './xpts';
 import { runMonteCarlo, mixSeed, type McPath, type McPlayerGw } from './monteCarlo';
 import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
 import { expectedFixturePoints } from './playerModel';
+import { projectionFreshness } from '../projectionFreshness';
 import { validateSeasonChipPlan, validateSquad, type SeasonChipUse } from './seasonRules';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -31,6 +32,8 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   chipHistoryKnown?: boolean;
   /** Snapshot provenance is shown in assumptions, never upgraded to live. */
   dataNotice?: string;
+  /** CSV filename date, not a verified provider timestamp. Undefined means no dated import is identified. */
+  importedProjectionFileDate?: string | null;
 }
 
 export interface StrategyWeek {
@@ -120,6 +123,18 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   const warnings: string[] = [];
   if (!knownHistory) warnings.push('Chip history is unavailable. Refresh the team to enable chip recommendations.');
   if (input.dataNotice) warnings.push(input.dataNotice);
+  // Do not optimize on a historical imported mean as though it were current.
+  // A missing/invalid date for an explicitly identified import fails closed to
+  // the independently computed fixture model; undated synthetic test scenarios
+  // remain supported when no imported file is identified.
+  const importedAge = input.importedProjectionFileDate === undefined
+    ? null : projectionFreshness(input.importedProjectionFileDate);
+  const allowImportedMeans = importedAge === null || importedAge.status === 'recent';
+  if (!allowImportedMeans) {
+    warnings.push(importedAge.status === 'stale'
+      ? `Imported xPts/xMins dated ${input.importedProjectionFileDate} (${importedAge.ageDays} days old) are excluded from transfer and chip recommendations. Using local fixture-based VORTEX estimates; these have not been historically calibrated.`
+      : 'Imported xPts/xMins have no verifiable recent date and are excluded from transfer and chip recommendations. Using local fixture-based VORTEX estimates; these have not been historically calibrated.');
+  }
   if (manualPlan) warnings.push(`Using saved plan “${manualPlan.name}”. Its manual transfers, lineup, captain and chip selections are constraints. Auto suggestions do not change your saved plan.`);
   warnings.push('Forecasts assume the published fixture schedule and fixed player prices; future postponements, injuries and price changes are unknown.');
 
@@ -137,7 +152,8 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
       models.set(`${p.id}:${gw}`, bd);
       const imported = p.gwProjections?.[gw];
       // Fixture blanks override imported projections. Zero is a legitimate imported forecast.
-      values[p.id] = bd.fixtureCount === 0 ? 0 : Number.isFinite(imported) ? Math.max(0, imported!) : Math.max(0, bd.xPts);
+      if (!Number.isFinite(bd.xPts)) throw new RangeError(`Non-finite GW${gw} forecast for player ${p.id}; refresh the data before optimizing.`);
+      values[p.id] = bd.fixtureCount === 0 ? 0 : allowImportedMeans && Number.isFinite(imported) ? Math.max(0, imported!) : Math.max(0, bd.xPts);
     }
     forecastByGw[gw] = values;
   }
