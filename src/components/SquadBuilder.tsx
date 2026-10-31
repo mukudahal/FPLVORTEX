@@ -272,6 +272,7 @@ export function SquadBuilder({
   }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths]);
 
   const runExactTransferComparison = async () => {
+    let controller: AbortController | null = null;
     if (!reviewSim) { setExactError('Run the planner forecast first.'); return; }
     if (selectedPlan || plannedMoves > 0) {
       setExactError('Exact no-chip comparison cannot overwrite saved or unsaved manual transfers. Use the chip-aware planner for those commitments.');
@@ -288,7 +289,7 @@ export function SquadBuilder({
         })),
       });
       exactAbortRef.current?.abort();
-      const controller = new AbortController();
+      controller = new AbortController();
       exactAbortRef.current = controller;
       setExactPending(true);
       setExactError(null);
@@ -303,10 +304,10 @@ export function SquadBuilder({
         throw new Error('The server returned an invalid MILP response.');
       if (!controller.signal.aborted) setExactResult(data);
     } catch (error) {
-      if (exactAbortRef.current?.signal.aborted) return;
+      if (controller?.signal.aborted) return; // Discard stale errors after inputs changed.
       setExactError(error instanceof Error ? error.message : 'Exact Solver is unavailable.');
     } finally {
-      if (exactAbortRef.current && !exactAbortRef.current.signal.aborted) setExactPending(false);
+      if (controller && exactAbortRef.current === controller && !controller.signal.aborted) setExactPending(false);
     }
   };
 
