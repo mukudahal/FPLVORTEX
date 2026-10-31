@@ -10,7 +10,7 @@ import { createPlanningHorizon } from '../lib/dataProvenance';
 import { buildPublicDataHealth } from '../lib/publicDataHealth';
 import { useNow } from '../hooks/useNow';
 import { makeFixtureForecasts, overallDifficulty, difficultyFillStyle } from '../lib/fixtureForecast';
-import type { EnrichedPlayer, Snapshot } from '../lib/types';
+import type { EnrichedPlayer, Snapshot, SquadPlayer } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
 
@@ -34,7 +34,7 @@ export function PlannerOverview({ snapshot, squad, allPlayers, savedPlan, onInsp
   const model = useMemo(() => ({ fixtures: toRepoFixtures(snapshot.fixtures), teams: new Map(toRepoTeams(snapshot.teams).map(team => [team.id, team])), priors: computePositionPriors(snapshot.players.map(toRepoElement)), completed: Math.max(1, snapshot.gameweeks.filter(gw => gw.finished).length) }), [snapshot]);
   const savedWeekProjections = useMemo(() => {
     if (!savedPlan || !allPlayers) return null;
-    const weeks = new Map<number, { starters: EnrichedPlayer[]; bench: EnrichedPlayer[]; total: number }>();
+    const weeks = new Map<number, { starters: SquadPlayer[]; bench: SquadPlayer[]; total: number }>();
     try {
       if (savedPlan.startGw !== snapshot.meta.nextEventId) throw new RangeError('Saved plan starts in a different Gameweek.');
       const cache = buildVortexPlannerCache(snapshot, allPlayers);
@@ -52,10 +52,10 @@ export function PlannerOverview({ snapshot, squad, allPlayers, savedPlan, onInsp
         const viceId = savedPlan.captains[gw]?.vice ?? lu.vice;
         if (!captainId || !viceId || captainId === viceId || !lu.starters.includes(captainId) || !lu.starters.includes(viceId))
           throw new RangeError(`GW${gw} saved captaincy conflicts with the selected starting XI.`);
-        const asPlayer = (id: number) => {
+        const asPlayer = (id: number): SquadPlayer => {
           const p = playersById.get(id);
           if (!p) throw new RangeError(`Saved player #${id} is missing from the current official snapshot.`);
-          return { ...p, projection: xpAt(ctx, id, idx), isCaptain: id === captainId, isViceCaptain: id === viceId };
+          return { ...p, projection: xpAt(ctx, id, idx), isStarter: lu.starters.includes(id), isCaptain: id === captainId, isViceCaptain: id === viceId, multiplier: id === captainId ? (savedPlan.chips[gw] === 'tc' ? 3 : 2) : 1 };
         };
         const chip = savedPlan.chips[gw];
         const captainBonus = xpAt(ctx, captainId, idx) * (chip === 'tc' ? 2 : 1);
