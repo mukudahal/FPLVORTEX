@@ -122,7 +122,7 @@ def solve(request: SolveRequest) -> dict:
             bench = [pid for pid in squad if pid not in starters]
             bench.sort(key=lambda pid: (players[by_id[pid]].position != 'GK', -players[by_id[pid]].xpts_by_gw[gw], pid))
             vice = max((pid for pid in starters if pid != captain), key=lambda pid: (players[by_id[pid]].xpts_by_gw[gw], -pid))
-            ft, count = next((f,k) for f in range(1,6) for k in range(s.max_transfers_per_gw+1) if x[idx['z',t,f,k]] > .5)
+            ft, count = next((f,k) for f in range(0,6) for k in range(s.max_transfers_per_gw+1) if x[idx['z',t,f,k]] > .5)
             hit = max(0,count-ft)*4
             points = sum(players[by_id[pid]].xpts_by_gw[gw] for pid in starters) + players[by_id[captain]].xpts_by_gw[gw] - hit
             raw += points; discount += s.time_decay**t * points
