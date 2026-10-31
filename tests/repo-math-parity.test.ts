@@ -492,11 +492,14 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(stylesRaw, /\.medium\s*\{/);
   assert.match(stylesRaw, /\.hard\s*\{/);
 
-  // Fix 1 verification: Official FPL player prices are never overwritten by stale GW7 CSV prices (e.g. Tavernier = £6.4m)
+  // Fix 1 verification: a refreshed official snapshot, not a dated CSV, owns player prices.
+  // Do not pin a player's transfer price: official FPL prices change throughout the season.
   const tavernier = players.find((p) => p.id === 68 || p.name === 'Tavernier');
   assert.ok(tavernier, 'Expected Tavernier in enriched players');
-  assert.equal(tavernier.price, 6.4);
-  assert.equal(tavernier.cost, 64);
+  const officialTavernier = snapshot.players.find((p) => p.id === tavernier.id);
+  assert.ok(officialTavernier, 'Expected the same player in the normalized official snapshot');
+  assert.equal(tavernier.price, officialTavernier.price);
+  assert.equal(tavernier.cost, officialTavernier.cost);
 
   // Fix 4 verification: Clicking rectangular injury sign renders full Injury & Return Report
   const injuredSample =
