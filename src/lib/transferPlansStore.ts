@@ -184,7 +184,7 @@ export function sanitizeStoredPlan(raw: unknown): StoredTransferPlan | null {
     lineups,
     captains,
     chips,
-    lockedPlayerIds: isIntArray(obj.lockedPlayerIds) ? [...new Set(obj.lockedPlayerIds)].filter(id => obj.baseSquad.includes(id)) : [],
+    lockedPlayerIds: isIntArray(obj.lockedPlayerIds) ? [...new Set(obj.lockedPlayerIds)].filter(id => (obj.baseSquad as number[]).includes(id)) : [],
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : nowIso,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : nowIso,
   };
