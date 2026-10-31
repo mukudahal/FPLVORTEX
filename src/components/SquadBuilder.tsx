@@ -424,6 +424,11 @@ export function SquadBuilder({
             <div className="panel__header"><div><span className="panel__eyebrow">TRANSFER + CHIP PLAN</span><h3>{reviewSim.strategy.schedule.length ? reviewSim.strategy.schedule.map(use => `${({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[use.chip]} GW${use.gw}`).join(' · ') : 'Keep chips available and re-evaluate before the deadline'}</h3></div><span className="badge badge--mint">{reviewSim.strategy.expectedPoints.toFixed(1)} model xPts</span></div>
             <p>GW{reviewSim.strategy.horizon[0]}–GW{reviewSim.strategy.horizon.at(-1)} · {reviewSim.strategy.gain >= 0 ? '+' : ''}{reviewSim.strategy.gain.toFixed(1)} undiscounted xPts versus the no-chip transfer path. Weeks below show legal budgets, hits and Free Hit restoration. This is an approximate plan; rank gains are not guaranteed.</p>
             <p>Marginal banked FT value next GW: +{reviewSim.bankedTransferValueNextGw.toFixed(2)} estimated model points (legal shortlisted transfers only). This affects Solver search pruning, not your projected or simulated points.</p>
+            {reviewSim.strategy.chipTiming && <div role="group" aria-label="Chip timing comparison: play now versus save">
+              <p><strong>{({ wc: 'Wildcard', fh: 'Free Hit', bb: 'Bench Boost', tc: 'Triple Captain' } as const)[reviewSim.strategy.chipTiming.chip]} — GW{reviewSim.nextGw} versus saving the chip</strong></p>
+              <p>Play now: {reviewSim.strategy.chipTiming.playNow.expectedPoints.toFixed(2)} undiscounted xPts; save this GW: {reviewSim.strategy.chipTiming.defer.expectedPoints.toFixed(2)} undiscounted xPts. Search-weighted difference (play minus save): {reviewSim.strategy.chipTiming.gainPlayNow >= 0 ? '+' : ''}{reviewSim.strategy.chipTiming.gainPlayNow.toFixed(2)} model points.</p>
+              <p>{reviewSim.strategy.chipTiming.preferred === 'PLAY_NOW' ? 'Play-now path ranks higher' : 'Save-now path ranks as high or higher'} under current assumptions. Saving permits using this chip later. Both options include legal transfers, other chips, hits and the same full planning period; they are heuristic comparisons, not guaranteed gains or automatic transfers.</p>
+            </div>
           </section>
           <section className="chip-cards-grid" aria-label="Half-season chip valuations">
             {reviewSim.chipSimulations.map((chip) => {
