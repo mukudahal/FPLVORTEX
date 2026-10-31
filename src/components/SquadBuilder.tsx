@@ -115,6 +115,15 @@ export function SquadBuilder({
     setSavedPlans(plans);
     selectPlan(preferredId && plans.some(plan => plan.id === preferredId) ? preferredId : plans[0]?.id ?? '__live__');
   };
+  const changeFreeTransfers = (next: number) => {
+    if (!selectedPlan) { setFreeTransfers(next); return; }
+    // A deliberate FT control change updates the active saved plan's own starting state.
+    const update = { ...selectedPlan, baseFreeTransfers: next };
+    const result = upsertTransferPlan(savedPlans, update);
+    if (!result.ok) { onToast(result.error, 'error'); return; }
+    setSavedPlans(result.plans);
+    if (typeof window !== 'undefined') writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
+  };
   const togglePlayerLock = (playerId: number) => {
     const next = lockedIds.includes(playerId) ? lockedIds.filter(id => id !== playerId) : [...lockedIds, playerId];
     if (!selectedPlan) { setAdHocLockedIds(next); return; }
@@ -319,7 +328,7 @@ export function SquadBuilder({
           <label>Simulation draws<select aria-label="Simulation draws" value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))}>
             <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
           </select></label>
-          <label>Free transfers<select aria-label="Free transfers available" value={selectedPlan?.baseFreeTransfers ?? freeTransfers} disabled={Boolean(selectedPlan)} onChange={e => setFreeTransfers(Number(e.target.value))}>
+          <label>Free transfers<select aria-label="Free transfers available" value={selectedPlan?.baseFreeTransfers ?? freeTransfers} onChange={e => changeFreeTransfers(Number(e.target.value))}>
             {[0, 1, 2, 3, 4, 5].map(ft => <option key={ft} value={ft}>{ft} FT</option>)}
           </select></label>
           <label>Planning horizon<select aria-label="Planning horizon" value={plannerHorizon} onChange={e => setPlannerHorizon(Number(e.target.value))}>
