@@ -218,3 +218,31 @@ test('paired reference compares chips against transfers, including hits and tie/
   assert.equal(result.paths.find(p => p.id === 'transfers')!.vsReference, undefined);
 });
 
+
+
+test('dated imported xPts are used only while recent; stale or unverifiable data falls back to local model', () => {
+  const input = scenario(38, false);
+  const target = input.players.find(p => p.id === 8)!;
+  target.gwProjections = { 38: 83 };
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const recent = runPlannerSimulation({ ...input, importedProjectionFileDate: todayUtc });
+  assert.equal(recent.forecastByGw[38][target.id], 83, 'recent imported forecast is respected');
+
+  const localOnly = runPlannerSimulation({
+    ...input, players: input.players.map(p => p.id === target.id ? { ...p, gwProjections: undefined } : p),
+  });
+  const stale = runPlannerSimulation({ ...input, importedProjectionFileDate: '2000-01-01' });
+  const unknown = runPlannerSimulation({ ...input, importedProjectionFileDate: null });
+  const future = runPlannerSimulation({ ...input, importedProjectionFileDate: '2999-01-01' });
+  for (const result of [stale, unknown, future]) {
+    assert.equal(result.forecastByGw[38][target.id], localOnly.forecastByGw[38][target.id]);
+    assert.ok(result.warnings.some(message => message.includes('excluded from transfer and chip recommendations')));
+    assert.ok(result.monteCarlo.paths.every(path => Number.isFinite(path.mean)));
+  }
+  assert.ok(stale.warnings.some(message => message.includes('2000-01-01')));
+  assert.notEqual(localOnly.forecastByGw[38][target.id], 83);
+
+  target.gwProjections = { 38: 0 };
+  const verifiedZero = runPlannerSimulation({ ...input, importedProjectionFileDate: todayUtc });
+  assert.equal(verifiedZero.forecastByGw[38][target.id], 0, 'a recent explicit zero must never be treated as missing');
+});
