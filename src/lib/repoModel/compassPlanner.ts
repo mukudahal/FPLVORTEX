@@ -51,6 +51,16 @@ export interface StrategyWeek {
   netXPts: number;
 }
 
+/** Complete, feasible continuations for playing the joint planner's nominated chip now vs retaining it. */
+export interface ChipTimingComparison {
+  chip: PlanningChip;
+  playNow: { planningScore: number; expectedPoints: number; schedule: SeasonChipUse[]; weeks: StrategyWeek[] };
+  defer: { planningScore: number; expectedPoints: number; schedule: SeasonChipUse[]; weeks: StrategyWeek[] };
+  /** Positive means playing now has the higher discounted planning objective. */
+  gainPlayNow: number;
+  preferred: 'PLAY_NOW' | 'DEFER';
+}
+
 export interface PlannerSimulationOutput extends FplReviewSimOutput {
   /** Already-computed best no-chip transfer path; chips are saved. */
   transferWeeks: StrategyWeek[];
@@ -63,6 +73,7 @@ export interface PlannerSimulationOutput extends FplReviewSimOutput {
     planningScore: number;
     horizon: number[];
     search: string;
+    chipTiming: ChipTimingComparison | null;
   };
   forecastByGw: Record<number, Record<number, number>>;
   warnings: string[];
@@ -404,7 +415,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     return { squad: chip === 'fh' ? state.squad : action.squad, bank: chip === 'fh' ? state.bank : action.bank, sell: chip === 'fh' ? state.sell : action.sell, ft: ftAfter, uses, weeks: [...state.weeks, week], score: state.score + Math.pow(decay, gw - nextGw) * week.netXPts, total: state.total + week.netXPts };
   };
   const searchGws = allGws;
-  const search = (withChips: boolean, firstMoves?: number): SearchState => {
+  const search = (withChips: boolean, firstMoves?: number, firstChipPolicy?: { chip: PlanningChip; mode: 'play' | 'defer' }): SearchState => {
     let beam: SearchState[] = [initial];
     for (const gw of searchGws) {
       const expanded: SearchState[] = [];
@@ -415,6 +426,8 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
         const actions = (committed ? [committed] : actionsAt(state, gw))
           .filter(a => gw !== nextGw || firstMoves === undefined || a.moves.length === firstMoves);
         const fixedChip = manualPlan?.chips[gw];
+        const chipPolicy = gw === nextGw ? firstChipPolicy : undefined;
+        const allowedFirstChip = (chip: PlanningChip) => !chipPolicy || (chipPolicy.mode === 'play' ? chip === chipPolicy.chip : chip !== chipPolicy.chip);
         const add = (action: Action, chip?: PlanningChip) => {
           try { expanded.push(advance(state, action, gw, chip)); }
           catch (error) {
@@ -424,17 +437,17 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
           }
         };
         if (fixedChip) {
-          if (!available(state, gw, fixedChip)) continue;
+          if (!available(state, gw, fixedChip) || !allowedFirstChip(fixedChip)) continue;
           for (const action of actions) add(action, fixedChip);
           continue;
         }
         for (const action of actions) {
-          add(action);
+          if (chipPolicy?.mode !== 'play') add(action);
           if (withChips) for (const chip of ['bb', 'tc'] as const)
-            if (available(state, gw, chip)) add(action, chip);
+            if (allowedFirstChip(chip) && available(state, gw, chip)) add(action, chip);
         }
         if (withChips && !hasCommittedMoves) for (const chip of ['wc', 'fh'] as const)
-          if (available(state, gw, chip)) {
+          if (allowedFirstChip(chip) && available(state, gw, chip)) {
             const built = rebuild(state, gw, chip);
             if (built) add(built, chip);
           }
@@ -497,7 +510,31 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   if (!baseline) throw new RangeError('No legal transfer plan found.');
   const searched = knownHistory ? search(true) : baseline;
   // The available no-chip plan is always a candidate: chips cannot force a worse recommendation.
-  const best = searched.score > baseline.score + 0.01 ? searched : baseline;
+  let best = searched.score > baseline.score + 0.01 ? searched : baseline;
+  let chipTiming: ChipTimingComparison | null = null;
+  const nominatedChip = best.uses.find(use => use.gw <= halfEnd)?.chip;
+  // Compare TWO complete, feasible paths with the same inputs. One commits the
+  // nominated chip in the current GW; the other forbids only that chip in the
+  // current GW but permits it later. Other chips and transfers stay jointly
+  // optimized. Never override a saved manager chip or transfer commitment.
+  if (knownHistory && !manualPlan && nominatedChip && available(initial, nextGw, nominatedChip)) {
+    const now = search(true, undefined, { chip: nominatedChip, mode: 'play' });
+    const later = search(true, undefined, { chip: nominatedChip, mode: 'defer' });
+    if (now.weeks.length === searchGws.length && now.weeks[0]?.chip === nominatedChip &&
+        later.weeks.length === searchGws.length && later.weeks[0]?.chip !== nominatedChip) {
+      if (now.score > best.score + 0.01) best = now;
+      if (later.score > best.score + 0.01) best = later;
+      const planView = (state: SearchState) => ({
+        planningScore: r2(state.score), expectedPoints: r2(state.total),
+        schedule: state.uses, weeks: state.weeks,
+      });
+      chipTiming = {
+        chip: nominatedChip, playNow: planView(now), defer: planView(later),
+        gainPlayNow: r2(now.score - later.score),
+        preferred: now.score > later.score + 0.01 ? 'PLAY_NOW' : 'DEFER',
+      };
+    }
+  }
   const holdWeeks = allGws.map(gw => ({ gw, lineup: lineup(initial.squad, gw) }));
   const moveDetail = (m: { outId: number; inId: number }): OptimizerTransferMove => ({
     ...m, sellingPrice: initialSell[m.outId], buyPrice: byId.get(m.inId)!.cost,
@@ -583,6 +620,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     'Simulation reports unmodified forecast points. Auto-Build risk profiles change squad selection; ownership is not a measured field-score or rank distribution.',
     'Imported means use an aggregate distribution when they differ from fixture-component forecasts. Tail probabilities remain uncalibrated.',
     'The next-GW free-transfer option is a model-based marginal hit-avoidance estimate from shortlisted legal moves. It is used only in beam pruning, not added to xPts or simulation totals.',
+    'Chip timing comparison: a bounded heuristic compares complete legal play-now and defer-now continuation paths for the joint planner\'s nominated chip. Reported planning-score differences are discounted model values, not guaranteed points or globally optimal schedules.',
     ...(manualPlan ? ['The saved-manual Monte Carlo path honours committed transfers, chips, captaincy, formation, selling prices and transfer hits. Solver and chip alternatives remain unapplied.', 'Saved-plan and optimized-path comparisons use common paired gameweek samples; the model has not been historically calibrated.'] : []),
     ...warnings,
   );
@@ -606,7 +644,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     sourcePlan: manualPlan ? { id: manualPlan.id, name: manualPlan.name,
       committedGameweeks: new Set([...Object.keys(manualPlan.transfers), ...Object.keys(manualPlan.lineups), ...Object.keys(manualPlan.captains), ...Object.keys(manualPlan.chips)]).size,
       lockedPlayers: locked.size } : undefined,
-    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds.' },
+    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, chipTiming, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds; optional full-path chip-now vs defer search.' },
   };
 }
 
