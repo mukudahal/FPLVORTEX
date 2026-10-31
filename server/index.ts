@@ -382,6 +382,61 @@ app.post(
   }),
 );
 
+/**
+ * Optional exact-formulation NO-CHIP MILP comparison (not the chip-aware
+ * heuristics and not a manager action). A single bounded subprocess prevents
+ * abuse of the public service's CPU/memory; requests cannot mutate plans.
+ */
+let exactMilpBusy = false;
+app.post('/api/vortex/solver/exact', rateLimit(3, 60_000), asyncRoute(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (process.env.VORTEX_EXACT_SOLVER_ENABLED === '0') {
+    res.status(503).json({ error: 'Exact no-chip comparison is disabled on this deployment.' });
+    return;
+  }
+  const payload = req.body;
+  if (!payload || !Array.isArray(payload.players) || payload.players.length < 15 || payload.players.length > 60 ||
+      !payload.settings || payload.settings.time_limit_seconds > 10 ||
+      payload.settings.solutions_requested !== 1 || payload.settings.max_transfers_per_gw > 2 ||
+      payload.settings.end_gw - payload.settings.start_gw >= 10) {
+    res.status(422).json({ error: 'Invalid or unsupported bounded MILP comparison.' });
+    return;
+  }
+  const input = JSON.stringify(payload);
+  if (Buffer.byteLength(input) > 120_000) {
+    res.status(413).json({ error: 'MILP input exceeds the permitted limit.' });
+    return;
+  }
+  if (exactMilpBusy) {
+    res.status(429).json({ error: 'Exact Solver is occupied. Retry after this calculation finishes.' });
+    return;
+  }
+  exactMilpBusy = true;
+  try {
+    const python = process.env.VORTEX_EXACT_PYTHON || 'python3';
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = execFile(python, ['-m', 'fpl_solver.cli'], {
+        cwd: root, timeout: 12_000, maxBuffer: 2 * 1024 * 1024,
+        env: { ...process.env, OPENBLAS_NUM_THREADS: '1', OMP_NUM_THREADS: '1' },
+      }, (err, stdout) => err ? reject(err) : resolve(stdout));
+      child.stdin?.on('error', () => { /* Child error is handled by execFile callback. */ });
+      child.stdin?.end(input);
+    });
+    const response = JSON.parse(output) as { plans?: unknown[] };
+    if (!Array.isArray(response.plans)) throw new Error('Malformed MILP result');
+    res.json(response);
+  } catch (error) {
+    const e = error as NodeJS.ErrnoException;
+    const status = e.code === 'ETIMEDOUT' ? 504 : e.code === 'ENOENT' ? 503 : (e as Error).message?.includes('code 2') ? 422 : 503;
+    res.status(status).json({ error: status === 504
+      ? 'The exact MILP exceeded its time limit. No optimality is claimed.'
+      : status === 422 ? 'Invalid no-chip MILP inputs. Review prices and forecasts.'
+      : 'Exact Solver is unavailable. The existing Planner remains unchanged.' });
+  } finally {
+    exactMilpBusy = false;
+  }
+}));
+
 app.get('/api/fpl/bootstrap', asyncRoute(async (_req, res) => {
   const snapshot = await getSnapshot();
   res.set('Cache-Control', 'public, max-age=60');
