@@ -69,6 +69,7 @@ interface TransferPlanModalProps {
   onInspectPlayer?: (player: EnrichedPlayer) => void;
   onInspectInjury?: (player: EnrichedPlayer) => void;
   initialActivePlan?: StoredTransferPlan | null;
+  onPlansChanged?: (plans: StoredTransferPlan[], selectedPlanId: string | null) => void;
   initialPendingOutIds?: number[];
   initialPosFilter?: PositionFilter;
 }
@@ -114,6 +115,7 @@ export function TransferPlanModal({
   onInspectPlayer,
   onInspectInjury,
   initialActivePlan = null,
+  onPlansChanged,
   initialPendingOutIds = [],
   initialPosFilter = 'ALL',
 }: TransferPlanModalProps) {
@@ -214,9 +216,9 @@ export function TransferPlanModal({
           setSubSourceId(null);
           return;
         }
-        if (view === 'list') {
-          onClose();
-        }
+        // Closing the selected saved editor matches the same keyboard escape
+        // behavior as the plan list; unsaved edits are not silently persisted.
+        onClose();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -234,11 +236,13 @@ export function TransferPlanModal({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [moreMenuOpen]);
 
-  const persistPlans = (nextPlans: StoredTransferPlan[]) => {
+  const persistPlans = (nextPlans: StoredTransferPlan[], preferredPlanId?: string | null) => {
     setPlans(nextPlans);
     if (typeof window !== 'undefined') {
       writeStoredTransferPlans(window.localStorage, storageScopeId, nextPlans);
     }
+    const selected = preferredPlanId === undefined ? (activePlan?.id ?? nextPlans[0]?.id ?? null) : preferredPlanId;
+    onPlansChanged?.(nextPlans, selected && nextPlans.some(plan => plan.id === selected) ? selected : (nextPlans[0]?.id ?? null));
   };
 
   const toggleWatchlist = (id: number) => {
@@ -291,7 +295,7 @@ export function TransferPlanModal({
       onToast(res.error, 'error');
       return;
     }
-    persistPlans(res.plans);
+    persistPlans(res.plans, created.id);
     openEditorWithPlan(created);
   };
 
@@ -309,7 +313,7 @@ export function TransferPlanModal({
       return;
     }
     setActivePlan(updatedPlan);
-    persistPlans(res.plans);
+    persistPlans(res.plans, updatedPlan.id);
     if (exitAfterSave) {
       setPendingOutIds([]);
       setFocusedPendingOutId(null);
@@ -336,7 +340,7 @@ export function TransferPlanModal({
     };
     const res = upsertTransferPlan(plans, copy);
     if (res.ok) {
-      persistPlans(res.plans);
+      persistPlans(res.plans, copy.id);
       onToast(`Duplicated "${plan.name}".`, 'info');
     }
   };
@@ -1188,6 +1192,15 @@ export function TransferPlanModal({
             >
               <Save size={15} />
               <span>Save</span>
+            </button>
+            <button
+              type="button"
+              className="vx-tp-close-window"
+              onClick={onClose}
+              aria-label="Close transfer plans window"
+              title="Close editor without saving unsaved edits"
+            >
+              <X size={17} />
             </button>
           </header>
 

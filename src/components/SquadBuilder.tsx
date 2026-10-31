@@ -22,6 +22,14 @@ import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
+import {
+  readStoredTransferPlans,
+  readSelectedTransferPlanId,
+  writeSelectedTransferPlanId,
+  writeStoredTransferPlans,
+  upsertTransferPlan,
+  type StoredTransferPlan,
+} from '../lib/transferPlansStore';
 import { ClubBadge } from './ClubBadge';
 import { TeamIdInput } from './TeamIdInput';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
@@ -84,7 +92,47 @@ export function SquadBuilder({
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
-  const [lockedIds] = useState<number[]>([]);
+  const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
+  const [savedPlans, setSavedPlans] = useState<StoredTransferPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState('__live__');
+  const storageScopeId = entry?.id ?? null;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = readStoredTransferPlans(window.localStorage, storageScopeId);
+    const selection = readSelectedTransferPlanId(window.localStorage, storageScopeId);
+    setSavedPlans(stored);
+    setSelectedPlanId(selection === '__live__' ? '__live__' :
+      stored.find(plan => plan.id === selection)?.id ?? stored[0]?.id ?? '__live__');
+  }, [storageScopeId]);
+  const selectedPlan = savedPlans.find(plan => plan.id === selectedPlanId) ?? null;
+  const selectedPlanIsCurrent = !selectedPlan || selectedPlan.startGw === snapshot.meta.nextEventId;
+  const lockedIds = selectedPlan ? (selectedPlan.lockedPlayerIds ?? []) : adHocLockedIds;
+  const selectPlan = (id: string) => {
+    setSelectedPlanId(id);
+    if (typeof window !== 'undefined') writeSelectedTransferPlanId(window.localStorage, storageScopeId, id);
+  };
+  const handlePlansChanged = (plans: StoredTransferPlan[], preferredId: string | null) => {
+    setSavedPlans(plans);
+    selectPlan(preferredId && plans.some(plan => plan.id === preferredId) ? preferredId : plans[0]?.id ?? '__live__');
+  };
+  const changeFreeTransfers = (next: number) => {
+    if (!selectedPlan) { setFreeTransfers(next); return; }
+    // A deliberate FT control change updates the active saved plan's own starting state.
+    const update = { ...selectedPlan, baseFreeTransfers: next };
+    const result = upsertTransferPlan(savedPlans, update);
+    if (!result.ok) { onToast(result.error, 'error'); return; }
+    setSavedPlans(result.plans);
+    if (typeof window !== 'undefined') writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
+  };
+  const togglePlayerLock = (playerId: number) => {
+    const next = lockedIds.includes(playerId) ? lockedIds.filter(id => id !== playerId) : [...lockedIds, playerId];
+    if (!selectedPlan) { setAdHocLockedIds(next); return; }
+    const update = { ...selectedPlan, lockedPlayerIds: next };
+    const result = upsertTransferPlan(savedPlans, update);
+    if (!result.ok) { onToast(result.error, 'error'); return; }
+    setSavedPlans(result.plans);
+    if (typeof window !== 'undefined') writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
+  };
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
   const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
@@ -118,8 +166,8 @@ export function SquadBuilder({
   );
 
   const activeSquadIds = useMemo(() => {
-    return customSquadIds.length === 15 ? customSquadIds : baseEntrySquadIds;
-  }, [baseEntrySquadIds, customSquadIds]);
+    return selectedPlan ? selectedPlan.baseSquad : customSquadIds.length === 15 ? customSquadIds : baseEntrySquadIds;
+  }, [baseEntrySquadIds, customSquadIds, selectedPlan]);
 
   const activeSquadPlayers = useMemo(
     () => activeSquadIds.map((id) => playerMap.get(id)).filter((p): p is EnrichedPlayer => Boolean(p)),
@@ -135,20 +183,25 @@ export function SquadBuilder({
   );
 
   const bankTenths = useMemo(() => {
+    if (selectedPlan) return selectedPlan.baseBankTenths;
     const currentSet = new Set(activeSquadIds);
     const baseSet = new Set(baseEntrySquadIds);
     const sellById = new Map((entry?.picks ?? []).map(p => [p.element, p.sellingPrice]));
     const sales = baseEntrySquadIds.filter(id => !currentSet.has(id)).reduce((sum, id) => sum + Math.round((sellById.get(id) ?? playerMap.get(id)?.price ?? 0) * 10), 0);
     const purchases = activeSquadPlayers.filter(p => !baseSet.has(p.id)).reduce((sum, p) => sum + p.cost, 0);
     return (entry?.history.bank ?? 0) + sales - purchases;
-  }, [activeSquadIds, activeSquadPlayers, baseEntrySquadIds, entry, playerMap]);
+  }, [activeSquadIds, activeSquadPlayers, baseEntrySquadIds, entry, playerMap, selectedPlan]);
 
-  const plannedMoves = activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length;
+  const plannedMoves = selectedPlan ? 0 : activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length;
   useEffect(() => {
     setReviewSim(null);
     setSimulationError(null);
     setSimulationPending(false);
     if (subTab === 'planner') return;
+    if (!selectedPlanIsCurrent) {
+      setSimulationError(`Saved plan starts GW${selectedPlan!.startGw}; current forecasts start GW${snapshot.meta.nextEventId}. Rebase or create a new plan in the Transfer Lab.`);
+      return;
+    }
     if (players.length < 15 || activeSquadIds.length !== 15) {
       setSimulationError('Load a complete 15-player squad to simulate.');
       return;
@@ -160,16 +213,17 @@ export function SquadBuilder({
     setSimulationPending(true);
     const input: PlannerSimulationInput = {
       players, currentSquadIds: activeSquadIds, bankTenths,
-      freeTransfersNow: Math.max(0, freeTransfers - plannedMoves),
-      initialHitCost: Math.max(0, plannedMoves - freeTransfers) * 4,
-      initialFreeTransfersBeforeScenario: freeTransfers,
+      freeTransfersNow: selectedPlan ? selectedPlan.baseFreeTransfers : Math.max(0, freeTransfers - plannedMoves),
+      initialHitCost: selectedPlan ? 0 : Math.max(0, plannedMoves - freeTransfers) * 4,
+      initialFreeTransfersBeforeScenario: selectedPlan?.baseFreeTransfers ?? freeTransfers,
       nextGw: snapshot.meta.nextEventId, horizon: plannerHorizon, decay: 1 - plannerDecay / 100,
       repoFixtures: toRepoFixtures(snapshot.fixtures), repoTeams: toRepoTeams(snapshot.teams),
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
       lockedIds: lockedIds.filter(id => activeSquadIds.includes(id)),
+      manualPlan: selectedPlan ?? undefined,
       chipsUsed: entry ? entry.chipsUsed : [], chipHistoryKnown: entry ? entry.chipsUsed !== undefined : true,
       startedEvent: entry?.startedEvent,
-      sellingPrices: Object.fromEntries(activeSquadIds.map(id => {
+      sellingPrices: selectedPlan?.sellingPrices ?? Object.fromEntries(activeSquadIds.map(id => {
         const pick = entry?.picks.find(p => p.element === id);
         return [id, Math.round((pick?.sellingPrice ?? playerMap.get(id)?.price ?? 0) * 10)];
       })),
@@ -198,10 +252,10 @@ export function SquadBuilder({
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
     return () => { cancelled = true; worker?.terminate(); };
-  }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap]);
+  }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap, selectedPlan, selectedPlanIsCurrent]);
 
-  const transfersUsedCount = activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
-  const hitPoints = Math.max(0, transfersUsedCount - freeTransfers) * 4;
+  const transfersUsedCount = selectedPlan ? 0 : activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
+  const hitPoints = selectedPlan ? 0 : Math.max(0, transfersUsedCount - freeTransfers) * 4;
 
   const activeChipSim = reviewSim?.chipSimulations.find((c) => c.chip === selectedChipPreview) ?? null;
   return (
@@ -240,6 +294,31 @@ export function SquadBuilder({
           {entryError && <span className="planner-team-link__error" role="alert">{entryError}</span>}
         </form>}
       </div>
+      {subTab !== 'planner' && (
+      <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
+        <div className="panel__header"><div>
+          <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
+          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Official / template starting squad'}</h3>
+        </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
+        <div className="planner-control-row">
+          <label>Planning scenario
+            <select aria-label="Active saved planning scenario" value={selectedPlanId} onChange={e => selectPlan(e.target.value)}>
+              <option value="__live__">Official / template · no saved plan</option>
+              {savedPlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name} (GW{plan.startGw}+)</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => setTransferPlansOpen(true)}>{selectedPlan ? 'Edit saved plan' : 'Create / open transfer plan'}</button>
+        </div>
+        {selectedPlan && <p>Manual transfers, captaincy, lineups and chips in this plan are fixed decisions. The Solver only suggests legal additions; simulation includes a separate exact saved-plan path. Changes must be explicitly saved in Transfer Lab.</p>}
+        {!selectedPlanIsCurrent && <p role="alert">This saved plan starts in GW{selectedPlan?.startGw}, but the active GW is {snapshot.meta.nextEventId}. Its scenarios are blocked until you rebase or create a current plan.</p>}
+        <div className="planner-control-row" aria-label="Lock players against automatic transfer suggestions">
+          {activeSquadPlayers.map(p => <label key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+            <input type="checkbox" checked={lockedIds.includes(p.id)} onChange={() => togglePlayerLock(p.id)} aria-label={`Lock ${p.name} against automatic transfers`} />
+            {p.name}
+          </label>)}
+        </div>
+      </section>
+      )}
       {subTab && <div id="planner-section-content" className="planner-section-content">
       {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
         <div className="planner-control-row">
@@ -249,7 +328,7 @@ export function SquadBuilder({
           <label>Simulation draws<select aria-label="Simulation draws" value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))}>
             <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
           </select></label>
-          <label>Free transfers<select aria-label="Free transfers available" value={freeTransfers} onChange={e => setFreeTransfers(Number(e.target.value))}>
+          <label>Free transfers<select aria-label="Free transfers available" value={selectedPlan?.baseFreeTransfers ?? freeTransfers} onChange={e => changeFreeTransfers(Number(e.target.value))}>
             {[0, 1, 2, 3, 4, 5].map(ft => <option key={ft} value={ft}>{ft} FT</option>)}
           </select></label>
           <label>Planning horizon<select aria-label="Planning horizon" value={plannerHorizon} onChange={e => setPlannerHorizon(Number(e.target.value))}>
@@ -269,7 +348,7 @@ export function SquadBuilder({
       {subTab !== 'planner' && <section className="stat-grid stat-grid--optimizer">
         <StatCard
           label={`GW${snapshot.meta.nextEventId} XI Projection`}
-          value={`${(result.projectedPoints - hitPoints).toFixed(1)} pts`}
+          value={`${(reviewSim?.strategy.weeks[0]?.netXPts ?? result.projectedPoints - hitPoints).toFixed(1)} pts`}
           detail={`${result.formation} · ${hitPoints > 0 ? `−${hitPoints} hit applied` : `${freeTransfers} FT available`}`}
           icon={<WandSparkles size={18} />}
           tone="mint"
@@ -308,7 +387,32 @@ export function SquadBuilder({
       {/* ==================== TAB 1: TEAM PLANNER & TRANSFER SOLVER ==================== */}
       {subTab === 'planner' && !entry && <p className="planner-data-notice">Template squad scenario — load your FPL Team ID on Home for a personal starting squad. Verify bank and free transfers before acting.</p>}
       {subTab === 'planner' && (
-        <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} onInspectPlayer={onInspectPlayer} />
+        <>
+          <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} allPlayers={players} savedPlan={selectedPlanIsCurrent ? selectedPlan : null} onInspectPlayer={onInspectPlayer} />
+          <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
+        <div className="panel__header"><div>
+          <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
+          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Official / template starting squad'}</h3>
+        </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
+        <div className="planner-control-row">
+          <label>Planning scenario
+            <select aria-label="Active saved planning scenario" value={selectedPlanId} onChange={e => selectPlan(e.target.value)}>
+              <option value="__live__">Official / template · no saved plan</option>
+              {savedPlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name} (GW{plan.startGw}+)</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => setTransferPlansOpen(true)}>{selectedPlan ? 'Edit saved plan' : 'Create / open transfer plan'}</button>
+        </div>
+        {selectedPlan && <p>Manual transfers, captaincy, lineups and chips in this plan are fixed decisions. The Solver only suggests legal additions; simulation includes a separate exact saved-plan path. Changes must be explicitly saved in Transfer Lab.</p>}
+        {!selectedPlanIsCurrent && <p role="alert">This saved plan starts in GW{selectedPlan?.startGw}, but the active GW is {snapshot.meta.nextEventId}. Its scenarios are blocked until you rebase or create a current plan.</p>}
+        <div className="planner-control-row" aria-label="Lock players against automatic transfer suggestions">
+          {activeSquadPlayers.map(p => <label key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+            <input type="checkbox" checked={lockedIds.includes(p.id)} onChange={() => togglePlayerLock(p.id)} aria-label={`Lock ${p.name} against automatic transfers`} />
+            {p.name}
+          </label>)}
+        </div>
+      </section>
+        </>
       )}
 
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
@@ -638,6 +742,8 @@ export function SquadBuilder({
       <TransferPlanModal
         open={transferPlansOpen}
         onClose={() => setTransferPlansOpen(false)}
+        initialActivePlan={selectedPlan}
+        onPlansChanged={handlePlansChanged}
         snapshot={snapshot}
         players={players}
         fallbackSquadIds={activeSquadIds}

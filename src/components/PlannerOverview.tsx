@@ -4,21 +4,25 @@ import { toRepoElement } from '../lib/analytics';
 import { buildFixtureMatrix, toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { computePlayerXPts, computePositionPriors } from '../lib/repoModel/xpts';
 import { evaluateSquad } from '../lib/optimize';
+import { buildPlanCtxFromCache, buildVortexPlannerCache, type StoredTransferPlan } from '../lib/transferPlansStore';
+import { lineupAt, replay, sanitize, xpAt } from '../lib/repoModel/planEngine';
 import { createPlanningHorizon } from '../lib/dataProvenance';
 import { buildPublicDataHealth } from '../lib/publicDataHealth';
 import { useNow } from '../hooks/useNow';
 import { makeFixtureForecasts, overallDifficulty, difficultyFillStyle } from '../lib/fixtureForecast';
-import type { EnrichedPlayer, Snapshot } from '../lib/types';
+import type { EnrichedPlayer, Snapshot, SquadPlayer } from '../lib/types';
 import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
 
 interface Props {
   snapshot: Snapshot;
   squad: EnrichedPlayer[];
+  allPlayers?: EnrichedPlayer[];
+  savedPlan?: StoredTransferPlan | null;
   onInspectPlayer?: (player: EnrichedPlayer) => void;
 }
 
-export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
+export function PlannerOverview({ snapshot, squad, allPlayers, savedPlan, onInspectPlayer }: Props) {
   const [horizon, setHorizon] = useState(10);
   const now = useNow(60_000);
   const sourceHealth = useMemo(() => buildPublicDataHealth(snapshot, now), [snapshot, now]);
@@ -28,7 +32,47 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   const gws = finalGw > 0 ? createPlanningHorizon(snapshot.meta.nextEventId, finalGw, horizon) : [];
   const selected = gws.includes(selectedGw) ? selectedGw : gws[0];
   const model = useMemo(() => ({ fixtures: toRepoFixtures(snapshot.fixtures), teams: new Map(toRepoTeams(snapshot.teams).map(team => [team.id, team])), priors: computePositionPriors(snapshot.players.map(toRepoElement)), completed: Math.max(1, snapshot.gameweeks.filter(gw => gw.finished).length) }), [snapshot]);
+  const savedWeekProjections = useMemo(() => {
+    if (!savedPlan || !allPlayers) return null;
+    const weeks = new Map<number, { starters: SquadPlayer[]; bench: SquadPlayer[]; total: number }>();
+    try {
+      if (savedPlan.startGw !== snapshot.meta.nextEventId) throw new RangeError('Saved plan starts in a different Gameweek.');
+      const cache = buildVortexPlannerCache(snapshot, allPlayers);
+      const ctx = buildPlanCtxFromCache(savedPlan, allPlayers, cache);
+      const legal = sanitize(ctx, savedPlan.transfers, savedPlan.chips);
+      if (ctx.gws.some(gw => JSON.stringify(legal[gw] ?? []) !== JSON.stringify(savedPlan.transfers[gw] ?? [])))
+        throw new RangeError('A manually saved transfer is no longer legal under current player prices or squad state.');
+      const playersById = new Map(allPlayers.map(player => [player.id, player]));
+      for (const gw of ctx.gws.slice(0, 10)) {
+        const state = replay(ctx, savedPlan.transfers, gw, savedPlan.chips);
+        if (state.bank < 0) throw new RangeError(`GW${gw} exceeds the available transfer bank.`);
+        const idx = ctx.gws.indexOf(gw);
+        const lu = lineupAt(ctx, state.squad, idx, savedPlan.lineups[gw]);
+        const captainId = savedPlan.captains[gw]?.captain ?? lu.captain;
+        const viceId = savedPlan.captains[gw]?.vice ?? lu.vice;
+        if (!captainId || !viceId || captainId === viceId || !lu.starters.includes(captainId) || !lu.starters.includes(viceId))
+          throw new RangeError(`GW${gw} saved captaincy conflicts with the selected starting XI.`);
+        const asPlayer = (id: number): SquadPlayer => {
+          const p = playersById.get(id);
+          if (!p) throw new RangeError(`Saved player #${id} is missing from the current official snapshot.`);
+          return { ...p, projection: xpAt(ctx, id, idx), isStarter: lu.starters.includes(id), isCaptain: id === captainId, isViceCaptain: id === viceId, multiplier: id === captainId ? (savedPlan.chips[gw] === 'tc' ? 3 : 2) : 1 };
+        };
+        const chip = savedPlan.chips[gw];
+        const captainBonus = xpAt(ctx, captainId, idx) * (chip === 'tc' ? 2 : 1);
+        const benchExtra = chip === 'bb' ? lu.bench.reduce((sum, id) => sum + xpAt(ctx, id, idx), 0) : 0;
+        const hit = state.ledger.at(-1)?.hit ?? 0;
+        weeks.set(gw, {
+          starters: lu.starters.map(asPlayer), bench: lu.bench.map(asPlayer),
+          total: lu.xi + captainBonus + benchExtra - hit,
+        });
+      }
+      return { weeks, error: null as string | null };
+    } catch (error) {
+      return { weeks, error: error instanceof Error ? error.message : 'Saved plan could not be replayed.' };
+    }
+  }, [snapshot, allPlayers, savedPlan]);
   const projected = gws.map(gw => {
+    if (savedPlan) return savedWeekProjections?.weeks.get(gw) ?? null;
     const weekPlayers = squad.map(p => ({ ...p, projection: p.gwProjections?.[gw] ?? computePlayerXPts(toRepoElement(p), gw, model.fixtures, model.teams, model.completed, gw - snapshot.meta.nextEventId, model.priors).xPts }));
     if (weekPlayers.length < 11) return null;
     const result = evaluateSquad(weekPlayers);
@@ -62,8 +106,8 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
   return <section className="vx-planner-overview" aria-label="Team planner">
     <div className="vx-planner-timeline-bar">
       <div className="vx-planner-timeline-summary" role="status">
-        <strong>10-GW PLANNING ROADMAP</strong>
-        <span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} weeks` : 'Upcoming schedule unavailable'} · model xP</span>
+        <strong>{savedPlan ? `SAVED SCENARIO · ${savedPlan.name}` : '10-GW PLANNING ROADMAP'}</strong>
+        <span>{gws.length ? `GW${gws[0]}–GW${gws[gws.length - 1]} · ${gws.length} weeks` : 'Upcoming schedule unavailable'} · {savedPlan ? 'net saved-plan model xP (hits deducted)' : 'model xP'}</span>
         <span className="vx-planner-data-flags" title={`FPL: ${sourceHealth.officialFpl.reason} Retrieved: ${sourceHealth.officialFpl.retrievedAt ?? 'unavailable'}. Odds: ${sourceHealth.market.reason}`}>
           <b className={`is-${sourceHealth.officialFpl.state}`}>FPL: {sourceHealth.officialFpl.state}</b>
           <b className={`is-${sourceHealth.market.state}`}>ODDS: {sourceHealth.market.state}</b>
@@ -71,6 +115,7 @@ export function PlannerOverview({ snapshot, squad, onInspectPlayer }: Props) {
       </div>
       <div className="vx-planner-gws" aria-label="Select gameweek">{gws.length ? gws.map((gw, i) => <button type="button" key={gw} className={selected === gw ? 'is-active' : ''} onClick={() => setSelectedGw(gw)} aria-pressed={selected === gw}>GW{gw}<strong>{totals[i]?.toFixed(1)} xP</strong></button>) : <p role="status">No verified upcoming gameweek is available. Refresh the official FPL snapshot.</p>}</div>
     </div>
+    {savedWeekProjections?.error && <p role="alert">Saved plan cannot be shown accurately: {savedWeekProjections.error}. Open Transfer Lab to correct it; no substitute squad has been displayed.</p>}
     <div className="vx-planner-columns">
       <div className="vx-soccer-pitch">
         <div className="vx-pitch-top-boards"><div className="vx-pitch-board"><img src={BRAND_LION_SRC} alt="" /><span>FPL VORTEX</span></div><div className="vx-pitch-goal-net" aria-hidden="true" /><a href="https://www.youtube.com/@Fplvortex" target="_blank" rel="noreferrer" className="vx-pitch-board vx-pitch-board--link">@FPLVORTEX</a></div>
