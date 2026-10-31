@@ -52,7 +52,7 @@ def solve(request: SolveRequest) -> dict:
             V(('c', i, gidx), objective=-weight * p.xpts_by_gw[gw])
         # Bank is in tenths of a million, so no fractional FPL prices are introduced.
         V(('bank', gidx), hi=2000, integer=1, objective=(-s.bank_value_per_million / 10 if gidx == len(gws)-1 else 0))
-        for ft in range(1, 6):
+        for ft in range(0, 6):
             for count in range(s.max_transfers_per_gw + 1):
                 V(('z', gidx, ft, count), objective=weight * 4 * max(0, count-ft) - (s.free_transfer_value * min(5, max(0, ft-count)+1) if gidx == len(gws)-1 else 0))
     idx = problem.names
@@ -91,7 +91,7 @@ def solve(request: SolveRequest) -> dict:
             bankrow[idx['b',i,t]] = round(p.current_price*10)
             bankrow[idx['o',i,t]] = -round(sale*10)
         row(bankrow, round(team.bank*10) if not t else 0, round(team.bank*10) if not t else 0)
-        zkeys = [(ft,k) for ft in range(1,6) for k in range(s.max_transfers_per_gw+1)]
+        zkeys = [(ft,k) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)]
         row({idx['z',t,ft,k]:1 for ft,k in zkeys}, 1, 1)
         countrow = {idx['b',i,t]:1 for i in range(n)}
         countrow.update({idx['z',t,ft,k]:-k for ft,k in zkeys})
@@ -103,7 +103,7 @@ def solve(request: SolveRequest) -> dict:
             ftrow.update({idx['z',t-1,ft,k]:-min(5,max(0,ft-k)+1) for ft,k in zkeys})
             row(ftrow, 0, 0)
     if s.max_total_hits is not None:
-        row({idx['z',t,ft,k]:4*max(0,k-ft) for t in range(len(gws)) for ft in range(1,6) for k in range(s.max_transfers_per_gw+1)}, hi=s.max_total_hits)
+        row({idx['z',t,ft,k]:4*max(0,k-ft) for t in range(len(gws)) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)}, hi=s.max_total_hits)
     for tr in s.forced_transfers:
         t = tr.gw - s.start_gw
         row({idx['o',by_id[tr.player_out],t]:1}, 1, 1)
