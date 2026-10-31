@@ -216,9 +216,9 @@ export function TransferPlanModal({
           setSubSourceId(null);
           return;
         }
-        if (view === 'list') {
-          onClose();
-        }
+        // Closing the selected saved editor matches the same keyboard escape
+        // behavior as the plan list; unsaved edits are not silently persisted.
+        onClose();
       }
     };
     window.addEventListener('keydown', onKeyDown);
