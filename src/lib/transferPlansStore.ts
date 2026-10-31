@@ -333,8 +333,12 @@ export function buildVortexPlannerCache(snapshot: Snapshot, players: readonly En
     playerTypeMap.set(p.id, positionToTypeNum(p.position));
     const arr = gws.map((gw, idx) => {
       const precomputed = p.gwProjections?.[gw];
-      if (typeof precomputed === 'number' && Number.isFinite(precomputed)) return precomputed;
-      return computePlayerXPts(el, gw, repoFixtures, repoTeamsMap, completed, idx, priors).xPts;
+      const breakdown = computePlayerXPts(el, gw, repoFixtures, repoTeamsMap, completed, idx, priors);
+      // Match the Solver and simulation forecast policy exactly: blanks override imported values.
+      if (breakdown.fixtureCount === 0) return 0;
+      return typeof precomputed === 'number' && Number.isFinite(precomputed)
+        ? Math.max(0, precomputed)
+        : Math.max(0, breakdown.xPts);
     });
     xpByPlayerGw.set(p.id, arr);
   }
