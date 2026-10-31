@@ -423,6 +423,7 @@ export function SquadBuilder({
           <section className="panel" aria-label="Joint chip schedule">
             <div className="panel__header"><div><span className="panel__eyebrow">TRANSFER + CHIP PLAN</span><h3>{reviewSim.strategy.schedule.length ? reviewSim.strategy.schedule.map(use => `${({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[use.chip]} GW${use.gw}`).join(' · ') : 'Keep chips available and re-evaluate before the deadline'}</h3></div><span className="badge badge--mint">{reviewSim.strategy.expectedPoints.toFixed(1)} model xPts</span></div>
             <p>GW{reviewSim.strategy.horizon[0]}–GW{reviewSim.strategy.horizon.at(-1)} · {reviewSim.strategy.gain >= 0 ? '+' : ''}{reviewSim.strategy.gain.toFixed(1)} undiscounted xPts versus the no-chip transfer path. Weeks below show legal budgets, hits and Free Hit restoration. This is an approximate plan; rank gains are not guaranteed.</p>
+            <p>Marginal banked FT value next GW: +{reviewSim.bankedTransferValueNextGw.toFixed(2)} estimated model points (legal shortlisted transfers only). This affects Solver search pruning, not your projected or simulated points.</p>
           </section>
           <section className="chip-cards-grid" aria-label="Half-season chip valuations">
             {reviewSim.chipSimulations.map((chip) => {

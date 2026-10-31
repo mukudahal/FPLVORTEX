@@ -246,3 +246,17 @@ test('dated imported xPts are used only while recent; stale or unverifiable data
   const verifiedZero = runPlannerSimulation({ ...input, importedProjectionFileDate: todayUtc });
   assert.equal(verifiedZero.forecastByGw[38][target.id], 0, 'a recent explicit zero must never be treated as missing');
 });
+
+test('next-GW FT option uses legal future moves but never invents season-end value', () => {
+  const input = scenario(37);
+  const result = runPlannerSimulation({ ...input, chipHistoryKnown: false, chipsUsed: undefined });
+  assert.ok(result.bankedTransferValueNextGw > 0 && result.bankedTransferValueNextGw <= 4);
+  assert.ok(result.monteCarlo.paths.every(path => Number.isFinite(path.mean)));
+  const locked = runPlannerSimulation({ ...input, chipHistoryKnown: false, chipsUsed: undefined,
+    lockedIds: input.currentSquadIds });
+  assert.equal(locked.bankedTransferValueNextGw, 0, 'no feasible legal transfer means no option value');
+  const gw38 = runPlannerSimulation({ ...scenario(38, false), chipHistoryKnown: false, chipsUsed: undefined });
+  assert.equal(gw38.bankedTransferValueNextGw, 0, 'no future GW after GW38');
+  const atCap = runPlannerSimulation({ ...input, freeTransfersNow: 5, chipHistoryKnown: false, chipsUsed: undefined });
+  assert.equal(atCap.bankedTransferValueNextGw, 0, 'a sixth FT cannot be banked and a fifth FT is not useful for the 2-transfer shortlist');
+});

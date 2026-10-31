@@ -10,6 +10,7 @@ import type { ChipGwSimulation, ChipSimulationSummary, OptimizerOptionComparison
 import { computePlayerXPts, computePositionPriors } from './xpts';
 import { runMonteCarlo, mixSeed, type McPath, type McPlayerGw } from './monteCarlo';
 import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
+import { marginalFtOptionValue } from './marginalFtOption';
 import { expectedFixturePoints } from './playerModel';
 import { projectionFreshness } from '../projectionFreshness';
 import { validateSeasonChipPlan, validateSquad, type SeasonChipUse } from './seasonRules';
@@ -278,6 +279,28 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     };
   };
 
+  /**
+   * Marginal value of the last banked FT from real next-GW candidate actions.
+   * The same legal actions are scored at FT and FT-1; only avoided hit costs
+   * differ. This is a pruning heuristic, NOT bonus expected points.
+   */
+  const bankedFtOptionAt = (state: SearchState, gw: number): number => {
+    if (!forecastByGw[gw] || state.ft === 0) return 0;
+    const fixedChip = manualPlan?.chips[gw];
+    if (fixedChip === 'wc' || fixedChip === 'fh') return 0;
+    const fixedMoves = manualPlan?.transfers[gw]?.length ?? 0;
+    if (fixedMoves === 0 && state.ft > 2) return 0; // normal candidate shortlist has at most two moves
+    const actions = fixedMoves > 0
+      ? [committedAction(state, gw)].filter((action): action is Action => action !== null)
+      : actionsAt(state, gw);
+    if (!actions.length) return 0;
+    const holdValue = squadValue(state.squad, gw);
+    return marginalFtOptionValue(state.ft, actions.map(action => ({
+      transfers: action.moves.length,
+      grossGain: squadValue(action.squad, gw) - holdValue,
+    })));
+  };
+
   /** Validate manual XI/captain selections against the chosen strategy's actual squad. */
   const committedLineup = (squad: number[], gw: number, chip?: PlanningChip): LineupSolution => {
     const automatic = lineup(squad, gw, chip);
@@ -436,7 +459,13 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
           });
           return sum + Math.max(0, ...gains);
         }, 0) : 0;
-        const result = s.score + remaining + optionValue;
+        // Value FT flexibility from *feasible* next-week actions. The cap is
+        // one avoided four-point hit; it affects pruning only, not final xPts.
+        const nextDecisionGw = gw + 1;
+        const ftOption = forecastByGw[nextDecisionGw]
+          ? Math.pow(decay, nextDecisionGw - nextGw) * bankedFtOptionAt(s, nextDecisionGw)
+          : 0;
+        const result = s.score + remaining + optionValue + ftOption;
         estimates.set(s, result);
         return result;
       };
@@ -553,14 +582,20 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     'Win versus hold is a paired model probability of scoring more points than keeping this squad. It is not a probability of a green arrow or a predicted overall rank.',
     'Simulation reports unmodified forecast points. Auto-Build risk profiles change squad selection; ownership is not a measured field-score or rank distribution.',
     'Imported means use an aggregate distribution when they differ from fixture-component forecasts. Tail probabilities remain uncalibrated.',
+    'The next-GW free-transfer option is a model-based marginal hit-avoidance estimate from shortlisted legal moves. It is used only in beam pruning, not added to xPts or simulation totals.',
     ...(manualPlan ? ['The saved-manual Monte Carlo path honours committed transfers, chips, captaincy, formation, selling prices and transfer hits. Solver and chip alternatives remain unapplied.', 'Saved-plan and optimized-path comparisons use common paired gameweek samples; the model has not been historically calibrated.'] : []),
     ...warnings,
   );
   const firstChip = best.uses.find(u => u.gw <= halfEnd);
   const chipDecision = firstChip ? chipSimulations.find(c => c.chip === CHIP_NAMES[firstChip.chip]) : undefined;
+  // Show the estimated value of the extra FT available next GW after rolling.
+  // At GW38 or at the selected horizon's end there is no next-GW option.
+  const rolledFtState: SearchState = { ...initial, ft: nextFreeTransfers(initial.ft, 0) };
+  const bankedTransferValueNextGw = gws.includes(nextGw + 1)
+    ? r2(decay * bankedFtOptionAt(rolledFtState, nextGw + 1)) : 0;
   return {
     nextGw, gws, chipHalfGws, freeTransfersNow: initial.ft, freeTransfersAfterRoll: nextFreeTransfers(initial.ft, 0),
-    bankTenths: initial.bank, totalSellBudgetTenths, bankedTransferValueNextGw: 0,
+    bankTenths: initial.bank, totalSellBudgetTenths, bankedTransferValueNextGw,
     options, winner, recommendedDecision: winner.action === 'ROLL' ? 'ROLL' : 'TRANSFER',
     recommendedChipDecision: { action: firstChip?.gw === nextGw ? 'PLAY' : 'HOLD', chip: firstChip?.gw === nextGw ? CHIP_NAMES[firstChip.chip] : null, gainNow: firstChip?.gw === nextGw ? chipDecision?.gainNow ?? 0 : 0, bestFutureGw: firstChip?.gw ?? null, bestFutureChip: firstChip ? CHIP_NAMES[firstChip.chip] : null, bestFutureGain: chipDecision?.bestGain ?? 0, why: firstChip ? `Joint plan: ${CHIP_LABELS[firstChip.chip]} in GW${firstChip.gw}; re-evaluate before the deadline.` : 'Keep chips available and re-evaluate when data changes.' },
     lineup0: first0.lineup, lineup1: firstOf(1).lineup, lineup2: firstOf(2).lineup,
