@@ -428,7 +428,7 @@ export function SquadBuilder({
               <p><strong>{({ wc: 'Wildcard', fh: 'Free Hit', bb: 'Bench Boost', tc: 'Triple Captain' } as const)[reviewSim.strategy.chipTiming.chip]} — GW{reviewSim.nextGw} versus saving the chip</strong></p>
               <p>Play now: {reviewSim.strategy.chipTiming.playNow.expectedPoints.toFixed(2)} undiscounted xPts; save this GW: {reviewSim.strategy.chipTiming.defer.expectedPoints.toFixed(2)} undiscounted xPts. Search-weighted difference (play minus save): {reviewSim.strategy.chipTiming.gainPlayNow >= 0 ? '+' : ''}{reviewSim.strategy.chipTiming.gainPlayNow.toFixed(2)} model points.</p>
               <p>{reviewSim.strategy.chipTiming.preferred === 'PLAY_NOW' ? 'Play-now path ranks higher' : 'Save-now path ranks as high or higher'} under current assumptions. Saving permits using this chip later. Both options include legal transfers, other chips, hits and the same full planning period; they are heuristic comparisons, not guaranteed gains or automatic transfers.</p>
-            </div>
+            </div>}
           </section>
           <section className="chip-cards-grid" aria-label="Half-season chip valuations">
             {reviewSim.chipSimulations.map((chip) => {
