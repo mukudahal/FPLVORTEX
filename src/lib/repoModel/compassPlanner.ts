@@ -370,17 +370,40 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     for (const gw of searchGws) {
       const expanded: SearchState[] = [];
       for (const state of beam) {
-        const actions = actionsAt(state, gw).filter(a => gw !== nextGw || firstMoves === undefined || a.moves.length === firstMoves);
+        const hasCommittedMoves = (manualPlan?.transfers[gw]?.length ?? 0) > 0;
+        const committed = hasCommittedMoves ? committedAction(state, gw) : null;
+        if (hasCommittedMoves && !committed) continue; // Skip branches that invalidate a later saved transfer.
+        const actions = (committed ? [committed] : actionsAt(state, gw))
+          .filter(a => gw !== nextGw || firstMoves === undefined || a.moves.length === firstMoves);
+        const fixedChip = manualPlan?.chips[gw];
+        const add = (action: Action, chip?: PlanningChip) => {
+          try { expanded.push(advance(state, action, gw, chip)); }
+          catch (error) {
+            // A speculative solver branch may be incompatible with a manually locked
+            // lineup/captain. Reject only that branch, never mutate the user's plan.
+            if (!(manualPlan && error instanceof RangeError)) throw error;
+          }
+        };
+        if (fixedChip) {
+          if (!available(state, gw, fixedChip)) continue;
+          for (const action of actions) add(action, fixedChip);
+          continue;
+        }
         for (const action of actions) {
-          expanded.push(advance(state, action, gw));
-          if (withChips) for (const chip of ['bb', 'tc'] as const) if (available(state, gw, chip)) expanded.push(advance(state, action, gw, chip));
+          add(action);
+          if (withChips) for (const chip of ['bb', 'tc'] as const)
+            if (available(state, gw, chip)) add(action, chip);
         }
-        if (withChips) for (const chip of ['wc', 'fh'] as const) if (available(state, gw, chip)) {
-          const built = rebuild(state, gw, chip);
-          if (built) expanded.push(advance(state, built, gw, chip));
-        }
+        if (withChips && !hasCommittedMoves) for (const chip of ['wc', 'fh'] as const)
+          if (available(state, gw, chip)) {
+            const built = rebuild(state, gw, chip);
+            if (built) add(built, chip);
+          }
       }
-      if (!expanded.length) return initial;
+      if (!expanded.length) {
+        if (manualPlan) throw new RangeError(`Saved plan “${manualPlan.name}” is incompatible with the current squad, prices, player locks, captain selections or chips at GW${gw}. Open and correct the plan; nothing has been overwritten.`);
+        return initial;
+      }
       // Distinct ownership/selling bases, chip inventories and FTs are separate states.
       const keyOf = (s: SearchState) => `${s.bank}:${s.ft}:${s.squad.map(id => id + '=' + s.sell[id]).sort().join(',')}:${s.uses.map(u => (u.gw <= 19 ? 1 : 2) + u.chip).sort().join(',')}:${s.uses.at(-1)?.chip === 'fh' && s.uses.at(-1)?.gw === gw ? gw : 0}`;
       const unique = new Map<string, SearchState>();
@@ -408,7 +431,23 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     return beam.sort((a, b) => b.score - a.score || a.uses.length - b.uses.length)[0] ?? initial;
   };
 
-  const variants = [0, 1, 2].map(n => search(false, n));
+  /** Exact saved-manual scenario (zero auto-added transfers or chips) for paired MC. */
+  const savedManualState: SearchState | null = manualPlan ? (() => {
+    let state = initial;
+    for (const gw of allGws) {
+      const hasMoves = (manualPlan.transfers[gw]?.length ?? 0) > 0;
+      const action = hasMoves ? committedAction(state, gw) : {
+        squad: state.squad, bank: state.bank, sell: state.sell, moves: [],
+      };
+      if (!action) throw new RangeError(`GW${gw} manual transfers are not legal on the saved path.`);
+      const chip = manualPlan.chips[gw];
+      if (chip && !available(state, gw, chip)) throw new RangeError(`GW${gw} saved chip is not available.`);
+      state = advance(state, action, gw, chip);
+    }
+    return state;
+  })() : null;
+
+  const variants = manualPlan ? [search(false)] : [0, 1, 2].map(n => search(false, n));
   const baseline = [...variants].filter(s => s.weeks.length).sort((a, b) => b.score - a.score)[0];
   if (!baseline) throw new RangeError('No legal transfer plan found.');
   const searched = knownHistory ? search(true) : baseline;
@@ -428,7 +467,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   const horizonTotal = (state: SearchState) => r2(state.weeks.filter(w => gws.includes(w.gw)).reduce((s, w) => s + w.netXPts, 0));
   const options: OptimizerOptionComparison[] = variants.map((state, i) => {
     const first = firstOf(i), moves = first.moves.map(moveDetail), feasible = i === 0 || moves.length === i;
-    return { id: optionIds[i], label: i === 0 ? `Roll (${initial.ft} → ${first.ftAfter} FT)` : feasible ? `${i} move${i === 1 ? '' : 's'}: ${moves.map(m => playerMap.get(m.outId)!.name + ' → ' + playerMap.get(m.inId)!.name).join(', ')}` : `No legal ${i}-move path`, action: i === 0 ? 'ROLL' : 'TRANSFER', transfers: moves, hitCost: first.hitCost, nextGwXPts: first.netXPts, horizonXPts: feasible ? horizonTotal(state) : horizonTotal(variants[0]), xPtsGainVsRoll: r2(first.lineup.totalXPts - first0.lineup.totalXPts), netGainVsRoll: r2(first.netXPts - first0.netXPts), winner: i === winnerIndex, why: feasible ? `Week-by-week bank and FT replay; ${gws.length}-GW total includes all transfer hits. Ranked by ${Math.round(decay * 100)}% weekly decay through GW${allGws.at(-1)}.` : 'Budget, club or locked-player constraints prevent this path.' };
+    return { id: manualPlan ? 'saved_plus_solver' : optionIds[i], label: manualPlan ? 'Saved decisions + uncommitted solver suggestions' : i === 0 ? `Roll (${initial.ft} → ${first.ftAfter} FT)` : feasible ? `${i} move${i === 1 ? '' : 's'}: ${moves.map(m => playerMap.get(m.outId)!.name + ' → ' + playerMap.get(m.inId)!.name).join(', ')}` : `No legal ${i}-move path`, action: (manualPlan ? first.moves.length === 0 : i === 0) ? 'ROLL' : 'TRANSFER', transfers: moves, hitCost: first.hitCost, nextGwXPts: first.netXPts, horizonXPts: feasible ? horizonTotal(state) : horizonTotal(variants[0]), xPtsGainVsRoll: r2(first.lineup.totalXPts - first0.lineup.totalXPts), netGainVsRoll: r2(first.netXPts - first0.netXPts), winner: i === winnerIndex, why: feasible ? `Week-by-week bank and FT replay; ${gws.length}-GW total includes all transfer hits. Ranked by ${Math.round(decay * 100)}% weekly decay through GW${allGws.at(-1)}.` : 'Budget, club or locked-player constraints prevent this path.' };
   });
   const winner = options[winnerIndex];
 
@@ -484,12 +523,13 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   });
   const paths: McPath[] = [
     { id: 'roll', label: 'Hold squad · no future transfers or chips', hitCost: 0, hitAt: gw => gw === nextGw ? input.initialHitCost ?? 0 : 0, lineupAt: gw => holdWeeks.find(w => w.gw === gw)?.lineup ?? null },
-    pathFor('transfer_plan', 'Best transfer path · chips saved', baseline),
+    ...(savedManualState ? [pathFor('saved_manual', `Saved manual: ${manualPlan!.name} (no additional recommendations)`, savedManualState)] : []),
+    pathFor('transfer_plan', manualPlan ? 'Saved plan + legal solver transfer suggestions' : 'Best transfer path · chips saved', baseline),
     ...variants.filter(s => s !== baseline && s.weeks.length).map((s, i) => pathFor(`alternative_${i}`, `Alternative · ${s.weeks[0].moves.length} move(s) now`, s)),
     pathFor('chip_strategy', 'Joint transfer + chip strategy', best),
   ];
   const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
-  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
+  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
   monteCarlo.assumptions.push(
     'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',
     'Bounded beam search: six retained states, shortlisted candidates, up to two normal transfers per week; WC/FH allow a full rebuild. Results are approximate, not globally optimal.',
@@ -497,6 +537,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     'Win versus hold is a paired model probability of scoring more points than keeping this squad. It is not a probability of a green arrow or a predicted overall rank.',
     'Simulation reports unmodified forecast points. Auto-Build risk profiles change squad selection; ownership is not a measured field-score or rank distribution.',
     'Imported means use an aggregate distribution when they differ from fixture-component forecasts. Tail probabilities remain uncalibrated.',
+    ...(manualPlan ? ['The saved-manual Monte Carlo path honours committed transfers, chips, captaincy, formation, selling prices and transfer hits. Solver and chip alternatives remain unapplied.', 'Saved-plan and optimized-path comparisons use common paired gameweek samples; the model has not been historically calibrated.'] : []),
     ...warnings,
   );
   const firstChip = best.uses.find(u => u.gw <= halfEnd);
@@ -511,7 +552,10 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     chipSimulations, chipMatrixByGw: matrix,
     multiGwRollout: best.weeks.filter(w => gws.includes(w.gw)).map(w => ({ gw: w.gw, lineup: w.lineup, ftAvailable: w.ftBefore })),
     monteCarlo, forecastByGw, warnings, transferWeeks: baseline.weeks,
-    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, search: 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds.' },
+    sourcePlan: manualPlan ? { id: manualPlan.id, name: manualPlan.name,
+      committedGameweeks: new Set([...Object.keys(manualPlan.transfers), ...Object.keys(manualPlan.lineups), ...Object.keys(manualPlan.captains), ...Object.keys(manualPlan.chips)]).size,
+      lockedPlayers: locked.size } : undefined,
+    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds.' },
   };
 }
 
