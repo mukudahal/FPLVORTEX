@@ -1,6 +1,6 @@
 # FPL VORTEX transfer solver — first stage
 
-This is a **standalone, no-chip** multi-gameweek MILP service. It is not connected to the current website or its Render deployment. It receives projections; it does not create them. Recommendations are estimates, not guarantees. A better optimizer cannot make poor or stale xPts reliable.
+This is a **no-chip** multi-gameweek MILP service. The independent engine also powers an **opt-in read-only comparison** on the root website's Planner → Chip Strategy workspace through a bounded /api/vortex/solver/exact bridge. It does not replace the chip-aware beam planner, does not apply transfers, and cannot claim an optimum without a HiGHS certificate. The standalone FastAPI service remains optional and is not exposed by Render. It receives projections; it does not create them. Recommendations are estimates, not guarantees. A better optimizer cannot make poor or stale xPts reliable.
 
 ## Run
 

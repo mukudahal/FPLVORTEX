@@ -14,15 +14,15 @@ class Player(BaseModel):
     current_price: float = Field(gt=0, le=30)
     selling_price: float | None = Field(default=None, gt=0, le=30)
     xpts_by_gw: dict[int, float]
-    xmin_by_gw: dict[int, float]
-    availability_by_gw: dict[int, float]
+    xmin_by_gw: dict[int, float | None]
+    availability_by_gw: dict[int, float | None]
     has_fixture_by_gw: dict[int, bool]
 
     @model_validator(mode='after')
     def check_values(self):
-        if any(not 0 <= v <= 1 for v in self.availability_by_gw.values()):
+        if any(v is not None and not 0 <= v <= 1 for v in self.availability_by_gw.values()):
             raise ValueError('Availability must be between 0 and 1.')
-        if any(not 0 <= v <= 180 for v in self.xmin_by_gw.values()):
+        if any(v is not None and not 0 <= v <= 180 for v in self.xmin_by_gw.values()):
             raise ValueError('Projected minutes must be between 0 and 180.')
         if self.selling_price is not None and self.selling_price > self.current_price:
             raise ValueError('Selling price cannot exceed current price.')
@@ -34,7 +34,7 @@ class CurrentTeam(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     squad_player_ids: list[int] = Field(min_length=15, max_length=15)
     bank: float = Field(ge=0, le=100)
-    free_transfers: int = Field(ge=1, le=5)
+    free_transfers: int = Field(ge=0, le=5)
     current_gameweek: int = Field(ge=1, le=38)
 
 class ForcedTransfer(BaseModel):
@@ -50,7 +50,7 @@ class SolverSettings(BaseModel):
     transfer_depth: int = Field(default=10, ge=0, le=10)
     max_transfers_per_gw: int = Field(default=2, ge=0, le=15)
     max_total_hits: int | None = Field(default=0, ge=0, le=600, multiple_of=4)
-    time_decay: float = Field(default=.85, ge=.8, le=1)
+    time_decay: float = Field(default=.85, ge=.5, le=1)
     free_transfer_value: float = Field(default=1.75, ge=0, le=10)
     bank_value_per_million: float = Field(default=.10, ge=0, le=10)
     solutions_requested: int = Field(default=1, ge=1, le=3)
@@ -99,6 +99,6 @@ class SolveRequest(BaseModel):
             for gw in range(s.start_gw, s.end_gw + 1):
                 if any(gw not in d for d in (p.xpts_by_gw, p.xmin_by_gw, p.availability_by_gw, p.has_fixture_by_gw)):
                     raise ValueError(f'Missing GW{gw} inputs for player {p.player_id}.')
-                if not p.has_fixture_by_gw[gw] and (p.xpts_by_gw[gw] != 0 or p.xmin_by_gw[gw] != 0):
+                if not p.has_fixture_by_gw[gw] and (p.xpts_by_gw[gw] != 0 or p.xmin_by_gw[gw] not in (0, None)):
                     raise ValueError(f'Blank GW{gw} must have zero xPts and xMins for player {p.player_id}.')
         return self

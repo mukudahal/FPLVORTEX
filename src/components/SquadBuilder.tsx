@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   CircleDollarSign,
@@ -21,6 +21,7 @@ import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
+import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
   readStoredTransferPlans,
@@ -90,6 +91,10 @@ export function SquadBuilder({
   const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [exactResult, setExactResult] = useState<ExactMilpResponse | null>(null);
+  const [exactError, setExactError] = useState<string | null>(null);
+  const [exactPending, setExactPending] = useState(false);
+  const exactAbortRef = useRef<AbortController | null>(null);
   const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
@@ -256,6 +261,56 @@ export function SquadBuilder({
     return () => { cancelled = true; worker?.terminate(); };
   }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap, selectedPlan, selectedPlanIsCurrent]);
 
+  // Cancel and discard MILP output when a squad, projection, lock or GW changes.
+  // No saved manager plan is ever changed by the exact-transfer comparison.
+  useEffect(() => {
+    exactAbortRef.current?.abort();
+    exactAbortRef.current = null;
+    setExactPending(false);
+    setExactResult(null);
+    setExactError(null);
+  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths]);
+
+  const runExactTransferComparison = async () => {
+    let controller: AbortController | null = null;
+    if (!reviewSim) { setExactError('Run the planner forecast first.'); return; }
+    if (selectedPlan || plannedMoves > 0) {
+      setExactError('Exact no-chip comparison cannot overwrite saved or unsaved manual transfers. Use the chip-aware planner for those commitments.');
+      return;
+    }
+    try {
+      const payload = buildExactMilpRequest({
+        snapshot, players, planner: reviewSim,
+        squadIds: activeSquadIds, bankTenths, freeTransfers, lockedIds,
+        decay: 1 - plannerDecay / 100,
+        sellingPrices: Object.fromEntries(activeSquadIds.map(id => {
+          const entryPick = entry?.picks.find(p => p.element === id);
+          return [id, Math.round((entryPick?.sellingPrice ?? playerMap.get(id)?.price ?? 0) * 10)];
+        })),
+      });
+      exactAbortRef.current?.abort();
+      controller = new AbortController();
+      exactAbortRef.current = controller;
+      setExactPending(true);
+      setExactError(null);
+      setExactResult(null);
+      const reply = await fetch('/api/vortex/solver/exact', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), signal: controller.signal,
+      });
+      const data = await reply.json() as ExactMilpResponse & { error?: string };
+      if (!reply.ok) throw new Error(data.error ?? 'The exact transfer service could not complete this comparison.');
+      if (!Array.isArray(data.plans) || !Array.isArray(data.solver_attempts))
+        throw new Error('The server returned an invalid MILP response.');
+      if (!controller.signal.aborted) setExactResult(data);
+    } catch (error) {
+      if (controller?.signal.aborted) return; // Discard stale errors after inputs changed.
+      setExactError(error instanceof Error ? error.message : 'Exact Solver is unavailable.');
+    } finally {
+      if (controller && exactAbortRef.current === controller && !controller.signal.aborted) setExactPending(false);
+    }
+  };
+
   const transfersUsedCount = selectedPlan ? 0 : activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
   const hitPoints = selectedPlan ? 0 : Math.max(0, transfersUsedCount - freeTransfers) * 4;
 
@@ -391,6 +446,11 @@ export function SquadBuilder({
       {subTab === 'planner' && (
         <>
           <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} allPlayers={players} savedPlan={selectedPlanIsCurrent ? selectedPlan : null} onInspectPlayer={onInspectPlayer} />
+          <section className="panel" aria-label="Exact no-chip Solver">
+            <div className="panel__header"><div><span className="panel__eyebrow">EXACT FORMULATION · NO CHIPS</span><h3>10-Gameweek transfer MILP</h3></div></div>
+            <p>Compare legal transfer paths with the bounded SciPy/HiGHS solver, using the same VORTEX xPts as Chip Strategy. It is a separate read-only calculation, not an automatic squad change. Results disclose candidate coverage, MIP gap and whether optimality was proven.</p>
+            <button type="button" onClick={() => setSubTab('chips')}>Open exact transfer comparison in Solver &amp; Chip Strategy</button>
+          </section>
           <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
           <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
@@ -429,6 +489,30 @@ export function SquadBuilder({
               <p>Play now: {reviewSim.strategy.chipTiming.playNow.expectedPoints.toFixed(2)} undiscounted xPts; save this GW: {reviewSim.strategy.chipTiming.defer.expectedPoints.toFixed(2)} undiscounted xPts. Search-weighted difference (play minus save): {reviewSim.strategy.chipTiming.gainPlayNow >= 0 ? '+' : ''}{reviewSim.strategy.chipTiming.gainPlayNow.toFixed(2)} model points.</p>
               <p>{reviewSim.strategy.chipTiming.preferred === 'PLAY_NOW' ? 'Play-now path ranks higher' : 'Save-now path ranks as high or higher'} under current assumptions. Saving permits using this chip later. Both options include legal transfers, other chips, hits and the same full planning period; they are heuristic comparisons, not guaranteed gains or automatic transfers.</p>
             </div>}
+          </section>
+          <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
+              <h3>Exact-formulation transfer comparison — no chips</h3>
+            </div><span className="badge badge--violet">Separate read-only result</span></div>
+            <p>Runs a bounded 1–10 GW mixed-integer transfer model on a declared candidate shortlist, using the identical GW xPts supplied to the chip-aware VORTEX Planner. The mathematical formulation is exact, but an optimum is certified only if HiGHS proves it. This model does not support chips, future price changes, or re-buying an original squad player after selling them.</p>
+            <button type="button" onClick={() => { void runExactTransferComparison(); }}
+              disabled={exactPending || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
+              aria-busy={exactPending}>{exactPending ? 'Solving bounded MILP…' : 'Run exact no-chip transfer comparison'}</button>
+            {snapshot.meta.stale && <p role="status">Refresh current FPL data before using the MILP.</p>}
+            {selectedPlan && <p role="status">Saved manual plan active: exact no-chip transfer comparison is unavailable because manual and chip commitments must not be overwritten.</p>}
+            {plannedMoves > 0 && !selectedPlan && <p role="status">Reset unsaved manual transfers to use this independent starting-squad comparison.</p>}
+            {exactError && <p role="alert">{exactError}</p>}
+            {exactResult && (exactResult.plans[0] ? <div role="status" aria-label="MILP solution and solver certificate">
+              <p><strong>{exactResult.plans[0].solver.optimality_proven ? 'Optimality certified' : 'Feasible plan — optimum NOT certified'}</strong> · MIP gap: {exactResult.plans[0].solver.mip_gap === null ? 'N/A' : (exactResult.plans[0].solver.mip_gap * 100).toFixed(2) + '%'} · Runtime {exactResult.runtime_seconds.toFixed(2)}s.</p>
+              <p>{exactResult.plans[0].raw_expected_points_after_hits.toFixed(2)} undiscounted model xPts after hits · {exactResult.plans[0].discounted_points_after_hits.toFixed(2)} discounted objective points · {exactResult.plans[0].gameweeks.length} gameweeks. These are model estimates, not guaranteed returns.</p>
+              <div className="rollout-list">
+                {exactResult.plans[0].gameweeks.map(week => <details key={week.gw} className="rollout-row">
+                  <summary>GW{week.gw} · {week.transfers_out.length ? week.transfers_out.map((id, i) => `${playerMap.get(id)?.name ?? id} → ${playerMap.get(week.transfers_in[i])?.name ?? week.transfers_in[i]}`).join(', ') : 'ROLL'} · {week.expected_points_after_hits.toFixed(2)} xPts</summary>
+                  <p>FT {week.free_transfers_before} → {week.free_transfers_after} · Transfer hits −{week.hit_cost} · Bank £{week.bank.toFixed(1)}m · Captain {playerMap.get(week.captain)?.name ?? week.captain}. All transfer paths are suggestions only.</p>
+                </details>)}
+              </div>
+            </div> : <p role="status">HiGHS found no feasible transfer plan within the allotted search; no result is fabricated. Check the starting squad and solver constraints.</p>)}
           </section>
           <section className="chip-cards-grid" aria-label="Half-season chip valuations">
             {reviewSim.chipSimulations.map((chip) => {

@@ -662,9 +662,25 @@ test('computes dynamic Free Transfers, Injury Return parsing & Price Change Stat
   const snapshot = await getSnapshot();
   const enriched = enrichPlayers(snapshot, 'balanced');
   const predictions = enriched.map((p) => computePriceChangePrediction(p, snapshot.meta.totalPlayers));
-  assert.ok(predictions.some((pr) => pr.status === 'Likely to rise'), 'Expected at least 1 dynamic Likely to rise player');
-  assert.ok(predictions.some((pr) => pr.status === 'Likely to drop'), 'Expected at least 1 dynamic Likely to drop player');
-  assert.ok(predictions.some((pr) => pr.status === 'Unlikely to change'), 'Expected Unlikely to change players');
+  // Live snapshot composition is time-dependent: a quiet transfer window may have
+  // zero near-threshold risers or fallers. Validate all actual classifications,
+  // then use synthetic, clearly labelled extremes to cover both directions.
+  assert.equal(predictions.length, enriched.length);
+  assert.ok(predictions.length > 0);
+  assert.ok(predictions.every((pr) =>
+    ['Likely to rise', 'Likely to drop', 'Unlikely to change'].includes(pr.status) &&
+    Number.isFinite(pr.progressPct) && Number.isFinite(pr.predictedProgressPct) &&
+    Number.isFinite(pr.netTransfers) && pr.stepThreshold > 0));
+  const syntheticRiser = computePriceChangePrediction({
+    transfersInEvent: 900_000, transfersOutEvent: 0, ownership: 3,
+    status: 'a', chance: 100, form: 4, costChangeEvent: 0,
+  }, snapshot.meta.totalPlayers);
+  const syntheticFaller = computePriceChangePrediction({
+    transfersInEvent: 0, transfersOutEvent: 900_000, ownership: 3,
+    status: 'a', chance: 100, form: 4, costChangeEvent: 0,
+  }, snapshot.meta.totalPlayers);
+  assert.equal(syntheticRiser.status, 'Likely to rise');
+  assert.equal(syntheticFaller.status, 'Likely to drop');
 
   // Dynamic Purchase Price & Selling Price math (official FPL 50%-profit-rounded-down rule)
   // Case 1: Bought at £6.6m (66), now £6.8m (68) -> profit 2 tenths -> Selling Price = £6.7m (67)

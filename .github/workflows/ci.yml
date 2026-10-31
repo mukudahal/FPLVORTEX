@@ -168,3 +168,41 @@ jobs:
           DATABASE_URL: postgresql://audit:placeholder@127.0.0.1:5432/vortex_audit
           NEXT_PUBLIC_SITE_URL: https://staging.example.invalid
           FPL_AI_ENABLED: 'false'
+
+  exact-milp-runtime:
+    name: Exact no-chip MILP production container smoke
+    # The heavy container check runs for the solver-integration PR only.
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a06-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build exact solver production Docker image
+        run: docker build -t vortex-milp-ci .
+      - name: Verify SciPy is installed in the deployed runtime image
+        run: docker run --rm --entrypoint /opt/vortex-milp/bin/python vortex-milp-ci -c "from fpl_solver.solver import solve; import scipy; print('HiGHS runtime ready', scipy.__version__)"
+      - name: Exercise bounded exact MILP via real Express API
+        run: |
+          docker run -d --name vortex-milp-ci-run -p 3000:3000 vortex-milp-ci
+          trap 'docker rm -f vortex-milp-ci-run >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then break; fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json
+          with open("fpl_solver/examples/sample_input.json") as file:
+              request = json.load(file)
+          request["settings"].update({
+              "end_gw": 1, "time_limit_seconds": 5,
+              "solutions_requested": 1, "mip_gap": 0.02,
+              "free_transfer_value": 0, "bank_value_per_million": 0,
+          })
+          with open("/tmp/vortex-milp-ci-input.json", "w") as file:
+              json.dump(request, file)
+          PY
+          curl --fail --silent --show-error --max-time 20 \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/vortex-milp-ci-input.json \
+            http://127.0.0.1:3000/api/vortex/solver/exact \
+            | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; print("bounded HTTP MILP smoke OK")'
