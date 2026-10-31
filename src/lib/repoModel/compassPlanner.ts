@@ -130,7 +130,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   const importedAge = input.importedProjectionFileDate === undefined
     ? null : projectionFreshness(input.importedProjectionFileDate);
   const allowImportedMeans = importedAge === null || importedAge.status === 'recent';
-  if (!allowImportedMeans) {
+  if (importedAge && importedAge.status !== 'recent') {
     warnings.push(importedAge.status === 'stale'
       ? `Imported xPts/xMins dated ${input.importedProjectionFileDate} (${importedAge.ageDays} days old) are excluded from transfer and chip recommendations. Using local fixture-based VORTEX estimates; these have not been historically calibrated.`
       : 'Imported xPts/xMins have no verifiable recent date and are excluded from transfer and chip recommendations. Using local fixture-based VORTEX estimates; these have not been historically calibrated.');
