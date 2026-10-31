@@ -219,6 +219,8 @@ export function SquadBuilder({
       nextGw: snapshot.meta.nextEventId, horizon: plannerHorizon, decay: 1 - plannerDecay / 100,
       repoFixtures: toRepoFixtures(snapshot.fixtures), repoTeams: toRepoTeams(snapshot.teams),
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
+      importedProjectionFileDate: (snapshot.meta.repoData?.benchmarkPlayers ?? 0) > 0
+        ? snapshot.meta.repoData?.projectionFileDate ?? null : undefined,
       lockedIds: lockedIds.filter(id => activeSquadIds.includes(id)),
       manualPlan: selectedPlan ?? undefined,
       chipsUsed: entry ? entry.chipsUsed : [], chipHistoryKnown: entry ? entry.chipsUsed !== undefined : true,
