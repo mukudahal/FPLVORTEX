@@ -1193,6 +1193,15 @@ export function TransferPlanModal({
               <Save size={15} />
               <span>Save</span>
             </button>
+            <button
+              type="button"
+              className="vx-tp-close-window"
+              onClick={onClose}
+              aria-label="Close transfer plans window"
+              title="Close editor without saving unsaved edits"
+            >
+              <X size={17} />
+            </button>
           </header>
 
           <div className="vx-tp-workspace-grid">
