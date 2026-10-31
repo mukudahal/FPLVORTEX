@@ -3,6 +3,7 @@
  * Uses FPL VORTEX forecasts and scoring; no Compass code or private model inputs.
  */
 import type { EnrichedPlayer } from '../types';
+import type { StoredTransferPlan } from '../transferPlansStore';
 import type { FplReviewSimInput, FplReviewSimOutput, LineupSolution, SolverPlayerNode } from './fplReviewSimulator';
 import { positionToType, solveLineupTS, solveFullSquadTS } from './fplReviewSimulator';
 import type { ChipGwSimulation, ChipSimulationSummary, OptimizerOptionComparison, OptimizerTransferMove } from './dashboardTypes';
@@ -19,6 +20,8 @@ const CHIPS: PlanningChip[] = ['wc', 'fh', 'bb', 'tc'];
 
 export interface PlannerSimulationInput extends FplReviewSimInput {
   lockedIds?: number[];
+  /** Authoritative browser-saved decisions. They are constraints, not overwritable suggestions. */
+  manualPlan?: Pick<StoredTransferPlan, 'id' | 'name' | 'startGw' | 'transfers' | 'lineups' | 'captains' | 'chips'>;
   /** Hits already committed by manual scenario transfers, charged once in the first GW. */
   initialHitCost?: number;
   initialFreeTransfersBeforeScenario?: number;
@@ -59,6 +62,7 @@ export interface PlannerSimulationOutput extends FplReviewSimOutput {
   };
   forecastByGw: Record<number, Record<number, number>>;
   warnings: string[];
+  sourcePlan?: { id: string; name: string; committedGameweeks: number; lockedPlayers: number };
 }
 
 interface SearchState {
@@ -82,6 +86,8 @@ interface Action {
 
 export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimulationOutput {
   const { nextGw } = input;
+  const manualPlan = input.manualPlan;
+  if (manualPlan && manualPlan.startGw !== nextGw) throw new RangeError(`Saved plan starts in GW${manualPlan.startGw}, but current forecasts start in GW${nextGw}. Rebase or create a new plan before simulating.`);
   if (!Number.isInteger(nextGw) || nextGw < 1 || nextGw > 38) throw new RangeError('Choose an upcoming gameweek from 1 to 38.');
   if (!Number.isInteger(input.bankTenths) || input.bankTenths < 0) throw new RangeError('Squad exceeds the available budget. Reset or undo a transfer.');
   if (!Number.isInteger(input.freeTransfersNow) || input.freeTransfersNow < 0 || input.freeTransfersNow > 5) throw new RangeError('Free transfers must be between 0 and 5.');
@@ -114,6 +120,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   const warnings: string[] = [];
   if (!knownHistory) warnings.push('Chip history is unavailable. Refresh the team to enable chip recommendations.');
   if (input.dataNotice) warnings.push(input.dataNotice);
+  if (manualPlan) warnings.push(`Using saved plan “${manualPlan.name}”. Its manual transfers, lineup, captain and chip selections are constraints. Auto suggestions do not change your saved plan.`);
   warnings.push('Forecasts assume the published fixture schedule and fixed player prices; future postponements, injuries and price changes are unknown.');
 
   const teams = new Map(input.repoTeams.map(t => [t.id, t]));
@@ -223,6 +230,78 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     return result;
   };
 
+  /** Fixed manual transfers are applied as one budget-balanced FPL transfer batch. */
+  const committedAction = (state: SearchState, gw: number): Action | null => {
+    const moves = manualPlan?.transfers[gw] ?? [];
+    if (!moves.length) return null;
+    const outIds = moves.map(move => move.out);
+    const inIds = moves.map(move => move.in);
+    if (new Set(outIds).size !== moves.length || new Set(inIds).size !== moves.length ||
+        outIds.some(id => !state.squad.includes(id) || locked.has(id)) ||
+        inIds.some(id => !byId.has(id) || (state.squad.includes(id) && !outIds.includes(id)))) return null;
+    if (moves.some(move => byId.get(move.out)?.type !== byId.get(move.in)?.type)) return null;
+    const nextSquad = state.squad.map(id => {
+      const match = moves.find(move => move.out === id);
+      return match ? match.in : id;
+    });
+    if (new Set(nextSquad).size !== 15) return null;
+    const nextBank = state.bank + moves.reduce((sum, move) => sum + state.sell[move.out] - byId.get(move.in)!.cost, 0);
+    if (nextBank < 0) return null;
+    const clubs = new Map<number, number>();
+    for (const id of nextSquad) {
+      const team = byId.get(id)!.team;
+      clubs.set(team, (clubs.get(team) ?? 0) + 1);
+    }
+    if ([...clubs.values()].some(count => count > 3)) return null;
+    const sell = { ...state.sell };
+    for (const move of moves) delete sell[move.out];
+    for (const move of moves) sell[move.in] = byId.get(move.in)!.cost;
+    return {
+      squad: nextSquad, bank: nextBank, sell,
+      moves: moves.map(move => ({ outId: move.out, inId: move.in })),
+    };
+  };
+
+  /** Validate manual XI/captain selections against the chosen strategy's actual squad. */
+  const committedLineup = (squad: number[], gw: number, chip?: PlanningChip): LineupSolution => {
+    const automatic = lineup(squad, gw, chip);
+    const orderInput = manualPlan?.lineups[gw];
+    const captains = manualPlan?.captains[gw];
+    if (!orderInput && !captains) return automatic;
+    const values = forecastByGw[gw];
+    let order = [...automatic.starters, ...automatic.bench];
+    if (orderInput) {
+      if (orderInput.length !== 15 || new Set(orderInput).size !== 15) throw new RangeError(`Saved GW${gw} lineup is incomplete.`);
+      const arrivals = squad.filter(id => !orderInput.includes(id));
+      order = orderInput.map(id => {
+        if (squad.includes(id)) return id;
+        const candidate = arrivals.findIndex(inId => byId.get(inId)?.type === byId.get(id)?.type);
+        return candidate < 0 ? -1 : arrivals.splice(candidate, 1)[0];
+      });
+      const starters = order.slice(0, 11);
+      const counts = [1, 2, 3, 4].map(t => starters.filter(id => byId.get(id)?.type === t).length);
+      if (order.includes(-1) || new Set(order).size !== 15 || order.some(id => !squad.includes(id)) ||
+          counts[0] !== 1 || counts[1] < 3 || counts[1] > 5 || counts[2] < 2 || counts[2] > 5 ||
+          counts[3] < 1 || counts[3] > 3 || byId.get(order[11])?.type !== 1)
+        throw new RangeError(`Saved GW${gw} lineup conflicts with the squad or formation.`);
+    }
+    const starters = order.slice(0, 11), bench = order.slice(11);
+    const ranked = [...starters].sort((a, b) => (values[b] ?? 0) - (values[a] ?? 0));
+    const captainId = captains?.captain ?? ranked[0];
+    const viceId = captains?.vice ?? ranked.find(id => id !== captainId) ?? captainId;
+    if (!starters.includes(captainId) || !starters.includes(viceId) || captainId === viceId)
+      throw new RangeError(`Saved GW${gw} captain or vice-captain is not in the starting XI.`);
+    const xiXPts = starters.reduce((sum, id) => sum + (values[id] ?? 0), 0);
+    const benchXPts = bench.reduce((sum, id) => sum + (values[id] ?? 0), 0);
+    const captainXPts = (values[captainId] ?? 0) * (chip === 'tc' ? 2 : 1);
+    return {
+      starters, bench, captainId, viceId, xiXPts: r2(xiXPts),
+      captainXPts: r2(captainXPts), benchXPts: r2(benchXPts),
+      totalXPts: r2(xiXPts + captainXPts + (chip === 'bb' ? benchXPts : 0)),
+      formation: [2, 3, 4].map(t => starters.filter(id => byId.get(id)?.type === t).length).join('-'),
+    };
+  };
+
   const rebuildCache = new Map<string, Action | null>();
   const rebuild = (state: SearchState, gw: number, chip: 'wc' | 'fh'): Action | null => {
     const budget = state.bank + state.squad.reduce((sum, id) => sum + state.sell[id], 0);
@@ -268,13 +347,17 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     rebuildCache.set(key, action);
     return action;
   };
+  const reservedChipUses: SeasonChipUse[] = Object.entries(manualPlan?.chips ?? {}).map(([gw, chip]) => ({ gw: Number(gw), chip }));
+  const manualChipErrors = validateSeasonChipPlan([...history, ...reservedChipUses]);
+  if (manualChipErrors.length) throw new RangeError(`Saved chip schedule is illegal: ${manualChipErrors.join(' ')}`);
+  if (manualPlan && reservedChipUses.length && !knownHistory) throw new RangeError('Refresh the official manager chip history before simulating saved chip commitments.');
   const available = (state: SearchState, gw: number, chip: PlanningChip): boolean => knownHistory &&
     !((chip === 'wc' || chip === 'fh') && gw === (input.startedEvent ?? 1)) &&
-    validateSeasonChipPlan([...history, ...state.uses, { gw, chip }]).length === 0;
+    validateSeasonChipPlan([...history, ...state.uses, { gw, chip }, ...reservedChipUses.filter(use => use.gw > gw)]).length === 0;
 
   const advance = (state: SearchState, action: Action, gw: number, chip?: PlanningChip): SearchState => {
     const hitCost = pointsHit(action.moves.length, state.ft, chip === 'wc' || chip === 'fh') + (gw === nextGw && chip !== 'wc' && chip !== 'fh' ? input.initialHitCost ?? 0 : 0);
-    const lu = lineup(action.squad, gw, chip);
+    const lu = manualPlan ? committedLineup(action.squad, gw, chip) : lineup(action.squad, gw, chip);
     const ftBefore = gw === nextGw && (chip === 'wc' || chip === 'fh') ? input.initialFreeTransfersBeforeScenario ?? state.ft : state.ft;
     const ftAfter = nextFreeTransfers(ftBefore, action.moves.length, chip);
     const uses = chip ? [...state.uses, { gw, chip }] : state.uses;
