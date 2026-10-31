@@ -461,7 +461,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     xPtsGainHorizon: r2(gws.reduce((s, gw) => s + forecastByGw[gw][m.inId] - forecastByGw[gw][m.outId], 0)),
   });
   const first0 = variants[0].weeks[0]!;
-  const firstOf = (n: number) => variants[n].weeks[0] ?? first0;
+  const firstOf = (n: number) => variants[n]?.weeks[0] ?? first0;
   const optionIds = ['roll', 'transfer1', 'transfer2'] as const;
   const winnerIndex = variants.indexOf(baseline);
   const horizonTotal = (state: SearchState) => r2(state.weeks.filter(w => gws.includes(w.gw)).reduce((s, w) => s + w.netXPts, 0));
