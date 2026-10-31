@@ -31,6 +31,8 @@ export interface StoredTransferPlan {
   lineups: LineupMap;
   captains: Record<number, { captain?: number; vice?: number }>;
   chips: ChipMap;
+  /** Player IDs preserved during automatic replanning. */
+  lockedPlayerIds?: number[];
   createdAt: string;
   updatedAt: string;
 }
@@ -71,6 +73,19 @@ export function typeNumToPosition(type: number): Position {
 
 export function transferPlansStorageKey(entryId?: number | null): string {
   return `vortex:transferPlans:v1:${entryId ? String(entryId) : 'template'}`;
+}
+
+/** Plan selection is scoped to the FPL entry; '__live__' explicitly opts out. */
+export function selectedTransferPlanStorageKey(entryId?: number | null): string {
+  return `vortex:selectedTransferPlan:v1:${entryId ? String(entryId) : 'template'}`;
+}
+
+export function readSelectedTransferPlanId(storage: Pick<Storage, 'getItem'> | null | undefined, entryId?: number | null): string | null {
+  try { return storage?.getItem(selectedTransferPlanStorageKey(entryId)) ?? null; } catch { return null; }
+}
+
+export function writeSelectedTransferPlanId(storage: Pick<Storage, 'setItem'> | null | undefined, entryId: number | null | undefined, id: string): void {
+  try { storage?.setItem(selectedTransferPlanStorageKey(entryId), id); } catch { /* Storage is optional. */ }
 }
 
 function isIntArray(value: unknown): value is number[] {
@@ -169,6 +184,7 @@ export function sanitizeStoredPlan(raw: unknown): StoredTransferPlan | null {
     lineups,
     captains,
     chips,
+    lockedPlayerIds: isIntArray(obj.lockedPlayerIds) ? [...new Set(obj.lockedPlayerIds)].filter(id => obj.baseSquad.includes(id)) : [],
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : nowIso,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : nowIso,
   };
@@ -295,6 +311,7 @@ export function createNewTransferPlan(params: {
     lineups: initialLineup ? { [startGw]: initialLineup } : {},
     captains: initialCaptain ? { [startGw]: initialCaptain } : {},
     chips: {},
+    lockedPlayerIds: [],
     createdAt: nowIso,
     updatedAt: nowIso,
   };
