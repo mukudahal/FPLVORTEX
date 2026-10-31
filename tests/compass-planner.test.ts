@@ -260,3 +260,66 @@ test('next-GW FT option uses legal future moves but never invents season-end val
   const atCap = runPlannerSimulation({ ...input, freeTransfersNow: 5, chipHistoryKnown: false, chipsUsed: undefined });
   assert.equal(atCap.bankedTransferValueNextGw, 0, 'a sixth FT cannot be banked and a fifth FT is not useful for the 2-transfer shortlist');
 });
+
+test('joint FH comparison replays legal full-horizon play-now and defer continuations', () => {
+  const input = scenario(37, false);
+  const extra = makePlayer(16, {
+    position: 'MID', teamId: 6, team: makeTeam(6), cost: 50,
+    gwProjections: { 37: 70, 38: 0 },
+  });
+  input.players.push(extra);
+  input.repoElements.push(toRepoElement(extra));
+  input.lockedIds = input.currentSquadIds.filter(id => id !== 8);
+  input.chipsUsed = [{ name: 'wildcard', event: 32 }, { name: 'bboost', event: 33 }, { name: '3xc', event: 34 }];
+  const result = runPlannerSimulation(input);
+  const timing = result.strategy.chipTiming;
+  assert.ok(timing, 'Expected the nominated FH to have a play-now vs save comparison');
+  assert.equal(timing.chip, 'fh');
+  assert.equal(timing.playNow.weeks.length, 2);
+  assert.equal(timing.defer.weeks.length, 2);
+  assert.equal(timing.playNow.weeks[0].chip, 'fh');
+  assert.notEqual(timing.defer.weeks[0].chip, 'fh');
+  assert.ok(timing.playNow.weeks[0].squad.includes(16), 'play-now uses the one-week high-return player');
+  assert.deepEqual(
+    [...timing.playNow.weeks[1].squad].sort((a, b) => a - b),
+    input.currentSquadIds,
+    'the next GW restores original FH holdings',
+  );
+  assert.equal(timing.preferred, 'PLAY_NOW');
+  assert.ok(timing.gainPlayNow > 0);
+  assert.ok(Math.abs(timing.gainPlayNow -
+    (timing.playNow.planningScore - timing.defer.planningScore)) < 0.02);
+  assert.ok(result.strategy.planningScore >= Math.max(
+    timing.playNow.planningScore, timing.defer.planningScore,
+  ) - 0.02, 'selected recommendation is not worse than either constrained continuation');
+  for (const counterfactual of [timing.playNow, timing.defer]) {
+    assert.deepEqual(validateSeasonChipPlan([
+      { chip: 'wc', gw: 32 }, { chip: 'bb', gw: 33 }, { chip: 'tc', gw: 34 },
+      ...counterfactual.schedule,
+    ]), []);
+    for (const week of counterfactual.weeks) {
+      assert.ok(week.bankAfter >= 0);
+      assert.equal(week.hitCost,
+        week.chip === 'wc' || week.chip === 'fh' ? 0 :
+        Math.max(0, week.moves.length - week.ftBefore) * 4);
+      assert.ok(week.ftAfter >= 0 && week.ftAfter <= 5);
+    }
+  }
+});
+
+test('chip timing scenarios are disabled with unknown history or no nominated chip', () => {
+  const input = scenario(37, false);
+  const unknown = runPlannerSimulation({
+    ...input, chipHistoryKnown: false, chipsUsed: undefined,
+  });
+  assert.equal(unknown.strategy.chipTiming, null);
+  const noChip = runPlannerSimulation({
+    ...input, chipHistoryKnown: true, chipsUsed: [
+      { name: 'wildcard', event: 31 },
+      { name: 'freehit', event: 32 },
+      { name: 'bboost', event: 33 },
+      { name: '3xc', event: 34 },
+    ],
+  });
+  assert.equal(noChip.strategy.chipTiming, null);
+});

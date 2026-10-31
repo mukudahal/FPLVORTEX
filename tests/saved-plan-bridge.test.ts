@@ -48,6 +48,7 @@ test('selected plan locks, manual transfers, XI, captain and chip replay in solv
   const result = runPlannerSimulation({ ...inputs(), manualPlan, lockedIds: manualPlan.lockedPlayerIds });
   assert.equal(JSON.stringify(manualPlan), before, 'worker must never mutate saved plan');
   assert.equal(result.sourcePlan?.id, 'saved-37');
+  assert.equal(result.strategy.chipTiming, null, 'do not override saved manual chips with timing counterfactuals');
   assert.equal(result.strategy.weeks[0].chip, 'tc');
   assert.deepEqual(result.strategy.weeks[0].moves, [{ outId: 8, inId: 16 }]);
   assert.deepEqual(result.strategy.weeks[1].moves, [{ outId: 9, inId: 17 }]);
