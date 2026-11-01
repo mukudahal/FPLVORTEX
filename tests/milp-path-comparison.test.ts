@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compareMilpPaths, createReviewedMilpPlan, type ExactMilpRequest } from '../src/lib/milpPathComparison.ts';
 import type { ExactMilpResponse, ExactMilpWeek } from '../src/lib/exactMilpBridge.ts';
+import { readStoredTransferPlans, writeStoredTransferPlans, upsertTransferPlan } from '../src/lib/transferPlansStore.ts';
 
 function fixture() {
   const position = (id: number): 'GK' | 'DEF' | 'MID' | 'FWD' =>
@@ -128,4 +129,37 @@ test('one feasible or zero feasible paths remain honest, not synthesized', () =>
   assert.equal(compareMilpPaths(request, response).length, 1);
   response.plans = [];
   assert.deepEqual(compareMilpPaths(request, response), []);
+});
+
+test('reviewed alternative saves as a NEW plan, never overwrites existing slots', () => {
+  const { request, response } = fixture();
+  const compared = compareMilpPaths(request, response);
+  const old = createReviewedMilpPlan({
+    request, path: compared[1], name: 'Existing protected plan', id: 'existing-plan-a',
+    createdAt: '2026-11-01T00:00:00.000Z',
+  });
+  const fresh = createReviewedMilpPlan({
+    request, path: compared[0], name: 'New proposed path', id: 'new-proposal-b',
+    createdAt: '2026-11-01T00:00:00.000Z',
+  });
+  const oldContents = JSON.stringify(old);
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value); },
+  };
+  writeStoredTransferPlans(storage, 123, [old]);
+  const result = upsertTransferPlan(readStoredTransferPlans(storage, 123), fresh);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    writeStoredTransferPlans(storage, 123, result.plans);
+    const saved = readStoredTransferPlans(storage, 123);
+    assert.equal(saved.length, 2);
+    assert.deepEqual(saved.find(item => item.id === fresh.id)?.transfers[37], [{ out: 8, in: 16 }]);
+    assert.equal(JSON.stringify(saved.find(item => item.id === old.id)), oldContents);
+  }
+  const full = Array.from({ length: 10 }, (_, i) => ({ ...old, id: 'existing-' + i }));
+  const overflow = upsertTransferPlan(full, fresh);
+  assert.deepEqual(overflow.ok, false);
+  if (!overflow.ok) assert.match(overflow.error, /Maximum of 10 plan slots/);
 });
