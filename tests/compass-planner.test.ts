@@ -99,6 +99,19 @@ test('unknown chip history disables recommendations; first-half uses reset in se
   assert.equal(normalizeChipHistory(null), undefined);
   assert.deepEqual(normalizeChipHistory({ chips: [] }), []);
   assert.deepEqual(normalizeChipHistory({ chips: [{ name: '3xc', event: 18 }] }), [{ name: '3xc', event: 18 }]);
+  // FPL may extend or change codes; missing semantics must not silently
+  // reset every chip to "unused" for the exact optimizer.
+  assert.equal(normalizeChipHistory({ chips: [{ name: 'unknown-chip', event: 18 }] }), undefined);
+  assert.equal(normalizeChipHistory({ chips: [{ name: '3xc', event: null }] }), undefined);
+  assert.equal(normalizeChipHistory({ chips: [{ name: 'bboost', event: 18.5 }] }), undefined);
+  assert.equal(normalizeChipHistory({ chips: [{ name: 'freehit', event: 39 }] }), undefined);
+  assert.equal(normalizeChipHistory({ chips: [
+    { name: '3xc', event: 6 }, { name: 'triple_captain', event: 7 },
+  ] }), undefined);
+  // 2026/27 chips are legitimately available once in each season half.
+  assert.deepEqual(normalizeChipHistory({ chips: [
+    { name: '3xc', event: 6 }, { name: 'tc', event: 22 },
+  ] }), [{ name: '3xc', event: 6 }, { name: '3xc', event: 22 }]);
   const unknown = runPlannerSimulation({ ...scenario(38, false), chipsUsed: undefined, chipHistoryKnown: false });
   assert.deepEqual(unknown.strategy.schedule, []);
   assert.ok(unknown.chipSimulations.every(c => !c.available));
