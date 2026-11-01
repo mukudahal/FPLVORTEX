@@ -66,6 +66,9 @@ function parsePrivateChips(
       throw new RangeError('Unknown authenticated FPL chip availability.');
     if (chip.is_pending === true || chip.is_active === true)
       throw new RangeError('An FPL chip is already pending or active.');
+    if (status === 'played' && !publicEntry.chipsUsed?.some(p =>
+      canonicalChip(p.name)===name && (p.event<=19?1:2)===(from<=19?1:2)))
+      throw new RangeError('Authenticated chip is marked played without matching official history.');
     if (from<=gw && to>=gw) {
       if (seenCurrent.has(name))
         throw new RangeError('Duplicate current-half authenticated FPL chip.');
@@ -97,6 +100,9 @@ export async function readAuthenticatedCurrentTeam(
   if (snapshot.meta.nextEventId!==gw || snapshot.meta.stale ||
       !snapshot.meta.upstreamOk || !snapshot.meta.isLive)
     throw new RangeError('Fresh official current-Gameweek player market is required.');
+  const age=now.getTime()-Date.parse(publicEntry.generatedAt);
+  if (!Number.isFinite(age) || age < -60_000 || age > 60_000)
+    throw new RangeError('Official public FPL history must be freshly retrieved.');
   if (publicEntry.id!==entryId || publicEntry.source!=='live' ||
       publicEntry.provenance?.kind!=='official' ||
       publicEntry.provenance.requestedIdVerified!==true ||
@@ -110,6 +116,9 @@ export async function readAuthenticatedCurrentTeam(
   if (ownedEntry!==entryId)
     throw new RangeError('Authenticated FPL session belongs to a different manager.');
   const payload=record(await read(`/my-team/${entryId}/`),'current squad');
+  if (payload.active_chip !== null && payload.active_chip !== undefined &&
+      payload.active_chip !== '')
+    throw new RangeError('A chip is already active on the current FPL account.');
   const rawPicks=payload.picks;
   if (!Array.isArray(rawPicks) || rawPicks.length!==15)
     throw new RangeError('Authenticated current team must contain 15 players.');
