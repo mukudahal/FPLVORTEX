@@ -41,12 +41,24 @@ def solve(request: SolveRequest) -> dict:
     V = problem.var
     by_id = {p.player_id: i for i, p in enumerate(players)}
     locked = set(s.locked_players); excluded = set(s.excluded_players)
+    # The original squad uses its verified effective selling price until
+    # its first sale. On a later repurchase the new cost basis is the
+    # current market price (prices remain fixed across this horizon).
+    initial_discount = {
+        i: round(p.current_price * 10) - round(p.selling_price * 10)
+        for i, p in enumerate(players)
+        if p.player_id in owned and p.selling_price is not None
+        and round(p.current_price * 10) > round(p.selling_price * 10)
+    }
     for gidx, gw in enumerate(gws):
         weight = s.time_decay ** gidx
         for i, p in enumerate(players):
             V(('s', i, gidx), lo=int(p.player_id in locked), hi=int(p.player_id not in excluded))
-            # Initial squad players cannot be re-bought: avoids incorrect FPL sale-price accounting.
-            V(('b', i, gidx), hi=int(p.player_id not in owned and gidx < s.transfer_depth))
+            V(('b', i, gidx), hi=int(gidx < s.transfer_depth))
+            if i in initial_discount:
+                # One first-sale flag is enough to track the original
+                # sale-price basis across arbitrary rebuys.
+                V(('first_sale', i, gidx))
             V(('o', i, gidx), hi=int(p.player_id not in locked and gidx < s.transfer_depth))
             V(('l', i, gidx), hi=int(s.allow_blank_starters or p.has_fixture_by_gw[gw]), objective=-weight * p.xpts_by_gw[gw])
             V(('c', i, gidx), objective=-weight * p.xpts_by_gw[gw])
@@ -80,6 +92,17 @@ def solve(request: SolveRequest) -> dict:
             else:
                 row(sell, hi=initial); row(buy, hi=1-initial)
             row({idx['b',i,t]:1, idx['o',i,t]:1}, hi=1)
+            if i in initial_discount:
+                first = idx['first_sale', i, t]
+                sell_var = idx['o', i, t]
+                # first_sale = sold_this_week AND no earlier first_sale.
+                row({first: 1, sell_var: -1}, hi=0)
+                if t == 0:
+                    row({first: 1, sell_var: -1}, 0, 0)
+                else:
+                    prev = {idx['first_sale', i, u]: 1 for u in range(t)}
+                    row({first: 1, **prev}, hi=1)
+                    row({first: 1, sell_var: -1, **prev}, lo=0)
             row({idx['l',i,t]:1, idx['s',i,t]:-1}, hi=0)
             row({idx['c',i,t]:1, idx['l',i,t]:-1}, hi=0)
         row({idx['b',i,t]:1 for i in range(n)} | {idx['o',i,t]:-1 for i in range(n)}, 0, 0)
@@ -87,9 +110,13 @@ def solve(request: SolveRequest) -> dict:
         bankrow = {idx['bank',t]:1}
         if t: bankrow[idx['bank',t-1]] = -1
         for i,p in enumerate(players):
-            sale = p.selling_price if p.player_id in owned and p.selling_price is not None else p.current_price
-            bankrow[idx['b',i,t]] = round(p.current_price*10)
-            bankrow[idx['o',i,t]] = -round(sale*10)
+            market_tenths = round(p.current_price * 10)
+            bankrow[idx['b',i,t]] = market_tenths
+            bankrow[idx['o',i,t]] = -market_tenths
+            if i in initial_discount:
+                # A reduced selling price applies only on the FIRST sale,
+                # not on future sales after buying the player back.
+                bankrow[idx['first_sale',i,t]] = initial_discount[i]
         row(bankrow, round(team.bank*10) if not t else 0, round(team.bank*10) if not t else 0)
         zkeys = [(ft,k) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)]
         row({idx['z',t,ft,k]:1 for ft,k in zkeys}, 1, 1)
@@ -133,4 +160,4 @@ def solve(request: SolveRequest) -> dict:
         present = [j for j in buy_indices if x[j] > .5]
         absent = [j for j in buy_indices if x[j] <= .5]
         row({**{j:-1 for j in present}, **{j:1 for j in absent}}, lo=1-len(present))
-    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':'off','price_model':'fixed current prices; initial selling prices where provided; no re-buy of original squad players','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', 'Fixed prices; chips, autosubs and future price changes are not yet supported.']}
+    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':'off','price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', 'Fixed prices; chips, autosubs and future price changes are not yet supported.']}
