@@ -354,6 +354,110 @@ export function SquadBuilder({
     }
   };
 
+  const runJointChipComparison = async () => {
+    let controller: AbortController | null = null;
+    if (!jointUiEnabled) return;
+    if (!entry || !reviewSim || selectedPlan || plannedMoves > 0) {
+      setJointError('Load a verified current FPL team, run the Planner, and clear all manual commitments first.');
+      return;
+    }
+    try {
+      const sellingPrices = Object.fromEntries(activeSquadIds.map(id => {
+        const sale = entry.picks.find(pick => pick.element === id)?.sellingPrice;
+        return [id, typeof sale === 'number' ? Math.round(sale * 10) : Number.NaN];
+      }));
+      const input = buildJointSolverRequest({
+        entry, snapshot, players, planner: reviewSim,
+        squadIds: activeSquadIds, bankTenths, freeTransfers, sellingPrices,
+        lockedIds, decay: 1 - plannerDecay / 100,
+      });
+      jointAbortRef.current?.abort();
+      controller = new AbortController();
+      jointAbortRef.current = controller;
+      setJointPending(true);
+      setJointError(null);
+      setJointComparison(null);
+      setJointReview(false);
+      const response = await fetch('/api/vortex/solver/joint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId: input.entryId, solver: input.solver }),
+        signal: controller.signal,
+      });
+      const data = await response.json() as ExactMilpResponse & { error?: string };
+      if (!response.ok)
+        throw new Error(data.error ?? 'Joint-chip Solver is unavailable on this deployment.');
+      const paths = verifyJointChipPaths(input.solver, data, input.chips);
+      if (!controller.signal.aborted)
+        setJointComparison({
+          input, paths, result: data,
+          sourceEntry: entry, sourceSnapshot: snapshot, sourcePlanner: reviewSim,
+        });
+    } catch (error) {
+      if (controller?.signal.aborted) return;
+      setJointError(error instanceof Error ? error.message : 'Joint-chip Solver could not be verified.');
+    } finally {
+      if (controller && jointAbortRef.current === controller && !controller.signal.aborted)
+        setJointPending(false);
+    }
+  };
+
+  const saveReviewedJointChipPlan = () => {
+    const comparison = jointComparison;
+    if (!jointUiEnabled || !comparison || !jointReview ||
+        !entry || !reviewSim || comparison.sourceEntry !== entry ||
+        comparison.sourceSnapshot !== snapshot ||
+        comparison.sourcePlanner !== reviewSim ||
+        selectedPlan || plannedMoves > 0 || jointPending || snapshot.meta.stale ||
+        typeof window === 'undefined') {
+      setJointError('The verified team or forecast has changed. Re-run the joint-chip comparison.');
+      setJointReview(false);
+      return;
+    }
+    try {
+      const sellingPrices = Object.fromEntries(activeSquadIds.map(id => {
+        const sale = entry.picks.find(pick => pick.element === id)?.sellingPrice;
+        return [id, typeof sale === 'number' ? Math.round(sale * 10) : Number.NaN];
+      }));
+      const fresh = buildJointSolverRequest({
+        entry, snapshot, players, planner: reviewSim,
+        squadIds: activeSquadIds, bankTenths, freeTransfers, sellingPrices,
+        lockedIds, decay: 1 - plannerDecay / 100,
+      });
+      if (fresh.entryId !== comparison.input.entryId ||
+          JSON.stringify(fresh.solver) !== JSON.stringify(comparison.input.solver)) {
+        throw new RangeError('The manager state no longer matches the reviewed proposal.');
+      }
+      const [chosen] = verifyJointChipPaths(
+        comparison.input.solver, comparison.result, fresh.chips,
+      );
+      if (!chosen) throw new RangeError('The joint optimizer found no valid proposal to save.');
+      const nowIso = new Date().toISOString();
+      const proposal = createReviewedJointChipPlan({
+        request: comparison.input.solver,
+        path: chosen,
+        id: 'joint-' + crypto.randomUUID(),
+        name: `Reviewed Joint Chips GW${comparison.input.solver.settings.start_gw}+`,
+        createdAt: nowIso,
+      });
+      const previous = readStoredTransferPlans(window.localStorage, storageScopeId);
+      const upsert = upsertTransferPlan(previous, proposal);
+      if (!upsert.ok) throw new RangeError(upsert.error);
+      writeStoredTransferPlans(window.localStorage, storageScopeId, upsert.plans);
+      if (!readStoredTransferPlans(window.localStorage, storageScopeId)
+        .some(stored => stored.id === proposal.id))
+        throw new RangeError('Browser storage refused to persist the new plan.');
+      setSavedPlans(upsert.plans);
+      selectPlan(proposal.id);
+      setJointReview(false);
+      setTransferPlansOpen(true);
+      onToast('A NEW reviewed joint-chip scenario was saved. No official FPL action was taken.', 'success');
+    } catch (error) {
+      setJointReview(false);
+      setJointError(error instanceof Error ? error.message : 'The joint scenario could not be safely saved.');
+    }
+  };
+
   const saveReviewedExactPath = () => {
     if (!exactComparison || reviewExactRank === null || !reviewSim ||
         exactComparison.sourceSnapshot !== snapshot || exactComparison.sourcePlanner !== reviewSim ||
