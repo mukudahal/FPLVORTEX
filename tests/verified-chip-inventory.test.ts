@@ -36,7 +36,7 @@ test('verified 2026/27 chips use official played history and never cross half ex
 
 test('unknown or stale manager chip data never creates free chip inventory', () => {
   const good = entry([]);
-  for (const invalid of [
+  for (const invalid of ([
     null,
     { ...good, source: 'cache' },
     { ...good, source: 'snapshot' },
@@ -47,7 +47,7 @@ test('unknown or stale manager chip data never creates free chip inventory', () 
     { ...good, generatedAt: '' },
     { ...good, generatedAt: '2026-10-01T00:00:00Z' },
     { ...good, generatedAt: '2026-11-03T00:00:00Z' },
-  ]) {
+  ] as Array<EntryData | null>)) {
     assert.throws(() => verifiedChipInventory(invalid, 20, NOW), RangeError);
   }
 });
