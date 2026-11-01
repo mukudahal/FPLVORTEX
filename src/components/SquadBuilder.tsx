@@ -22,6 +22,7 @@ import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
+import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
   readStoredTransferPlans,
@@ -92,6 +93,14 @@ export function SquadBuilder({
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [exactResult, setExactResult] = useState<ExactMilpResponse | null>(null);
+  const [exactComparison, setExactComparison] = useState<{
+    request: ExactMilpRequest;
+    paths: ComparedMilpPath[];
+    sourceSnapshot: Snapshot;
+    sourcePlanner: PlannerSimulationOutput;
+  } | null>(null);
+  const [selectedExactRank, setSelectedExactRank] = useState(1);
+  const [reviewExactRank, setReviewExactRank] = useState<number | null>(null);
   const [exactError, setExactError] = useState<string | null>(null);
   const [exactPending, setExactPending] = useState(false);
   const exactAbortRef = useRef<AbortController | null>(null);
@@ -268,8 +277,11 @@ export function SquadBuilder({
     exactAbortRef.current = null;
     setExactPending(false);
     setExactResult(null);
+    setExactComparison(null);
+    setSelectedExactRank(1);
+    setReviewExactRank(null);
     setExactError(null);
-  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths]);
+  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry]);
 
   const runExactTransferComparison = async () => {
     let controller: AbortController | null = null;
@@ -294,6 +306,8 @@ export function SquadBuilder({
       setExactPending(true);
       setExactError(null);
       setExactResult(null);
+      setExactComparison(null);
+      setReviewExactRank(null);
       const reply = await fetch('/api/vortex/solver/exact', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), signal: controller.signal,
@@ -302,12 +316,60 @@ export function SquadBuilder({
       if (!reply.ok) throw new Error(data.error ?? 'The exact transfer service could not complete this comparison.');
       if (!Array.isArray(data.plans) || !Array.isArray(data.solver_attempts))
         throw new Error('The server returned an invalid MILP response.');
-      if (!controller.signal.aborted) setExactResult(data);
+      const paths = compareMilpPaths(payload, data);
+      if (!controller.signal.aborted) {
+        setExactResult(data);
+        setExactComparison({ request: payload, paths, sourceSnapshot: snapshot, sourcePlanner: reviewSim });
+        setSelectedExactRank(1);
+      }
     } catch (error) {
       if (controller?.signal.aborted) return; // Discard stale errors after inputs changed.
       setExactError(error instanceof Error ? error.message : 'Exact Solver is unavailable.');
     } finally {
       if (controller && exactAbortRef.current === controller && !controller.signal.aborted) setExactPending(false);
+    }
+  };
+
+  const saveReviewedExactPath = () => {
+    if (!exactComparison || reviewExactRank === null || !reviewSim ||
+        exactComparison.sourceSnapshot !== snapshot || exactComparison.sourcePlanner !== reviewSim ||
+        selectedPlan || plannedMoves > 0 || snapshot.meta.stale || exactPending ||
+        freeTransfers !== exactComparison.request.current_team.free_transfers ||
+        Math.round(bankTenths) !== Math.round(exactComparison.request.current_team.bank * 10) ||
+        !activeSquadIds.every((id, i) => exactComparison.request.current_team.squad_player_ids[i] === id) ||
+        !lockedIds.every(id => exactComparison.request.settings.locked_players.includes(id)) ||
+        lockedIds.length !== exactComparison.request.settings.locked_players.length) {
+      setExactError('The team, source forecast or saved scenario changed. Re-run the MILP before accepting a path.');
+      setReviewExactRank(null);
+      return;
+    }
+    const chosen = exactComparison.paths.find(path => path.rank === reviewExactRank);
+    if (!chosen || typeof window === 'undefined') {
+      setExactError('Select a validated transfer path before saving.');
+      return;
+    }
+    const previous = readStoredTransferPlans(window.localStorage, storageScopeId);
+    const nowIso = new Date().toISOString();
+    try {
+      const proposed = createReviewedMilpPlan({
+        request: exactComparison.request, path: chosen,
+        id: 'milp-' + crypto.randomUUID(),
+        name: `MILP Path ${chosen.rank} (GW${exactComparison.request.settings.start_gw}+)`,
+        createdAt: nowIso,
+      });
+      const upsert = upsertTransferPlan(previous, proposed);
+      if (!upsert.ok) {
+        setExactError(upsert.error);
+        return;
+      }
+      writeStoredTransferPlans(window.localStorage, storageScopeId, upsert.plans);
+      setSavedPlans(upsert.plans);
+      selectPlan(proposed.id);
+      setReviewExactRank(null);
+      setTransferPlansOpen(true);
+      onToast('New reviewed MILP proposal saved to Transfer Lab. No FPL transfers have been made.', 'success');
+    } catch (error) {
+      setExactError(error instanceof Error ? error.message : 'The solver proposal could not be saved.');
     }
   };
 
