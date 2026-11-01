@@ -687,6 +687,39 @@ export function SquadBuilder({
               <p>{reviewSim.strategy.chipTiming.preferred === 'PLAY_NOW' ? 'Play-now path ranks higher' : 'Save-now path ranks as high or higher'} under current assumptions. Saving permits using this chip later. Both options include legal transfers, other chips, hits and the same full planning period; they are heuristic comparisons, not guaranteed gains or automatic transfers.</p>
             </div>}
           </section>
+          {jointUiEnabled && <section className="panel" aria-label="Verified joint transfer and chip MILP">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">P0-A09 · RESEARCH · VERIFIED ACCOUNT REQUIRED</span>
+              <h3>Joint WC / FH / BB / TC and 10-GW transfers</h3>
+            </div><span className="badge badge--violet">Staging-only · read-only</span></div>
+            <p>Optional research model combining all four FPL chips and transfer decisions. Requires independently verified official chip history, the full current 15-man squad, real purchase/selling values and the same fresh VORTEX forecasts. Subject to a 40-player shortlist and 10-second MILP limit; a feasible result is not necessarily a certified optimum.</p>
+            <button type="button" onClick={() => { void runJointChipComparison(); }}
+              disabled={jointPending || !entry || !reviewSim || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
+              aria-busy={jointPending}>{jointPending ? 'Evaluating joint chip schedule…' : 'Compare verified joint chip strategies'}</button>
+            {selectedPlan && <p role="status">A saved scenario is active. Joint optimization cannot silently override manual transfers, chips, lineups or captaincy.</p>}
+            {jointError && <p role="alert">{jointError}</p>}
+            {jointComparison && (jointComparison.paths[0] ? <div role="group" aria-label="Independently validated full-horizon chip proposal">
+              {jointComparison.paths.map(path => <div key={path.rank}>
+                <p><strong>{path.plan.solver.optimality_proven ? 'Optimality certified for the supplied shortlist' : 'Feasible model plan · optimality unproven'}</strong> · {path.plan.raw_expected_points_after_hits.toFixed(2)} undiscounted model xPts · {path.plan.evaluation_score.toFixed(2)} discounted objective · MIP gap {path.plan.solver.mip_gap === null ? 'N/A' : (path.plan.solver.mip_gap * 100).toFixed(2) + '%'}.</p>
+                <p>Chips: {path.chipSchedule.length ? path.chipSchedule.map(c => `${c.chip.replaceAll('_', ' ')} GW${c.gw}`).join(' · ') : 'No available chip selected'} · {path.totalMoves} total permanent/temporary player moves · −{path.totalHits} hit points.</p>
+                <div className="rollout-list">
+                  {path.plan.gameweeks.map(week => <details key={week.gw} className="rollout-row">
+                    <summary>GW{week.gw} · {week.chip?.replaceAll('_', ' ') ?? 'No chip'} · {week.expected_points_after_hits.toFixed(2)} model xPts after hits</summary>
+                    <p>Permanent OUT: {week.transfers_out.map(id => playerMap.get(id)?.name ?? id).join(', ') || 'None'} · IN: {week.transfers_in.map(id => playerMap.get(id)?.name ?? id).join(', ') || 'None'}</p>
+                    {week.chip === 'free_hit' && <p>One-week Free Hit: OUT {week.temporary_transfers_out.map(id => playerMap.get(id)?.name ?? id).join(', ')} · IN {week.temporary_transfers_in.map(id => playerMap.get(id)?.name ?? id).join(', ')} · Temporary bank £{week.temporary_bank?.toFixed(1) ?? 'N/A'}m · Original squad and bank restore next GW.</p>}
+                    <p>Bank £{week.bank.toFixed(1)}m · FT {week.free_transfers_before} → {week.free_transfers_after} · Hits −{week.hit_cost} · Chip bonus +{week.chip_bonus.toFixed(2)} model points</p>
+                    <p>Captain {playerMap.get(week.captain)?.name ?? week.captain} · Vice {playerMap.get(week.vice_captain)?.name ?? week.vice_captain} · XI {week.starters.map(id => playerMap.get(id)?.name ?? id).join(', ')} · Bench {week.bench.map(id => playerMap.get(id)?.name ?? id).join(', ')}</p>
+                  </details>)}
+                </div>
+              </div>)}
+              <p>No chip or transfer is ever submitted to the official FPL game. A reviewed strategy is saved only as a NEW independent Transfer Lab scenario; current saved plans remain unchanged.</p>
+              {jointReview ? <div role="group" aria-label="Confirm reviewed joint-chip proposal">
+                <p role="status">Confirm saving a new joint-chip scenario to this browser's Transfer Lab. This does not play any chip or make an official FPL transfer.</p>
+                <button type="button" onClick={saveReviewedJointChipPlan}>Confirm: save as NEW joint-chip plan</button>
+                <button type="button" onClick={() => setJointReview(false)}>Cancel</button>
+              </div> : <button type="button" onClick={() => setJointReview(true)}>Review joint strategy before saving</button>}
+            </div> : <p role="status">No fully verified, feasible joint-chip proposal was returned within the bounded solve. The existing chip-aware Planner remains unchanged.</p>)}
+          </section>}
           <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
