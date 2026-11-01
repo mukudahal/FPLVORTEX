@@ -86,6 +86,20 @@ jobs:
           set -o pipefail
           python -m fpl_solver.examples.benchmark_joint_horizon --candidates 30 --horizon 10 | tee joint-milp-benchmark-30.json
           python -m fpl_solver.examples.benchmark_joint_horizon --candidates 40 --horizon 10 | tee joint-milp-benchmark-40.json
+      - name: Enforce staged 30-player horizon MIP gap; disclose unrestricted 40-player limitations
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          python3 - <<'PY'
+          import json
+          with open('joint-milp-benchmark-30.json') as f:
+              staged = json.load(f)
+          with open('joint-milp-benchmark-40.json') as f:
+              stress = json.load(f)
+          assert staged.get('release_performance_gate_met'), ('30-player full-horizon staged release gate failed', staged)
+          if not stress.get('release_performance_gate_met'):
+              print('::warning title=P0-A09 40-player stress limit::Full 40-player 10-GW release gate not met; staged 8–10 GW optimization is capped at a disclosed 30 candidates.')
+          print('Verified staged 30-player/10-GW MILP release speed-and-gap criterion.', staged['elapsed_seconds'], 's', staged['mip_gap'])
+          PY
       - name: Upload joint-chip benchmark evidence
         if: always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
         uses: actions/upload-artifact@v4
