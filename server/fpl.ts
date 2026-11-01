@@ -424,6 +424,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     }
     result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     result.recentTransfers = recentTransfers;
+    result.postLockTransfersUsed = postLockTransfersUsed;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
       .reverse();
