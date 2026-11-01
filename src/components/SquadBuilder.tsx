@@ -363,6 +363,13 @@ export function SquadBuilder({
         return;
       }
       writeStoredTransferPlans(window.localStorage, storageScopeId, upsert.plans);
+      // The existing storage writer deliberately swallows quota/security failures.
+      // Never announce a confirmed plan if it failed to persist.
+      if (!readStoredTransferPlans(window.localStorage, storageScopeId)
+        .some(saved => saved.id === proposed.id)) {
+        setExactError('The new plan could not be saved to browser storage. Check storage permissions or the available plan slots.');
+        return;
+      }
       setSavedPlans(upsert.plans);
       selectPlan(proposed.id);
       setReviewExactRank(null);
