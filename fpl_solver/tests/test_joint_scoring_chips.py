@@ -130,3 +130,23 @@ def test_distinct_scoring_chip_schedules_when_transfers_are_frozen():
     assert len(set(schedules)) == 2
     for plan in result['plans']:
         independently_replay_chip_points(plan, req)
+
+
+def test_production_cli_fail_closed_for_chips_until_full_wc_fh_model_exists():
+    import subprocess
+    import sys
+    payload = json.loads(json.dumps(DATA))
+    payload["settings"].update({
+        "end_gw": 1,
+        "time_limit_seconds": 3,
+        "solutions_requested": 1,
+        "scoring_chip_halves": {"triple_captain": [1]},
+    })
+    completed = subprocess.run(
+        [sys.executable, "-m", "fpl_solver.cli"],
+        input=json.dumps(payload), text=True, capture_output=True,
+        timeout=8, check=False,
+    )
+    assert completed.returncode == 2
+    assert not completed.stdout
+    assert "Invalid or unsupported no-chip MILP request" in completed.stderr
