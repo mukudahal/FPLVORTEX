@@ -9,7 +9,7 @@
  * Inputs accepted here come from a server-managed authenticated read, NOT
  * client-submitted JSON or public /entry/{id}/ picks.
  */
-import type { EntryData, EntryPick } from '../src/lib/types.ts';
+import type { EntryData, EntryPick, Snapshot } from '../src/lib/types.ts';
 import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers.ts';
 import { sellingPrice as computeSellingTenths } from '../src/lib/repoModel/scoring.ts';
 
@@ -87,6 +87,7 @@ export async function readAuthenticatedCurrentTeam(
   entryId:number,
   gw:number,
   publicEntry:EntryData,
+  snapshot:Snapshot,
   read:AuthenticatedFplRead,
   now:Date=new Date(),
 ):Promise<EntryData> {
@@ -108,7 +109,7 @@ export async function readAuthenticatedCurrentTeam(
   const rawPicks=payload.picks;
   if (!Array.isArray(rawPicks) || rawPicks.length!==15)
     throw new RangeError('Authenticated current team must contain 15 players.');
-  const originalCost = new Map(publicEntry.players.map(p=>[p.id, p.cost]));
+  const originalCost = new Map(snapshot.players.map(p=>[p.id, p.cost]));
   const picks:EntryPick[]=[];
   const owners=new Set<number>(),positions=new Set<number>();
   let captainCount=0,viceCount=0;
@@ -166,6 +167,8 @@ export async function readAuthenticatedCurrentTeam(
     freeTransfers,postLockTransfersUsed:0,
     history:{...publicEntry.history,bank},
     picks,
-    players:picks.map(p=>publicEntry.players.find(v=>v.id===p.element)!),
+    // EnrichedPlayer data for new transfers must be refreshed by the caller
+    // with the verified current snapshot before rendering recommendations.
+    players:picks.map(p=>publicEntry.players.find(v=>v.id===p.element)).filter((p):p is EntryData['players'][number]=>Boolean(p)),
   };
 }
