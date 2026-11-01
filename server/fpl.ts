@@ -313,6 +313,11 @@ function normalizeEntry(
     players,
     projectedPoints: Math.round(projectedPoints * 10) / 10,
     squadValue: history.value / 10,
+    // /entry/{id}/event/{gw}/picks/ is a public, deadline-locked team.
+    // It cannot confirm unsubmitted chips, pending transfers or the
+    // authenticated current bank from /my-team/{id}/. Never label it as
+    // verified editable current state, even when source === 'live'.
+    managerStateSource: 'public-locked-snapshot',
     source,
     generatedAt: new Date().toISOString(),
   };
