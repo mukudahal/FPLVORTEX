@@ -256,6 +256,14 @@ jobs:
             --data-binary @/tmp/vortex-milp-ci-rebuy.json \
             http://127.0.0.1:3000/api/vortex/solver/exact \
             | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"]; assert [a["bank"] for a in w]==[3.9,3.9,3.9], w; assert [a["transfers_in"] for a in w]==[[24],[15],[24]]; print("HTTP original sale/rebuy/resale cash-flow OK")'
+          # A production image must NEVER expose the research joint endpoint
+          # without its two explicit server/client staging flags.
+          joint_status=$(curl --silent --show-error --max-time 5 \
+            -o /tmp/vortex-joint-disabled.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' --data '{}' \
+            http://127.0.0.1:3000/api/vortex/solver/joint)
+          test "$joint_status" = "503"
+          python3 -c 'import json; r=json.load(open("/tmp/vortex-joint-disabled.json")); assert "not enabled" in r.get("error",""), r; print("Research joint API is default-OFF in production Docker runtime")'
 
       - name: Exercise isolated research joint-chip CLI in production image
         if: startsWith(github.head_ref, 'upgrade/p0-a09-')
