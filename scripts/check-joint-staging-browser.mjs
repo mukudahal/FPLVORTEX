@@ -27,6 +27,13 @@ try {
   const error = await invalid.json();
   assert.match(error.error, /Invalid bounded joint-chip Solver research request/);
 
+  const unavailable = await page.request.get(base + '/api/vortex/solver/current-team?entryId=12345', {
+    timeout: 20000,
+  });
+  assert.equal(unavailable.status(), 409,
+    'Without a trusted request-scoped FPL provider, private team GET must fail closed.');
+  const noProvider = await unavailable.json();
+  assert.equal(noProvider.code,'CURRENT_TEAM_AUTH_REQUIRED');
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   const before = await page.evaluate(() => Object.fromEntries(
@@ -38,6 +45,8 @@ try {
   await joint.waitFor({ timeout: 120000 });
   const compare = joint.getByRole('button', { name: 'Compare verified joint chip strategies' });
   assert.equal(await compare.count(), 1, 'Opt-in joint comparison control must be visible in staging');
+  assert.equal(await joint.getByRole('button', {name:/Verify my current FPL team/}).count(), 1,
+    'Read-only private current-team connection control must be explicit in staging.');
   assert.ok(await compare.isDisabled(), 'Without authenticated /my-team/ evidence the joint model must never be runnable');
   assert.match(await joint.innerText(), /authenticated editable team|pending transfers/i);
   assert.match(await joint.innerText(), /30|40|shortlist/i);
