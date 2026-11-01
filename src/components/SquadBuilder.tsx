@@ -22,6 +22,9 @@ import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
+import { buildJointSolverRequest, type JointSolverRequest } from '../lib/jointSolverRequest';
+import { verifyJointChipPaths, type ComparedJointPlan } from '../lib/jointChipPathValidation';
+import { createReviewedJointChipPlan } from '../lib/jointChipPlanAdapter';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
@@ -104,6 +107,21 @@ export function SquadBuilder({
   const [exactError, setExactError] = useState<string | null>(null);
   const [exactPending, setExactPending] = useState(false);
   const exactAbortRef = useRef<AbortController | null>(null);
+  // Staging-only preview. The backend also independently requires its own
+  // default-OFF flag and freshly verifies official chip/price provenance.
+  const jointUiEnabled = import.meta.env.VITE_VORTEX_JOINT_SOLVER_UI_ENABLED === '1';
+  const [jointComparison, setJointComparison] = useState<{
+    input: JointSolverRequest;
+    paths: ComparedJointPlan[];
+    result: ExactMilpResponse;
+    sourceEntry: EntryData;
+    sourceSnapshot: Snapshot;
+    sourcePlanner: PlannerSimulationOutput;
+  } | null>(null);
+  const [jointPending, setJointPending] = useState(false);
+  const [jointError, setJointError] = useState<string | null>(null);
+  const [jointReview, setJointReview] = useState(false);
+  const jointAbortRef = useRef<AbortController | null>(null);
   const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
@@ -281,6 +299,12 @@ export function SquadBuilder({
     setSelectedExactRank(1);
     setReviewExactRank(null);
     setExactError(null);
+    jointAbortRef.current?.abort();
+    jointAbortRef.current = null;
+    setJointPending(false);
+    setJointComparison(null);
+    setJointReview(false);
+    setJointError(null);
   }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry]);
 
   const runExactTransferComparison = async () => {
