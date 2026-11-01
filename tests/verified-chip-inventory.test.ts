@@ -7,6 +7,7 @@ const NOW = new Date('2026-11-01T17:00:00Z');
 function entry(chipsUsed: EntryData['chipsUsed'] = []): EntryData {
   return {
     id: 12345, source: 'live', activeChip: null, chipsUsed,
+    generatedAt: '2026-11-01T16:55:00Z',
     provenance: {
       kind: 'official', requestedIdVerified: true,
       sourceCapturedAt: '2026-11-01T16:55:00Z',
@@ -43,8 +44,9 @@ test('unknown or stale manager chip data never creates free chip inventory', () 
     { ...good, activeChip: 'wildcard' },
     { ...good, provenance: { ...good.provenance!, kind: 'archived' as const } },
     { ...good, provenance: { ...good.provenance!, requestedIdVerified: false } },
-    { ...good, provenance: { ...good.provenance!, sourceCapturedAt: null } },
-    { ...good, provenance: { ...good.provenance!, sourceCapturedAt: '2026-10-01T00:00:00Z' } },
+    { ...good, generatedAt: '' },
+    { ...good, generatedAt: '2026-10-01T00:00:00Z' },
+    { ...good, generatedAt: '2026-11-03T00:00:00Z' },
   ]) {
     assert.throws(() => verifiedChipInventory(invalid, 20, NOW), RangeError);
   }
