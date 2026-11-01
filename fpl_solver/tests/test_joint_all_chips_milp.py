@@ -193,3 +193,17 @@ def test_no_verified_chip_inventory_uses_original_no_chip_objective_and_transfer
         assert week['chip_bonus'] == 0
         assert week['squad'] == week['permanent_squad_after']
     replay_exact_output(req, result['plans'][0])
+
+def test_solver_internal_independent_verifier_rejects_corrupted_mip_ledgers():
+    from copy import deepcopy
+    from fpl_solver.chip_replay import verify_joint_milp_ledger
+    req = compact_request(start=18, end=18, forced={18:'free_hit'})
+    result = solve(req)
+    assert result['plans']
+    original = result['plans'][0]['gameweeks']
+    verify_joint_milp_ledger(req, original)
+    for mutate in ('bank', 'chip_bonus', 'free_transfers_after', 'temporary_bank'):
+        bad = deepcopy(original)
+        bad[0][mutate] += 1
+        with pytest.raises(ValueError, match='disagrees|Free Hit temporary bank'):
+            verify_joint_milp_ledger(req, bad)
