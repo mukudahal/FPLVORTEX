@@ -12,6 +12,7 @@
 import type { EntryData, EntryPick, Snapshot } from '../src/lib/types.ts';
 import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers.ts';
 import { sellingPrice as computeSellingTenths } from '../src/lib/repoModel/scoring.ts';
+import { enrichPlayers } from '../src/lib/analytics.ts';
 
 export type AuthenticatedFplRead = (
   path: '/me/' | `/my-team/${number}/`,
@@ -93,6 +94,9 @@ export async function readAuthenticatedCurrentTeam(
 ):Promise<EntryData> {
   integer(entryId,'manager ID',1,999999999);
   integer(gw,'next Gameweek',1,38);
+  if (snapshot.meta.nextEventId!==gw || snapshot.meta.stale ||
+      !snapshot.meta.upstreamOk || !snapshot.meta.isLive)
+    throw new RangeError('Fresh official current-Gameweek player market is required.');
   if (publicEntry.id!==entryId || publicEntry.source!=='live' ||
       publicEntry.provenance?.kind!=='official' ||
       publicEntry.provenance.requestedIdVerified!==true ||
@@ -155,6 +159,9 @@ export async function readAuthenticatedCurrentTeam(
     throw new RangeError('Confirmed current-GW transfers need a separate banked-FT reconciliation.');
   const freeTransfers=integer(transfers.limit,'available free transfers',0,5);
   const available=parsePrivateChips(payload.chips,publicEntry,gw);
+  const playerIndex=new Map(enrichPlayers(snapshot,'balanced').map(p=>[p.id,p]));
+  if (picks.some(p=>!playerIndex.has(p.element)))
+    throw new RangeError('Current FPL squad has players missing from the official live market.');
   const timestamp=now.toISOString();
   // Never mutate the public, cacheable entry and never include /me/ PII,
   // access cookies or the private raw FPL JSON in this result.
@@ -167,8 +174,8 @@ export async function readAuthenticatedCurrentTeam(
     freeTransfers,postLockTransfersUsed:0,
     history:{...publicEntry.history,bank},
     picks,
-    // EnrichedPlayer data for new transfers must be refreshed by the caller
-    // with the verified current snapshot before rendering recommendations.
-    players:picks.map(p=>publicEntry.players.find(v=>v.id===p.element)).filter((p):p is EntryData['players'][number]=>Boolean(p)),
+    // Render the exact private 15-player current squad, including recently
+    // transferred players absent from the last published public picks.
+    players:picks.map(p=>playerIndex.get(p.element)!),
   };
 }
