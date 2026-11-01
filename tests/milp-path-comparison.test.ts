@@ -59,7 +59,10 @@ function fixture() {
     };
   };
   const response: ExactMilpResponse = {
-    plans: [makePlan(false), makePlan(true)], solver_attempts: [],
+    plans: [makePlan(false), makePlan(true)], solver_attempts: [
+      { status: 0, message: 'Synthetic successful solve', mip_gap: 0, optimality_proven: true },
+      { status: 0, message: 'Synthetic successful solve', mip_gap: 0, optimality_proven: true },
+    ],
     runtime_seconds: .2, assumptions: { chip_mode: 'off' }, warnings: [],
   };
   return { request, response };
