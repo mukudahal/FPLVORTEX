@@ -218,8 +218,10 @@ reverification subsequently repeats all identity/cash checks.
 
 The optional staging UI now includes **Verify my current FPL team
 (read-only)**. The resulting team is held in React memory only and
-invalidated on manager/GW changes; no private team state or FPL cookie
-is saved to localStorage or appended to a URL. Once a trusted provider
+invalidated on manager/GW changes; no FPL cookie or raw private account response is saved automatically
+to localStorage or appended to a URL. Explicitly confirming a NEW Transfer
+Lab plan intentionally persists its selected squad IDs and purchase/sale
+basis with manager consent. Once a trusted provider
 exists, the manager must rerun Planner after verification before
 requesting the joint optimization, and separately confirm saving a
 NEW transfer plan.
