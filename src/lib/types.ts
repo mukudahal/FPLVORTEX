@@ -404,6 +404,11 @@ export interface EntryData {
   recentTransfers?: EntryTransferRecord[];
   /** Actual transfers after latest locked GW, counted from full official transfer feed. */
   postLockTransfersUsed?: number | null;
+  /** Public entry picks are locked-GW history, not the authenticated editable squad.
+   * Only a securely verified /my-team/ response can attest pending transfers,
+   * latest purchase/sale basis, and actual pre-deadline cash/FT balances.
+   */
+  managerStateSource?: 'public-locked-snapshot' | 'authenticated-current-team';
   source: DataSource;
   generatedAt: string;
   /** Archive and demo records are not the user's verified current FPL team. */
