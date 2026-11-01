@@ -49,15 +49,38 @@ export function buildJointSolverRequest(params: {
         .reduce((sum,value,i)=>sum+value*Math.pow(decay,i),0);
       return net(b)-net(a) || a.current_price-b.current_price || a.player_id-b.player_id;
     });
-  // The Python joint research CLI caps candidate count at 40. The entire
-  // original squad is always retained, even if low-forecast or unavailable.
-  const shortlist = [
-    ...baseline.players.filter(p => squadIds.includes(p.player_id)),
-    ...ranked.slice(0,25),
+  // Empirical P0-A09 CI: the deterministic 30-player/10-GW all-chip
+  // optimization obtained a primal within 5 seconds; unrestricted 40/10
+  // sometimes obtained none in 10 seconds. Keep the exact *formulation*
+  // but explicitly bound its candidate shortlist more tightly on 8–10 GWs.
+  // All original 15 owners are ALWAYS retained. Do not invent candidates.
+  const candidateLimit = planner.gws.length >= 8 ? 30 : 40;
+  const owned = baseline.players.filter(p => squadIds.includes(p.player_id));
+  const outsiders: typeof ranked = [];
+  const selected = new Set<number>();
+  // Keep positional alternatives for WC/FH legality instead of filling
+  // every non-owned slot with midfielders simply because their xPts is high.
+  const positionalMinimums: Array<['GK' | 'DEF' | 'MID' | 'FWD', number]> = [
+    ['GK', 1], ['DEF', 3], ['MID', 3], ['FWD', 2],
   ];
-  if (shortlist.length !== 40) {
-    // Fewer than 40 is legitimate; never create filler fake players.
-    if (shortlist.length < 15) throw new RangeError('Joint solver has no legal starting squad.');
+  for (const [position, count] of positionalMinimums) {
+    for (const candidate of ranked.filter(p => p.position === position).slice(0, count)) {
+      if (!selected.has(candidate.player_id)) {
+        outsiders.push(candidate);
+        selected.add(candidate.player_id);
+      }
+    }
+  }
+  for (const candidate of ranked) {
+    if (owned.length + outsiders.length >= candidateLimit) break;
+    if (!selected.has(candidate.player_id)) {
+      outsiders.push(candidate);
+      selected.add(candidate.player_id);
+    }
+  }
+  const shortlist = [...owned, ...outsiders];
+  if (shortlist.length < 15 || shortlist.length > candidateLimit) {
+    throw new RangeError('Joint Solver candidate shortlist is not a legal bounded subset.');
   }
   const joint:JointRequest = {
     ...baseline,
