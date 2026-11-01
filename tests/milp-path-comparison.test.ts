@@ -163,3 +163,58 @@ test('reviewed alternative saves as a NEW plan, never overwrites existing slots'
   assert.deepEqual(overflow.ok, false);
   if (!overflow.ok) assert.match(overflow.error, /Maximum of 10 plan slots/);
 });
+
+test('P0-A08: original player can be sold, bought back and sold again without double-charging sell-on fee', () => {
+  const { request, response } = fixture();
+  request.settings.start_gw = 36;
+  request.settings.end_gw = 38;
+  request.settings.transfer_depth = 3;
+  request.current_team.current_gameweek = 36;
+  for (const player of request.players) {
+    player.xpts_by_gw[36] = player.xpts_by_gw[37];
+  }
+  const p8 = request.players.find(p => p.player_id === 8)!;
+  p8.selling_price = 4.9; // Original £5m owner has a 0.1m sell-on fee.
+  const swapped = structuredClone(response.plans[1].gameweeks[0]);
+  const restored = structuredClone(response.plans[0].gameweeks[0]);
+  const first = { ...swapped, gw: 36, bank: .4 };
+  const second = { ...restored, gw: 37, bank: .9,
+    transfers_in: [8], transfers_out: [16],
+    free_transfers_before: 1, free_transfers_after: 1 };
+  const third = { ...swapped, gw: 38, bank: .4,
+    transfers_in: [16], transfers_out: [8],
+    free_transfers_before: 1, free_transfers_after: 1 };
+  const weeks = [first, second, third];
+  const raw = weeks.reduce((sum, w) => sum + w.expected_points_after_hits, 0);
+  const weighted = weeks.reduce((sum, w, index) =>
+    sum + Math.pow(request.settings.time_decay, index) * w.expected_points_after_hits, 0);
+  response.plans = [{
+    gameweeks: weeks, raw_expected_points_after_hits: raw,
+    discounted_points_after_hits: weighted, evaluation_score: weighted,
+    solver: { status: 0, message: 'Synthetic legal path', mip_gap: 0, optimality_proven: true },
+  }];
+  response.solver_attempts = response.solver_attempts.slice(0, 1);
+  const paths = compareMilpPaths(request, response);
+  assert.equal(paths.length, 1);
+  assert.deepEqual(paths[0].weekFinances.map(w => w.sales[0]?.price), [4.9, 5.5, 5]);
+  assert.deepEqual(paths[0].weekFinances.map(w => w.sales[0]?.originalBasis), [true, false, false]);
+  assert.deepEqual(paths[0].weekFinances.map(w => w.purchases[0]?.price), [5.5, 5, 5.5]);
+  assert.equal(paths[0].lastBank, .4);
+  const reviewed = createReviewedMilpPlan({
+    request, path: paths[0], name: 'Synthetic price-basis path',
+    id: 'accepted-a08-plan', createdAt: '2026-11-01T00:00:00.000Z',
+  });
+  assert.deepEqual(reviewed.transfers[36], [{ out: 8, in: 16 }]);
+  assert.deepEqual(reviewed.transfers[37], [{ out: 16, in: 8 }]);
+  assert.deepEqual(reviewed.transfers[38], [{ out: 8, in: 16 }]);
+  assert.equal(reviewed.sellingPrices[8], 49);
+
+  response.plans[0].gameweeks[2].bank = .3;
+  assert.throws(() => compareMilpPaths(request, response), /bank or selling price/);
+});
+
+test('P0-A08: no fabricated original selling price in independently checked path', () => {
+  const { request, response } = fixture();
+  request.players.find(p => p.player_id === 1)!.selling_price = null;
+  assert.throws(() => compareMilpPaths(request, response), /selling-price basis/);
+});
