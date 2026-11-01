@@ -18,6 +18,9 @@ function entry(
     // carry the current pending-transfer/price-basis provenance required
     // to authorize this research optimizer.
     managerStateSource: 'authenticated-current-team',
+    authenticatedAvailableChipHalves: {
+      wildcard:[2], free_hit:[2], bench_boost:[2], triple_captain:[2],
+    },
     history: { event:19, bank:12 },
     picks: SQUAD.map((element,i) => ({
       element, sellingPrice:4.9, purchasePrice:4.9,
