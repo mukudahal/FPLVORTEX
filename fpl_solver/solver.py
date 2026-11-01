@@ -281,7 +281,9 @@ def solve(request: SolveRequest) -> dict:
         x = res.x; weeks = []; raw = 0.0; discount = 0.0
         for t,gw in enumerate(gws):
             selected = lambda key: [p.player_id for i,p in enumerate(players) if x[idx[key,i,t]] > .5]
-            squad, starters, captain = selected('s'), selected('l'), selected('c')[0]
+            permanent = selected('s')
+            squad = selected('h') if fh_enabled else permanent
+            starters, captain = selected('l'), selected('c')[0]
             bench = [pid for pid in squad if pid not in starters]
             bench.sort(key=lambda pid: (players[by_id[pid]].position != 'GK', -players[by_id[pid]].xpts_by_gw[gw], pid))
             vice = max((pid for pid in starters if pid != captain), key=lambda pid: (players[by_id[pid]].xpts_by_gw[gw], -pid))
@@ -296,9 +298,27 @@ def solve(request: SolveRequest) -> dict:
                 elif x[idx['chip_tc', t]] > .5:
                     chip = 'triple_captain'
                     bonus = players[by_id[captain]].xpts_by_gw[gw]
+            if squad_enabled:
+                if x[idx['chip_wc',t]] > .5:
+                    chip = 'wildcard'
+                elif x[idx['chip_fh',t]] > .5:
+                    chip = 'free_hit'
             points = sum(players[by_id[pid]].xpts_by_gw[gw] for pid in starters) + players[by_id[captain]].xpts_by_gw[gw] + bonus - hit
             raw += points; discount += s.time_decay**t * points
-            weeks.append({'chip':chip, 'chip_bonus':round(bonus,3), 'gw':gw,'squad':squad,'starters':starters,'bench':bench,'captain':captain,'vice_captain':vice,'transfers_in':selected('b'),'transfers_out':selected('o'),'free_transfers_before':ft,'free_transfers_after':min(5,max(0,ft-count)+1),'hit_cost':hit,'bank':round(float(x[idx['bank',t]])/10,1),'expected_points_after_hits':round(points,3)})
+            weeks.append({
+                'chip':chip,'chip_bonus':round(bonus,3),'gw':gw,
+                'squad':squad,'permanent_squad_after':permanent,
+                'starters':starters,'bench':bench,'captain':captain,
+                'vice_captain':vice,
+                'transfers_in':selected('b'),'transfers_out':selected('o'),
+                'temporary_transfers_in':sorted(set(squad)-set(permanent)) if chip == 'free_hit' else [],
+                'temporary_transfers_out':sorted(set(permanent)-set(squad)) if chip == 'free_hit' else [],
+                'free_transfers_before':ft,
+                'free_transfers_after':ft if chip in ('wildcard','free_hit') else min(5,max(0,ft-count)+1),
+                'hit_cost':hit,'bank':round(float(x[idx['bank',t]])/10,1),
+                'temporary_bank':round(float(x[idx['temporary_bank',t]])/10,1) if fh_enabled else None,
+                'expected_points_after_hits':round(points,3),
+            })
         plans.append({'gameweeks':weeks, 'raw_expected_points_after_hits':round(raw,3), 'discounted_points_after_hits':round(discount,3), 'evaluation_score':round(-float(res.fun),3), 'solver':statuses[-1]})
         # Distinct paths may differ by transfer sequence or chip schedule.
         # Exclude precisely this pattern, not every path with the same buys.
@@ -306,7 +326,12 @@ def solve(request: SolveRequest) -> dict:
         if scoring_enabled:
             buy_indices.extend(idx['chip_bb',t] for t in range(len(gws)))
             buy_indices.extend(idx['chip_tc',t] for t in range(len(gws)))
+        if squad_enabled:
+            buy_indices.extend(idx['chip_wc',t] for t in range(len(gws)))
+            buy_indices.extend(idx['chip_fh',t] for t in range(len(gws)))
+        if fh_enabled:
+            buy_indices.extend(idx['fh_added',i,t] for t in range(len(gws)) for i in range(n))
         present = [j for j in buy_indices if x[j] > .5]
         absent = [j for j in buy_indices if x[j] <= .5]
         row({**{j:-1 for j in present}, **{j:1 for j in absent}}, lo=1-len(present))
-    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':('BB/TC jointly selected from explicit half-season inventory; WC/FH unsupported' if scoring_enabled else 'off'),'price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', ('Fixed prices; Wildcard/Free Hit, autosubs and future price changes are not supported by this scoring-chip MILP.' if scoring_enabled else 'Fixed prices; chips, autosubs and future price changes are not yet supported.')]}
+    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':('WC/FH/BB/TC jointly optimized from explicit verified half-season inventory' if squad_enabled else 'BB/TC jointly selected from explicit half-season inventory; WC/FH unsupported' if scoring_enabled else 'off'),'price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', 'The solver is time- and shortlist-bounded; only a valid optimality certificate proves the returned formulation optimum.', ('Fixed prices; FH restores original squad, bank and selling basis; autosubs and future price changes are not modelled.' if squad_enabled else 'Fixed prices; Wildcard/Free Hit, autosubs and future price changes are not supported by this scoring-chip MILP.' if scoring_enabled else 'Fixed prices; chips, autosubs and future price changes are not yet supported.')]}
