@@ -447,6 +447,7 @@ app.post('/api/vortex/solver/exact', rateLimit(3, 60_000), asyncRoute(async (req
  * A client's claim that it owns a chip or has spare bank money is ignored.
  * No official FPL account mutation and no saved Transfer Lab plan write.
  */
+let jointMilpPreflightBusy = false;
 app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (process.env.VORTEX_JOINT_SOLVER_ENABLED !== '1') {
@@ -476,10 +477,14 @@ app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req
     res.status(413).json({ error: 'Joint solver request exceeds the 120 KB limit.' });
     return;
   }
-  if (exactMilpBusy) {
+  if (exactMilpBusy || jointMilpPreflightBusy) {
     res.status(429).json({ error: 'Solver is occupied; retry after the current run.' });
     return;
   }
+  // Claim the preflight lock BEFORE any await. Concurrent requests must not
+  // all fetch official FPL manager data or race into overlapping HiGHS jobs.
+  jointMilpPreflightBusy = true;
+  try {
   // Confirm official identity, fresh fixtures and exact original owner state.
   // No archived, demo or partial FPL account can authorize a chip claim.
   const officialEntry = await getEntry(String(input.entryId), { force: true });
@@ -531,6 +536,12 @@ app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req
     res.status(422).json({ error: 'Player identities or market prices are inconsistent with the official live snapshot.' });
     return;
   }
+  // The existing public no-chip endpoint may have started during our
+  // upstream preflight. Check again before launching the joint subprocess.
+  if (exactMilpBusy) {
+    res.status(429).json({ error: 'Solver became occupied during verification. Retry.' });
+    return;
+  }
   exactMilpBusy = true;
   try {
     const python = process.env.VORTEX_EXACT_PYTHON || 'python3';
@@ -550,6 +561,9 @@ app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req
     res.status(503).json({ error: 'No verified joint-chip optimization result. Existing Planner is unchanged.' });
   } finally {
     exactMilpBusy = false;
+  }
+  } finally {
+    jointMilpPreflightBusy = false;
   }
 }));
 
