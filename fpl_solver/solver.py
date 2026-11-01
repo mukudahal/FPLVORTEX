@@ -206,16 +206,47 @@ def solve(request: SolveRequest) -> dict:
                 # not on future sales after buying the player back.
                 bankrow[idx['first_sale',i,t]] = initial_discount[i]
         row(bankrow, round(team.bank*10) if not t else 0, round(team.bank*10) if not t else 0)
+        if fh_enabled:
+            # FH has an independent one-GW cash account. All old owners
+            # remain in s, so neither bank nor first-sale basis is consumed.
+            fh_cash = {idx['temporary_bank',t]:1, idx['bank',t]:-1}
+            for i,p in enumerate(players):
+                market = round(p.current_price*10)
+                fh_cash[idx['s',i,t]] = -market
+                fh_cash[idx['h',i,t]] = market
+                if i in initial_discount:
+                    fh_cash[idx['fh_discount',i,t]] = initial_discount[i]
+            row(fh_cash, 0, 0)
         zkeys = [(ft,k) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)]
         row({idx['z',t,ft,k]:1 for ft,k in zkeys}, 1, 1)
         countrow = {idx['b',i,t]:1 for i in range(n)}
         countrow.update({idx['z',t,ft,k]:-k for ft,k in zkeys})
-        row(countrow, 0, 0)
+        if squad_enabled:
+            # In a normal week, actual purchases equal z's hit-counted
+            # number. A WC permits many permanent transfers; FH permits
+            # zero permanent transfers. Both preserve the banked FT count.
+            row({**countrow,idx['chip_wc',t]:-15}, hi=0)
+            row({**countrow,idx['chip_wc',t]:15}, lo=0)
+            row({idx['z',t,ft,k]:1 for ft,k in zkeys if k > 0} |
+                {idx['chip_wc',t]:1,idx['chip_fh',t]:1}, hi=1)
+            row({idx['b',i,t]:1 for i in range(n)} | {idx['chip_wc',t]:-2}, lo=0)
+            for ft in range(0,6):
+                active = idx['chip_ft',t,ft]
+                chosen = idx['z',t,ft,0]
+                row({active:1,chosen:-1}, hi=0)
+                row({active:1,idx['chip_wc',t]:-1,idx['chip_fh',t]:-1}, hi=0)
+                row({active:1,chosen:-1,idx['chip_wc',t]:-1,idx['chip_fh',t]:-1}, lo=-1)
+        else:
+            row(countrow, 0, 0)
         if t == 0:
             row({idx['z',t,ft,k]:ft for ft,k in zkeys}, team.free_transfers, team.free_transfers)
         else:
             ftrow = {idx['z',t,ft,k]:ft for ft,k in zkeys}
             ftrow.update({idx['z',t-1,ft,k]:-min(5,max(0,ft-k)+1) for ft,k in zkeys})
+            if squad_enabled:
+                # WC/FH preserve banked FT; ordinary no-transfer GW gets +1.
+                for ft in range(0,6):
+                    ftrow[idx['chip_ft',t-1,ft]] = min(5,ft+1)-ft
             row(ftrow, 0, 0)
     # There is one BB and one TC per verified season half. Ineligible weeks
     # have chip variables fixed to zero; unused chips are not forced to play.
@@ -226,6 +257,14 @@ def solve(request: SolveRequest) -> dict:
             row({idx['chip_bb', t]:1 for t in half_times}, hi=1)
         if half in tc_halves:
             row({idx['chip_tc', t]:1 for t in half_times}, hi=1)
+        if squad_enabled:
+            if half in wc_halves:
+                row({idx['chip_wc',t]:1 for t in half_times}, hi=1)
+            if half in fh_halves:
+                row({idx['chip_fh',t]:1 for t in half_times}, hi=1)
+    if fh_enabled:
+        for t in range(1,len(gws)):
+            row({idx['chip_fh',t-1]:1,idx['chip_fh',t]:1}, hi=1)
     if s.max_total_hits is not None:
         row({idx['z',t,ft,k]:4*max(0,k-ft) for t in range(len(gws)) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)}, hi=s.max_total_hits)
     for tr in s.forced_transfers:
