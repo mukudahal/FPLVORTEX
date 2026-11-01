@@ -409,6 +409,13 @@ export interface EntryData {
    * latest purchase/sale basis, and actual pre-deadline cash/FT balances.
    */
   managerStateSource?: 'public-locked-snapshot' | 'authenticated-current-team';
+  /** Availability verified by the server's private /my-team/ response.
+   * Absent means no private entitlement can be claimed. Does not include
+   * session identifiers, cookies, account emails or other credentials.
+   */
+  authenticatedAvailableChipHalves?: Partial<Record<
+    'wildcard' | 'free_hit' | 'bench_boost' | 'triple_captain', Array<1 | 2>
+  >>;
   source: DataSource;
   generatedAt: string;
   /** Archive and demo records are not the user's verified current FPL team. */
