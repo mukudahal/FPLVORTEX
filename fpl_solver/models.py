@@ -139,7 +139,7 @@ class SolveRequest(BaseModel):
             forced_by_half.add((chip, half))
             if chip == 'free_hit' and s.forced_chip_uses.get(gw - 1) == 'free_hit':
                 raise ValueError('Free Hits cannot be consecutive gameweeks.')
-            if chip == 'free_hit' and gw == 20 and s.first_half_fh_used_gw19 is not False:
+            if chip == 'free_hit' and gw == 20 and s.start_gw == 20 and s.first_half_fh_used_gw19 is not False:
                 raise ValueError('GW20 Free Hit requires verified evidence GW19 did not use Free Hit.')
         for p in self.players:
             for gw in range(s.start_gw, s.end_gw + 1):
