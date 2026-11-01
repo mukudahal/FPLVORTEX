@@ -109,7 +109,7 @@ export function SquadBuilder({
   const exactAbortRef = useRef<AbortController | null>(null);
   // Staging-only preview. The backend also independently requires its own
   // default-OFF flag and freshly verifies official chip/price provenance.
-  const jointUiEnabled = import.meta.env.VITE_VORTEX_JOINT_SOLVER_UI_ENABLED === '1';
+  const jointUiEnabled = import.meta.env?.VITE_VORTEX_JOINT_SOLVER_UI_ENABLED === '1';
   const [jointComparison, setJointComparison] = useState<{
     input: JointSolverRequest;
     paths: ComparedJointPlan[];
