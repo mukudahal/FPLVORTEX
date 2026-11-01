@@ -178,3 +178,65 @@ The raw official chip history is now also fail-closed if any record has an
 unrecognized chip name, missing/invalid event or duplicate use in one
 season half. Unknown records must not be silently dropped and interpreted
 as an available chip.
+
+## P0-A09 authenticated current-team adapter (read-only, server-bound)
+
+**Implemented on this draft:** `server/authenticatedCurrentTeam.ts`
+provides a small server-only adapter for FPL's authenticated GET `/me/`
+and GET `/my-team/{entryId}/` JSON. Identity is verified using
+`/me/.player.entry` before reading any team. The current player IDs,
+squad positions, purchase and selling values (in £0.1m units), real
+market prices, chip availability windows, private pending/active chips,
+bank, transfer count and free-transfer allowance are validated.
+Private return data excludes the user's email, raw `/me/` response and
+all cookies. Public history must be freshly retrieved and independently
+checked. For now, confirmed current-GW transfers, unlimited budget
+states, ambiguous chip statuses, and stale or incompatible prices fail
+closed rather than inventing a free-transfer balance.
+
+**Provider contract:** `server/trustedFplAuth.ts` exports
+`registerTrustedFplReadResolver`. It must be installed in server
+startup **only** by a first-party, request-bound authorization mechanism
+that has independently authenticated the VORTEX user and consented
+to reading only their own FPL session. A reader may GET `/me/` and
+`/my-team/{id}/` only; there is no general external URL, HTML login,
+cookie-upload, password form or client-supplied header accepted.
+No global or shared manager session can be attached to public requests.
+
+Default behavior is deliberately fail-closed: NO provider is
+registered in this deployment. Staging's
+GET `/api/vortex/solver/current-team?entryId=…` returns 409
+`CURRENT_TEAM_AUTH_REQUIRED` in that case, never a public
+last-deadline roster labeled current. Its response is `private,
+no-store`; the endpoint is 503 when the joint feature flag is off.
+If a trusted resolver is installed later, its response is normalized
+into `EntryData.managerStateSource='authenticated-current-team'` and
+`authenticatedAvailableChipHalves`, with each claimed unused chip
+cross-checked against both public played history and the private
+availability status. The joint solver's existing server-side
+reverification subsequently repeats all identity/cash checks.
+
+The optional staging UI now includes **Verify my current FPL team
+(read-only)**. The resulting team is held in React memory only and
+invalidated on manager/GW changes; no private team state or FPL cookie
+is saved to localStorage or appended to a URL. Once a trusted provider
+exists, the manager must rerun Planner after verification before
+requesting the joint optimization, and separately confirm saving a
+NEW transfer plan.
+
+**Security/release boundary:** FPL currently documents a session-cookie
+authenticated private endpoint but does not document an OAuth-style
+third-party delegated authorization. The Premier League warns against
+sharing account credentials with third-party applications. Therefore
+NO credential collection, copied cookie workflow or cross-account
+session shortcut has been built into VORTEX. The adapter is tested with
+synthetic injected read providers; it does NOT prove a live logged-in
+manager connection or authorize production deployment. Final live
+integration requires an approved, audited, user-consented server-side
+session mechanism and a separate staging test with a real manager
+account. Any access/retention terms must be reviewed before enabling.
+
+References: https://oas-official.whatthefpl.com/api/getmyteam
+(community-documented, unofficial FPL API),
+https://oas-official.whatthefpl.com/api/getme
+and https://www.premierleague.com/en/about/faq/account-security.
