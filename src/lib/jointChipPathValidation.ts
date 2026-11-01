@@ -18,6 +18,8 @@ export type JointWeek = ExactMilpWeek & {
 };
 export type JointPlan = Omit<ExactMilpResponse['plans'][number], 'gameweeks'> & {
   gameweeks: JointWeek[];
+  /** Explicit provenance; a timeout fallback is never a full HiGHS incumbent. */
+  method?: 'full_joint_milp' | 'independent_verified_hold_scoring_fallback';
 };
 export type JointRequest = ExactMilpRequest & {
   settings: ExactMilpRequest['settings'] & {
@@ -91,6 +93,24 @@ export function verifyJointChipPaths(
   const signatures = new Set<string>();
   for (const item of response.plans) {
     const plan = item as JointPlan;
+    const report = response as ExactMilpResponse & {
+      full_milp_incumbent_found?: boolean;
+      degraded_baseline_only?: boolean;
+    };
+    assert(!plan.method || plan.method === 'full_joint_milp' ||
+      plan.method === 'independent_verified_hold_scoring_fallback',
+      'unknown plan provenance');
+    if (plan.method === 'independent_verified_hold_scoring_fallback') {
+      assert(report.degraded_baseline_only === true &&
+        report.full_milp_incumbent_found === false &&
+        plan.solver.status !== 0 && !plan.solver.optimality_proven,
+        'a validated HOLD baseline must not be presented as an optimal MILP solution');
+      assert(plan.gameweeks.every(week =>
+        week.chip !== 'free_hit' && week.chip !== 'wildcard' &&
+        week.transfers_in.length === 0 && week.transfers_out.length === 0 &&
+        week.temporary_transfers_in.length === 0 &&
+        week.temporary_transfers_out.length === 0), 'fallback cannot claim WC/FH/transfer optimization');
+    }
     assert(plan.solver && Number.isInteger(plan.solver.status) &&
       typeof plan.solver.optimality_proven === 'boolean' &&
       (plan.solver.mip_gap === null ||
