@@ -354,6 +354,8 @@ export interface EntryPick {
   isViceCaptain: boolean;
   purchasePrice?: number;
   sellingPrice?: number;
+  /** Explicit source; omitted on legacy/cached entries. Never treat inference as verified. */
+  priceBasisSource?: import('./priceEvidence').PurchasePriceEvidence;
 }
 
 export interface EntryHistory {
