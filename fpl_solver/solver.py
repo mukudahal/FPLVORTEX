@@ -1,4 +1,9 @@
-"""No-chip multi-period MILP. FDR is never used by the objective."""
+"""Multi-period transfer MILP; optional joint BB/TC scoring chips.
+
+Wildcard/Free Hit squad-reset effects are NOT modeled in this formulation.
+No chips are activated unless explicitly supplied via verified inventory.
+FDR is never an objective term.
+"""
 from __future__ import annotations
 from time import monotonic
 import numpy as np
@@ -44,6 +49,10 @@ def solve(request: SolveRequest) -> dict:
     # The original squad uses its verified effective selling price until
     # its first sale. On a later repurchase the new cost basis is the
     # current market price (prices remain fixed across this horizon).
+    scoring = s.scoring_chip_halves
+    bb_halves = set(scoring.get('bench_boost', []))
+    tc_halves = set(scoring.get('triple_captain', []))
+    scoring_enabled = bool(bb_halves or tc_halves)
     initial_discount = {
         i: round(p.current_price * 10) - round(p.selling_price * 10)
         for i, p in enumerate(players)
@@ -62,6 +71,16 @@ def solve(request: SolveRequest) -> dict:
             V(('o', i, gidx), hi=int(p.player_id not in locked and gidx < s.transfer_depth))
             V(('l', i, gidx), hi=int(s.allow_blank_starters or p.has_fixture_by_gw[gw]), objective=-weight * p.xpts_by_gw[gw])
             V(('c', i, gidx), objective=-weight * p.xpts_by_gw[gw])
+            if bb_halves:
+                # Bench Boost includes the non-XI members of the owned squad.
+                V(('bb_bench', i, gidx), objective=-weight * p.xpts_by_gw[gw])
+            if tc_halves:
+                # TC adds ONE more captain copy beyond normal double captain.
+                V(('tc_captain', i, gidx), objective=-weight * p.xpts_by_gw[gw])
+        if scoring_enabled:
+            half = 1 if gw <= 19 else 2
+            V(('chip_bb', gidx), hi=int(half in bb_halves))
+            V(('chip_tc', gidx), hi=int(half in tc_halves))
         # Bank is in tenths of a million, so no fractional FPL prices are introduced.
         V(('bank', gidx), hi=2000, integer=1, objective=(-s.bank_value_per_million / 10 if gidx == len(gws)-1 else 0))
         for ft in range(0, 6):
@@ -79,6 +98,8 @@ def solve(request: SolveRequest) -> dict:
         for position, low, high in [('GK',1,1),('DEF',3,5),('MID',2,5),('FWD',1,3)]:
             row({idx['l',i,t]:1 for i,p in enumerate(players) if p.position == position}, low, high)
         row({idx['c', i, t]: 1 for i in range(n)}, 1, 1)
+        if scoring_enabled:
+            row({idx['chip_bb', t]: 1, idx['chip_tc', t]: 1}, hi=1)
         for i,p in enumerate(players):
             initial = int(p.player_id in owned)
             evolution = {idx['s',i,t]:1, idx['b',i,t]:-1, idx['o',i,t]:1}
@@ -105,6 +126,19 @@ def solve(request: SolveRequest) -> dict:
                     row({first: 1, sell_var: -1, **prev}, lo=0)
             row({idx['l',i,t]:1, idx['s',i,t]:-1}, hi=0)
             row({idx['c',i,t]:1, idx['l',i,t]:-1}, hi=0)
+            if bb_halves:
+                bonus = idx['bb_bench', i, t]
+                active = idx['chip_bb', t]
+                # bonus = active AND (selected squad member not in XI).
+                row({bonus:1, active:-1}, hi=0)
+                row({bonus:1, idx['s',i,t]:-1, idx['l',i,t]:1}, hi=0)
+                row({bonus:1, active:-1, idx['s',i,t]:-1, idx['l',i,t]:1}, lo=-1)
+            if tc_halves:
+                bonus = idx['tc_captain', i, t]
+                active = idx['chip_tc', t]
+                row({bonus:1, active:-1}, hi=0)
+                row({bonus:1, idx['c',i,t]:-1}, hi=0)
+                row({bonus:1, active:-1, idx['c',i,t]:-1}, lo=-1)
         row({idx['b',i,t]:1 for i in range(n)} | {idx['o',i,t]:-1 for i in range(n)}, 0, 0)
         # Bank[t] = previous bank + sale proceeds - purchase costs.
         bankrow = {idx['bank',t]:1}
@@ -129,6 +163,15 @@ def solve(request: SolveRequest) -> dict:
             ftrow = {idx['z',t,ft,k]:ft for ft,k in zkeys}
             ftrow.update({idx['z',t-1,ft,k]:-min(5,max(0,ft-k)+1) for ft,k in zkeys})
             row(ftrow, 0, 0)
+    # There is one BB and one TC per verified season half. Ineligible weeks
+    # have chip variables fixed to zero; unused chips are not forced to play.
+    for half in (1, 2):
+        half_times = [t for t, gw in enumerate(gws) if (1 if gw <= 19 else 2) == half]
+        if not half_times: continue
+        if half in bb_halves:
+            row({idx['chip_bb', t]:1 for t in half_times}, hi=1)
+        if half in tc_halves:
+            row({idx['chip_tc', t]:1 for t in half_times}, hi=1)
     if s.max_total_hits is not None:
         row({idx['z',t,ft,k]:4*max(0,k-ft) for t in range(len(gws)) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)}, hi=s.max_total_hits)
     for tr in s.forced_transfers:
@@ -151,13 +194,26 @@ def solve(request: SolveRequest) -> dict:
             vice = max((pid for pid in starters if pid != captain), key=lambda pid: (players[by_id[pid]].xpts_by_gw[gw], -pid))
             ft, count = next((f,k) for f in range(0,6) for k in range(s.max_transfers_per_gw+1) if x[idx['z',t,f,k]] > .5)
             hit = max(0,count-ft)*4
-            points = sum(players[by_id[pid]].xpts_by_gw[gw] for pid in starters) + players[by_id[captain]].xpts_by_gw[gw] - hit
+            chip = None
+            bonus = 0.0
+            if scoring_enabled:
+                if x[idx['chip_bb', t]] > .5:
+                    chip = 'bench_boost'
+                    bonus = sum(players[by_id[pid]].xpts_by_gw[gw] for pid in bench)
+                elif x[idx['chip_tc', t]] > .5:
+                    chip = 'triple_captain'
+                    bonus = players[by_id[captain]].xpts_by_gw[gw]
+            points = sum(players[by_id[pid]].xpts_by_gw[gw] for pid in starters) + players[by_id[captain]].xpts_by_gw[gw] + bonus - hit
             raw += points; discount += s.time_decay**t * points
-            weeks.append({'gw':gw,'squad':squad,'starters':starters,'bench':bench,'captain':captain,'vice_captain':vice,'transfers_in':selected('b'),'transfers_out':selected('o'),'free_transfers_before':ft,'free_transfers_after':min(5,max(0,ft-count)+1),'hit_cost':hit,'bank':round(float(x[idx['bank',t]])/10,1),'expected_points_after_hits':round(points,3)})
+            weeks.append({'chip':chip, 'chip_bonus':round(bonus,3), 'gw':gw,'squad':squad,'starters':starters,'bench':bench,'captain':captain,'vice_captain':vice,'transfers_in':selected('b'),'transfers_out':selected('o'),'free_transfers_before':ft,'free_transfers_after':min(5,max(0,ft-count)+1),'hit_cost':hit,'bank':round(float(x[idx['bank',t]])/10,1),'expected_points_after_hits':round(points,3)})
         plans.append({'gameweeks':weeks, 'raw_expected_points_after_hits':round(raw,3), 'discounted_points_after_hits':round(discount,3), 'evaluation_score':round(-float(res.fun),3), 'solver':statuses[-1]})
-        # Exclude precisely this sequence of buys, forcing a genuine transfer-path alternative.
+        # Distinct paths may differ by transfer sequence or chip schedule.
+        # Exclude precisely this pattern, not every path with the same buys.
         buy_indices = [idx['b',i,t] for t in range(len(gws)) for i in range(n)]
+        if scoring_enabled:
+            buy_indices.extend(idx['chip_bb',t] for t in range(len(gws)))
+            buy_indices.extend(idx['chip_tc',t] for t in range(len(gws)))
         present = [j for j in buy_indices if x[j] > .5]
         absent = [j for j in buy_indices if x[j] <= .5]
         row({**{j:-1 for j in present}, **{j:1 for j in absent}}, lo=1-len(present))
-    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':'off','price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', 'Fixed prices; chips, autosubs and future price changes are not yet supported.']}
+    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':('BB/TC jointly selected from explicit half-season inventory; WC/FH unsupported' if scoring_enabled else 'off'),'price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', ('Fixed prices; Wildcard/Free Hit, autosubs and future price changes are not supported by this scoring-chip MILP.' if scoring_enabled else 'Fixed prices; chips, autosubs and future price changes are not yet supported.')]}
