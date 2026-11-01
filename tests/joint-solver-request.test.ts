@@ -32,6 +32,9 @@ function fixture() {
     id:81,source:'live',activeChip:null,generatedAt:'2026-11-01T16:55:00Z',
     chipsUsed:[{name:'freehit',event:19}],freeTransfers:0,
     postLockTransfersUsed:0,managerStateSource:'authenticated-current-team',
+    authenticatedAvailableChipHalves:{
+      wildcard:[2],free_hit:[2],bench_boost:[2],triple_captain:[2],
+    },
     provenance:{kind:'official',requestedIdVerified:true,sourceCapturedAt:null},
     history:{bank:5,event:36},
     picks:squadIds.map(element=>({
