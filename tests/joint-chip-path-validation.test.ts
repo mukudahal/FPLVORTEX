@@ -9,7 +9,7 @@ import type { VerifiedChipInventory } from '../src/lib/verifiedChipInventory.ts'
 const owned = Array.from({ length:15 },(_,i)=>i+1);
 const positions = Array.from({ length:16 },(_,i)=>
   i<=1 ? 'GK' : i<=6 ? 'DEF' : i<=11||i===15 ? 'MID' : 'FWD');
-function values(gw:number) {
+function values() {
   return Object.fromEntries(Array.from({length:16},(_,i)=>
     [i+1, i===15 ? 9 : i<=1 ? 3 : 4])) as Record<number,number>;
 }
@@ -20,7 +20,7 @@ function fixture() {
       player_id:id,name:'Synthetic '+id,team_id:i%10+1,
       position:positions[i],current_price:id===16?5.5:5,
       selling_price:id<=15?5:null,
-      xpts_by_gw:{37:values(37)[id],38:values(38)[id]},
+      xpts_by_gw:{37:values()[id],38:values()[id]},
       xmin_by_gw:{37:null,38:null},availability_by_gw:{37:null,38:null},
       has_fixture_by_gw:{37:true,38:true},
     };
