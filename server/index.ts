@@ -442,6 +442,51 @@ app.post('/api/vortex/solver/exact', rateLimit(3, 60_000), asyncRoute(async (req
 }));
 
 /**
+ * Current authenticated FPL squad, read-only and never publicly cached.
+ * A trusted request-scoped provider must first verify the VORTEX caller
+ * and authorize reading that same manager's FPL account. No passwords,
+ * cookies, or self-asserted private JSON accepted in this HTTP endpoint.
+ */
+app.get('/api/vortex/solver/current-team', rateLimit(5, 60_000), asyncRoute(async (req,res) => {
+  res.set('Cache-Control', 'no-store, private');
+  if (process.env.VORTEX_JOINT_SOLVER_ENABLED !== '1') {
+    res.status(503).json({error:'Joint-chip research authentication is not enabled on this deployment.'});
+    return;
+  }
+  const entryId=Number(req.query.entryId);
+  if (!Number.isSafeInteger(entryId) || entryId<=0 || String(entryId)!==String(req.query.entryId)) {
+    res.status(422).json({error:'Expected one valid numeric FPL manager ID.'});
+    return;
+  }
+  const trustedRead=await getTrustedFplReadForRequest(req);
+  if (!trustedRead) {
+    res.status(409).json({
+      code:'CURRENT_TEAM_AUTH_REQUIRED',
+      error:'A consented, request-bound FPL current-team connection is not available. No credential, team or chip data was collected.',
+    });
+    return;
+  }
+  const snapshot=await getSnapshot(true);
+  if (snapshot.meta.stale || !snapshot.meta.upstreamOk || !snapshot.meta.isLive ||
+      !Number.isInteger(snapshot.meta.nextEventId)) {
+    res.status(503).json({error:'Fresh official current-Gameweek player market unavailable.'});
+    return;
+  }
+  try {
+    const historical=await getEntry(String(entryId),{force:true});
+    const verified=await readAuthenticatedCurrentTeam(
+      entryId,snapshot.meta.nextEventId,historical,snapshot,trustedRead,
+    );
+    res.json(verified);
+  } catch {
+    res.status(409).json({
+      code:'CURRENT_TEAM_VERIFICATION_FAILED',
+      error:'The authenticated FPL account, live team, price basis or chip availability failed verification.',
+    });
+  }
+}));
+
+/**
  * Research-only joint WC/FH/BB/TC exact model. DEFAULT-OFF on Render.
  *
  * When deliberately enabled in staging, the server itself MUST verify the
