@@ -29,6 +29,16 @@ The live Team Planner links to an additional explicit "Exact-formulation transfe
 
 Production safeguards: max 60 submitted candidates, 120 KB bounded JSON, strict Python schema, maximum one simultaneous job, three HTTP requests per minute per IP, ten-second model time limit plus subprocess kill timeout, and read-only no-cache responses. Docker includes a local SciPy environment; there is no paid provider dependency. Server errors must return an unavailable status rather than substituting heuristic outputs as if MILP had run.
 
+## P0-A07: validated alternative transfer paths and user-controlled acceptance
+
+The opt-in no-chip HiGHS service now requests **up to three distinct legal full-horizon transfer sequences** within the **same ten-second** bound. No-good cuts exclude a previously returned purchase sequence. This is not a guarantee of three paths, nor proof that any later feasible alternative is the global second or third best solution. Each path has an individual solver status, MIP gap and explicit optimality indicator. The active root Planner ranks returned candidates by the full discounted objective and separately displays cumulative undiscounted xPts after hits, the change from the highest objective, total hit points, transfers, remaining bank, and free transfers. Per-week disclosures include incoming/outgoing player names, captain, XI, bench, prices implicitly through the verified bank ledger, and GW xPts.
+
+**Independent client replay must pass before showing or accepting proposals:** 15 unique squad owners, position quotas, max-three-per-club, exact squad transition, valid eleven and captain/vice, locked/excluded players, no initially owned player re-buy, real FT rollover, hit cost, tenths bank accounting, model xPts matching, aggregated discounted and undiscounted points, unique transfer sequences, and solver certificate format. Invalid/incomplete paths fail closed rather than being silently trusted.
+
+To save a candidate, the user must first inspect it, choose **Review and prepare NEW Transfer Lab plan**, then press **Confirm: save as NEW plan**. The new plan stores transfers, lineup, captaincy, base squad/FT, bank, verified player selling price basis, and locks. It never overwrites existing saved plans or acts on the official FPL site. The proposal is cancelled when live data, manual commitments, locks, squads, budgets, or planning assumptions change. Existing ten-slot storage limit applies; a full store rejects creation.
+
+The exact-transfer engine remains **no chips**, with fixed future prices, a shortlist, and no guarantee of a certified optimum within the time bound. Additional paths may all be close variations; diversity/risk-profile optimization and exact chip scheduling remain future work. The mathematical gains are model projections rather than guaranteed returns.
+
 ## Rules and history
 
 - Zero FT is supported; each additional normal transfer costs four points.

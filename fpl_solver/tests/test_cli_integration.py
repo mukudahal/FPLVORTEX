@@ -52,3 +52,35 @@ def test_bounded_cli_returns_json_and_rejects_unsupported_chips():
     assert bad.returncode == 2
     assert "Invalid or unsupported" in bad.stderr
     assert not bad.stdout
+
+def test_bounded_cli_can_return_distinct_alternative_transfer_paths_without_extra_time():
+    payload = json.loads(json.dumps(DATA))
+    payload["settings"].update({
+        "end_gw": 2, "solutions_requested": 3, "time_limit_seconds": 9,
+        "mip_gap": 0.02, "free_transfer_value": 0,
+        "bank_value_per_million": 0,
+    })
+    result = subprocess.run(
+        [sys.executable, "-m", "fpl_solver.cli"],
+        input=json.dumps(payload), text=True, capture_output=True, timeout=14, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    parsed = json.loads(result.stdout)
+    assert 1 <= len(parsed["plans"]) <= 3
+    assert len(parsed["solver_attempts"]) >= len(parsed["plans"])
+    signatures = [
+        tuple((w["gw"], tuple(sorted(w["transfers_in"]))) for w in plan["gameweeks"])
+        for plan in parsed["plans"]
+    ]
+    assert len(signatures) == len(set(signatures)), "No-good cuts must prevent duplicate full transfer paths"
+    for plan in parsed["plans"]:
+        assert len(plan["gameweeks"]) == 2
+        assert isinstance(plan["solver"]["optimality_proven"], bool)
+        assert all(w["hit_cost"] >= 0 and w["bank"] >= 0 for w in plan["gameweeks"])
+    payload["settings"]["solutions_requested"] = 4
+    invalid = subprocess.run(
+        [sys.executable, "-m", "fpl_solver.cli"],
+        input=json.dumps(payload), text=True, capture_output=True, timeout=4, check=False,
+    )
+    assert invalid.returncode == 2
+    assert not invalid.stdout
