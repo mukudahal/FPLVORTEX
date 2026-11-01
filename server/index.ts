@@ -397,7 +397,7 @@ app.post('/api/vortex/solver/exact', rateLimit(3, 60_000), asyncRoute(async (req
   const payload = req.body;
   if (!payload || !Array.isArray(payload.players) || payload.players.length < 15 || payload.players.length > 60 ||
       !payload.settings || payload.settings.time_limit_seconds > 10 ||
-      payload.settings.solutions_requested !== 1 || payload.settings.max_transfers_per_gw > 2 ||
+      !Number.isInteger(payload.settings.solutions_requested) || payload.settings.solutions_requested < 1 || payload.settings.solutions_requested > 3 || payload.settings.max_transfers_per_gw > 2 ||
       payload.settings.end_gw - payload.settings.start_gw >= 10) {
     res.status(422).json({ error: 'Invalid or unsupported bounded MILP comparison.' });
     return;
