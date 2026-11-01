@@ -146,4 +146,35 @@ benchmarks with real-vs-synthetic projection distributions, and any Render
 staging/production deployment. The connected Render workspace currently
 has only its existing production service and disabled PR previews. This PR
 must remain draft and must not be merged into autoDeploy main until these
-gates are independently completed and production deployment approved.
+gates are independently completed and production deployment approved. 
+
+## Public manager history is not authenticated current-team state (safety gate)
+
+Official publicly accessible `/entry/{id}/event/{gw}/picks/` data describes
+a deadline-locked team. The public transfer feed and chip-history feed can
+confirm some *published* actions, but **cannot certify that a manager has no
+pending transfer or chip changes before the next deadline**, nor establish
+the live editable bank/squad that authenticated `/my-team/{id}/` supplies.
+
+Consequently the official entry normalizer stamps
+`managerStateSource: 'public-locked-snapshot'`, even when the API request
+was freshly retrieved. The independent joint-manager state validator now
+requires `managerStateSource: 'authenticated-current-team'`. No current
+public-only implementation is allowed to assign that stronger provenance.
+The default-off staging API returns `409 CURRENT_TEAM_AUTH_REQUIRED`
+for valid public-only joint requests; it makes no optimization or mutation.
+The staging button is disabled with an explanation, while the existing
+Planner and Transfer Lab continue operating.
+
+**Remaining implementation blocker:** establish a consented, securely
+authenticated *read-only* current-team integration, independently verify
+current squad IDs, bank, free-transfer state, current chip commitments,
+selling prices, freshness and ownership of the requested account, then
+exercise real-account staged UI review and save-new. Do not ask managers to
+paste session credentials into chat, or treat public estimates as official.
+Do not relax this gate to get a benchmark or staging screenshot to pass.
+
+The raw official chip history is now also fail-closed if any record has an
+unrecognized chip name, missing/invalid event or duplicate use in one
+season half. Unknown records must not be silently dropped and interpreted
+as an available chip.
