@@ -178,7 +178,7 @@ export function normalizeChipHistory(payload?: RawEntryHistoryPayload | null): A
   for (const use of payload.chips) {
     const chip = mapOfficialChipToPlanningChip(use?.name);
     const event = use?.event;
-    if (!chip || !Number.isInteger(event) || event < 1 || event > 38) return undefined;
+    if (!chip || typeof event !== 'number' || !Number.isInteger(event) || event < 1 || event > 38) return undefined;
     const half = event <= 19 ? 1 : 2;
     const key = `${chip}:${half}`;
     if (seen.has(key)) return undefined;
