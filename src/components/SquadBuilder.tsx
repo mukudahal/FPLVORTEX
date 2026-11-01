@@ -116,7 +116,9 @@ export function SquadBuilder({
     entry:EntryData;
     gameweek:number;
   } | null>(null);
-  const entry=jointUiEnabled && verifiedPrivateEntry?.entry.id===publicEntry?.id &&
+  const entry=jointUiEnabled && verifiedPrivateEntry!==null &&
+    publicEntry!==null && publicEntry!==undefined &&
+    verifiedPrivateEntry.entry.id===publicEntry.id &&
     verifiedPrivateEntry.gameweek===snapshot.meta.nextEventId
     ? verifiedPrivateEntry.entry : publicEntry;
   const [currentTeamPending,setCurrentTeamPending]=useState(false);
