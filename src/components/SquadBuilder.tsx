@@ -565,16 +565,44 @@ export function SquadBuilder({
             {selectedPlan && <p role="status">Saved manual plan active: exact no-chip transfer comparison is unavailable because manual and chip commitments must not be overwritten.</p>}
             {plannedMoves > 0 && !selectedPlan && <p role="status">Reset unsaved manual transfers to use this independent starting-squad comparison.</p>}
             {exactError && <p role="alert">{exactError}</p>}
-            {exactResult && (exactResult.plans[0] ? <div role="status" aria-label="MILP solution and solver certificate">
-              <p><strong>{exactResult.plans[0].solver.optimality_proven ? 'Optimality certified' : 'Feasible plan — optimum NOT certified'}</strong> · MIP gap: {exactResult.plans[0].solver.mip_gap === null ? 'N/A' : (exactResult.plans[0].solver.mip_gap * 100).toFixed(2) + '%'} · Runtime {exactResult.runtime_seconds.toFixed(2)}s.</p>
-              <p>{exactResult.plans[0].raw_expected_points_after_hits.toFixed(2)} undiscounted model xPts after hits · {exactResult.plans[0].discounted_points_after_hits.toFixed(2)} discounted objective points · {exactResult.plans[0].gameweeks.length} gameweeks. These are model estimates, not guaranteed returns.</p>
-              <div className="rollout-list">
-                {exactResult.plans[0].gameweeks.map(week => <details key={week.gw} className="rollout-row">
-                  <summary>GW{week.gw} · {week.transfers_out.length ? week.transfers_out.map((id, i) => `${playerMap.get(id)?.name ?? id} → ${playerMap.get(week.transfers_in[i])?.name ?? week.transfers_in[i]}`).join(', ') : 'ROLL'} · {week.expected_points_after_hits.toFixed(2)} xPts</summary>
-                  <p>FT {week.free_transfers_before} → {week.free_transfers_after} · Transfer hits −{week.hit_cost} · Bank £{week.bank.toFixed(1)}m · Captain {playerMap.get(week.captain)?.name ?? week.captain}. All transfer paths are suggestions only.</p>
-                </details>)}
+            {exactResult && exactComparison && (exactComparison.paths.length ? <div role="group" aria-label="Verified MILP transfer-path comparison">
+              <p><strong>{exactComparison.paths.length} distinct feasible transfer {exactComparison.paths.length === 1 ? 'path' : 'paths'} returned</strong> (up to 3 requested within one 10-second shared solver budget). Alternatives may be unavailable when the limit is reached. Only the submitted candidate shortlist and no-chip assumptions are optimized.</p>
+              <p>Choose a path to inspect its full transfer ledger. All forecasts and gains are model estimates, not guaranteed FPL points. Mathematical optimality is certified only when the corresponding HiGHS certificate says so.</p>
+              <div className="chip-cards-grid" role="group" aria-label="Alternative transfer paths">
+                {exactComparison.paths.map(path => <article key={path.rank} className="panel chip-sim-card">
+                  <div className="chip-sim-card__head">
+                    <strong>PATH {String.fromCharCode(64 + path.rank)} · Rank {path.rank}</strong>
+                    <span className="badge badge--violet">{path.plan.solver.optimality_proven ? 'Certified optimal' : 'Feasible · unproven'}</span>
+                  </div>
+                  <p><strong>{path.plan.raw_expected_points_after_hits.toFixed(2)} xPts</strong> after hits · {path.plan.evaluation_score.toFixed(2)} discounted objective</p>
+                  <p>{path.rank === 1 ? 'Highest found objective' : `${path.deltaObjective.toFixed(2)} discounted points vs Path A`} · {path.deltaRawPoints >= 0 ? '+' : ''}{path.deltaRawPoints.toFixed(2)} undiscounted xPts vs Path A</p>
+                  <p>{path.totalTransfers} transfers · −{path.totalHits} hit points · Final £{path.lastBank.toFixed(1)}m bank · {path.lastFreeTransfers} FT</p>
+                  <small>HiGHS gap: {path.plan.solver.mip_gap === null ? 'N/A' : (path.plan.solver.mip_gap * 100).toFixed(2) + '%'} · {path.plan.gameweeks.length} GWs · Shared runtime {exactResult.runtime_seconds.toFixed(2)}s</small>
+                  <button type="button" aria-pressed={selectedExactRank === path.rank}
+                    onClick={() => { setSelectedExactRank(path.rank); setReviewExactRank(null); }}>
+                    {selectedExactRank === path.rank ? 'Viewing this path' : `Review Path ${String.fromCharCode(64 + path.rank)}`}
+                  </button>
+                </article>)}
               </div>
-            </div> : <p role="status">HiGHS found no feasible transfer plan within the allotted search; no result is fabricated. Check the starting squad and solver constraints.</p>)}
+              {exactComparison.paths.filter(path => path.rank === selectedExactRank).map(path => <div key={path.rank}
+                role="group" aria-label={`Detailed MILP path ${path.rank} transfer ledger`}>
+                <h4>Path {String.fromCharCode(64 + path.rank)} · Full Gameweek decision ledger</h4>
+                <div className="rollout-list">
+                  {path.plan.gameweeks.map(week => <details key={week.gw} className="rollout-row">
+                    <summary>GW{week.gw} · {week.transfers_out.length ? `${week.transfers_out.length} transfer(s)` : 'Roll'} · {week.expected_points_after_hits.toFixed(2)} model xPts after hits</summary>
+                    <p>{week.transfers_out.length ? `OUT: ${week.transfers_out.map(id => playerMap.get(id)?.name ?? id).join(', ')} · IN: ${week.transfers_in.map(id => playerMap.get(id)?.name ?? id).join(', ')}` : 'No transfers.'}</p>
+                    <p>FT {week.free_transfers_before} → {week.free_transfers_after} · Hits −{week.hit_cost} points · Bank £{week.bank.toFixed(1)}m · Captain {playerMap.get(week.captain)?.name ?? week.captain} · Vice {playerMap.get(week.vice_captain)?.name ?? week.vice_captain}</p>
+                    <p>XI: {week.starters.map(id => playerMap.get(id)?.name ?? id).join(', ')} · Bench: {week.bench.map(id => playerMap.get(id)?.name ?? id).join(', ')}</p>
+                  </details>)}
+                </div>
+                <p>This path is an unapplied proposal. To keep it, review the full ledger and explicitly create a <strong>new</strong> Transfer Lab plan. Existing saved plans are never replaced.</p>
+                {reviewExactRank === path.rank ? <div role="group" aria-label="Confirm new Transfer Lab plan">
+                  <p role="status">Confirm saving Path {String.fromCharCode(64 + path.rank)} as a separate plan. This will select the newly created plan in Transfer Lab, but it will <strong>not</strong> submit transfers or play chips in the official FPL game.</p>
+                  <button type="button" onClick={saveReviewedExactPath}>Confirm: save as NEW plan</button>
+                  <button type="button" onClick={() => setReviewExactRank(null)}>Cancel</button>
+                </div> : <button type="button" onClick={() => setReviewExactRank(path.rank)}>Review and prepare NEW Transfer Lab plan</button>}
+              </div>)}
+            </div> : <p role="status">HiGHS returned no feasible transfer path within the shared time limit. No alternative is fabricated; review the input constraints before retrying.</p>)}
           </section>
           <section className="chip-cards-grid" aria-label="Half-season chip valuations">
             {reviewSim.chipSimulations.map((chip) => {
