@@ -99,7 +99,7 @@ test('8–10 GW joint solver keeps the complete owned 15 with a bounded position
     fixtures:gws.flatMap(gw=>Array.from({length:10},(_,i)=>({
       event:gw,teamH:2*i+1,teamA:2*i+2,
     }))),
-  };
+  } as unknown as Snapshot;
   input.planner={
     ...input.planner,gws,
     forecastByGw:Object.fromEntries(gws.map(gw=>[gw,
