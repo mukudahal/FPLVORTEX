@@ -692,7 +692,7 @@ export function SquadBuilder({
               <span className="panel__eyebrow">P0-A09 · RESEARCH · VERIFIED ACCOUNT REQUIRED</span>
               <h3>Joint WC / FH / BB / TC and 10-GW transfers</h3>
             </div><span className="badge badge--violet">Staging-only · read-only</span></div>
-            <p>Optional research model combining all four FPL chips and transfer decisions. Requires independently verified official chip history, the full current 15-man squad, real purchase/selling values and the same fresh VORTEX forecasts. Subject to a 40-player shortlist and 10-second MILP limit; a feasible result is not necessarily a certified optimum.</p>
+            <p>Optional research model combining all four FPL chips and transfer decisions. Requires independently verified official chip history, the full current 15-man squad, real purchase/selling values and the same fresh VORTEX forecasts. Shortlists are explicitly limited to 30 players for 8–10 GWs and up to 40 for shorter windows, preserving all 15 original players; the optimizer has a 10-second time limit. Any optimum is only for that shortlist and must be separately certified.</p>
             <button type="button" onClick={() => { void runJointChipComparison(); }}
               disabled={jointPending || !entry || !reviewSim || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
               aria-busy={jointPending}>{jointPending ? 'Evaluating joint chip schedule…' : 'Compare verified joint chip strategies'}</button>
