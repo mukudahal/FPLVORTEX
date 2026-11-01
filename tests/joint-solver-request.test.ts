@@ -78,3 +78,50 @@ test('joint request cannot silently replace an owned squad, bank, selling basis 
     }},
   }),/manual plan/);
 });
+
+test('8–10 GW joint solver keeps the complete owned 15 with a bounded positional shortlist',()=>{
+  const input=fixture();
+  const additional:Position[]=[
+    'GKP','GKP','GKP',
+    'DEF','DEF','DEF','DEF','DEF','DEF','DEF','DEF',
+    'MID','MID','MID','MID','MID','MID','MID','MID',
+    'FWD','FWD','FWD','FWD','FWD',
+  ];
+  for(let i=0;i<additional.length;i++){
+    const id=17+i;
+    input.players.push(makePlayer(id,{
+      position:additional[i],teamId:i%20+1,team:makeTeam(i%20+1),cost:50,
+    }) as EnrichedPlayer);
+  }
+  const gws=Array.from({length:10},(_,i)=>20+i);
+  input.snapshot={
+    ...input.snapshot,meta:{...input.snapshot.meta,nextEventId:20},
+    fixtures:gws.flatMap(gw=>Array.from({length:10},(_,i)=>({
+      event:gw,teamH:2*i+1,teamA:2*i+2,
+    }))),
+  };
+  input.planner={
+    ...input.planner,gws,
+    forecastByGw:Object.fromEntries(gws.map(gw=>[gw,
+      Object.fromEntries(input.players.map(p=>[p.id,
+        p.position==='GKP'?3:p.position==='MID'?5:4])),
+    ])),
+  };
+  input.entry={...input.entry,history:{...input.entry.history,event:19}};
+  const result=buildJointSolverRequest(input);
+  assert.equal(result.solver.settings.start_gw,20);
+  assert.equal(result.solver.settings.end_gw,29);
+  assert.ok(result.solver.players.length<=30);
+  assert.ok(input.squadIds.every(id=>result.solver.players.some(p=>p.player_id===id)));
+  assert.equal(result.solver.players.length,30);
+  const outside=result.solver.players.filter(p=>!input.squadIds.includes(p.player_id));
+  for(const [pos,min] of [['GK',1],['DEF',3],['MID',3],['FWD',2]] as const){
+    assert.ok(outside.filter(p=>p.position===pos).length>=min,
+      'position-alternative shortlist for '+pos);
+  }
+  const shorter=buildJointSolverRequest({
+    ...input,planner:{...input.planner,gws:gws.slice(0,5)},
+  });
+  assert.ok(shorter.solver.players.length<=40);
+  assert.ok(shorter.solver.players.length>=result.solver.players.length);
+});
