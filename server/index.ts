@@ -488,6 +488,17 @@ app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req
   // Confirm official identity, fresh fixtures and exact original owner state.
   // No archived, demo or partial FPL account can authorize a chip claim.
   const officialEntry = await getEntry(String(input.entryId), { force: true });
+  // Public /entry/{id}/... endpoints show the last deadline-locked team.
+  // They cannot prove the absence of pending transfers or unsent chips.
+  // Never silently feed these records into a supposedly verified joint
+  // optimization. A genuine authenticated /my-team/ read is required.
+  if (officialEntry.managerStateSource !== 'authenticated-current-team') {
+    res.status(409).json({
+      code: 'CURRENT_TEAM_AUTH_REQUIRED',
+      error: 'Exact joint-chip optimization requires a verified authenticated current FPL squad, bank and chip state. Public deadline-locked picks cannot confirm pending transfers; no strategy was generated.',
+    });
+    return;
+  }
   const snapshot = await getSnapshot(true);
   if (snapshot.meta.stale || !snapshot.meta.upstreamOk ||
       snapshot.meta.nextEventId !== settings.start_gw ||
