@@ -186,3 +186,71 @@ def validate_proposed_chip_path(
         # FH squad and bank never persist; WC rebuild does persist.
         previous_chip = chip
     return ledger
+
+def verify_joint_milp_ledger(request: SolveRequest, gameweeks: list[dict]) -> None:
+    """Fail closed on ANY generated chip path that fails independent replay.
+
+    Used by the Python optimizer before returning a solution. The verifier
+    works from action-level transactions and does not consult the optimizer's
+    binaries, so shared modeling bugs are less likely to be undetected.
+    """
+    player_map = {p.player_id: p for p in request.players}
+    actions: list[WeekAction] = []
+    for w in gameweeks:
+        chip = w.get('chip')
+        if chip == 'free_hit':
+            if w['transfers_in'] or w['transfers_out']:
+                raise ValueError('FH must not change permanent holdings.')
+            actions.append(WeekAction(
+                gw=w['gw'], chip='free_hit',
+                temporary_squad=tuple(w['squad']),
+                starters=tuple(w['starters']), captain=w['captain'],
+                vice=w['vice_captain'],
+            ))
+            continue
+        unused = list(w['transfers_in'])
+        paired: list[tuple[int, int]] = []
+        for outbound in w['transfers_out']:
+            incoming = next((
+                pid for pid in unused
+                if player_map[pid].position == player_map[outbound].position
+            ), None)
+            if incoming is None:
+                raise ValueError('Unmatched transfer positions in MILP path.')
+            paired.append((outbound, incoming))
+            unused.remove(incoming)
+        if unused:
+            raise ValueError('Unpaired MILP acquisitions.')
+        actions.append(WeekAction(
+            gw=w['gw'], chip=chip, transfers=tuple(paired),
+            starters=tuple(w['starters']), captain=w['captain'],
+            vice=w['vice_captain'],
+        ))
+
+    settings = request.settings
+    verified_available: dict[str, set[int]] = {
+        'bench_boost': set(settings.scoring_chip_halves.get('bench_boost', [])),
+        'triple_captain': set(settings.scoring_chip_halves.get('triple_captain', [])),
+        'wildcard': set(settings.squad_chip_halves.get('wildcard', [])),
+        'free_hit': set(settings.squad_chip_halves.get('free_hit', [])),
+    }
+    checked = validate_proposed_chip_path(
+        request, actions, verified_available=verified_available,
+    )
+    for emitted, independent in zip(gameweeks, checked, strict=True):
+        if (set(emitted['squad']) != set(independent['squad'])
+            or set(emitted['permanent_squad_after']) != set(independent['permanent_squad_after'])
+            or emitted['chip'] != independent['chip']
+            or emitted['free_transfers_before'] != independent['free_transfers_before']
+            or emitted['free_transfers_after'] != independent['free_transfers_after']
+            or emitted['hit_cost'] != independent['hit_cost']
+            or abs(emitted['bank'] * 10 - independent['bank_after_tenths']) > .001
+            or abs(emitted['expected_points_after_hits'] -
+                   independent['expected_points_after_hits']) > .003
+            or abs(emitted['chip_bonus'] - independent['chip_bonus']) > .003):
+            raise ValueError('Joint MILP result disagrees with independent FPL replay.')
+        if emitted['chip'] == 'free_hit':
+            if (emitted.get('temporary_bank') is None or
+                abs(emitted['temporary_bank'] * 10 -
+                    independent['temporary_bank_tenths']) > .001):
+                raise ValueError('Free Hit temporary bank failed independent reconciliation.')
