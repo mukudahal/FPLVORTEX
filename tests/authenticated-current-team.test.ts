@@ -46,7 +46,7 @@ function fixture() {
       isCaptain:p.is_captain,isViceCaptain:p.is_vice_captain,
     })),
     players:original,
-  } as EntryData;
+  } as unknown as EntryData;
   const accesses:string[]=[];
   const read:AuthenticatedFplRead=async path=>{
     accesses.push(path);
