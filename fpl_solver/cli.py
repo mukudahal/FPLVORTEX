@@ -26,7 +26,7 @@ def main() -> int:
         # The public live endpoint is deliberately NO-CHIP. The research
         # BB/TC MILP must remain opt-in until official account chip
         # history is verified and WC/FH are jointly modeled and reviewed.
-        if settings.scoring_chip_halves:
+        if settings.scoring_chip_halves or settings.squad_chip_halves or settings.forced_chip_uses:
             raise ValueError("Live no-chip API does not accept scoring-chip inventory.")
         if len(request.players) > 60 or settings.time_limit_seconds > 10 or settings.solutions_requested > 3 or settings.max_transfers_per_gw > 2:
             raise ValueError("Exact comparison exceeds the permitted candidate/time limits.")
