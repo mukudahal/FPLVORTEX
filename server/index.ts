@@ -10,6 +10,8 @@ import { isNumericId, UpstreamHttpError } from './http.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import { marketCoverage } from '../src/lib/marketCoverage.ts';
 import { buildPublicDataHealth } from '../src/lib/publicDataHealth.ts';
+import { verifiedJointManagerState } from '../src/lib/verifiedJointManagerState.ts';
+import type { JointRequest } from '../src/lib/jointChipPathValidation.ts';
 import {
   PL_BADGE_BASE,
   PL_PHOTO_BASE_CURRENT,
@@ -432,6 +434,120 @@ app.post('/api/vortex/solver/exact', rateLimit(3, 60_000), asyncRoute(async (req
       ? 'The exact MILP exceeded its time limit. No optimality is claimed.'
       : status === 422 ? 'Invalid no-chip MILP inputs. Review prices and forecasts.'
       : 'Exact Solver is unavailable. The existing Planner remains unchanged.' });
+  } finally {
+    exactMilpBusy = false;
+  }
+}));
+
+/**
+ * Research-only joint WC/FH/BB/TC exact model. DEFAULT-OFF on Render.
+ *
+ * When deliberately enabled in staging, the server itself MUST verify the
+ * requested FPL entry, original selling prices and unused chip inventory.
+ * A client's claim that it owns a chip or has spare bank money is ignored.
+ * No official FPL account mutation and no saved Transfer Lab plan write.
+ */
+app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (process.env.VORTEX_JOINT_SOLVER_ENABLED !== '1') {
+    res.status(503).json({ error: 'Joint-chip research Solver is not enabled on this deployment.' });
+    return;
+  }
+  const input = req.body as { entryId?: number; solver?: JointRequest };
+  const request = input?.solver;
+  const settings = request?.settings;
+  if (!Number.isSafeInteger(input?.entryId) || (input.entryId ?? 0) <= 0 ||
+      !request || !settings || !Array.isArray(request.players) ||
+      request.players.length < 15 || request.players.length > 40 ||
+      !Array.isArray(request.current_team?.squad_player_ids) ||
+      request.current_team.squad_player_ids.length !== 15 ||
+      settings.time_limit_seconds > 10 || settings.time_limit_seconds < 1 ||
+      settings.solutions_requested !== 1 ||
+      settings.max_transfers_per_gw > 2 ||
+      settings.start_gw < 1 || settings.end_gw > 38 ||
+      settings.end_gw < settings.start_gw ||
+      settings.end_gw - settings.start_gw >= 10 ||
+      Object.keys(settings.forced_chip_uses ?? {}).length !== 0) {
+    res.status(422).json({ error: 'Invalid bounded joint-chip Solver research request.' });
+    return;
+  }
+  const serialized = JSON.stringify(request);
+  if (Buffer.byteLength(serialized) > 120_000) {
+    res.status(413).json({ error: 'Joint solver request exceeds the 120 KB limit.' });
+    return;
+  }
+  if (exactMilpBusy) {
+    res.status(429).json({ error: 'Solver is occupied; retry after the current run.' });
+    return;
+  }
+  // Confirm official identity, fresh fixtures and exact original owner state.
+  // No archived, demo or partial FPL account can authorize a chip claim.
+  const officialEntry = await getEntry(String(input.entryId), { force: true });
+  const snapshot = await getSnapshot(true);
+  if (snapshot.meta.stale || !snapshot.meta.upstreamOk ||
+      snapshot.meta.nextEventId !== settings.start_gw ||
+      !snapshot.meta.isLive) {
+    res.status(503).json({ error: 'Live FPL fixtures are not verified; refresh before joint optimization.' });
+    return;
+  }
+  const official = verifiedJointManagerState(
+    officialEntry, request.current_team.squad_player_ids, settings.start_gw,
+  );
+  const originals = request.current_team.squad_player_ids;
+  const officialSaleMatches = originals.every((id: number) => {
+    const p = request.players.find(player => player.player_id === id);
+    return p && official.sellingPricesTenths[id] === Math.round(p.selling_price! * 10);
+  });
+  if (official.entryId !== input.entryId ||
+      request.current_team.free_transfers !== official.freeTransfersNow ||
+      Math.round(request.current_team.bank * 10) !== official.bankTenths ||
+      !officialSaleMatches) {
+    res.status(422).json({ error: 'FPL entry bank, selling values or free transfers do not match verified live account.' });
+    return;
+  }
+  const sameChipInventory = (provided: Record<string, unknown>, verified: Record<string, unknown>) => {
+    const order = (record: Record<string, unknown>) => JSON.stringify(
+      Object.fromEntries(Object.keys(record).sort().map(key =>
+        [key, Array.isArray(record[key]) ? [...record[key] as number[]].sort() : record[key]])),
+    );
+    return order(provided) === order(verified);
+  };
+  if (!sameChipInventory(settings.scoring_chip_halves ?? {},
+        official.chips.scoring_chip_halves) ||
+      !sameChipInventory(settings.squad_chip_halves ?? {},
+        official.chips.squad_chip_halves) ||
+      settings.first_half_fh_used_gw19 !== official.chips.first_half_fh_used_gw19) {
+    res.status(422).json({ error: 'Requested chip inventory conflicts with verified official FPL history.' });
+    return;
+  }
+  // Official identity, club, position and current market price also matter.
+  const market = new Map(snapshot.players.map(player => [player.id, player]));
+  if (request.players.some(player => {
+    const current = market.get(player.player_id);
+    return !current || current.teamId !== player.team_id ||
+      Math.round(player.current_price * 10) !== current.cost ||
+      ({ GKP:'GK',DEF:'DEF',MID:'MID',FWD:'FWD' } as Record<string,string>)[current.position] !== player.position;
+  })) {
+    res.status(422).json({ error: 'Player identities or market prices are inconsistent with the official live snapshot.' });
+    return;
+  }
+  exactMilpBusy = true;
+  try {
+    const python = process.env.VORTEX_EXACT_PYTHON || 'python3';
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = execFile(python, ['-m', 'fpl_solver.joint_cli'], {
+        cwd: root, timeout: 12_000, maxBuffer: 2 * 1024 * 1024,
+        env: { ...process.env, OPENBLAS_NUM_THREADS:'1', OMP_NUM_THREADS:'1' },
+      }, (err, stdout) => err ? reject(err) : resolve(stdout));
+      child.stdin?.on('error', () => { /* execFile callback owns child errors. */ });
+      child.stdin?.end(serialized);
+    });
+    const result = JSON.parse(output) as { plans?: unknown[]; solver_attempts?: unknown[] };
+    if (!Array.isArray(result.plans) || !Array.isArray(result.solver_attempts))
+      throw new Error('Malformed bounded joint optimizer response.');
+    res.json(result);
+  } catch {
+    res.status(503).json({ error: 'No verified joint-chip optimization result. Existing Planner is unchanged.' });
   } finally {
     exactMilpBusy = false;
   }
