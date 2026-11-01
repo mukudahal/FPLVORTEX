@@ -164,14 +164,26 @@ export function resolveSquadPurchaseAndSellingPrices(
   };
 }
 
-/** Normalize verified history; undefined must not silently become four available chips. */
+/** Normalize complete official history. A partial / unknown chip is NOT unused.
+ *
+ * Planner/solver entitlements must fail closed when an upstream response
+ * contains an unrecognized chip code, malformed event or duplicate use.
+ * Silently filtering those rows would invent extra available chips.
+ */
 export function normalizeChipHistory(payload?: RawEntryHistoryPayload | null): Array<{ name: string; event: number }> | undefined {
   if (!Array.isArray(payload?.chips)) return undefined;
   const officialNames: Record<PlanningChip, string> = { wc: 'wildcard', fh: 'freehit', bb: 'bboost', tc: '3xc' };
-  return payload.chips.flatMap(use => {
-    const chip = mapOfficialChipToPlanningChip(use.name);
-    const event = Number(use.event);
-    return chip && Number.isInteger(event) && event >= 1 && event <= 38
-      ? [{ name: officialNames[chip], event }] : [];
-  });
+  const records: Array<{ name: string; event: number }> = [];
+  const seen = new Set<string>();
+  for (const use of payload.chips) {
+    const chip = mapOfficialChipToPlanningChip(use?.name);
+    const event = use?.event;
+    if (!chip || !Number.isInteger(event) || event < 1 || event > 38) return undefined;
+    const half = event <= 19 ? 1 : 2;
+    const key = `${chip}:${half}`;
+    if (seen.has(key)) return undefined;
+    seen.add(key);
+    records.push({ name: officialNames[chip], event });
+  }
+  return records;
 }
