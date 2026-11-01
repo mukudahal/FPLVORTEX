@@ -564,7 +564,7 @@ export function SquadBuilder({
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
               <h3>Exact-formulation transfer comparison — no chips</h3>
             </div><span className="badge badge--violet">Separate read-only result</span></div>
-            <p>Runs a bounded 1–10 GW mixed-integer transfer model on a declared candidate shortlist, using the identical GW xPts supplied to the chip-aware VORTEX Planner. The mathematical formulation is exact, but an optimum is certified only if HiGHS proves it. This model does not support chips, future price changes, or re-buying an original squad player after selling them.</p>
+            <p>Runs a bounded 1–10 GW mixed-integer transfer model on a declared candidate shortlist, using the identical GW xPts supplied to the chip-aware VORTEX Planner. The mathematical formulation is exact, but an optimum is certified only if HiGHS proves it. This model does not support chips or future price changes. Original player sales use their verified selling value once; if bought back later, their new cost basis is the current market price.</p>
             <button type="button" onClick={() => { void runExactTransferComparison(); }}
               disabled={exactPending || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
               aria-busy={exactPending}>{exactPending ? 'Solving bounded MILP…' : 'Run exact no-chip transfer comparison'}</button>
@@ -598,6 +598,13 @@ export function SquadBuilder({
                   {path.plan.gameweeks.map(week => <details key={week.gw} className="rollout-row">
                     <summary>GW{week.gw} · {week.transfers_out.length ? `${week.transfers_out.length} transfer(s)` : 'Roll'} · {week.expected_points_after_hits.toFixed(2)} model xPts after hits</summary>
                     <p>{week.transfers_out.length ? `OUT: ${week.transfers_out.map(id => playerMap.get(id)?.name ?? id).join(', ')} · IN: ${week.transfers_in.map(id => playerMap.get(id)?.name ?? id).join(', ')}` : 'No transfers.'}</p>
+                    {path.weekFinances.filter(finance => finance.gw === week.gw).map(finance => (
+                      <p key={finance.gw} aria-label={`Verified GW${week.gw} buying and selling values`}>
+                        {finance.sales.length ? `SELL: ${finance.sales.map(sale =>
+                          `${playerMap.get(sale.playerId)?.name ?? sale.playerId} £${sale.price.toFixed(1)}m${sale.originalBasis ? ' (original sale basis)' : ''}`).join(', ')} · BUY: ${finance.purchases.map(buy =>
+                          `${playerMap.get(buy.playerId)?.name ?? buy.playerId} £${buy.price.toFixed(1)}m`).join(', ')}` : 'No player purchases or sales.'}
+                      </p>
+                    ))}
                     <p>FT {week.free_transfers_before} → {week.free_transfers_after} · Hits −{week.hit_cost} points · Bank £{week.bank.toFixed(1)}m · Captain {playerMap.get(week.captain)?.name ?? week.captain} · Vice {playerMap.get(week.vice_captain)?.name ?? week.vice_captain}</p>
                     <p>XI: {week.starters.map(id => playerMap.get(id)?.name ?? id).join(', ')} · Bench: {week.bench.map(id => playerMap.get(id)?.name ?? id).join(', ')}</p>
                   </details>)}

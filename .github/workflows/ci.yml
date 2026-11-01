@@ -171,8 +171,9 @@ jobs:
 
   exact-milp-runtime:
     name: Exact no-chip MILP production container smoke
-    # The heavy container check runs for the solver-integration PR only.
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a06-')
+    # Run production-container verification when the live Python MILP runtime or
+    # its cash-flow mathematics changes. Other PRs retain the existing gate.
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -200,9 +201,31 @@ jobs:
           })
           with open("/tmp/vortex-milp-ci-input.json", "w") as file:
               json.dump(request, file)
+          # The second production HTTP call verifies first-sale discount
+          # is used once even after original player 15 is re-purchased.
+          with open("fpl_solver/examples/sample_input.json") as file:
+              rebuy = json.load(file)
+          rebuy["settings"].update({
+              "end_gw": 3, "time_limit_seconds": 9,
+              "solutions_requested": 1, "mip_gap": 0.02,
+              "max_transfers_per_gw": 1, "max_total_hits": 0,
+              "free_transfer_value": 0, "bank_value_per_million": 0,
+              "forced_transfers": [
+                  {"gw": 1, "player_out": 15, "player_in": 24},
+                  {"gw": 2, "player_out": 24, "player_in": 15},
+                  {"gw": 3, "player_out": 15, "player_in": 24},
+              ],
+          })
+          with open("/tmp/vortex-milp-ci-rebuy.json", "w") as file:
+              json.dump(rebuy, file)
           PY
           curl --fail --silent --show-error --max-time 20 \
             -H 'Content-Type: application/json' \
             --data-binary @/tmp/vortex-milp-ci-input.json \
             http://127.0.0.1:3000/api/vortex/solver/exact \
             | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; print("bounded HTTP MILP smoke OK")'
+          curl --fail --silent --show-error --max-time 20 \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/vortex-milp-ci-rebuy.json \
+            http://127.0.0.1:3000/api/vortex/solver/exact \
+            | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"]; assert [a["bank"] for a in w]==[3.9,3.9,3.9], w; assert [a["transfers_in"] for a in w]==[[24],[15],[24]]; print("HTTP original sale/rebuy/resale cash-flow OK")'

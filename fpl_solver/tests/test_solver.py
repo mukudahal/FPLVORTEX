@@ -22,6 +22,7 @@ def test_multiweek_plan_legal_and_accounting_reproducible():
     sequences = []
     for plan in result['plans']:
         previous = set(req.current_team.squad_player_ids)
+        previously_sold_original = set()
         bank = req.current_team.bank
         ft = req.current_team.free_transfers
         raw = 0
@@ -42,7 +43,14 @@ def test_multiweek_plan_legal_and_accounting_reproducible():
             assert week['hit_cost'] == hit and week['free_transfers_before'] == ft
             ft = min(5,max(0,ft-len(ins))+1)
             assert week['free_transfers_after'] == ft
-            bank += sum((players[i].selling_price if i in req.current_team.squad_player_ids and players[i].selling_price is not None else players[i].current_price) for i in outs) - sum(players[i].current_price for i in ins)
+            proceeds = 0
+            for pid in outs:
+                if pid in req.current_team.squad_player_ids and pid not in previously_sold_original:
+                    proceeds += players[pid].selling_price
+                    previously_sold_original.add(pid)
+                else:
+                    proceeds += players[pid].current_price
+            bank += proceeds - sum(players[i].current_price for i in ins)
             assert week['bank'] == pytest.approx(bank) and bank >= 0
             score = sum(players[i].xpts_by_gw[gw] for i in starters) + players[week['captain']].xpts_by_gw[gw] - hit
             assert week['expected_points_after_hits'] == pytest.approx(score)

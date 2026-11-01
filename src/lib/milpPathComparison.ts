@@ -18,6 +18,12 @@ export interface ComparedMilpPath {
   totalHits: number;
   lastBank: number;
   lastFreeTransfers: number;
+  /** Independent financial replay. Original price basis is consumed on first sale. */
+  weekFinances: Array<{
+    gw: number;
+    sales: Array<{ playerId: number; price: number; originalBasis: boolean }>;
+    purchases: Array<{ playerId: number; price: number }>;
+  }>;
   /** xPts after hits (undiscounted) compared to the highest solver objective path. */
   deltaRawPoints: number;
   /** Discounted, hit-adjusted objective delta; not a confidence interval. */
@@ -47,8 +53,11 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
   const settings = request.settings;
   const byId = new Map(request.players.map(p => [p.player_id, p]));
   const originallyOwned = new Set(first.squad_player_ids);
+  assertInvariant(first.squad_player_ids.every(id =>
+    byId.get(id)?.selling_price !== null && byId.get(id)?.selling_price !== undefined),
+    'missing verified initial selling-price basis');
   const keys = new Set<string>();
-  const ranked: Array<{ plan: ExactMilpPlan; hits: number; moves: number; endBank: number; endFT: number }> = [];
+  const ranked: Array<{ plan: ExactMilpPlan; hits: number; moves: number; endBank: number; endFT: number; weekFinances: ComparedMilpPath['weekFinances'] }> = [];
   for (const plan of response.plans) {
     assertInvariant(Array.isArray(plan.gameweeks) &&
       plan.gameweeks.length === settings.end_gw - settings.start_gw + 1, 'partial or missing gameweek path');
@@ -57,6 +66,8 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
     assertInvariant(plan.solver.mip_gap === null ||
       (Number.isFinite(plan.solver.mip_gap) && plan.solver.mip_gap >= 0), 'invalid MILP gap');
     let previous = [...first.squad_player_ids];
+    const soldOriginal = new Set<number>();
+    const weekFinances: ComparedMilpPath['weekFinances'] = [];
     let bank = first.bank;
     let ft = first.free_transfers;
     let raw = 0;
@@ -73,7 +84,7 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
       assertInvariant(ins.length === outs.length && ins.length <= settings.max_transfers_per_gw &&
         new Set(ins).size === ins.length && new Set(outs).size === outs.length, 'invalid transfer batch');
       assertInvariant(outs.every(id => previous.includes(id)) &&
-        ins.every(id => byId.has(id) && !previous.includes(id) && !originallyOwned.has(id)), 'transfers are not based on previous ownership');
+        ins.every(id => byId.has(id) && !previous.includes(id)), 'transfers are not based on previous ownership');
       assertInvariant(squad.length === 15 && new Set(squad).size === 15 &&
         sameMembers(squad, [...previous.filter(id => !outs.includes(id)), ...ins]), 'squad transition');
       assertInvariant(settings.locked_players.every(id => squad.includes(id)) &&
@@ -99,11 +110,21 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
       const hit = Math.max(0, ins.length - ft) * 4;
       const ftAfter = Math.min(5, Math.max(0, ft - ins.length) + 1);
       assertInvariant(week.hit_cost === hit && week.free_transfers_after === ftAfter, 'transfer-hit or FT accounting');
-      const proceeds = outs.reduce((total, id) => {
+      // Original owners retain their entry selling price until the FIRST
+      // sale. A later repurchase uses the same fixed market price as
+      // any new purchase, even for a player from the original squad.
+      const sales = outs.map(id => {
         const player = byId.get(id)!;
-        return total + (originallyOwned.has(id) ? player.selling_price ?? player.current_price : player.current_price);
-      }, 0);
-      bank = Math.round((bank + proceeds - ins.reduce((total, id) => total + byId.get(id)!.current_price, 0)) * 10) / 10;
+        const originalBasis = originallyOwned.has(id) && !soldOriginal.has(id);
+        const price = originalBasis ? player.selling_price! : player.current_price;
+        if (originalBasis) soldOriginal.add(id);
+        return { playerId: id, price, originalBasis };
+      });
+      const purchases = ins.map(id => ({ playerId: id, price: byId.get(id)!.current_price }));
+      const saleTenths = sales.reduce((sum, sale) => sum + Math.round(sale.price * 10), 0);
+      const buyTenths = purchases.reduce((sum, purchase) => sum + Math.round(purchase.price * 10), 0);
+      bank = (Math.round(bank * 10) + saleTenths - buyTenths) / 10;
+      weekFinances.push({ gw, sales, purchases });
       assertInvariant(bank >= -0.001 && close(bank, week.bank, .051), 'bank or selling price');
       const points = week.starters.reduce((total, id) => total + byId.get(id)!.xpts_by_gw[gw], 0) +
         byId.get(week.captain)!.xpts_by_gw[gw] - hit;
@@ -123,7 +144,7 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
     const key = signature.join('|');
     assertInvariant(!keys.has(key), 'duplicate transfer path');
     keys.add(key);
-    ranked.push({ plan, hits, moves, endBank: bank, endFT: ft });
+    ranked.push({ plan, hits, moves, endBank: bank, endFT: ft, weekFinances });
   }
   ranked.sort((a, b) => b.plan.evaluation_score - a.plan.evaluation_score);
   const lead = ranked[0]?.plan;
@@ -134,6 +155,7 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
     totalHits: row.hits,
     lastBank: row.endBank,
     lastFreeTransfers: row.endFT,
+    weekFinances: row.weekFinances,
     deltaRawPoints: Math.round((row.plan.raw_expected_points_after_hits - (lead?.raw_expected_points_after_hits ?? 0)) * 100) / 100,
     deltaObjective: Math.round((row.plan.evaluation_score - (lead?.evaluation_score ?? 0)) * 100) / 100,
   }));
