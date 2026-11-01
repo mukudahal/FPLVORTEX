@@ -31,7 +31,7 @@ function assertInvariant(ok: unknown, why: string): asserts ok {
   if (!ok) throw new RangeError('Invalid MILP proposal: ' + why);
 }
 function sameMembers(a: readonly number[], b: readonly number[]): boolean {
-  return a.length === b.length && a.every(id => b.includes(id));
+  return a.length === b.length && new Set(a).size === a.length && new Set(b).size === b.length && a.every(id => b.includes(id));
 }
 
 /**
@@ -41,7 +41,8 @@ function sameMembers(a: readonly number[], b: readonly number[]): boolean {
 export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpResponse): ComparedMilpPath[] {
   assertInvariant(Array.isArray(response.plans) &&
     response.plans.length <= request.settings.solutions_requested, 'unexpected plan count');
-  assertInvariant(Array.isArray(response.solver_attempts), 'missing solver reports');
+  assertInvariant(Array.isArray(response.solver_attempts) &&
+    response.solver_attempts.length >= response.plans.length, 'missing solver reports');
   const first = request.current_team;
   const settings = request.settings;
   const byId = new Map(request.players.map(p => [p.player_id, p]));
@@ -72,7 +73,7 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
       assertInvariant(ins.length === outs.length && ins.length <= settings.max_transfers_per_gw &&
         new Set(ins).size === ins.length && new Set(outs).size === outs.length, 'invalid transfer batch');
       assertInvariant(outs.every(id => previous.includes(id)) &&
-        ins.every(id => byId.has(id) && !previous.includes(id)), 'transfers are not based on previous ownership');
+        ins.every(id => byId.has(id) && !previous.includes(id) && !originallyOwned.has(id)), 'transfers are not based on previous ownership');
       assertInvariant(squad.length === 15 && new Set(squad).size === 15 &&
         sameMembers(squad, [...previous.filter(id => !outs.includes(id)), ...ins]), 'squad transition');
       assertInvariant(settings.locked_players.every(id => squad.includes(id)) &&
