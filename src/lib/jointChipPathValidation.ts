@@ -38,9 +38,9 @@ export interface ComparedJointPlan {
 }
 
 const validChips: JointChipName[] = ['wildcard', 'free_hit', 'bench_boost', 'triple_captain'];
-const assert = (condition: unknown, why: string): asserts condition => {
+function assert(condition: unknown, why: string): asserts condition {
   if (!condition) throw new RangeError('Invalid joint-chip MILP output: ' + why);
-};
+}
 const same = (x: readonly number[], y: readonly number[]): boolean =>
   x.length === y.length && new Set(x).size === x.length &&
   new Set(y).size === y.length && x.every(i => y.includes(i));
