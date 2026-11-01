@@ -173,7 +173,7 @@ jobs:
     name: Exact no-chip MILP production container smoke
     # Run production-container verification when the live Python MILP runtime or
     # its cash-flow mathematics changes. Other PRs retain the existing gate.
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-'))
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-') || startsWith(github.head_ref, 'upgrade/p0-a09-'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -229,3 +229,26 @@ jobs:
             --data-binary @/tmp/vortex-milp-ci-rebuy.json \
             http://127.0.0.1:3000/api/vortex/solver/exact \
             | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"]; assert [a["bank"] for a in w]==[3.9,3.9,3.9], w; assert [a["transfers_in"] for a in w]==[[24],[15],[24]]; print("HTTP original sale/rebuy/resale cash-flow OK")'
+
+      - name: Exercise isolated research joint-chip CLI in production image
+        if: startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          python3 - <<'PY'
+          import json
+          with open('fpl_solver/examples/sample_input.json') as file:
+              data = json.load(file)
+          data['current_team']['current_gameweek'] = 2
+          data['settings'].update({
+              'start_gw': 2, 'end_gw': 2,
+              'time_limit_seconds': 8, 'mip_gap': .02,
+              'solutions_requested': 1,
+              'scoring_chip_halves': {},
+              'squad_chip_halves': {'free_hit': [1]},
+              'forced_chip_uses': {'2': 'free_hit'},
+          })
+          with open('/tmp/vortex-joint-ci.json', 'w') as file:
+              json.dump(data, file)
+          PY
+          docker run --rm -i --entrypoint /opt/vortex-milp/bin/python vortex-milp-ci \
+            -m fpl_solver.joint_cli < /tmp/vortex-joint-ci.json \
+            | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"][0]; assert w["chip"]=="free_hit" and w["temporary_bank"] is not None and w["permanent_squad_after"], w; print("Production image research WC/FH MILP smoke OK")'
