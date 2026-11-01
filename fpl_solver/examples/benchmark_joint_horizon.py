@@ -97,7 +97,12 @@ def benchmark(*, candidate_count: int = 40, horizon: int = 10) -> dict:
         "full_milp_incumbent_found": result.get("full_milp_incumbent_found", False),
         "degraded_baseline_only": result.get("degraded_baseline_only", False),
         "plan_method": plan.get("method") if plan else None,
-        "release_performance_gate_met": result.get("full_milp_incumbent_found", False),
+        "release_performance_gate_met": bool(
+            result.get("full_milp_incumbent_found", False) and
+            status.get("status") == 0 and
+            status.get("mip_gap") is not None and
+            status["mip_gap"] <= request.settings.mip_gap
+        ),
         "gameweeks": request.settings.end_gw - request.settings.start_gw + 1,
         "max_time_seconds": request.settings.time_limit_seconds,
         "feasible": bool(plan),
