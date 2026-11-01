@@ -280,6 +280,11 @@ jobs:
             http://127.0.0.1:3000/api/vortex/solver/joint)
           test "$joint_status" = "503"
           python3 -c 'import json; r=json.load(open("/tmp/vortex-joint-disabled.json")); assert "not enabled" in r.get("error",""), r; print("Research joint API is default-OFF in production Docker runtime")'
+          private_status=$(curl --silent --show-error --max-time 5 \
+            -o /tmp/vortex-myteam-disabled.json -w '%{http_code}' \
+            http://127.0.0.1:3000/api/vortex/solver/current-team?entryId=12345)
+          test "$private_status" = "503"
+          python3 -c 'import json; r=json.load(open("/tmp/vortex-myteam-disabled.json")); assert "not enabled" in r.get("error",""), r; print("Private manager current-team API is default-OFF in production Docker runtime")'
 
       - name: Exercise isolated research joint-chip CLI in production image
         if: startsWith(github.head_ref, 'upgrade/p0-a09-')
