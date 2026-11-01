@@ -75,7 +75,7 @@ const CHIP_META: Record<string, { label: string; badge: string; tone: string }> 
 export function SquadBuilder({
   snapshot,
   players,
-  entry,
+  entry: publicEntry,
   teamId = '',
   recentTeams = [],
   entryLoading = false,
@@ -110,6 +110,21 @@ export function SquadBuilder({
   // Staging-only preview. The backend also independently requires its own
   // default-OFF flag and freshly verifies official chip/price provenance.
   const jointUiEnabled = import.meta.env?.VITE_VORTEX_JOINT_SOLVER_UI_ENABLED === '1';
+  // Keep private current-team data only in React memory, never browser
+  // storage; invalidate immediately when account or GW context changes.
+  const [verifiedPrivateEntry, setVerifiedPrivateEntry] = useState<{
+    entry:EntryData;
+    gameweek:number;
+  } | null>(null);
+  const entry=jointUiEnabled && verifiedPrivateEntry?.entry.id===publicEntry?.id &&
+    verifiedPrivateEntry.gameweek===snapshot.meta.nextEventId
+    ? verifiedPrivateEntry.entry : publicEntry;
+  const [currentTeamPending,setCurrentTeamPending]=useState(false);
+  const [currentTeamError,setCurrentTeamError]=useState<string|null>(null);
+  useEffect(()=>{
+    setVerifiedPrivateEntry(null);
+    setCurrentTeamError(null);
+  },[publicEntry?.id,snapshot.meta.nextEventId]);
   const [jointComparison, setJointComparison] = useState<{
     input: JointSolverRequest;
     paths: ComparedJointPlan[];
