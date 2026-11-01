@@ -9,10 +9,12 @@ import type { EntryData, EnrichedPlayer, Snapshot } from './types';
 import type { PlannerSimulationOutput } from './repoModel/compassPlanner';
 import type { JointRequest } from './jointChipPathValidation';
 import { verifiedJointManagerState } from './verifiedJointManagerState';
+import type { VerifiedChipInventory } from './verifiedChipInventory';
 
 export interface JointSolverRequest {
   entryId: number;
   solver: JointRequest;
+  chips: VerifiedChipInventory;
   verifiedAt: string;
 }
 
@@ -71,6 +73,6 @@ export function buildJointSolverRequest(params: {
   };
   return {
     entryId:official.entryId,solver:joint,
-    verifiedAt:official.verifiedAt,
+    chips:official.chips,verifiedAt:official.verifiedAt,
   };
 }
