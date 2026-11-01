@@ -372,7 +372,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const targetGw = requestedGw ? Math.min(requestedGw, latestLockedGw) : latestLockedGw;
     const [picks, rawTransfers, entryHistory] = await Promise.all([
       fetchFplJson<RawRecord>(`/entry/${id}/event/${targetGw}/picks/`, { retries: 1 }),
-      fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => [] as RawRecord[]),
+      fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => null),
       fetchFplJson<RawEntryHistoryPayload>(`/entry/${id}/history/`, { retries: 1 }).catch(() => null),
     ]);
     const recentTransfers = Array.isArray(rawTransfers)
@@ -389,9 +389,12 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const maxHistoryEvent = Array.isArray(entryHistory?.current)
       ? entryHistory!.current!.reduce((maxEv, row) => Math.max(maxEv, numberValue(row?.event, 0)), 0)
       : latestLockedGw;
-    const postLockTransfersUsed = Array.isArray(rawTransfers)
+    // A transfer-feed failure is UNKNOWN, not proof no transfers happened.
+    // The chip MILP fails closed unless both this feed and official history
+    // were obtained; normal read-only team display can still use fallback.
+    const postLockTransfersUsed = Array.isArray(rawTransfers) && Array.isArray(entryHistory?.current)
       ? rawTransfers.filter((tr) => numberValue(tr.event, 0) > maxHistoryEvent).length
-      : 0;
+      : null;
 
     const latestTransferInCostByElement = new Map<number, number>();
     if (Array.isArray(rawTransfers)) {
@@ -416,7 +419,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       enriched,
       'live',
       entryHistory,
-      postLockTransfersUsed,
+      postLockTransfersUsed ?? 0,
       latestTransferInCostByElement,
     );
     if (numberValue(root.id) !== Number(id)) {
@@ -444,6 +447,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
           );
           slot.purchasePrice = prices.purchasePrice;
           slot.sellingPrice = prices.sellingPrice;
+          slot.priceBasisSource = classifyPurchasePriceEvidence(undefined, undefined, tr.elementInCost > 0 ? tr.elementInCost : latestTransferInCostByElement.get(tr.elementIn));
         }
       }
       result.picks = updatedPicks;
