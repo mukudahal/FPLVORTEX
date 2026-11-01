@@ -403,7 +403,7 @@ export interface EntryData {
   squadValue: number;
   recentTransfers?: EntryTransferRecord[];
   /** Actual transfers after latest locked GW, counted from full official transfer feed. */
-  postLockTransfersUsed?: number;
+  postLockTransfersUsed?: number | null;
   source: DataSource;
   generatedAt: string;
   /** Archive and demo records are not the user's verified current FPL team. */
