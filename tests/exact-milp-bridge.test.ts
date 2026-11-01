@@ -38,7 +38,7 @@ test('exact no-chip MILP adapter uses real Planner GW forecasts with no invented
   assert.deepEqual(payload.settings.locked_players, [1, 2]);
   assert.deepEqual([payload.settings.start_gw, payload.settings.end_gw], [37, 38]);
   assert.equal(payload.settings.time_limit_seconds, 10);
-  assert.equal(payload.settings.solutions_requested, 1);
+  assert.equal(payload.settings.solutions_requested, 3, 'up to three paths share the same bounded solve budget');
   const p16 = payload.players.find(p => p.player_id === 16)!;
   assert.ok(p16);
   assert.equal(p16.xpts_by_gw[37], 9);
