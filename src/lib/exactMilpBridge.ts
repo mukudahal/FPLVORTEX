@@ -134,7 +134,7 @@ export function buildExactMilpRequest(options: {
       max_transfers_per_gw: 2, max_total_hits: 24, time_decay: decay,
       free_transfer_value: 0, bank_value_per_million: 0,
       solutions_requested: 3, time_limit_seconds: 10, mip_gap: 0.02,
-      locked_players: [...lockedIds], excluded_players: [], forced_transfers: [],
+      locked_players: [...lockedIds], excluded_players: [] as number[], forced_transfers: [],
       allow_blank_starters: true,
     },
   };
