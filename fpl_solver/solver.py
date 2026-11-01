@@ -1,8 +1,9 @@
-"""Multi-period transfer MILP; optional joint BB/TC scoring chips.
+"""Multi-period transfer MILP with optional joint WC/FH/BB/TC chips.
 
-Wildcard/Free Hit squad-reset effects are NOT modeled in this formulation.
-No chips are activated unless explicitly supplied via verified inventory.
-FDR is never an objective term.
+HiGHS plans are independently replayed. If an unrestricted research solve
+finds no incumbent within its budget, an explicitly marked conservative
+fixed-roster baseline can be returned; it is NOT a HiGHS incumbent.
+No chips are presumed owned without caller-verified inventory.
 """
 from __future__ import annotations
 from time import monotonic
@@ -329,7 +330,7 @@ def solve(request: SolveRequest) -> dict:
             # Prove each emitted legal-path ledger independently. A malformed
             # solution must fail closed, never become an actionable proposal.
             verify_joint_milp_ledger(request, weeks)
-        plans.append({'gameweeks':weeks, 'raw_expected_points_after_hits':round(raw,3), 'discounted_points_after_hits':round(discount,3), 'evaluation_score':round(-float(res.fun),3), 'solver':statuses[-1]})
+        plans.append({'method':'full_joint_milp', 'gameweeks':weeks, 'raw_expected_points_after_hits':round(raw,3), 'discounted_points_after_hits':round(discount,3), 'evaluation_score':round(-float(res.fun),3), 'solver':statuses[-1]})
         # Distinct paths may differ by transfer sequence or chip schedule.
         # Exclude precisely this pattern, not every path with the same buys.
         buy_indices = [idx['b',i,t] for t in range(len(gws)) for i in range(n)]
@@ -344,4 +345,18 @@ def solve(request: SolveRequest) -> dict:
         present = [j for j in buy_indices if x[j] > .5]
         absent = [j for j in buy_indices if x[j] <= .5]
         row({**{j:-1 for j in present}, **{j:1 for j in absent}}, lo=1-len(present))
-    return {'plans':plans,'solver_attempts':statuses,'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':('WC/FH/BB/TC jointly optimized from explicit verified half-season inventory' if squad_enabled else 'BB/TC jointly selected from explicit half-season inventory; WC/FH unsupported' if scoring_enabled else 'off'),'price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': ['Projection-based recommendations, not guarantees.', 'The solver is time- and shortlist-bounded; only a valid optimality certificate proves the returned formulation optimum.', ('Fixed prices; FH restores original squad, bank and selling basis; autosubs and future price changes are not modelled.' if squad_enabled else 'Fixed prices; Wildcard/Free Hit, autosubs and future price changes are not supported by this scoring-chip MILP.' if scoring_enabled else 'Fixed prices; chips, autosubs and future price changes are not yet supported.')]}
+    # A time-limited HiGHS run may return no primal incumbent at all. Keep
+    # the failure visible; only a separately independent-replay-verified
+    # constrained HOLD/scoring strategy is safe to return in that case.
+    # Forced manager decisions must NEVER be silently overridden.
+    degraded = False
+    if not plans and statuses and (scoring_enabled or squad_enabled):
+        from .hold_fallback import verified_hold_scoring_fallback
+        baseline = verified_hold_scoring_fallback(request, statuses[-1])
+        if baseline is not None:
+            plans.append(baseline)
+            degraded = True
+    return {'plans':plans,'solver_attempts':statuses,
+            'full_milp_incumbent_found':any(p['method']=='full_joint_milp' for p in plans),
+            'degraded_baseline_only':degraded,
+            'runtime_seconds':round(monotonic()-started,3),'assumptions':{'chip_mode':('WC/FH/BB/TC jointly optimized from explicit verified half-season inventory' if squad_enabled else 'BB/TC jointly selected from explicit half-season inventory; WC/FH unsupported' if scoring_enabled else 'off'),'price_model':'verified initial selling price on first sale only; repurchases and subsequent sales at fixed current market prices','autosubs':'not modelled','vice_captain':'highest projected non-captain starter, not included in score','future_free_transfer_value':'terminal next-GW banked free transfers','fdr':'not used','projection_source':'caller-provided xPts already accounts for availability'},'warnings': (['HiGHS did not find a full joint MILP incumbent in time. The returned hold/BB/TC fallback has independently validated legality but has NOT optimized WC/FH or permanent transfers.'] if degraded else []) + ['Projection-based recommendations, not guarantees.', 'The solver is time- and shortlist-bounded; only a valid optimality certificate proves the returned formulation optimum.', ('Fixed prices; FH restores original squad, bank and selling basis; autosubs and future price changes are not modelled.' if squad_enabled else 'Fixed prices; Wildcard/Free Hit, autosubs and future price changes are not supported by this scoring-chip MILP.' if scoring_enabled else 'Fixed prices; chips, autosubs and future price changes are not yet supported.')]}
