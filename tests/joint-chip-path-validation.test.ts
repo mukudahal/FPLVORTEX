@@ -5,6 +5,9 @@ import {
 } from '../src/lib/jointChipPathValidation.ts';
 import type { ExactMilpResponse } from '../src/lib/exactMilpBridge.ts';
 import type { VerifiedChipInventory } from '../src/lib/verifiedChipInventory.ts';
+import { createReviewedJointChipPlan } from '../src/lib/jointChipPlanAdapter.ts';
+import { replay, type PlanCtx } from '../src/lib/repoModel/planEngine.ts';
+import type { PlanPlayer } from '../src/lib/repoModel/planTypes.ts';
 
 const owned = Array.from({ length:15 },(_,i)=>i+1);
 const positions = Array.from({ length:16 },(_,i)=>
@@ -103,4 +106,46 @@ test('joint verifier fails closed on wrong cash, legal state or entitlement',()=
   const {request,response,verified}=fixture();
   const dishonest:VerifiedChipInventory={...verified,squad_chip_halves:{}};
   assert.throws(()=>verifyJointChipPaths(request,response,dishonest),/chip inventory/);
+});
+
+
+test('explicit save-new joint FH proposal replays temporary swaps and restores permanent squad',()=>{
+  const {request,verified,response}=fixture();
+  const [path]=verifyJointChipPaths(request,response,verified);
+  assert.ok(path);
+  const saved=createReviewedJointChipPlan({
+    request,path,id:'joint-fh-123',name:'Synthetic FH proposal',
+    createdAt:'2026-11-01T17:00:00.000Z',
+  });
+  assert.equal(saved.chips[37],'fh');
+  assert.deepEqual(saved.transfers[37],[{out:8,in:16}]);
+  assert.equal(saved.transfers[38],undefined);
+  assert.deepEqual(saved.baseSquad,owned);
+  assert.equal(saved.baseBankTenths,10);
+  assert.equal(saved.baseFreeTransfers,1);
+  assert.equal(saved.lineups[37].length,15);
+  assert.deepEqual(saved.captains[37],{captain:13,vice:14});
+
+  const players=new Map<number,PlanPlayer>();
+  for(const p of request.players) players.set(p.player_id,{
+    id:p.player_id,code:p.player_id,name:p.name,team:p.team_id,
+    type:p.position==='GK'?1:p.position==='DEF'?2:p.position==='MID'?3:4,
+    cost:Math.round(p.current_price*10),status:'a',news:'',chance:100,
+    owned:1,form:1,net:0,pen:null,fk:null,ck:null,
+    xp:[p.xpts_by_gw[37],p.xpts_by_gw[38]],
+  });
+  const ctx:PlanCtx={
+    players,gws:[37,38],baseSquad:[...owned],
+    bank0:10,sell0:saved.sellingPrices,freeNow:1,
+  };
+  const temporary=replay(ctx,saved.transfers,37,saved.chips);
+  assert.ok(temporary.squad.includes(16));
+  assert.ok(!temporary.squad.includes(8));
+  assert.equal(temporary.bank,5);
+  assert.equal(temporary.ledger[0].hit,0);
+  assert.equal(temporary.ledger[0].ftAfter,1);
+  const restored=replay(ctx,saved.transfers,38,saved.chips);
+  assert.deepEqual([...restored.squad].sort((a,b)=>a-b),owned);
+  assert.equal(restored.bank,10);
+  assert.equal(restored.ledger[1].ftAfter,2);
 });
