@@ -84,13 +84,14 @@ jobs:
         if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
         run: |
           set -o pipefail
-          python -m fpl_solver.examples.benchmark_joint_horizon | tee joint-milp-benchmark.json
+          python -m fpl_solver.examples.benchmark_joint_horizon --candidates 30 --horizon 10 | tee joint-milp-benchmark-30.json
+          python -m fpl_solver.examples.benchmark_joint_horizon --candidates 40 --horizon 10 | tee joint-milp-benchmark-40.json
       - name: Upload joint-chip benchmark evidence
         if: always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
         uses: actions/upload-artifact@v4
         with:
           name: p0-a09-joint-milp-benchmark
-          path: joint-milp-benchmark.json
+          path: joint-milp-benchmark-*.json
           retention-days: 14
 
 
