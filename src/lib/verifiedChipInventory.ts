@@ -62,10 +62,18 @@ export function verifiedChipInventory(
   }
   const scoring: VerifiedChipInventory['scoring_chip_halves'] = {};
   const squad: VerifiedChipInventory['squad_chip_halves'] = {};
+  // An authenticated current team can VERIFY only those chip half-instances
+  // that the private /my-team/ endpoint explicitly says are available.
+  // Public history alone is NOT a substitute for current pending-chip status.
+  const privateAllowed = entry.managerStateSource === 'authenticated-current-team'
+    ? entry.authenticatedAvailableChipHalves : undefined;
+  if (entry.managerStateSource === 'authenticated-current-team' && !privateAllowed)
+    throw new RangeError('Authenticated current-team chip entitlements are missing.');
   for (const chip of chipNames) {
     const halves = ([1, 2] as const).filter(half =>
       ((half === 1 && startGw <= 19) || half === 2) &&
-      !used.has(`${chip}:${half}`));
+      !used.has(`${chip}:${half}`) &&
+      (!privateAllowed || privateAllowed[chip]?.includes(half)));
     if (!halves.length) continue;
     if (chip === 'wildcard' || chip === 'free_hit') squad[chip] = [...halves];
     else scoring[chip] = [...halves];
