@@ -149,3 +149,21 @@ test('explicit save-new joint FH proposal replays temporary swaps and restores p
   assert.equal(restored.bank,10);
   assert.equal(restored.ledger[1].ftAfter,2);
 });
+
+test('client verifier refuses to disguise time-limited HOLD fallback as a joint HiGHS optimum',()=>{
+  const {request,verified,response}=fixture();
+  (response.plans[0] as JointPlan).method='independent_verified_hold_scoring_fallback';
+  assert.throws(()=>verifyJointChipPaths(request,response,verified),
+    /validated HOLD baseline/);
+  const report=response as typeof response & {
+    degraded_baseline_only?:boolean;
+    full_milp_incumbent_found?:boolean;
+  };
+  report.degraded_baseline_only=true;
+  report.full_milp_incumbent_found=false;
+  response.plans[0].solver={
+    ...response.plans[0].solver,status:1,optimality_proven:false,mip_gap:null,
+  };
+  assert.throws(()=>verifyJointChipPaths(request,response,verified),
+    /fallback cannot claim WC\/FH\/transfer optimization/);
+});
