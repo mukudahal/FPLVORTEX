@@ -31,6 +31,15 @@ export function verifiedJointManagerState(
 ): VerifiedJointManagerState {
   const chips = verifiedChipInventory(entry, startGw, now);
   if (!entry) throw new RangeError('No official current entry available.');
+  // Public /entry/.../event/.../picks and /entry/.../transfers do NOT prove
+  // that the manager has no unsubmitted chip, pending transfer or cash
+  // adjustment. Their public, locked-gameweek roster may be useful for
+  // analysis, but may NOT certify an actionable exact chip budget.
+  // A future authenticated /my-team/ implementation must stamp this
+  // evidence ONLY after verifying the requested entry ID and full roster.
+  if (entry.managerStateSource !== 'authenticated-current-team') {
+    throw new RangeError('Official public FPL picks are historical: authenticated current-team data is required to verify pending transfers, chips and cash before exact joint optimization.');
+  }
   const picks = entry.picks;
   if (!Array.isArray(picks) || picks.length !== 15 ||
       squadIds.length !== 15 || new Set(squadIds).size !== 15 ||
