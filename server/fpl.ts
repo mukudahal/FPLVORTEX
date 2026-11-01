@@ -17,6 +17,7 @@ import {
   type RawEntryHistoryPayload,
 } from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
+import { classifyPurchasePriceEvidence } from '../src/lib/priceEvidence.ts';
 import { auditNormalizedPlayers } from '../src/lib/playerDataQuality.ts';
 import { fetchFplJson, UpstreamHttpError, isNumericId } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
@@ -263,6 +264,11 @@ function normalizeEntry(
       isCaptain: Boolean(pick.is_captain),
       isViceCaptain: Boolean(pick.is_vice_captain),
       ...(prices ?? {}),
+      ...(matchedPlayer ? { priceBasisSource: classifyPurchasePriceEvidence(
+        pick.purchase_price,
+        pick.selling_price,
+        latestTransferInCostByElement?.get(element),
+      ) } : {}),
     };
   });
   const players = normalizedPicks
