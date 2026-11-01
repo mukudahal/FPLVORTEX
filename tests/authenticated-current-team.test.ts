@@ -16,7 +16,6 @@ function fixture() {
   snapshot.meta = {
     ...snapshot.meta, nextEventId:9, stale:false, isLive:true, upstreamOk:true,
   };
-  const gws=9;
   const all=enrichPlayers(snapshot,'balanced');
   const original=all.slice(0,15);
   const IDs=original.map(p=>p.id);
