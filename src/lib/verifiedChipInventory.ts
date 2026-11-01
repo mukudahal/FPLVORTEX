@@ -9,6 +9,7 @@ import type { EntryData } from './types';
 export type JointChipName = 'wildcard' | 'free_hit' | 'bench_boost' | 'triple_captain';
 export interface VerifiedChipInventory {
   entryId: number;
+  /** Verification retrieval time, not an official provider publication timestamp. */
   provenanceCheckedAt: string;
   scoring_chip_halves: Partial<Record<'bench_boost' | 'triple_captain', Array<1 | 2>>>;
   squad_chip_halves: Partial<Record<'wildcard' | 'free_hit', Array<1 | 2>>>;
@@ -39,9 +40,12 @@ export function verifiedChipInventory(
       entry.activeChip !== null) {
     throw new RangeError('An official live FPL entry with complete chip history and no active chip is required.');
   }
-  const timestamp = entry.provenance.sourceCapturedAt;
-  const captured = timestamp ? Date.parse(timestamp) : Number.NaN;
-  const age = now.getTime() - captured;
+  // Official FPL JSON does not expose a trusted source publication time.
+  // generatedAt identifies the *live retrieval*, whereas
+  // provenance.sourceCapturedAt is an archive-specific field and may be null.
+  const timestamp = entry.generatedAt;
+  const retrieved = timestamp ? Date.parse(timestamp) : Number.NaN;
+  const age = now.getTime() - retrieved;
   if (!Number.isFinite(age) || age < -60000 || age > 6 * 60 * 60 * 1000)
     throw new RangeError('Official FPL entry data is too old to verify chip availability. Refresh it.');
   const used = new Set<string>();
@@ -68,7 +72,7 @@ export function verifiedChipInventory(
   }
   return {
     entryId: entry.id,
-    provenanceCheckedAt: timestamp!,
+    provenanceCheckedAt: timestamp,
     scoring_chip_halves: scoring,
     squad_chip_halves: squad,
     first_half_fh_used_gw19: used.has('free_hit:1') &&
