@@ -117,8 +117,21 @@ def solve(request: SolveRequest) -> dict:
         for position, low, high in [('GK',1,1),('DEF',3,5),('MID',2,5),('FWD',1,3)]:
             row({idx['l',i,t]:1 for i,p in enumerate(players) if p.position == position}, low, high)
         row({idx['c', i, t]: 1 for i in range(n)}, 1, 1)
+        chip_at = {}
         if scoring_enabled:
-            row({idx['chip_bb', t]: 1, idx['chip_tc', t]: 1}, hi=1)
+            chip_at.update({idx['chip_bb', t]: 1, idx['chip_tc', t]: 1})
+        if squad_enabled:
+            chip_at.update({idx['chip_wc', t]: 1, idx['chip_fh', t]: 1})
+        if chip_at:
+            row(chip_at, hi=1)
+        if fh_enabled:
+            row({idx['h', i, t]: 1 for i in range(n)}, 15, 15)
+            for position, count in QUOTAS.items():
+                row({idx['h', i, t]: 1 for i,p in enumerate(players) if p.position == position}, count, count)
+            for club in {p.team_id for p in players}:
+                row({idx['h', i, t]: 1 for i,p in enumerate(players) if p.team_id == club}, hi=3)
+            row({idx['fh_added', i, t]: 1 for i in range(n)} |
+                {idx['chip_fh', t]: -1}, lo=0)
         for i,p in enumerate(players):
             initial = int(p.player_id in owned)
             evolution = {idx['s',i,t]:1, idx['b',i,t]:-1, idx['o',i,t]:1}
@@ -143,7 +156,29 @@ def solve(request: SolveRequest) -> dict:
                     prev = {idx['first_sale', i, u]: 1 for u in range(t)}
                     row({first: 1, **prev}, hi=1)
                     row({first: 1, sell_var: -1, **prev}, lo=0)
-            row({idx['l',i,t]:1, idx['s',i,t]:-1}, hi=0)
+            if fh_enabled:
+                row({idx['h',i,t]:1, idx['s',i,t]:-1, idx['chip_fh',t]:-1}, hi=0)
+                row({idx['s',i,t]:1, idx['h',i,t]:-1, idx['chip_fh',t]:-1}, hi=0)
+                added = idx['fh_added',i,t]
+                # fh_added = FH AND temporary owner AND NOT permanent owner.
+                row({added:1,idx['h',i,t]:-1}, hi=0)
+                row({added:1,idx['s',i,t]:1}, hi=1)
+                row({added:1,idx['chip_fh',t]:-1}, hi=0)
+                row({added:1,idx['h',i,t]:-1,idx['s',i,t]:1,idx['chip_fh',t]:-1}, lo=-1)
+                if i in initial_discount:
+                    disc = idx['fh_discount',i,t]
+                    row({disc:1,idx['s',i,t]:-1}, hi=0)
+                    row({disc:1,idx['h',i,t]:1}, hi=1)
+                    row({disc:1,idx['chip_fh',t]:-1}, hi=0)
+                    history = {idx['first_sale',i,u]:1 for u in range(t+1)}
+                    row({disc:1, **history}, hi=1)
+                    row({disc:1,idx['s',i,t]:-1,idx['h',i,t]:1,idx['chip_fh',t]:-1, **history}, lo=-1)
+                row({idx['l',i,t]:1, idx['h',i,t]:-1}, hi=0)
+                # FH transfers must not mutate the permanent squad.
+                row({idx['b',i,t]:1,idx['chip_fh',t]:1}, hi=1)
+                row({idx['o',i,t]:1,idx['chip_fh',t]:1}, hi=1)
+            else:
+                row({idx['l',i,t]:1, idx['s',i,t]:-1}, hi=0)
             row({idx['c',i,t]:1, idx['l',i,t]:-1}, hi=0)
             if bb_halves:
                 bonus = idx['bb_bench', i, t]
