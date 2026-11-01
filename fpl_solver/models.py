@@ -83,6 +83,11 @@ class SolveRequest(BaseModel):
         if not set(team.squad_player_ids) <= by_id.keys():
             raise ValueError('All current squad players must be in the player list.')
         squad = [by_id[i] for i in team.squad_player_ids]
+        # Original owned players need their actual selling price, which may
+        # be below current market price due to FPL's half-profit rule.
+        # Never silently substitute market value for a missing sale basis.
+        if any(p.selling_price is None for p in squad):
+            raise ValueError('Each original squad player requires a verified selling price.')
         if any(sum(p.position == pos for p in squad) != n for pos, n in QUOTAS.items()):
             raise ValueError('Current squad must contain 2 GK, 5 DEF, 5 MID and 3 FWD.')
         if any(sum(p.team_id == t for p in squad) > 3 for t in {p.team_id for p in squad}):
