@@ -11,6 +11,8 @@ import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import { marketCoverage } from '../src/lib/marketCoverage.ts';
 import { buildPublicDataHealth } from '../src/lib/publicDataHealth.ts';
 import { verifiedJointManagerState } from '../src/lib/verifiedJointManagerState.ts';
+import { readAuthenticatedCurrentTeam } from './authenticatedCurrentTeam.ts';
+import { getTrustedFplReadForRequest } from './trustedFplAuth.ts';
 import type { JointRequest } from '../src/lib/jointChipPathValidation.ts';
 import {
   PL_BADGE_BASE,
@@ -485,25 +487,37 @@ app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req
   // all fetch official FPL manager data or race into overlapping HiGHS jobs.
   jointMilpPreflightBusy = true;
   try {
-  // Confirm official identity, fresh fixtures and exact original owner state.
-  // No archived, demo or partial FPL account can authorize a chip claim.
-  const officialEntry = await getEntry(String(input.entryId), { force: true });
-  // Public /entry/{id}/... endpoints show the last deadline-locked team.
-  // They cannot prove the absence of pending transfers or unsent chips.
-  // Never silently feed these records into a supposedly verified joint
-  // optimization. A genuine authenticated /my-team/ read is required.
-  if (officialEntry.managerStateSource !== 'authenticated-current-team') {
+  // Only a server-installed first-party, REQUEST-BOUND session resolver
+  // can authorize the two read-only FPL endpoints. Never accept user
+  // session cookies, credentials or self-asserted private records in JSON.
+  const trustedRead = await getTrustedFplReadForRequest(req);
+  if (!trustedRead) {
     res.status(409).json({
       code: 'CURRENT_TEAM_AUTH_REQUIRED',
-      error: 'Exact joint-chip optimization requires a verified authenticated current FPL squad, bank and chip state. Public deadline-locked picks cannot confirm pending transfers; no strategy was generated.',
+      error: 'Authenticated current FPL squad access is not connected. The public last-deadline team cannot verify pending transfers or chip state.',
     });
     return;
   }
+  // Independently verify the official public history and live market,
+  // then /me/ owner ID and GET /my-team/ prices/roster/chips/transfer cash.
+  // The private data is never returned to another caller.
   const snapshot = await getSnapshot(true);
   if (snapshot.meta.stale || !snapshot.meta.upstreamOk ||
-      snapshot.meta.nextEventId !== settings.start_gw ||
-      !snapshot.meta.isLive) {
+      snapshot.meta.nextEventId !== settings.start_gw || !snapshot.meta.isLive) {
     res.status(503).json({ error: 'Live FPL fixtures are not verified; refresh before joint optimization.' });
+    return;
+  }
+  let officialEntry;
+  try {
+    const publicEntry = await getEntry(String(input.entryId), { force: true });
+    officialEntry = await readAuthenticatedCurrentTeam(
+      input.entryId!,settings.start_gw,publicEntry,snapshot,trustedRead,
+    );
+  } catch {
+    res.status(409).json({
+      code: 'CURRENT_TEAM_VERIFICATION_FAILED',
+      error: 'Authenticated current FPL manager identity, squad, bank, chip or selling values could not be verified.',
+    });
     return;
   }
   const official = verifiedJointManagerState(
