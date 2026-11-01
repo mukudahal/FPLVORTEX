@@ -1,4 +1,4 @@
-"""Validated inputs for the first, no-chip multi-week solver."""
+"""Validated inputs for the bounded FPL transfer/optional scoring-chip MILP."""
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -60,6 +60,18 @@ class SolverSettings(BaseModel):
     excluded_players: list[int] = Field(default_factory=list)
     forced_transfers: list[ForcedTransfer] = Field(default_factory=list)
     allow_blank_starters: bool = True
+    # Explicit, verified chip inventory. Each value lists the eligible
+    # season half (1 = GW1-19, 2 = GW20-38). No chip is assumed available.
+    # Wildcard/Free Hit are NOT yet supported in the joint MILP.
+    scoring_chip_halves: dict[
+        Literal['bench_boost', 'triple_captain'], list[Literal[1, 2]]
+    ] = Field(default_factory=dict)
+
+    @model_validator(mode='after')
+    def validate_scoring_chip_inventory(self):
+        if any(len(halves) != len(set(halves)) for halves in self.scoring_chip_halves.values()):
+            raise ValueError('Duplicate available scoring chip in the same season half.')
+        return self
 
 class SolveRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
