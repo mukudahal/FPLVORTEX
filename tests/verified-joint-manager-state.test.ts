@@ -14,6 +14,10 @@ function entry(
     provenance: { kind:'official', requestedIdVerified:true, sourceCapturedAt:null },
     activeChip: null, chipsUsed: [{ name:'freehit', event:19 }],
     currentEvent: 19, freeTransfers: 3, postLockTransfersUsed: 0,
+    // Synthetic authenticated-team evidence ONLY. Public FPL picks do not
+    // carry the current pending-transfer/price-basis provenance required
+    // to authorize this research optimizer.
+    managerStateSource: 'authenticated-current-team',
     history: { event:19, bank:12 },
     picks: SQUAD.map((element,i) => ({
       element, sellingPrice:4.9, purchasePrice:4.9,
@@ -45,6 +49,8 @@ test('inferred prices and missing official entry evidence cannot drive exact joi
     { ...good, picks:good.picks.map((p,i)=>i===14?{...p,priceBasisSource:undefined}:p) },
     { ...good, picks:good.picks.map((p,i)=>i===14?{...p,sellingPrice:4.95}:p) },
     { ...good, picks:good.picks.map((p,i)=>i===14?{...p,sellingPrice:undefined}:p) },
+    { ...good, managerStateSource:'public-locked-snapshot' },
+    { ...good, managerStateSource:undefined },
     { ...good, postLockTransfersUsed:undefined },
     { ...good, postLockTransfersUsed:1 },
     { ...good, history:{...good.history,bank:-1} },
@@ -61,4 +67,14 @@ test('inferred prices and missing official entry evidence cannot drive exact joi
   assert.throws(()=>verifiedJointManagerState(good,SQUAD.slice(1),20,NOW),RangeError);
   assert.throws(()=>verifiedJointManagerState(good,[...SQUAD.slice(1),16],20,NOW),RangeError);
   assert.throws(()=>verifiedJointManagerState(good,[...SQUAD.slice(1),15],20,NOW),RangeError);
+});
+
+
+test('ordinary live public history remains ineligible even with complete published transfers and chip records', () => {
+  const publicEntry = entry();
+  publicEntry.managerStateSource = 'public-locked-snapshot';
+  assert.throws(
+    () => verifiedJointManagerState(publicEntry,SQUAD,20,NOW),
+    /authenticated current-team data is required/,
+  );
 });
