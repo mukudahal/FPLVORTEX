@@ -694,8 +694,9 @@ export function SquadBuilder({
             </div><span className="badge badge--violet">Staging-only · read-only</span></div>
             <p>Optional research model combining all four FPL chips and transfer decisions. Requires independently verified official chip history, the full current 15-man squad, real purchase/selling values and the same fresh VORTEX forecasts. Shortlists are explicitly limited to 30 players for 8–10 GWs and up to 40 for shorter windows, preserving all 15 original players; the optimizer has a 10-second time limit. Any optimum is only for that shortlist and must be separately certified.</p>
             <button type="button" onClick={() => { void runJointChipComparison(); }}
-              disabled={jointPending || !entry || !reviewSim || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
+              disabled={jointPending || !entry || entry.managerStateSource !== 'authenticated-current-team' || !reviewSim || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
               aria-busy={jointPending}>{jointPending ? 'Evaluating joint chip schedule…' : 'Compare verified joint chip strategies'}</button>
+            {entry?.managerStateSource !== 'authenticated-current-team' && <p role="status">Official public FPL picks are deadline-locked history, not your authenticated editable team. Pending transfers, current bank and chip commitments cannot be certified from this source. Joint optimization stays disabled until a secure current-team verification path is available; the existing Planner and saved scenarios remain usable.</p>}
             {selectedPlan && <p role="status">A saved scenario is active. Joint optimization cannot silently override manual transfers, chips, lineups or captaincy.</p>}
             {jointError && <p role="alert">{jointError}</p>}
             {jointComparison && (jointComparison.paths[0] ? <div role="group" aria-label="Independently validated full-horizon chip proposal">
