@@ -38,6 +38,8 @@ try {
   await joint.waitFor({ timeout: 120000 });
   const compare = joint.getByRole('button', { name: 'Compare verified joint chip strategies' });
   assert.equal(await compare.count(), 1, 'Opt-in joint comparison control must be visible in staging');
+  assert.ok(await compare.isDisabled(), 'Without authenticated /my-team/ evidence the joint model must never be runnable');
+  assert.match(await joint.innerText(), /authenticated editable team|pending transfers/i);
   assert.match(await joint.innerText(), /30|40|shortlist/i);
 
   // Unverified / demo entry cannot authorize a hidden automatic request.
