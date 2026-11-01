@@ -700,7 +700,12 @@ export function SquadBuilder({
             {jointError && <p role="alert">{jointError}</p>}
             {jointComparison && (jointComparison.paths[0] ? <div role="group" aria-label="Independently validated full-horizon chip proposal">
               {jointComparison.paths.map(path => <div key={path.rank}>
-                <p><strong>{path.plan.solver.optimality_proven ? 'Optimality certified for the supplied shortlist' : 'Feasible model plan · optimality unproven'}</strong> · {path.plan.raw_expected_points_after_hits.toFixed(2)} undiscounted model xPts · {path.plan.evaluation_score.toFixed(2)} discounted objective · MIP gap {path.plan.solver.mip_gap === null ? 'N/A' : (path.plan.solver.mip_gap * 100).toFixed(2) + '%'}.</p>
+                <p><strong>{path.plan.method === 'independent_verified_hold_scoring_fallback'
+                  ? 'DEGRADED · validated hold/BB/TC baseline; HiGHS found NO full MILP incumbent'
+                  : path.plan.solver.optimality_proven
+                    ? 'Optimality certified for the supplied shortlist'
+                    : 'Full joint MILP feasible incumbent · optimality unproven'}</strong> · {path.plan.raw_expected_points_after_hits.toFixed(2)} undiscounted model xPts · {path.plan.evaluation_score.toFixed(2)} discounted objective · MIP gap {path.plan.solver.mip_gap === null ? 'N/A' : (path.plan.solver.mip_gap * 100).toFixed(2) + '%'}.</p>
+                {path.plan.method === 'independent_verified_hold_scoring_fallback' && <p role="alert">The full 10-Gameweek WC/FH/transfer MILP timed out with no feasible incumbent. This separately replay-verified fallback keeps your original squad and may schedule BB/TC only. It is not a jointly optimized transfer plan and must not be treated as an optimal chip strategy.</p>}
                 <p>Chips: {path.chipSchedule.length ? path.chipSchedule.map(c => `${c.chip.replaceAll('_', ' ')} GW${c.gw}`).join(' · ') : 'No available chip selected'} · {path.totalMoves} total permanent/temporary player moves · −{path.totalHits} hit points.</p>
                 <div className="rollout-list">
                   {path.plan.gameweeks.map(week => <details key={week.gw} className="rollout-row">
