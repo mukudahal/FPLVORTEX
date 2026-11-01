@@ -369,6 +369,41 @@ export function SquadBuilder({
     }
   };
 
+  const verifyMyCurrentFplTeam = async () => {
+    if (!jointUiEnabled || !publicEntry?.id) return;
+    setCurrentTeamPending(true);
+    setCurrentTeamError(null);
+    try {
+      // Authenticated FPL session never enters this URL or client state.
+      // The server itself must obtain a trusted, request-bound read-only
+      // provider; it refuses public last-deadline picks as proof of cash.
+      const response=await fetch(
+        `/api/vortex/solver/current-team?entryId=${publicEntry.id}`,
+        { method:'GET',credentials:'same-origin',cache:'no-store' },
+      );
+      const data=await response.json() as EntryData & {error?:string};
+      if (!response.ok) throw new Error(data.error ??
+        'No consented current-team FPL connection is available.');
+      if (data.id!==publicEntry.id ||
+          data.managerStateSource!=='authenticated-current-team' ||
+          !Array.isArray(data.picks) || data.picks.length!==15 ||
+          !data.authenticatedAvailableChipHalves) {
+        throw new RangeError('The server did not return a verified current FPL team.');
+      }
+      setVerifiedPrivateEntry({entry:data,gameweek:snapshot.meta.nextEventId});
+      setReviewSim(null);
+      setJointComparison(null);
+      setJointReview(false);
+      onToast('Current FPL squad verified. Re-run Planner to use the exact current cash and chips.', 'success');
+    } catch(error) {
+      setVerifiedPrivateEntry(null);
+      setCurrentTeamError(error instanceof Error ? error.message :
+        'Authenticated current-team FPL verification is unavailable.');
+    } finally {
+      setCurrentTeamPending(false);
+    }
+  };
+
   const runJointChipComparison = async () => {
     let controller: AbortController | null = null;
     if (!jointUiEnabled) return;
