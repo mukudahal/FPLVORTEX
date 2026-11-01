@@ -92,3 +92,58 @@ calibration, future injuries, postponements and price moves are absent.
    merging to `main` (which automatically deploys to Render).
 
 The PR remains **draft** until these checks and the user-authorized release.
+
+## 2026-11-01 P0-A09 realistic performance and staging follow-up
+
+A new **synthetic, explicitly labeled** deterministic benchmark exercises real
+SciPy/HiGHS on the 2026/27-style 10-GW/4-chip formulation, including original
+sale-basis discounts and club/formation constraints. It makes no claims about
+real player performances. The benchmark is reproducible via
+`python -m fpl_solver.examples.benchmark_joint_horizon --candidates 30 --horizon 10`
+or `--candidates 40`. CI retains JSON artifacts for both.
+
+Measurements observed in GitHub CI #332:
+
+| Workload | Runtime | HiGHS status | Gap | Full-MILP primal |
+| --- | --- | --- | --- | --- |
+| 30 players / 10 GWs | 4.753 s | 0 (target gap reached) | 0.8076% | yes |
+| 40 players / 10 GWs | 10.034 s | 1 (time limit reached) | 10.7246% | yes |
+
+A previous full 40-player run had **no primal** after 10.077 seconds. This is
+an empirical time-budget bottleneck, not proof of mathematical infeasibility.
+The production release criterion for the staged **30-player** 8–10 GW
+request is a full HiGHS incumbent, status 0 and relative gap at or below
+the configured 5%. CI explicitly records the 40-player outcome as a
+stress diagnostic: it is NOT a passed long-horizon release criterion.
+
+The stage request bridge now preserves the complete verified original 15
+owners, selects positional replacement alternatives, and limits the complete
+8–10 GW search to at most **30 total candidates**. Shorter horizons may use
+up to 40. Both are **exact-formulation solutions conditional on the shortlist**,
+not proofs across the entire Premier League player pool.
+
+If HiGHS returns no primal at all, the research solver may return a
+**separately and independently replay-verified fixed-original-squad baseline**
+with 0 permanent moves, no WC/FH, legal XI/captain, and small exhaustive
+BB/TC placement conditional on the fixed lineups. Output method is
+`independent_verified_hold_scoring_fallback` with
+`degraded_baseline_only=true` and
+`full_milp_incumbent_found=false`, HiGHS status preserved, gap unknown and
+optimality **FALSE**. The staging UI labels this as degraded and specifically
+disclaims transfer/WC/FH optimization. The baseline cannot override
+manager-forced transfers/chips. No fallback is returned if independent replay
+rejects it. Never report this as full-joint HiGHS success.
+
+P0-A09 browser/HTTP staging verification uses a **CI-local server only**:
+the opt-in Vite client flag and isolated backend flag are enabled during CI;
+the default-off production Docker image is checked for HTTP 503 from the
+joint endpoint, and the opt-in server rejects invalid inputs with HTTP 422.
+No production deployment or paid hosted staging service was created.
+
+**Still unverified:** end-to-end joint proposal selection and saving against
+a genuine current official FPL account and confirmed purchase/sale basis,
+benchmarks with real-vs-synthetic projection distributions, and any Render
+staging/production deployment. The connected Render workspace currently
+has only its existing production service and disabled PR previews. This PR
+must remain draft and must not be merged into autoDeploy main until these
+gates are independently completed and production deployment approved.
