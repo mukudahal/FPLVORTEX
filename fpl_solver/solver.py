@@ -93,7 +93,8 @@ def solve(request: SolveRequest) -> dict:
             V(('chip_tc', gidx), hi=int(half in tc_halves))
         if squad_enabled:
             V(('chip_wc', gidx), hi=int(half in wc_halves and gw > 1 and gidx < s.transfer_depth))
-            V(('chip_fh', gidx), hi=int(half in fh_halves and gw > 1))
+            V(('chip_fh', gidx), hi=int(half in fh_halves and gw > 1 and
+                (gw != 20 or s.start_gw < 20 or s.first_half_fh_used_gw19 is False)))
             for ft in range(0, 6):
                 V(('chip_ft', gidx, ft), objective=(
                     s.free_transfer_value * (min(5, ft + 1) - ft)
@@ -265,6 +266,10 @@ def solve(request: SolveRequest) -> dict:
     if fh_enabled:
         for t in range(1,len(gws)):
             row({idx['chip_fh',t-1]:1,idx['chip_fh',t]:1}, hi=1)
+    chip_vars = {'wildcard':'chip_wc', 'free_hit':'chip_fh',
+                 'bench_boost':'chip_bb', 'triple_captain':'chip_tc'}
+    for gw, chip in s.forced_chip_uses.items():
+        row({idx[chip_vars[chip], gw - s.start_gw]:1}, 1, 1)
     if s.max_total_hits is not None:
         row({idx['z',t,ft,k]:4*max(0,k-ft) for t in range(len(gws)) for ft in range(0,6) for k in range(s.max_transfers_per_gw+1)}, hi=s.max_total_hits)
     for tr in s.forced_transfers:
