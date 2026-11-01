@@ -6,6 +6,7 @@ Run: python -m fpl_solver.examples.benchmark_joint_horizon
 """
 from __future__ import annotations
 
+from argparse import ArgumentParser
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -77,22 +78,26 @@ def stress_request(*, candidate_count: int = 40, horizon: int = 10) -> SolveRequ
     return SolveRequest.model_validate(source)
 
 
-def benchmark() -> dict:
-    request = stress_request()
+def benchmark(*, candidate_count: int = 40, horizon: int = 10) -> dict:
+    request = stress_request(candidate_count=candidate_count, horizon=horizon)
     beginning = monotonic()
     try:
         result = solve(request)
     except Exception as exc:
         return {
-            "benchmark": "synthetic-40-players-10-GW-all-chips",
+            "benchmark": f"synthetic-{candidate_count}-players-{horizon}-GW-all-chips",
             "feasible": False, "error_type": type(exc).__name__,
             "elapsed_seconds": round(monotonic() - beginning, 3),
         }
     status = result["solver_attempts"][0] if result["solver_attempts"] else {}
     plan = result["plans"][0] if result["plans"] else None
     return {
-        "benchmark": "synthetic-40-players-10-GW-all-chips",
+        "benchmark": f"synthetic-{candidate_count}-players-{horizon}-GW-all-chips",
         "player_count": len(request.players),
+        "full_milp_incumbent_found": result.get("full_milp_incumbent_found", False),
+        "degraded_baseline_only": result.get("degraded_baseline_only", False),
+        "plan_method": plan.get("method") if plan else None,
+        "release_performance_gate_met": result.get("full_milp_incumbent_found", False),
         "gameweeks": request.settings.end_gw - request.settings.start_gw + 1,
         "max_time_seconds": request.settings.time_limit_seconds,
         "feasible": bool(plan),
@@ -113,11 +118,18 @@ def benchmark() -> dict:
 
 
 def main() -> int:
-    report = benchmark()
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument('--candidates', type=int, choices=(30, 40), default=40)
+    parser.add_argument('--horizon', type=int, choices=range(1, 11), default=10)
+    args = parser.parse_args()
+    report = benchmark(candidate_count=args.candidates, horizon=args.horizon)
     print(json.dumps(report, sort_keys=True))
-    # Do not silently pass the release gate if the 10-second/40-player
-    # workload produced NO independently verified feasible path.
-    return 0 if report.get("feasible") else 3
+    if report.get('degraded_baseline_only'):
+        print('::warning title=P0-A09 FULL MILP RELEASE BLOCKER::HiGHS timed out without a primal incumbent; only an independently verified fixed-squad fallback was produced. This is NOT successful joint optimization.', file=sys.stderr)
+    # This tests service resilience, NOT full-MILP optimality/feasibility.
+    # The performance release gate stays FAILED unless the JSON artifact
+    # reports release_performance_gate_met=true.
+    return 0 if report.get('feasible') else 3
 
 
 if __name__ == "__main__":
