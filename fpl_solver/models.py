@@ -71,6 +71,14 @@ class SolverSettings(BaseModel):
     squad_chip_halves: dict[
         Literal['wildcard', 'free_hit'], list[Literal[1, 2]]
     ] = Field(default_factory=dict)
+    # Optional manager-committed chip uses. Only validated entitlements
+    # can be forced; never override a separately saved manual plan.
+    forced_chip_uses: dict[int, Literal[
+        'wildcard', 'free_hit', 'bench_boost', 'triple_captain'
+    ]] = Field(default_factory=dict)
+    # Needed at GW20: the second-half FH is NOT eligible immediately
+    # after a first-half FH in GW19. None means this history is unknown.
+    first_half_fh_used_gw19: bool | None = None
 
     @model_validator(mode='after')
     def validate_chip_inventory(self):
@@ -118,6 +126,21 @@ class SolveRequest(BaseModel):
         for tr in s.forced_transfers:
             if tr.gw not in range(s.start_gw, s.end_gw + 1) or tr.player_in not in known or tr.player_out not in known or tr.player_in == tr.player_out:
                 raise ValueError('Invalid forced transfer.')
+        available = {**s.scoring_chip_halves, **s.squad_chip_halves}
+        forced_by_half = set()
+        for gw, chip in s.forced_chip_uses.items():
+            half = 1 if gw <= 19 else 2
+            if gw < s.start_gw or gw > s.end_gw or half not in available.get(chip, []):
+                raise ValueError(f'Forced chip {chip} in GW{gw} is not verified available in this horizon.')
+            if gw == 1 and chip in ('wildcard', 'free_hit'):
+                raise ValueError('Wildcard/Free Hit unavailable in GW1.')
+            if (chip, half) in forced_by_half:
+                raise ValueError('Duplicate forced chip within same season half.')
+            forced_by_half.add((chip, half))
+            if chip == 'free_hit' and s.forced_chip_uses.get(gw - 1) == 'free_hit':
+                raise ValueError('Free Hits cannot be consecutive gameweeks.')
+            if chip == 'free_hit' and gw == 20 and s.first_half_fh_used_gw19 is not False:
+                raise ValueError('GW20 Free Hit requires verified evidence GW19 did not use Free Hit.')
         for p in self.players:
             for gw in range(s.start_gw, s.end_gw + 1):
                 if any(gw not in d for d in (p.xpts_by_gw, p.xmin_by_gw, p.availability_by_gw, p.has_fixture_by_gw)):
