@@ -10,6 +10,7 @@ import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
 from scipy.sparse import coo_array
 from .models import SolveRequest, QUOTAS
+from .chip_replay import verify_joint_milp_ledger
 
 class Problem:
     def __init__(self):
@@ -324,6 +325,10 @@ def solve(request: SolveRequest) -> dict:
                 'temporary_bank':round(float(x[idx['temporary_bank',t]])/10,1) if fh_enabled else None,
                 'expected_points_after_hits':round(points,3),
             })
+        if scoring_enabled or squad_enabled:
+            # Prove each emitted legal-path ledger independently. A malformed
+            # solution must fail closed, never become an actionable proposal.
+            verify_joint_milp_ledger(request, weeks)
         plans.append({'gameweeks':weeks, 'raw_expected_points_after_hits':round(raw,3), 'discounted_points_after_hits':round(discount,3), 'evaluation_score':round(-float(res.fun),3), 'solver':statuses[-1]})
         # Distinct paths may differ by transfer sequence or chip schedule.
         # Exclude precisely this pattern, not every path with the same buys.
