@@ -145,6 +145,22 @@ jobs:
           exit 1
       - name: Verify 4K pitch and table PNG downloads in Chromium
         run: node scripts/check-png-browser.mjs
+      - name: Build isolated joint-chip staging bundle (NOT a hosted deployment)
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: VITE_VORTEX_JOINT_SOLVER_UI_ENABLED=1 npm run build
+      - name: Start isolated opt-in research server on local port 3001
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          PORT=3001 VORTEX_JOINT_SOLVER_ENABLED=1 NODE_ENV=production npm start > /tmp/vortex-joint-staging.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3001/api/health >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/vortex-joint-staging.log
+          exit 1
+      - name: Exercise staging chip UI, default-save safety and read-only input rejection
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: PLANNER_BASE_URL=http://127.0.0.1:3001 node scripts/check-joint-staging-browser.mjs
       - name: Verify automatic production deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/check-planner-deployment.mjs
