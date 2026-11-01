@@ -52,7 +52,12 @@ def solve(request: SolveRequest) -> dict:
     scoring = s.scoring_chip_halves
     bb_halves = set(scoring.get('bench_boost', []))
     tc_halves = set(scoring.get('triple_captain', []))
+    squad_chips = s.squad_chip_halves
+    wc_halves = set(squad_chips.get('wildcard', []))
+    fh_halves = set(squad_chips.get('free_hit', []))
     scoring_enabled = bool(bb_halves or tc_halves)
+    squad_enabled = bool(wc_halves or fh_halves)
+    fh_enabled = bool(fh_halves)
     initial_discount = {
         i: round(p.current_price * 10) - round(p.selling_price * 10)
         for i, p in enumerate(players)
@@ -63,6 +68,11 @@ def solve(request: SolveRequest) -> dict:
         weight = s.time_decay ** gidx
         for i, p in enumerate(players):
             V(('s', i, gidx), lo=int(p.player_id in locked), hi=int(p.player_id not in excluded))
+            if fh_enabled:
+                V(('h', i, gidx), lo=int(p.player_id in locked), hi=int(p.player_id not in excluded))
+                V(('fh_added', i, gidx))
+                if i in initial_discount:
+                    V(('fh_discount', i, gidx))
             V(('b', i, gidx), hi=int(gidx < s.transfer_depth))
             if i in initial_discount:
                 # One first-sale flag is enough to track the original
@@ -77,10 +87,19 @@ def solve(request: SolveRequest) -> dict:
             if tc_halves:
                 # TC adds ONE more captain copy beyond normal double captain.
                 V(('tc_captain', i, gidx), objective=-weight * p.xpts_by_gw[gw])
+        half = 1 if gw <= 19 else 2
         if scoring_enabled:
-            half = 1 if gw <= 19 else 2
             V(('chip_bb', gidx), hi=int(half in bb_halves))
             V(('chip_tc', gidx), hi=int(half in tc_halves))
+        if squad_enabled:
+            V(('chip_wc', gidx), hi=int(half in wc_halves and gw > 1 and gidx < s.transfer_depth))
+            V(('chip_fh', gidx), hi=int(half in fh_halves and gw > 1))
+            for ft in range(0, 6):
+                V(('chip_ft', gidx, ft), objective=(
+                    s.free_transfer_value * (min(5, ft + 1) - ft)
+                    if gidx == len(gws) - 1 else 0))
+        if fh_enabled:
+            V(('temporary_bank', gidx), hi=2000, integer=1)
         # Bank is in tenths of a million, so no fractional FPL prices are introduced.
         V(('bank', gidx), hi=2000, integer=1, objective=(-s.bank_value_per_million / 10 if gidx == len(gws)-1 else 0))
         for ft in range(0, 6):
