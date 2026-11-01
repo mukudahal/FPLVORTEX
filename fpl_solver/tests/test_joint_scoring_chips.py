@@ -150,3 +150,25 @@ def test_production_cli_fail_closed_for_chips_until_full_wc_fh_model_exists():
     assert completed.returncode == 2
     assert not completed.stdout
     assert "Invalid or unsupported no-chip MILP request" in completed.stderr
+
+def test_production_cli_rejects_wc_fh_as_well_as_scoring_chip_claims():
+    import subprocess
+    import sys
+    for settings_change in (
+        {'squad_chip_halves': {'wildcard': [1]}},
+        {'squad_chip_halves': {'free_hit': [1]}},
+        {'forced_chip_uses': {2: 'bench_boost'},
+         'scoring_chip_halves': {'bench_boost': [1]}},
+    ):
+        payload = json.loads(json.dumps(DATA))
+        payload['settings'].update({
+            'end_gw': 2, 'time_limit_seconds': 3, 'solutions_requested': 1,
+            **settings_change,
+        })
+        proc = subprocess.run(
+            [sys.executable, '-m', 'fpl_solver.cli'],
+            input=json.dumps(payload), text=True, capture_output=True,
+            timeout=8, check=False,
+        )
+        assert proc.returncode == 2 and not proc.stdout
+        assert 'Invalid or unsupported no-chip MILP request' in proc.stderr
