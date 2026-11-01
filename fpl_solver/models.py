@@ -66,11 +66,17 @@ class SolverSettings(BaseModel):
     scoring_chip_halves: dict[
         Literal['bench_boost', 'triple_captain'], list[Literal[1, 2]]
     ] = Field(default_factory=dict)
+    # Explicit unused WC/FH inventory from verified account-specific history,
+    # not an assumption inferred from current gameweek or general FPL rules.
+    squad_chip_halves: dict[
+        Literal['wildcard', 'free_hit'], list[Literal[1, 2]]
+    ] = Field(default_factory=dict)
 
     @model_validator(mode='after')
-    def validate_scoring_chip_inventory(self):
-        if any(len(halves) != len(set(halves)) for halves in self.scoring_chip_halves.values()):
-            raise ValueError('Duplicate available scoring chip in the same season half.')
+    def validate_chip_inventory(self):
+        for inventory in (self.scoring_chip_halves, self.squad_chip_halves):
+            if any(len(halves) != len(set(halves)) for halves in inventory.values()):
+                raise ValueError('Duplicate available chip in the same season half.')
         return self
 
 class SolveRequest(BaseModel):
