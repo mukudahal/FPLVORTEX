@@ -141,3 +141,55 @@ def test_forced_chip_requires_verified_inventory_and_wildcard_cannot_start_gw1()
     data['settings']['forced_chip_uses']={'1':'wildcard'}
     with pytest.raises(ValidationError, match='GW1'):
         SolveRequest.model_validate(data)
+
+def test_solver_can_choose_free_hit_when_temporary_fixture_return_is_profitable():
+    req = compact_request(start=18, end=18)
+    req.settings.max_transfers_per_gw = 0
+    req.settings.scoring_chip_halves = {}
+    req.settings.squad_chip_halves = {'free_hit': [1]}
+    req.settings.forced_chip_uses = {}
+    for p in req.players:
+        if p.player_id in (3, 10, 24):
+            p.xpts_by_gw[18] = 40.0
+    result = solve(req)
+    assert result['plans'], result['solver_attempts']
+    best = result['plans'][0]['gameweeks'][0]
+    assert best['chip'] == 'free_hit'
+    assert len(best['temporary_transfers_in']) >= 1
+    assert not best['transfers_in']
+    assert set(best['permanent_squad_after']) == set(req.current_team.squad_player_ids)
+    replay_exact_output(req, result['plans'][0])
+
+
+def test_solver_can_choose_wildcard_for_better_multi_gw_permanent_roster():
+    req = compact_request(start=18, end=19)
+    req.settings.max_transfers_per_gw = 0
+    req.settings.scoring_chip_halves = {}
+    req.settings.squad_chip_halves = {'wildcard': [1]}
+    req.settings.forced_chip_uses = {}
+    for p in req.players:
+        if p.player_id in (3, 10, 24):
+            p.xpts_by_gw[18] = 35.0
+            p.xpts_by_gw[19] = 35.0
+    result = solve(req)
+    assert result['plans'], result['solver_attempts']
+    best = result['plans'][0]
+    assert best['gameweeks'][0]['chip'] == 'wildcard'
+    assert len(best['gameweeks'][0]['transfers_in']) >= 2
+    assert best['gameweeks'][0]['hit_cost'] == 0
+    assert best['gameweeks'][0]['free_transfers_after'] == req.current_team.free_transfers
+    assert best['gameweeks'][1]['permanent_squad_after'] == best['gameweeks'][1]['squad']
+    replay_exact_output(req, best)
+
+
+def test_no_verified_chip_inventory_uses_original_no_chip_objective_and_transfers():
+    req = compact_request(start=18,end=19)
+    req.settings.squad_chip_halves = {}
+    req.settings.scoring_chip_halves = {}
+    result = solve(req)
+    assert result['plans']
+    for week in result['plans'][0]['gameweeks']:
+        assert week['chip'] is None
+        assert week['chip_bonus'] == 0
+        assert week['squad'] == week['permanent_squad_after']
+    replay_exact_output(req, result['plans'][0])
