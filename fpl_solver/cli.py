@@ -23,7 +23,7 @@ def main() -> int:
         # Full schema validation is strict and rejects unsupported chips.
         request = SolveRequest.model_validate(payload)
         settings = request.settings
-        if len(request.players) > 60 or settings.time_limit_seconds > 10 or settings.solutions_requested > 1 or settings.max_transfers_per_gw > 2:
+        if len(request.players) > 60 or settings.time_limit_seconds > 10 or settings.solutions_requested > 3 or settings.max_transfers_per_gw > 2:
             raise ValueError("Exact comparison exceeds the permitted candidate/time limits.")
         result = solve(request)
         sys.stdout.write(json.dumps(result, separators=(',', ':'), allow_nan=False))
