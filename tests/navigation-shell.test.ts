@@ -6,7 +6,7 @@ import { resolveHashRoute } from '../src/hooks/useHashRoute';
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const palette = readFileSync(new URL('../src/components/CommandPalette.tsx', import.meta.url), 'utf8');
 const topbar = readFileSync(new URL('../src/components/Topbar.tsx', import.meta.url), 'utf8');
-const nav = app.match(/const ROUTE_PILLS:[\\s\\S]*?\\n\\];/)?.[0] ?? '';
+const nav = app.slice(app.indexOf('const ROUTE_PILLS:'), app.indexOf('const MOBILE_NAV'));
 
 test('Dashboard is first and Planner second in desktop and mobile navigation', () => {
   const dashboard = nav.indexOf("id: 'command', label: 'DASHBOARD'");
@@ -22,7 +22,7 @@ test('search offers Dashboard and Planner, but not a Review tab', () => {
   assert.match(palette, /id: 'command', label: 'DASHBOARD'/);
   assert.match(palette, /id: 'optimizer', label: 'PLANNER'/);
   assert.doesNotMatch(palette, /id: 'review'/);
-  assert.match(topbar, /onClick=\\{\\(\\) => onNavigate\\('command'\\)\\}/);
+  assert.ok(topbar.includes("onClick={() => onNavigate('command')}"));
 });
 
 test('Dashboard is the default and old Review bookmarks keep working', () => {
