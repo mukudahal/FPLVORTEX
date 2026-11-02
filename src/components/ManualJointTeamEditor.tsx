@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
+import './ManualJointTeamEditor.css';
 import type { EnrichedPlayer, EntryData, Position, Snapshot } from '../lib/types';
 import {
   MANUAL_CHIPS, type ManualJointTeamInput, type ManualOwnedPlayer,
@@ -63,7 +64,7 @@ export function ManualJointTeamEditor(props:{
     changed();
   };
 
-  const submit=(event:React.FormEvent<HTMLFormElement>)=>{
+  const submit=(event:FormEvent<HTMLFormElement>)=>{
     event.preventDefault();
     onCompare({
       gameweek:snapshot.meta.nextEventId,
@@ -76,11 +77,13 @@ export function ManualJointTeamEditor(props:{
   return <form onSubmit={submit} aria-label="Manager-entered current FPL team" className="manual-joint-team">
     <p><strong>Manager-entered input · NOT verified by your FPL account.</strong> Check your current FPL Pick Team and Transfers pages. Public historical squad IDs are offered for convenience only. Nothing is submitted to Fantasy Premier League or saved automatically.</p>
     <p>Every purchase and selling value must come from your current FPL screen. Current market prices and position/club rules are checked against the live public FPL data. Unknown chip status is never treated as an available chip.</p>
-    <div style={{display:'grid',gridTemplateColumns:'minmax(80px,1fr) minmax(180px,2fr) repeat(3,minmax(70px,1fr))',gap:8,alignItems:'center'}}>
-      <strong>Position</strong><strong>Player</strong><strong>Buy £m</strong><strong>Sell £m</strong><strong>Now £m</strong>
+    <div className="manual-joint-table" role="group" aria-label="15 current FPL players and prices">
+      <div className="manual-joint-table__head" aria-hidden="true">
+        <strong>Position</strong><strong>Player</strong><strong>Buy £m</strong><strong>Sell £m</strong><strong>Now £m</strong>
+      </div>
       {rows.map((row,i)=>{
         const player=byId.get(row.playerId);
-        return <div key={i} style={{display:'contents'}}>
+        return <div key={i} className="manual-joint-table__row">
           <label htmlFor={`manual-player-${i}`}>{positions[i]} {i+1}</label>
           <select id={`manual-player-${i}`} value={row.playerId||''}
             onChange={e=>setRow(i,{playerId:Number(e.target.value)})}
