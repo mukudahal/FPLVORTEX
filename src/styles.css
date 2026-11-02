@@ -10630,7 +10630,7 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 }
 
 /* H2H-only workspace; all existing Dashboard/Planner/Fixtures styles unchanged. */
-.page--compare .vx-h2h-workspace { display:grid; gap:14px; width:100%; }
+.vx-h2h-workspace { display:grid; gap:14px; width:100%; }
 .vx-h2h-title { padding:18px 20px; border-radius:16px; border:1px solid var(--border); background:linear-gradient(110deg,rgba(34,60,101,.90),rgba(34,21,64,.82)); }
 .vx-h2h-title h1 { font-size:clamp(22px,2.5vw,36px); margin:6px 0 8px; color:var(--text-primary); }
 .vx-h2h-title p { max-width:92ch; margin:0; color:var(--text-secondary); line-height:1.6; }

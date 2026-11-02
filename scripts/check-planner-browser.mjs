@@ -139,6 +139,7 @@ try {
   await h2h.locator('.vx-h2h-selection-list li').first().locator('button').last().click();
   assert.equal(await cards.count(),4,'Remove must remove only selected player');
   await h2h.goto(compareUrl,{waitUntil:'domcontentloaded'});
+  await h2h.reload({waitUntil:'domcontentloaded'});
   await cards.first().waitFor({timeout:30000});
   assert.equal(await cards.count(),5,'Direct new-tab comparison route must restore all five IDs');
   const minutesCheckbox=h2h.getByRole('checkbox',{name:'Minutes'});

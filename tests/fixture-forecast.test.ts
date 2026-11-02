@@ -96,8 +96,8 @@ test('player fixture blocks show opponents and venues on separate lines, includi
   const cell: FixtureCell = { event, difficulty: 3, isBlank: false, isDouble: true, fixtures: [fixture, second], label: 'Double' };
   const html = renderToStaticMarkup(React.createElement(PlayerFixtureBlocks, { cell, teamId: homeTeam, teamById, forecasts }));
   assert.equal((html.match(/class="fdr-chip"/g) ?? []).length, 2);
-  assert.match(html, /<small>\(H\)<\/small>/);
-  assert.match(html, /<small>\(A\)<\/small>/);
+  assert.match(html, /<small>H-—<\/small>/);
+  assert.match(html, /<small>A-—<\/small>/);
   assert.equal((html.match(/background:/g) ?? []).length, 2);
   const blank = renderToStaticMarkup(React.createElement(PlayerFixtureBlocks, { cell: { ...cell, fixtures: [], isBlank: true }, teamId: homeTeam, teamById, forecasts }));
   assert.match(blank, /BLANK/);
