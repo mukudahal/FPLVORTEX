@@ -25,6 +25,9 @@ import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpB
 import { buildJointSolverRequest, type JointSolverRequest } from '../lib/jointSolverRequest';
 import { verifyJointChipPaths, type ComparedJointPlan } from '../lib/jointChipPathValidation';
 import { createReviewedJointChipPlan } from '../lib/jointChipPlanAdapter';
+import { ManualJointTeamEditor } from './ManualJointTeamEditor';
+import { buildManualJointSolverRequest, type ManualJointSolverRequest } from '../lib/manualJointSolverRequest';
+import type { ManualJointTeamInput } from '../lib/manualJointTeam';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
@@ -139,6 +142,17 @@ export function SquadBuilder({
   const [jointError, setJointError] = useState<string | null>(null);
   const [jointReview, setJointReview] = useState(false);
   const jointAbortRef = useRef<AbortController | null>(null);
+  const [manualComparison,setManualComparison]=useState<{
+    input:ManualJointSolverRequest;
+    paths:ComparedJointPlan[];
+    result:ExactMilpResponse;
+    sourceSnapshot:Snapshot;
+    sourcePlanner:PlannerSimulationOutput;
+  }|null>(null);
+  const [manualPending,setManualPending]=useState(false);
+  const [manualError,setManualError]=useState<string|null>(null);
+  const [manualReview,setManualReview]=useState(false);
+  const manualAbortRef=useRef<AbortController|null>(null);
   const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
@@ -322,6 +336,12 @@ export function SquadBuilder({
     setJointComparison(null);
     setJointReview(false);
     setJointError(null);
+    manualAbortRef.current?.abort();
+    manualAbortRef.current=null;
+    setManualPending(false);
+    setManualComparison(null);
+    setManualReview(false);
+    setManualError(null);
   }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry]);
 
   const runExactTransferComparison = async () => {
