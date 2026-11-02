@@ -84,78 +84,7 @@ try {
     page.waitForEvent('download', { timeout: 25000 }),
     page.getByRole('button', { name: new RegExp(`Export GW${laterGw} CSV`) }).click(),
   ]);
-  assert.match(csvDownload.suggestedFilename(), new RegExp(`-gw${laterGw}\\.csvimport { chromium } from '@playwright/test';
-import { mkdir } from 'node:fs/promises';
-import assert from 'node:assert/strict';
-
-const browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH, args: ['--no-sandbox', '--single-process', '--no-zygote'] } : {}) });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
-const failures = [];
-async function waitForSimulation() {
-  await page.locator('.mc-paths-list .mc-range-row').first().waitFor({ timeout: 120000 });
-}
-page.on('pageerror', error => failures.push(error.message));
-await mkdir('test-results/planner', { recursive: true });
-try {
-  const base = process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000';
-  await page.goto(base + '/', { waitUntil: 'domcontentloaded' });
-  await page.locator('.vortex-route-pills .vortex-route-pill__label').first().waitFor({ timeout: 90000 });
-  const navLabels = await page.locator('.vortex-route-pills .vortex-route-pill__label').allTextContents();
-  assert.deepEqual(navLabels.slice(0, 2), ['DASHBOARD', 'PLANNER'], 'Dashboard first, Planner second');
-  assert.ok(!navLabels.includes('REVIEW'), 'Review must not appear as a navigation tab');
-  await page.locator('.page--command .vx-hub-upper').waitFor();
-  await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });
-  await page.locator('.page--review .vx-hub-upper').waitFor({ timeout: 30000 });
-
-  // Use a public, read-only team ID for UI coverage. The same ID may resolve
-  // to live official data OR to an archived demo, depending on upstream access.
-  // Check provenance instead of assuming either source; never save a Transfer Lab plan.
-  await page.goto(base + '/#/command', { waitUntil: 'domcontentloaded' });
-  await page.locator('#fpl-review-team-id').fill('999999');
-  await page.getByRole('button', { name: 'ENTER', exact: true }).click();
-  await page.locator('.page--command:not(.page--review) .vx-soccer-pitch').waitFor({ timeout: 30000 });
-  const dashboard = page.locator('.page--command:not(.page--review)');
-  assert.equal(await dashboard.locator('.vx-pitch-formation .vx-pitch-player--dashboard').count(), 11, 'Dashboard must render 11 actual starting slots');
-  assert.equal(await dashboard.locator('.vx-pitch-bench .vx-pitch-player--dashboard').count(), 4, 'Dashboard must render four substitute slots');
-  assert.equal(await dashboard.locator('.vx-pitch-portrait img').count(), 15, 'Each squad card needs a portrait or existing fallback');
-  assert.equal(await dashboard.locator('.vx-pitch-score').count(), 15, 'Every player needs an explicit points or unavailable value');
-  assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
-  assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
-  assert.match(await dashboard.locator('.vx-dashboard-pitch-context').innerText(), /Recorded points|Model xPts|Historical player scores unavailable/);
-  const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
-  assert.equal(entryResponse.status(), 200);
-  const entryJson = await entryResponse.json();
-  assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
-  const provenance = entryJson.provenance?.kind;
-  const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
-  const badge = await badgeLocator.count() ? await badgeLocator.textContent() : null;
-  if (provenance === 'demo') assert.match(badge ?? '', /DEMO DATA · NOT LIVE/);
-  else if (provenance === 'archived') assert.match(badge ?? '', /ARCHIVED DATA · NOT LIVE/);
-  else if (provenance !== 'official') assert.match(badge ?? '', /SOURCE UNVERIFIED · NOT LIVE/);
-  else assert.equal(badge, null, 'Verified public team must not be mislabeled as demo');
-  for (const width of [320, 390, 768, 1440]) {
-    await page.setViewportSize({ width, height: 950 });
-    const rect = await dashboard.locator('.vx-soccer-pitch').boundingBox();
-    assert.ok(rect && rect.x >= -2 && rect.x + rect.width <= width + 2, `Dashboard pitch escapes the viewport at ${width}px`);
-    if (width === 390 || width === 1440) {
-      await page.screenshot({ path: `test-results/planner/dashboard-pitch-${width}.png`, fullPage: true });
-    }
-  }
-  // Restore a clean manager-free Planner session for existing browser assertions.
-  // Navigation alone retains React state, so remount after clearing storage.
-  await page.evaluate(() => localStorage.removeItem('vortex:linkedManagerId'));
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
-  assert.equal(await page.locator('.planner-team-link').count(), 1, 'Planner must retain the team loader');
-  const managerInput = page.getByRole('textbox', { name: 'FPL Team ID' });
-  const loadTeamButton = page.getByRole('button', { name: 'Load team' });
-  assert.ok(await loadTeamButton.isDisabled(), 'Empty manager ID must not initiate a fetch');
-  await managerInput.fill('123456');
-  assert.ok(await loadTeamButton.isEnabled(), 'A syntactically valid manager ID enables team sync');
-  await managerInput.fill('');
-));
+  assert.ok(csvDownload.suggestedFilename().endsWith(`-gw${laterGw}.csv`));
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
