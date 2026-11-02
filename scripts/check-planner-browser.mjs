@@ -51,6 +51,27 @@ try {
     await page.setViewportSize({ width, height: 950 });
     const rect = await dashboard.locator('.vx-soccer-pitch').boundingBox();
     assert.ok(rect && rect.x >= -2 && rect.x + rect.width <= width + 2, `Dashboard pitch escapes the viewport at ${width}px`);
+    if (width === 1440) {
+      const pitchCard = await dashboard.locator('.vx-card--pitch').boundingBox();
+      const fixturesCard = await dashboard.locator('.vx-fixture-rail').boundingBox();
+      const goalsCard = await dashboard.locator('.vx-card--goals').boundingBox();
+      assert.ok(pitchCard && fixturesCard && goalsCard, 'Dashboard must include pitch, GW fixtures, and projected goals');
+      assert.ok(pitchCard.x + pitchCard.width <= fixturesCard.x + 2,
+        'Desktop Dashboard pitch must stay LEFT of the fixtures panel');
+      assert.ok(fixturesCard.x + fixturesCard.width <= goalsCard.x + 2,
+        'GW fixtures must stay LEFT of projected goals, both RIGHT of pitch');
+      assert.ok(Math.abs(pitchCard.y - fixturesCard.y) < 8 && Math.abs(fixturesCard.y - goalsCard.y) < 8,
+        'Desktop pitch and both data panels must remain side by side in the SAME ROW');
+    }
+    if (width === 390) {
+      const pitchCard = await dashboard.locator('.vx-card--pitch').boundingBox();
+      const fixturesCard = await dashboard.locator('.vx-fixture-rail').boundingBox();
+      const goalsCard = await dashboard.locator('.vx-card--goals').boundingBox();
+      assert.ok(pitchCard && fixturesCard && goalsCard);
+      assert.ok(fixturesCard.y >= pitchCard.y + pitchCard.height - 2 &&
+        goalsCard.y >= fixturesCard.y + fixturesCard.height - 2,
+        'On mobile, dashboard panels must stack without overlapping');
+    }
     if (width === 390 || width === 1440) {
       await page.screenshot({ path: `test-results/planner/dashboard-pitch-${width}.png`, fullPage: true });
     }
