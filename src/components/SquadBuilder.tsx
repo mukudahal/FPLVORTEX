@@ -901,6 +901,63 @@ export function SquadBuilder({
               </div> : <button type="button" onClick={() => setJointReview(true)}>Review joint strategy before saving</button>}
             </div> : <p role="status">No fully verified, feasible joint-chip proposal was returned within the bounded solve. The existing chip-aware Planner remains unchanged.</p>)}
           </section>}
+          {jointUiEnabled && <section className="panel" aria-label="Manager-entered FPL current team and chip comparison">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">P0-A09 · OPTION A · NO FPL LOGIN REQUIRED</span>
+              <h3>Enter your current 15-player team — manual joint-chip Solver</h3>
+            </div><span className="badge badge--violet">MANAGER-ENTERED · UNVERIFIED</span></div>
+            <p>Review the figures directly on your FPL account. The website does NOT authenticate these team details. We check player identities, current market prices, position quotas, club limits, FPL selling-price arithmetic and chip legality. Forecasts are VORTEX model estimates, not guaranteed returns. A bounded result is optimal only within its declared candidate shortlist if certified by HiGHS.</p>
+            <ManualJointTeamEditor
+              key={`manual-${publicEntry?.id??'none'}-${snapshot.meta.nextEventId}`}
+              entry={publicEntry} snapshot={snapshot} players={players}
+              horizon={reviewSim?.gws.length??Math.min(plannerHorizon,39-snapshot.meta.nextEventId)}
+              disabled={!reviewSim||snapshot.meta.stale||Boolean(selectedPlan)||plannedMoves>0}
+              pending={manualPending}
+              onCompare={data=>{void runManualJointComparison(data);}}
+              onChanged={()=>{
+                manualAbortRef.current?.abort();
+                setManualPending(false);
+                setManualComparison(null);
+                setManualReview(false);
+                setManualError(null);
+              }}
+            />
+            {!reviewSim&&<p role="status">Run the Planner forecast first to compare the current Gameweek and horizon.</p>}
+            {selectedPlan&&<p role="status">A saved scenario is active. It will not be overwritten. Select the live/no saved plan before comparing another manually entered squad.</p>}
+            {manualError&&<p role="alert">{manualError}</p>}
+            {manualComparison&&(manualComparison.paths.length?
+              <div role="group" aria-label="Manager-entered joint-chip strategies">
+                <p><strong>MANAGER-ENTERED INPUT · NOT AUTHENTICATED BY FPL.</strong> This proposal uses the 15 players, purchase/sell prices, bank and chip availability you entered. Only public market identity and internal financial/chip rules were checked. Unknown chips are excluded.</p>
+                {manualComparison.input.validated.unknownChips.length>0&&
+                  <p role="status">Excluded unknown chips: {manualComparison.input.validated.unknownChips.join(', ')}.</p>}
+                {manualComparison.paths.map(path=><div key={path.rank}>
+                  <p><strong>{path.plan.method==='independent_verified_hold_scoring_fallback'
+                    ? 'DEGRADED: hold squad with limited BB/TC checks; NOT joint WC/FH optimization'
+                    :path.plan.solver.optimality_proven
+                      ? 'Optimality certified for this finite shortlist'
+                      :'Feasible shortlist strategy; optimality not proven'}</strong> · {path.plan.raw_expected_points_after_hits.toFixed(2)} model xPts after hits · {path.plan.evaluation_score.toFixed(2)} discounted objective · HiGHS gap {path.plan.solver.mip_gap===null?'N/A':(path.plan.solver.mip_gap*100).toFixed(2)+'%'}.</p>
+                  <p>Chips: {path.chipSchedule.length?path.chipSchedule.map(chip=>`${chip.chip.replaceAll('_',' ')} GW${chip.gw}`).join(' · '):'No confirmed available chips selected'} · {path.totalMoves} changes · −{path.totalHits} hit points.</p>
+                  <div className="rollout-list">
+                    {path.plan.gameweeks.map(week=><details key={week.gw} className="rollout-row">
+                      <summary>GW{week.gw} · {week.chip?.replaceAll('_',' ')??'No chip'} · {week.expected_points_after_hits.toFixed(2)} model xPts</summary>
+                      <p>Permanent OUT: {week.transfers_out.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'} · IN: {week.transfers_in.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'}</p>
+                      {week.chip==='free_hit'&&<p>Temporary FH OUT: {week.temporary_transfers_out.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'} · IN: {week.temporary_transfers_in.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'} · Temporary bank £{week.temporary_bank?.toFixed(1)??'N/A'}m · Original squad and bank restore.</p>}
+                      <p>Bank £{week.bank.toFixed(1)}m · FT {week.free_transfers_before} → {week.free_transfers_after} · Hits −{week.hit_cost} · Chip bonus +{week.chip_bonus.toFixed(2)} model points</p>
+                      <p>Captain {playerMap.get(week.captain)?.name??week.captain} · Vice {playerMap.get(week.vice_captain)?.name??week.vice_captain} · XI: {week.starters.map(id=>playerMap.get(id)?.name??id).join(', ')} · Bench: {week.bench.map(id=>playerMap.get(id)?.name??id).join(', ')}</p>
+                    </details>)}
+                  </div>
+                </div>)}
+                <p>Saving a NEW plan will store its squad, purchase/selling basis and proposed chip dates in this browser's Transfer Lab. It will not apply an official FPL transfer or replace any existing saved plan.</p>
+                {manualReview?
+                  <div role="group" aria-label="Confirm manager-entered joint plan">
+                    <p role="status">Confirm saving as a separate MANAGER-ENTERED (UNVERIFIED) Transfer Lab scenario.</p>
+                    <button type="button" onClick={saveReviewedManualJointPlan}>Confirm: save NEW unverified manual plan</button>
+                    <button type="button" onClick={()=>setManualReview(false)}>Cancel</button>
+                  </div>
+                  :<button type="button" onClick={()=>setManualReview(true)}>Review manual joint-chip proposal before saving</button>}
+              </div>
+              :<p role="status">No independently validated feasible result. The original Planner and saved plans remain unchanged.</p>)}
+          </section>}
           <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
