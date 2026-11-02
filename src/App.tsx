@@ -37,6 +37,7 @@ const FixtureMatrix = lazy(() => import('./components/FixtureMatrix').then(m => 
 const LeagueIntel = lazy(() => import('./components/LeagueIntel').then(m => ({ default: m.LeagueIntel })));
 const Methodology = lazy(() => import('./components/Methodology').then(m => ({ default: m.Methodology })));
 const PlayerLab = lazy(() => import('./components/PlayerLab').then(m => ({ default: m.PlayerLab })));
+const PlayerComparisonWorkspace = lazy(() => import('./components/PlayerComparisonWorkspace').then(m => ({ default: m.PlayerComparisonWorkspace })));
 const SquadBuilder = lazy(() => import('./components/SquadBuilder').then(m => ({ default: m.SquadBuilder })));
 
 type ToastTone = 'success' | 'error' | 'info';
@@ -382,6 +383,9 @@ export default function App() {
           onToast={showToast}
         />
       );
+      break;
+    case 'compare':
+      page = <PlayerComparisonWorkspace players={players} teams={snapshot.teams} snapshot={snapshot} />;
       break;
     case 'fixtures':
       page = (

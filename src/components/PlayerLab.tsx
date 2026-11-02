@@ -245,17 +245,12 @@ export function PlayerLab({
   const toggleCompare = (id: number) => {
     setCompareIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 2) return [prev[1], id];
+      if (prev.length >= 8) return prev;
       return [...prev, id];
     });
   };
 
-  const comparedPlayers = useMemo(
-    () => compareIds.map((id) => players.find((p) => p.id === id)).filter((p): p is EnrichedPlayer => Boolean(p)),
-    [compareIds, players],
-  );
-
-  return (
+    return (
     <div className="page page--players">
       <section className="panel player-controls" aria-label="Player search and filters">
         <div className="player-controls__top">
@@ -358,57 +353,20 @@ export function PlayerLab({
         </p>
       </section>
 
-      {/* Head-to-head comparison bar when 1 or 2 players pinned */}
-      {comparedPlayers.length > 0 && (
-        <section className="panel compare-panel" aria-label="Head-to-head player comparison">
-          <div className="panel__header">
-            <div>
-              <span className="panel__eyebrow">HEAD-TO-HEAD PLAYER COMPARISON</span>
-              <h3>
-                {comparedPlayers.length === 2
-                  ? `${comparedPlayers[0].name} vs ${comparedPlayers[1].name}`
-                  : `Selected ${comparedPlayers[0].name} — pin one more player to compare`}
-              </h3>
-            </div>
-            <button type="button" className="button button--ghost button--sm" onClick={() => setCompareIds([])}>
-              Clear comparison
-            </button>
-          </div>
-          <div className="compare-grid">
-            {comparedPlayers.map((p) => (
-              <div key={p.id} className="compare-card">
-                <div className="compare-card__head">
-                  <PlayerAvatar
-                    code={p.code}
-                    teamCode={p.team.code}
-                    name={p.name}
-                    fullName={p.fullName}
-                    teamShort={p.team.shortName}
-                    position={p.position}
-                    size="lg"
-                  />
-                  <div>
-                    <div className="inline-player-tag">
-                      <ClubBadge teamCode={p.team.code} shortName={p.team.shortName} size="sm" />
-                      <span>{p.team.name} · {p.position} · {formatPrice(p.price)}</span>
-                    </div>
-                    <h4>{p.fullName}</h4>
-                    <small>Selected {formatPercent(p.ownership)} · xMins {p.modelBreakdown.expectedMinutes.toFixed(0)}</small>
-                  </div>
-                </div>
-                <div className="compare-card__metrics">
-                  <div><span>GW{selectedGw} xPts</span><strong>{gameweekPoints(p, selectedGw)?.toFixed(2) ?? '—'}</strong></div>
-                  <div><span>5-GW xPts</span><strong>{horizonPoints(p)?.toFixed(2) ?? '—'}</strong></div>
-                  <div><span>Legacy 5GW xP</span><strong>{p.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
-                  <div><span>DEFCON xPts</span><strong>+{p.modelBreakdown.defcon.toFixed(2)}</strong></div>
-                  <div><span>Attack xPts</span><strong>{p.modelBreakdown.attacking.toFixed(2)}</strong></div>
-                  <div><span>CS / Saves</span><strong>{(p.modelBreakdown.cleanSheet + p.modelBreakdown.saves).toFixed(2)}</strong></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <section className="panel vx-h2h-launch" aria-label="H2H Player Comparison">
+        <div>
+          <strong>H2H Player Comparison</strong>
+          <span>{compareIds.length} of 8 selected · compare five or more players in a dedicated workspace.</span>
+        </div>
+        <div className="button-row">
+          <button type="button" className="button button--ghost" onClick={()=>setCompareIds([])} disabled={!compareIds.length}>Clear selected</button>
+          <button type="button" className="button button--primary" onClick={()=>{
+            const url=window.location.origin+window.location.pathname+window.location.search+'#/compare'+
+              (compareIds.length?'?ids='+compareIds.join(','):'');
+            window.open(url,'_blank','noopener,noreferrer');
+          }}>Open H2H Player Comparison ↗</button>
+        </div>
+      </section>
 
       <section className="panel table-panel" aria-label="Player Predictions">
         <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${selectedGw}.png`}
@@ -545,8 +503,8 @@ export function PlayerLab({
                         type="button"
                         className={classNames('icon-button icon-button--xs', pinned && 'is-selected')}
                         onClick={() => toggleCompare(player.id)}
-                        aria-label={`Compare ${player.name}`}
-                        title="Pin to head-to-head comparison"
+                        aria-label={`${pinned?'Remove':'Add'} ${player.name} ${pinned?'from':'to'} comparison`}
+                        title="Pin or remove for the dedicated H2H comparison tab"
                       >
                         <ArrowLeftRight size={13} />
                       </button>
