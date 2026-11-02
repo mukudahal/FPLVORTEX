@@ -13,8 +13,16 @@ await mkdir('test-results/planner', { recursive: true });
 try {
   const base = process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000';
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' });
+  await page.locator('.vortex-route-pills .vortex-route-pill__label').first().waitFor({ timeout: 90000 });
+  const navLabels = await page.locator('.vortex-route-pills .vortex-route-pill__label').allTextContents();
+  assert.deepEqual(navLabels.slice(0, 2), ['DASHBOARD', 'PLANNER'], 'Dashboard first, Planner second');
+  assert.ok(!navLabels.includes('REVIEW'), 'Review must not appear as a navigation tab');
+  await page.locator('.page--command .vx-hub-upper').waitFor();
+  await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });
+  await page.locator('.page--review .vx-hub-upper').waitFor({ timeout: 30000 });
+  await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
-  assert.equal(await page.locator('.planner-team-link').count(), 1, 'Homepage must open in the 10-GW planner with a team loader');
+  assert.equal(await page.locator('.planner-team-link').count(), 1, 'Planner must retain the team loader');
   const managerInput = page.getByRole('textbox', { name: 'FPL Team ID' });
   const loadTeamButton = page.getByRole('button', { name: 'Load team' });
   assert.ok(await loadTeamButton.isDisabled(), 'Empty manager ID must not initiate a fetch');
