@@ -3,6 +3,7 @@ import App from './App';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import '../brand-kit/design-tokens.css';
 import './styles.css';
+import './components/ManualJointTeamEditor.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element was not found.');
