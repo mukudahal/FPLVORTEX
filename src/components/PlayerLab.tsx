@@ -13,6 +13,7 @@ import {
 import type { EnrichedPlayer, FixtureCell, FixtureRow, FplTeam, Position } from '../lib/types';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { importedProjectionsNotice } from '../lib/projectionFreshness';
+import { playerGwForecast, playerPredictionsCsv } from '../lib/playerPredictionExport';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 
 import { ClubBadge } from './ClubBadge';
@@ -72,46 +73,12 @@ function scoreTone(value: number): string {
   return 'is-low';
 }
 
-function exportCsv(players: EnrichedPlayer[], nextGw: number): void {
-  const headers = [
-    'FPL_ID',
-    'Code',
-    'Player',
-    'Club',
-    'Position',
-    'Price',
-    `GW${nextGw}_Repo_xPts`,
-    '5GW_Repo_xPts',
-    'Legacy_5GW_xP',
-    'Model_xPts',
-    'xMins',
-    'DEFCON_xPts',
-    'EO_Pct',
-    'Fixture_Ease_5GW',
-  ];
-  const rows = players.map((p) => [
-    String(p.id),
-    String(p.code),
-    p.name,
-    p.team.shortName,
-    p.position,
-    p.price.toFixed(1),
-    p.projection.toFixed(2),
-    p.horizon5Projection.toFixed(2),
-    p.modelBreakdown.optaXP5Gw.toFixed(2),
-    p.modelBreakdown.modelXPts.toFixed(2),
-    p.modelBreakdown.expectedMinutes.toFixed(1),
-    p.modelBreakdown.defcon.toFixed(2),
-    p.ownership.toFixed(1),
-    String(p.modelBreakdown.fiveGwEaseScore),
-  ]);
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(','))
-    .join('\n');
+function exportCsv(players: EnrichedPlayer[], gw: number, nextGw: number): void {
+  const csv = playerPredictionsCsv(players, gw, nextGw);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `fpl-vortex-667-players-gw${nextGw}.csv`;
+  link.download = `fpl-vortex-${players.length}-players-gw${gw}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -128,6 +95,9 @@ export function PlayerLab({
 }: PlayerLabProps) {
   const deferredQuery = useDeferredValue(query);
   const [position, setPosition] = useState<'ALL' | Position>('ALL');
+  const [selectedGw, setSelectedGw] = useState(nextEventId);
+  const [forecastOnly, setForecastOnly] = useState(false);
+  useEffect(() => { setSelectedGw(nextEventId); }, [nextEventId]);
   const [teamId, setTeamId] = useState<number | 'ALL'>('ALL');
   const [sort, setSort] = useState<SortKey>('projection');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -141,7 +111,7 @@ export function PlayerLab({
 
   useEffect(() => {
     setPage(0);
-  }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize]);
+  }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize, selectedGw, forecastOnly]);
 
   const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map<string, FixtureForecast[]>(), [snapshot, fixtureRows]);
 
@@ -173,6 +143,7 @@ export function PlayerLab({
       if (teamId !== 'ALL' && player.teamId !== teamId) return false;
       if (player.price > maxPrice + 0.001) return false;
       if (differentialsOnly && player.ownership >= 15) return false;
+      if (forecastOnly && playerGwForecast(player, selectedGw, nextEventId) === null) return false;
       if (!needle) return true;
       return (
         player.name.toLowerCase().includes(needle) ||
@@ -222,14 +193,14 @@ export function PlayerLab({
           break;
         case 'projection':
         default:
-          cmp = a.projection - b.projection;
+          cmp = (playerGwForecast(a, selectedGw, nextEventId) ?? -Infinity) - (playerGwForecast(b, selectedGw, nextEventId) ?? -Infinity);
           break;
       }
       if (cmp !== 0) return cmp * dir;
-      return b.projection - a.projection;
+      return (playerGwForecast(b, selectedGw, nextEventId) ?? -Infinity) - (playerGwForecast(a, selectedGw, nextEventId) ?? -Infinity);
     });
     return result;
-  }, [deferredQuery, differentialsOnly, maxPrice, players, position, sort, sortDir, teamId, vortexFiveGwAvg]);
+  }, [deferredQuery, differentialsOnly, forecastOnly, maxPrice, nextEventId, players, position, selectedGw, sort, sortDir, teamId, vortexFiveGwAvg]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages - 1);
@@ -278,16 +249,28 @@ export function PlayerLab({
               type="button"
               className="button button--subtle"
               onClick={() => {
-                exportCsv(filtered, nextEventId);
+                exportCsv(filtered, selectedGw, nextEventId);
                 onToast(`Exported ${filtered.length} players as CSV.`, 'success');
               }}
             >
-              <Download size={15} /> Export CSV
+              <Download size={15} /> Export GW{selectedGw} CSV
             </button>
           </div>
         </div>
 
         <div className="player-filters">
+          <label className="filter-select">
+            <span>Prediction Gameweek</span>
+            <select aria-label="Prediction Gameweek" value={selectedGw}
+              onChange={event => setSelectedGw(Number(event.target.value))}>
+              {Array.from({ length: Math.min(10, Math.max(0, 39 - nextEventId)) }, (_, i) => nextEventId + i)
+                .map(gw => <option key={gw} value={gw}>GW{gw}</option>)}
+            </select>
+          </label>
+          <label className="filter-select" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={forecastOnly} onChange={event => setForecastOnly(event.target.checked)} />
+            <span>Only players with GW{selectedGw} forecast</span>
+          </label>
           <div className="filter-group">
             <span><Filter size={13} /> Position</span>
             <div className="pos-pills">
@@ -334,6 +317,9 @@ export function PlayerLab({
           </label>
         </div>
 
+        <p role="status" className="planner-data-notice">
+          GW{selectedGw} projections are model estimates, not guaranteed returns. Missing per-GW forecasts show N/A and are not replaced with next-GW figures. Selected-by percentage is not effective ownership.
+        </p>
       </section>
 
       {/* Head-to-head comparison bar when 1 or 2 players pinned */}
@@ -371,11 +357,11 @@ export function PlayerLab({
                       <span>{p.team.name} · {p.position} · {formatPrice(p.price)}</span>
                     </div>
                     <h4>{p.fullName}</h4>
-                    <small>EO {formatPercent(p.ownership)} · xMins {p.modelBreakdown.expectedMinutes.toFixed(0)}</small>
+                    <small>Selected {formatPercent(p.ownership)} · xMins {p.modelBreakdown.expectedMinutes.toFixed(0)}</small>
                   </div>
                 </div>
                 <div className="compare-card__metrics">
-                  <div><span>GW{nextEventId} xPts</span><strong>{p.projection.toFixed(2)}</strong></div>
+                  <div><span>GW{selectedGw} xPts</span><strong>{playerGwForecast(p, selectedGw, nextEventId)?.toFixed(2) ?? 'N/A'}</strong></div>
                   <div><span>5-GW xPts</span><strong>{p.horizon5Projection.toFixed(2)}</strong></div>
                   <div><span>Legacy 5GW xP</span><strong>{p.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
                   <div><span>DEFCON xPts</span><strong>+{p.modelBreakdown.defcon.toFixed(2)}</strong></div>
@@ -388,8 +374,8 @@ export function PlayerLab({
         </section>
       )}
 
-      <section className="panel table-panel" aria-label="All 667 repository players">
-        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${nextEventId}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `PLAYER LAB · PAGE ${currentPage + 1}`, headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'EO%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: visiblePlayers.map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: player.projection.toFixed(2) }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
+      <section className="panel table-panel" aria-label="Player Predictions">
+        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `PLAYER LAB · PAGE ${currentPage + 1}`, headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'SELECTED%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: visiblePlayers.map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: playerGwForecast(player, selectedGw, nextEventId)?.toFixed(2) ?? 'N/A' }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
         <p className="table-swipe-hint">Swipe left or right to see all columns ↔</p>
         <div className="table-wrap player-table-scroll" role="region" aria-label="Player results, scroll sideways to see all columns" tabIndex={0}>
           <table className="player-table">
@@ -408,7 +394,7 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('projection')}>
-                    GW{nextEventId} xPts <ArrowUpDown size={11} />
+                    GW{selectedGw} xPts <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -433,7 +419,7 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('ownership')}>
-                    EO% <ArrowUpDown size={11} />
+                    Selected% <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -500,7 +486,11 @@ export function PlayerLab({
                       </span>
                     </td>
                     <td className="mono-num">{formatPrice(player.price)}</td>
-                    <td><strong className={`score-pill ${scoreTone(player.projection)}`}>{player.projection.toFixed(2)}</strong></td>
+                    <td>{(() => {
+                      const xp = playerGwForecast(player, selectedGw, nextEventId);
+                      return xp === null ? <span title="Selected Gameweek forecast unavailable">N/A</span>
+                        : <strong className={`score-pill ${scoreTone(xp)}`}>{xp.toFixed(2)}</strong>;
+                    })()}</td>
                     <td className="mono-num"><strong>{player.horizon5Projection.toFixed(2)}</strong></td>
                     <td className="mono-num">{player.modelBreakdown.optaXP5Gw.toFixed(2)}</td>
                     <td className="mono-num">{player.modelBreakdown.expectedMinutes.toFixed(0)}′</td>
