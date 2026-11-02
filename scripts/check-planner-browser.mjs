@@ -118,12 +118,14 @@ try {
   ]);
   assert.ok(csvDownload.suggestedFilename().endsWith(`-gw${laterGw}.csv`));
   // H2H opens a new browser page; original Players selections and route must remain intact.
-  const gwLast = 9;
+  // Explicitly synthetic browser response: exercise selected-GW aggregation,
+  // not a claim that fixture scores were retrieved from a real manager.
   await page.context().route('**/api/vortex/player-history/*', async route => {
     const id = Number(route.request().url().split('/').at(-1));
     await route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify({ playerId: id, source:'official-fpl-element-summary', capturedAt:new Date().toISOString(),
-        matches:[{fixtureId:id+1,gw:gwLast,starts:1,minutes:90,totalPoints:7,goals:1,assists:0,cleanSheets:0,xG:.4,xA:.1}] }) });
+        matches:Array.from({length:38},(_,i)=>({fixtureId:id*100+i+1,gw:i+1,
+          starts:1,minutes:90,totalPoints:7,goals:1,assists:0,cleanSheets:0,xG:.4,xA:.1})) }) });
   });
   const oldPlayerUrl = page.url();
   const [h2h] = await Promise.all([
@@ -138,6 +140,11 @@ try {
   const cards=h2h.locator('.vx-h2h-player-card');
   assert.equal(await cards.count(),5,'Five selected players must all render');
   const fiveNames=await cards.locator('h3').allTextContents();
+  const pointsCell=cards.first().locator('.vx-h2h-metrics > div').filter({hasText:'FPL points'}).locator('strong');
+  await h2h.waitForFunction(()=>Array.from(document.querySelectorAll('.vx-h2h-metrics strong')).some(el=>/\d/.test(el.textContent??'')),null,{timeout:30000});
+  const selectedStart=Number(await h2h.locator('.vx-h2h-range select').first().inputValue());
+  const selectedEnd=Number(await h2h.locator('.vx-h2h-range select').nth(1).inputValue());
+  assert.equal(await pointsCell.innerText(),String(7*(selectedEnd-selectedStart+1)),'H2H must sum recorded points over selected settled GW range');
   assert.equal(new Set(fiveNames).size,5,'Duplicate comparison players not permitted');
   const compareUrl=h2h.url();
   assert.match(compareUrl,/#\/compare\?ids=/);
