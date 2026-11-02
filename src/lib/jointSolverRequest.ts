@@ -56,6 +56,8 @@ export function buildJointPayload(
   planner:PlannerSimulationOutput,
   chips:VerifiedChipInventory,
 ):JointRequest {
+  const squadIds=baseline.current_team.squad_player_ids;
+  const decay=baseline.settings.time_decay;
   const ranked = baseline.players
     .filter(p => !squadIds.includes(p.player_id))
     .sort((a,b) => {
