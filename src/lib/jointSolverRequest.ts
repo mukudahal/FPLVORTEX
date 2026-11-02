@@ -42,6 +42,20 @@ export function buildJointSolverRequest(params: {
   const baseline = buildExactMilpRequest({
     snapshot,players,planner,squadIds,bankTenths,freeTransfers,sellingPrices,lockedIds,decay,
   });
+  const joint = buildJointPayload(baseline,planner,official.chips);
+  return {
+    entryId:official.entryId,solver:joint,
+    chips:official.chips,verifiedAt:official.verifiedAt,
+  };
+}
+
+/** Shared candidate-limited exact formulation; manager authorization is
+ * deliberately separate. Manual data must never be cast to official. */
+export function buildJointPayload(
+  baseline:ReturnType<typeof buildExactMilpRequest>,
+  planner:PlannerSimulationOutput,
+  chips:VerifiedChipInventory,
+):JointRequest {
   const ranked = baseline.players
     .filter(p => !squadIds.includes(p.player_id))
     .sort((a,b) => {
@@ -88,14 +102,11 @@ export function buildJointSolverRequest(params: {
     settings:{
       ...baseline.settings,
       solutions_requested:1,
-      scoring_chip_halves:official.chips.scoring_chip_halves,
-      squad_chip_halves:official.chips.squad_chip_halves,
-      first_half_fh_used_gw19:official.chips.first_half_fh_used_gw19,
+      scoring_chip_halves:chips.scoring_chip_halves,
+      squad_chip_halves:chips.squad_chip_halves,
+      first_half_fh_used_gw19:chips.first_half_fh_used_gw19,
       forced_chip_uses:{},
     },
   };
-  return {
-    entryId:official.entryId,solver:joint,
-    chips:official.chips,verifiedAt:official.verifiedAt,
-  };
+  return joint;
 }
