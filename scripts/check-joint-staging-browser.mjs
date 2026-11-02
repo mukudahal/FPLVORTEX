@@ -34,6 +34,12 @@ try {
     'Without a trusted request-scoped FPL provider, private team GET must fail closed.');
   const noProvider = await unavailable.json();
   assert.equal(noProvider.code,'CURRENT_TEAM_AUTH_REQUIRED');
+  const malformedManual=await page.request.post(base+'/api/vortex/solver/joint-manual',{
+    data:{manual:{acknowledged:true,players:[]},solver:{players:[]}},
+    timeout:20000,
+  });
+  assert.equal(malformedManual.status(),422,
+    'Manual route must reject malformed 15-man squads before any HiGHS work.');
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   const before = await page.evaluate(() => Object.fromEntries(
@@ -50,6 +56,21 @@ try {
   assert.ok(await compare.isDisabled(), 'Without authenticated /my-team/ evidence the joint model must never be runnable');
   assert.match(await joint.innerText(), /authenticated editable team|pending transfers/i);
   assert.match(await joint.innerText(), /30|40|shortlist/i);
+  const manual=page.getByRole('region',{
+    name:'Manager-entered FPL current team and chip comparison',
+  });
+  await manual.waitFor({timeout:30000});
+  assert.match(await manual.innerText(), /MANAGER-ENTERED.*UNVERIFIED/i);
+  assert.equal(await manual.locator('select[id^="manual-player-"]').count(),15);
+  const manualRun=manual.getByRole('button',{
+    name:'Validate manual team and compare joint strategies',
+  });
+  assert.ok(await manualRun.isDisabled(),
+    'Manual inputs must not run before explicit manager attestation.');
+  assert.equal(await manual.getByRole('button',{
+    name:'Confirm: save NEW unverified manual plan',
+  }).count(),0,
+  'Manual preview must never automatically write saved plans.');
 
   // Unverified / demo entry cannot authorize a hidden automatic request.
   // No action is taken here; even a genuine manager must explicitly click.
