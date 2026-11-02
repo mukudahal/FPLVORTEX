@@ -530,6 +530,98 @@ export function SquadBuilder({
     }
   };
 
+  const runManualJointComparison = async (manual:ManualJointTeamInput) => {
+    let controller:AbortController|null=null;
+    if(!jointUiEnabled)return;
+    if(!reviewSim||selectedPlan||plannedMoves>0||snapshot.meta.stale){
+      setManualError('Run the Planner with current data and clear saved/unsaved manual transfer commitments first.');
+      return;
+    }
+    try{
+      const input=buildManualJointSolverRequest({
+        manual,snapshot,players,planner:reviewSim,lockedIds,
+        decay:1-plannerDecay/100,
+      });
+      manualAbortRef.current?.abort();
+      controller=new AbortController();
+      manualAbortRef.current=controller;
+      setManualPending(true);
+      setManualError(null);
+      setManualComparison(null);
+      setManualReview(false);
+      const reply=await fetch('/api/vortex/solver/joint-manual',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({manual:input.manual,solver:input.solver}),
+        signal:controller.signal,
+      });
+      const data=await reply.json() as ExactMilpResponse & {
+        error?:string;input_provenance?:string;
+        manual_unknown_chips?:string[];
+      };
+      if(!reply.ok)throw new Error(data.error??'Manual joint-chip Solver is unavailable.');
+      if(data.input_provenance!=='manager-entered-unverified')
+        throw new RangeError('Server did not preserve manager-entered data provenance.');
+      const paths=verifyJointChipPaths(input.solver,data,input.validated.chips);
+      if(!controller.signal.aborted)
+        setManualComparison({
+          input,paths,result:data,sourceSnapshot:snapshot,sourcePlanner:reviewSim,
+        });
+    }catch(error){
+      if(controller?.signal.aborted)return;
+      setManualError(error instanceof Error?error.message:'Manual joint-chip inputs could not be verified.');
+    }finally{
+      if(controller&&manualAbortRef.current===controller&&!controller.signal.aborted)
+        setManualPending(false);
+    }
+  };
+
+  const saveReviewedManualJointPlan = () => {
+    const comparison=manualComparison;
+    if(!jointUiEnabled||!comparison||!manualReview||!reviewSim||
+       comparison.sourceSnapshot!==snapshot||
+       comparison.sourcePlanner!==reviewSim||
+       selectedPlan||plannedMoves>0||manualPending||snapshot.meta.stale||
+       typeof window==='undefined'){
+      setManualError('The input or forecast changed. Re-run the manually entered strategy.');
+      setManualReview(false);
+      return;
+    }
+    try{
+      const fresh=buildManualJointSolverRequest({
+        manual:comparison.input.manual,snapshot,players,planner:reviewSim,
+        lockedIds,decay:1-plannerDecay/100,
+      });
+      if(JSON.stringify(fresh.solver)!==JSON.stringify(comparison.input.solver))
+        throw new RangeError('The current team/forecast no longer matches the manual proposal.');
+      const [chosen]=verifyJointChipPaths(
+        comparison.input.solver,comparison.result,fresh.validated.chips,
+      );
+      if(!chosen)throw new RangeError('No independently validated manual proposal is available to save.');
+      const nowIso=new Date().toISOString();
+      const proposal=createReviewedJointChipPlan({
+        request:comparison.input.solver,path:chosen,
+        id:'manual-joint-'+crypto.randomUUID(),
+        name:`MANAGER-ENTERED (UNVERIFIED) GW${comparison.input.solver.settings.start_gw}+`,
+        createdAt:nowIso,
+      });
+      const previous=readStoredTransferPlans(window.localStorage,storageScopeId);
+      const upsert=upsertTransferPlan(previous,proposal);
+      if(!upsert.ok)throw new RangeError(upsert.error);
+      writeStoredTransferPlans(window.localStorage,storageScopeId,upsert.plans);
+      if(!readStoredTransferPlans(window.localStorage,storageScopeId)
+        .some(saved=>saved.id===proposal.id))
+        throw new RangeError('The NEW manually reviewed plan was not persisted. No existing plan was changed.');
+      setSavedPlans(upsert.plans);
+      selectPlan(proposal.id);
+      setManualReview(false);
+      setTransferPlansOpen(true);
+      onToast('NEW manager-entered UNVERIFIED plan saved. No official FPL transfer or chip was played.', 'success');
+    }catch(error){
+      setManualReview(false);
+      setManualError(error instanceof Error?error.message:'Manual scenario could not be saved.');
+    }
+  };
+
   const saveReviewedExactPath = () => {
     if (!exactComparison || reviewExactRank === null || !reviewSim ||
         exactComparison.sourceSnapshot !== snapshot || exactComparison.sourcePlanner !== reviewSim ||
