@@ -20,6 +20,33 @@ try {
   await page.locator('.page--command .vx-hub-upper').waitFor();
   await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });
   await page.locator('.page--review .vx-hub-upper').waitFor({ timeout: 30000 });
+
+  // Dashboard uses an isolated offline demo manager. Never treat it as current
+  // authenticated FPL evidence or write to a real saved Transfer Lab plan.
+  await page.goto(base + '/#/command', { waitUntil: 'domcontentloaded' });
+  await page.locator('#fpl-review-team-id').fill('999999');
+  await page.getByRole('button', { name: 'ENTER', exact: true }).click();
+  await page.locator('.page--command:not(.page--review) .vx-soccer-pitch').waitFor({ timeout: 30000 });
+  const dashboard = page.locator('.page--command:not(.page--review)');
+  assert.equal(await dashboard.locator('.vx-pitch-formation .vx-pitch-player--dashboard').count(), 11, 'Dashboard must render 11 actual starting slots');
+  assert.equal(await dashboard.locator('.vx-pitch-bench .vx-pitch-player--dashboard').count(), 4, 'Dashboard must render four substitute slots');
+  assert.equal(await dashboard.locator('.vx-pitch-portrait img').count(), 15, 'Each squad card needs a portrait or existing fallback');
+  assert.equal(await dashboard.locator('.vx-pitch-score').count(), 15, 'Every player needs an explicit points or unavailable value');
+  assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
+  assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
+  assert.match(await dashboard.locator('.vx-dashboard-pitch-context').innerText(), /Recorded points|Model xPts|Historical player scores unavailable/);
+  assert.match(await dashboard.locator('.vx-squad-scorebox__team').innerText(), /ARCHIVED \\/ DEMO DATA|YOUR SQUAD|LOADING SQUAD/i);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 950 });
+    const rect = await dashboard.locator('.vx-soccer-pitch').boundingBox();
+    assert.ok(rect && rect.x >= -2 && rect.x + rect.width <= width + 2, `Dashboard pitch escapes the viewport at ${width}px`);
+    if (width === 390 || width === 1440) {
+      await page.screenshot({ path: `test-results/planner/dashboard-pitch-${width}.png`, fullPage: true });
+    }
+  }
+  // Restore a clean manager-free Planner session for existing browser assertions.
+  await page.evaluate(() => localStorage.removeItem('vortex:linkedManagerId'));
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   assert.equal(await page.locator('.planner-team-link').count(), 1, 'Planner must retain the team loader');
