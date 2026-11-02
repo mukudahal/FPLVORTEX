@@ -1,5 +1,4 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import './ManualJointTeamEditor.css';
 import type { EnrichedPlayer, EntryData, Position, Snapshot } from '../lib/types';
 import {
   MANUAL_CHIPS, type ManualJointTeamInput, type ManualOwnedPlayer,
