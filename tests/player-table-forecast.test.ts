@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { makeFixture, makeGameweek, makePlayer, makeTeam } from './helpers.ts';
-import { buildPlayerForecastContext, forecastAvailability, playerFixtureForecast, playerGameweekPoints, playerHorizonPoints } from '../src/lib/playerTableForecast.ts';
+import { buildPlayerForecastContext, forecastAvailability, playerFixtureForecast, playerGameweekPoints, playerHorizonPoints, playerGameweekExpectedMinutes } from '../src/lib/playerTableForecast.ts';
 import { computePlayerXPts } from '../src/lib/repoModel/xpts.ts';
 import { toRepoElement } from '../src/lib/analytics.ts';
 import { toRepoFixtures } from '../src/lib/fixtures.ts';
@@ -46,4 +46,15 @@ test('injury, doubtful, stale data, blank and doubles',()=>{
  assert.ok(a!==null && b!==null);
  assert.equal(playerGameweekPoints(dbl,player,10),Math.round((a+b)*100)/100);
  assert.equal(playerHorizonPoints(dbl,player,10),playerGameweekPoints(dbl,player,10));
+});
+
+test('same expected-minutes engine scales with distinct double-GW fixtures and suppresses injured',()=>{
+ const single=buildPlayerForecastContext(make());
+ const both=buildPlayerForecastContext(make([makeFixture(1,10,1,2,2,4),makeFixture(2,10,2,1,4,2)]));
+ const singleMins=playerGameweekExpectedMinutes(single,player,10);
+ const doubleMins=playerGameweekExpectedMinutes(both,player,10);
+ assert.ok(singleMins!==null && doubleMins!==null);
+ assert.ok(Math.abs(doubleMins-2*singleMins)<=0.2);
+ const injured=makePlayer(41,{...player,status:'i',chance:0}) as EnrichedPlayer;
+ assert.equal(playerGameweekExpectedMinutes(buildPlayerForecastContext(make(undefined,injured)),injured,10),null);
 });

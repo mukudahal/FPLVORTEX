@@ -99,6 +99,17 @@ try {
   await gwSelect.selectOption(laterGw);
   assert.match(await predictions.locator('thead').innerText(), new RegExp(`GW${laterGw} xPts`, 'i'));
   assert.match(await predictions.locator('thead').innerText(), /Selected%/i);
+  assert.match(await predictions.locator('thead').innerText(), /Next 8 Fixtures/i);
+  assert.doesNotMatch(await predictions.locator('thead').innerText(), /Legacy xP/i);
+  const row = predictions.locator('tbody tr').first();
+  assert.ok(await row.locator('.fixture-inline .fdr-chip').count()>=8,'All eight GW fixture cells must be present (doubles have extra tiles)');
+  assert.ok(await row.locator('.vx-players-identity-price').count()===1,'Price belongs underneath player name');
+  await page.screenshot({path:'test-results/planner/players-eight-fixtures-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:900});
+  const scrollRect=await page.locator('.player-table-scroll').boundingBox();
+  assert.ok(scrollRect && scrollRect.x>=-2 && scrollRect.x+scrollRect.width<=392,'Mobile player results must scroll inside viewport');
+  await page.screenshot({path:'test-results/planner/players-eight-fixtures-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
   await page.getByRole('checkbox', { name: /Only players with GW/ }).check();
   await page.getByRole('checkbox', { name: /Only players with GW/ }).uncheck();
   const [csvDownload] = await Promise.all([

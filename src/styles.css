@@ -10683,3 +10683,9 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
  .vx-h2h-layout>.panel { padding:11px; }
  .vx-h2h-title { padding:12px; }
 }
+
+/* Five aligned H2H cards can fit a wide desktop; 6–8 remain scrollable. */
+@media(min-width:1300px) {
+ .vx-h2h-layout { grid-template-columns:minmax(180px,200px) minmax(0,1fr) minmax(210px,225px); }
+ .vx-h2h-player-card { flex:0 0 max(168px,calc((100% - 40px)/5)); width:max(168px,calc((100% - 40px)/5)); min-width:168px; }
+}
