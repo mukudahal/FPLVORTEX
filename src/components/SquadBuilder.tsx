@@ -198,6 +198,9 @@ export function SquadBuilder({
   };
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
   const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
+  const [solverSettingsOpen, setSolverSettingsOpen] = useState(true);
+  const [solverMathVisible, setSolverMathVisible] = useState(true);
+  const [trialChipGw, setTrialChipGw] = useState<number | null>(null);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const baseEntrySquadIds = useMemo(() => {
     if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
@@ -738,7 +741,7 @@ export function SquadBuilder({
       </section>
       )}
       {subTab && <div id="planner-section-content" className="planner-section-content">
-      {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
+      {subTab !== 'planner' && (subTab !== 'chips' || solverSettingsOpen) && <section id="solver-planning-settings" className="panel planner-compact-controls" aria-label="Planning settings">
         <div className="planner-control-row">
           <label>Strategy<select aria-label="Strategy" value={strategyLabel} onChange={e => setStrategyLabel(e.target.value)}>
             <option value="steady">Steady</option><option value="top10k">Top 10K</option><option value="template">Template</option>
@@ -757,6 +760,14 @@ export function SquadBuilder({
           </select></label>
         </div>
         <p className="planner-strategy-note">Strategy names are labels only for now; they do not change calculations. Current app profile: {profile}.</p>
+        {subTab === 'chips' && (
+          <div className="vx-solver-assumptions" role="group" aria-label="Additional Solver assumptions">
+            <div><strong>FT option value</strong><span>{reviewSim ? `${reviewSim.bankedTransferValueNextGw.toFixed(2)} model pts next GW` : 'Calculating'}</span><small>Calculated by the existing marginal-FT model. The exact MILP holds its terminal FT reward at 0; no unvalidated override is exposed.</small></div>
+            <div><strong>Covariance</strong><span>Not calibrated</span><small>The exact MILP does not accept a covariance parameter. No fabricated risk penalty is applied.</small></div>
+            <div><strong>Bench weighting</strong><span>Model-defined</span><small>The existing VORTEX lineup/chip model controls bench scoring; no unsupported override is submitted.</small></div>
+            <div><strong>Chip controls</strong><span>GW trial matrix below</span><small>Trial selections preview model diagnostics only. Verified chip inventory is required for joint recommendations.</small></div>
+          </div>
+        )}
       </section>}
 
       {subTab !== 'planner' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
@@ -841,6 +852,87 @@ export function SquadBuilder({
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
       {subTab === 'chips' && reviewSim && (
         <div className="chips-strategy-stack">
+          <section className="panel vx-solver-workspace" aria-label="Solver workspace">
+            <div className="panel__header">
+              <div>
+                <span className="panel__eyebrow">FPL VORTEX · BOUNDED MATHEMATICAL OPTIMIZATION</span>
+                <h2>Solver · Transfer Paths</h2>
+                <p>Compare actual SciPy/HiGHS no-chip plans and inspect verified chip-aware results. Forecasts are estimates. No FPL transfer or chip is applied.</p>
+              </div>
+              <span className="badge badge--violet">Research · 10-GW maximum</span>
+            </div>
+            <div className="vx-solver-actions" role="group" aria-label="Solver actions">
+              <button type="button" className="vx-solver-action vx-solver-action--primary"
+                onClick={() => { void runExactTransferComparison(); }}
+                disabled={exactPending || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0 || !reviewSim}
+                aria-busy={exactPending}>{exactPending ? 'Solving with HiGHS…' : 'Optimise · No-chip MILP'}</button>
+              <button type="button" className="vx-solver-action"
+                aria-expanded={solverSettingsOpen} aria-controls="solver-planning-settings"
+                onClick={() => setSolverSettingsOpen(open => !open)}>Settings</button>
+              <button type="button" className="vx-solver-action"
+                onClick={() => document.getElementById('solver-transfer-paths')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Transfer Paths</button>
+              <button type="button" className="vx-solver-action"
+                aria-pressed={!solverMathVisible}
+                onClick={() => setSolverMathVisible(value => !value)}>{solverMathVisible ? 'Hide Math' : 'Show Math'}</button>
+            </div>
+            {exactPending && (
+              <div className="vx-solver-activity" role="status" aria-live="polite" aria-busy="true">
+                <span className="vx-solver-activity__bar" aria-hidden="true" />
+                A real solver request is in progress. HiGHS does not stream intermediate progress; results and solver certificates appear only after the response is validated.
+              </div>
+            )}
+            {(jointPending || manualPending) && (
+              <p role="status" aria-live="polite">A joint-chip Solver request is running. No progress percentage is available; the eventual result will be independently checked before presentation.</p>
+            )}
+            {(snapshot.meta.stale || selectedPlan || plannedMoves > 0) && (
+              <p className="vx-solver-blocker" role="status">
+                {snapshot.meta.stale ? 'Fresh official FPL data are required before requesting a new MILP.' :
+                 selectedPlan ? 'A saved plan is active. The exact no-chip Solver cannot overwrite its protected decisions.' :
+                 'Reset uncommitted manual transfers before running this separate exact Solver.'}
+              </p>
+            )}
+          </section>
+          <section className="panel vx-chip-trials" aria-label="Gameweek chip trial selection">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">DIAGNOSTIC PREVIEW · NO CHIP WILL BE PLAYED</span>
+              <h3>Gameweek chip trial matrix</h3>
+            </div><span className="badge badge--mint">WC · FH · BB · TC</span></div>
+            <p>Select one chip and Gameweek to inspect its existing modeled diagnostic gain. This does not constrain the joint MILP, certify chip availability or create a saved plan.</p>
+            <div className="table-wrap"><table className="vx-chip-trial-table">
+              <thead><tr><th>GW</th>{(['wildcard', 'freehit', 'bboost', '3xc'] as const).map(chip =>
+                <th key={chip}>{CHIP_META[chip].badge}</th>)}</tr></thead>
+              <tbody>{reviewSim.chipMatrixByGw.filter(row => reviewSim.gws.includes(row.gw)).map(row => (
+                <tr key={row.gw}>
+                  <th scope="row">GW{row.gw}</th>
+                  {(['wildcard', 'freehit', 'bboost', '3xc'] as const).map(chip => {
+                    const value = chip === 'wildcard' ? row.wildcardGain
+                      : chip === 'freehit' ? row.freehitGain
+                      : chip === 'bboost' ? row.bboostGain : row.tripleCapGain;
+                    const selected = selectedChipPreview === chip && trialChipGw === row.gw;
+                    const available = reviewSim.chipSimulations.find(item => item.chip === chip)?.available ?? false;
+                    return <td key={chip}><button type="button"
+                      aria-label={`Trial ${CHIP_META[chip].label} GW${row.gw}: ${value >= 0 ? '+' : ''}${value.toFixed(2)} diagnostic xPts`}
+                      aria-pressed={selected}
+                      className={classNames('vx-chip-trial', selected && 'is-active')}
+                      onClick={() => { setSelectedChipPreview(chip); setTrialChipGw(row.gw); }}>
+                      {value >= 0 ? '+' : ''}{value.toFixed(2)}
+                      {!available && <small>Inventory N/A</small>}
+                    </button></td>;
+                  })}
+                </tr>
+              ))}</tbody>
+            </table></div>
+            {trialChipGw !== null && (() => {
+              const row = reviewSim.chipMatrixByGw.find(item => item.gw === trialChipGw);
+              const rawGain = row && (selectedChipPreview === 'wildcard' ? row.wildcardGain :
+                selectedChipPreview === 'freehit' ? row.freehitGain :
+                selectedChipPreview === 'bboost' ? row.bboostGain : row.tripleCapGain);
+              return <p role="status" className="vx-chip-trial-result">
+                {row && rawGain !== undefined ? `${CHIP_META[selectedChipPreview].label} GW${trialChipGw} · ${rawGain >= 0 ? '+' : ''}${rawGain.toFixed(2)} modeled diagnostic xPts (NOT a full-path net gain or chip recommendation).` : 'Selected trial is unavailable in this forecast horizon.'}
+              </p>;
+            })()}
+          </section>
+
           <section className="panel" aria-label="Joint chip schedule">
             <div className="panel__header"><div><span className="panel__eyebrow">TRANSFER + CHIP PLAN</span><h3>{reviewSim.strategy.schedule.length ? reviewSim.strategy.schedule.map(use => `${({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[use.chip]} GW${use.gw}`).join(' · ') : 'Keep chips available and re-evaluate before the deadline'}</h3></div><span className="badge badge--mint">{reviewSim.strategy.expectedPoints.toFixed(1)} model xPts</span></div>
             <p>GW{reviewSim.strategy.horizon[0]}–GW{reviewSim.strategy.horizon.at(-1)} · {reviewSim.strategy.gain >= 0 ? '+' : ''}{reviewSim.strategy.gain.toFixed(1)} undiscounted xPts versus the no-chip transfer path. Weeks below show legal budgets, hits and Free Hit restoration. This is an approximate plan; rank gains are not guaranteed.</p>
@@ -958,7 +1050,7 @@ export function SquadBuilder({
               </div>
               :<p role="status">No independently validated feasible result. The original Planner and saved plans remain unchanged.</p>)}
           </section>}
-          <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
+          <section id="solver-transfer-paths" className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
               <h3>Exact-formulation transfer comparison — no chips</h3>
@@ -1057,7 +1149,7 @@ export function SquadBuilder({
           </section>
 
           {/* FPLReview-style GW × Chip Expected Value Matrix */}
-          <section className="panel" aria-label="Gameweek by chip EV matrix">
+          {solverMathVisible && <section className="panel" aria-label="Gameweek by chip EV matrix">
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">CHIP HORIZON EV MATRIX</span>
@@ -1118,7 +1210,7 @@ export function SquadBuilder({
                 </tbody>
               </table>
             </div>
-          </section>
+          </section>}
 
           {/* Optimal Chip Squad Preview + Multi-GW Rollout */}
           <div className="method-grid">
