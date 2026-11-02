@@ -6,7 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './fpl.ts';
 import { createImageDownloadRouter } from './imageDownloads.ts';
-import { isNumericId, UpstreamHttpError } from './http.ts';
+import { fetchFplJson, isNumericId, UpstreamHttpError } from './http.ts';
+import { normalizePlayerMatchHistory } from '../src/lib/playerHistory.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import { marketCoverage } from '../src/lib/marketCoverage.ts';
 import { buildPublicDataHealth } from '../src/lib/publicDataHealth.ts';
@@ -195,6 +196,25 @@ app.get(
     const entry = await getEntry(id, { force, gameweek: gwParam });
     res.set('Cache-Control', force ? 'no-store' : 'public, max-age=30');
     res.json(entry);
+  }),
+);
+
+// Public FPL history for the dedicated Players H2H range comparison.
+app.get(
+  '/api/vortex/player-history/:id',
+  rateLimit(30, 60_000),
+  asyncRoute(async (req,res)=>{
+    const id=String(req.params.id??'');
+    if(!isNumericId(id)){res.status(400).json({error:'Invalid FPL player ID'});return;}
+    const playerId=Number(id);
+    const snapshot=await getSnapshotFast();
+    if(!snapshot.players.some(p=>p.id===playerId)){res.status(404).json({error:'Player not found in current season'});return;}
+    const data=await fetchFplJson<unknown>('/element-summary/'+playerId+'/',{retries:1});
+    let matches;
+    try{matches=normalizePlayerMatchHistory(data,playerId);}
+    catch{throw new UpstreamHttpError('Official FPL player history is incomplete or invalid',502);}
+    res.set('Cache-Control','public,max-age=60');
+    res.json({playerId,source:'official-fpl-element-summary',capturedAt:new Date().toISOString(),matches});
   }),
 );
 
