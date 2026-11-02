@@ -21,8 +21,9 @@ try {
   await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });
   await page.locator('.page--review .vx-hub-upper').waitFor({ timeout: 30000 });
 
-  // Dashboard uses an isolated offline demo manager. Never treat it as current
-  // authenticated FPL evidence or write to a real saved Transfer Lab plan.
+  // Use a public, read-only team ID for UI coverage. The same ID may resolve
+  // to live official data OR to an archived demo, depending on upstream access.
+  // Check provenance instead of assuming either source; never save a Transfer Lab plan.
   await page.goto(base + '/#/command', { waitUntil: 'domcontentloaded' });
   await page.locator('#fpl-review-team-id').fill('999999');
   await page.getByRole('button', { name: 'ENTER', exact: true }).click();
@@ -35,8 +36,16 @@ try {
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
   assert.match(await dashboard.locator('.vx-dashboard-pitch-context').innerText(), /Recorded points|Model xPts|Historical player scores unavailable/);
-  assert.match(await dashboard.locator('.vx-squad-scorebox__team').textContent() ?? '', /Practice Team/);
-  assert.match(await dashboard.locator('.vx-squad-scorebox__team').textContent() ?? '', /DEMO DATA · NOT LIVE/, 'Cached demo manager provenance must remain visible');
+  const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
+  assert.equal(entryResponse.status(), 200);
+  const entryJson = await entryResponse.json();
+  assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
+  const provenance = entryJson.provenance?.kind;
+  const badge = await dashboard.locator('.vx-squad-scorebox__team small').textContent();
+  if (provenance === 'demo') assert.match(badge ?? '', /DEMO DATA · NOT LIVE/);
+  else if (provenance === 'archived') assert.match(badge ?? '', /ARCHIVED DATA · NOT LIVE/);
+  else if (provenance !== 'official') assert.match(badge ?? '', /SOURCE UNVERIFIED · NOT LIVE/);
+  else assert.equal(badge, null, 'Verified public team must not be mislabeled as demo');
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 950 });
     const rect = await dashboard.locator('.vx-soccer-pitch').boundingBox();
