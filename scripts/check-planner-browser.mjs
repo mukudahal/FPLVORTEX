@@ -56,9 +56,11 @@ try {
     }
   }
   // Restore a clean manager-free Planner session for existing browser assertions.
+  // Navigation alone retains React state, so remount after clearing storage.
   await page.evaluate(() => localStorage.removeItem('vortex:linkedManagerId'));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   assert.equal(await page.locator('.planner-team-link').count(), 1, 'Planner must retain the team loader');
   const managerInput = page.getByRole('textbox', { name: 'FPL Team ID' });
