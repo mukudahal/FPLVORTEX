@@ -41,7 +41,8 @@ try {
   const entryJson = await entryResponse.json();
   assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
   const provenance = entryJson.provenance?.kind;
-  const badge = await dashboard.locator('.vx-squad-scorebox__team small').textContent();
+  const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
+  const badge = await badgeLocator.count() ? await badgeLocator.textContent() : null;
   if (provenance === 'demo') assert.match(badge ?? '', /DEMO DATA · NOT LIVE/);
   else if (provenance === 'archived') assert.match(badge ?? '', /ARCHIVED DATA · NOT LIVE/);
   else if (provenance !== 'official') assert.match(badge ?? '', /SOURCE UNVERIFIED · NOT LIVE/);
