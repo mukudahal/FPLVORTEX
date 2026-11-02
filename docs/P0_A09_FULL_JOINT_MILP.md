@@ -242,3 +242,53 @@ References: https://oas-official.whatthefpl.com/api/getmyteam
 (community-documented, unofficial FPL API),
 https://oas-official.whatthefpl.com/api/getme
 and https://www.premierleague.com/en/about/faq/account-security.
+
+## P0-A09 Option A — manually entered current team (new)
+
+**Manager consent without claiming official authentication.** The manager can
+now manually enter or correct all 15 current FPL player IDs, actual purchase
+and selling prices, bank, banked free transfers, each chip's availability in
+each relevant season half, and whether FH was played in GW19 (required to
+claim FH for GW20). The user must explicitly review and attest these values.
+Public historical picks are **only a convenience prefill for player IDs**:
+purchase/selling prices are intentionally blank and no chip is marked unused
+automatically. Unknown chip status is treated as unavailable, with all such
+exclusions disclosed. There is no password, FPL login, cookie or paid API.
+
+**Invariants:** `src/lib/manualJointTeam.ts` checks all 15 unique owners
+against a fresh official FPL player snapshot, two GK / five DEF / five MID /
+three FWD, max 3 per club, exact integer-tenths purchase and selling price,
+FPL's half-profit rule, bank and 0–5 free transfers, season-half eligibility,
+GW19→20 FH history, explicit acknowledgement, and GW horizon <=10 through
+GW38. Missing, stale, invalid or mutually contradictory fields fail closed.
+**This is syntactic and mathematical validation of MANAGER-ENTERED inputs;
+the actual team ownership, bank and chip availability are NOT independently
+authenticated by FPL.**
+
+`src/lib/manualJointSolverRequest.ts` uses the existing freshness-gated
+VORTEX per-Gameweek forecast plus the SAME candidate-bounded joint MILP as
+the authenticated route, but never creates a fake authenticated EntryData.
+`POST /api/vortex/solver/joint-manual` (default-off behind the existing
+`VORTEX_JOINT_SOLVER_ENABLED=1` staging flag) independently rechecks the
+manual payload and solver cash, owned IDs, prices, FPL market/club/positions,
+Gameweek and chip eligibility against a newly refreshed official public
+market before invoking bounded HiGHS and independent Python replay.
+Responses explicitly say `input_provenance=manager-entered-unverified`
+and list unknown chips. Client-side independent TS replay also verifies
+the full path. No current FPL authentication is required for this mode,
+and no official FPL mutation is attempted.
+
+The staging interface shows a dedicated, clearly labeled manual form,
+an independently checked GW-by-GW result (including WC/FH/BB/TC, budgets,
+hits, lineup, captain, MIP gap, and degraded-fallback disclosure), and
+an explicit two-step **Review → Confirm save as NEW unverified plan** flow.
+Until that final confirmation, neither FPL nor Transfer Lab state is
+changed. Save-new intentionally stores the reviewed proposed plan and
+selling basis locally; it never overwrites an existing scenario. Changing
+manual inputs, starting GW or projection cancels/discards stale results.
+
+**Release remains blocked:** The manual team is not FPL-account-authenticated.
+Pricing facts are compared only to public market + FPL arithmetic, not to
+a private manager account; chiP availability is an attestation, not
+guaranteed. Real-account staging end-to-end tests and authorization to
+merge/deploy are separate gates. Production remains unchanged.
