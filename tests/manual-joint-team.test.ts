@@ -17,8 +17,7 @@ const now=new Date('2026-11-01T17:00:00Z');
 
 function fixture(gw=9,horizon=4){
   const players:EnrichedPlayer[]=positionOrder.map((position,i)=>
-    makePlayer(i+1,{position,teamId:i%10+1,team:makeTeam(i%10+1),cost:50})
-    as EnrichedPlayer);
+    makePlayer(i+1,{position,teamId:i%10+1,team:makeTeam(i%10+1),cost:50}) as EnrichedPlayer);
   players.push(makePlayer(16,{
     position:'MID',teamId:8,team:makeTeam(8),cost:55,
   }) as EnrichedPlayer);
