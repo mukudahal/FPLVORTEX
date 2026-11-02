@@ -10,7 +10,7 @@ const player = {
   horizon5Projection: 30, modelBreakdown: {
     optaXP5Gw: 29, modelXPts: 6, expectedMinutes: 85, defcon: 0.4, fiveGwEaseScore: 12,
   },
-} as EnrichedPlayer;
+} as unknown as EnrichedPlayer;
 
 test('selected GW forecast respects real per-GW data, zeros, and missing data', () => {
   assert.equal(playerGwForecast(player, 10, 10), 6.4);
