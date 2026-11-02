@@ -1,4 +1,6 @@
 import { makeFixtureForecasts, difficultyFillStyle, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
+import { buildFixtureMatrix } from '../lib/fixtures';
+import { buildPlayerForecastContext, playerFixtureForecast, playerHorizonPoints } from '../lib/playerTableForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -35,11 +37,13 @@ interface PlayerLabProps {
 }
 
 /** A double gameweek gets a separate, individually coloured block for each match. */
-export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts }: {
+export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts, player, pointsForFixture }: {
   cell: FixtureCell;
   teamId: number;
   teamById: ReadonlyMap<number, FplTeam>;
   forecasts: ReadonlyMap<string, FixtureForecast[]>;
+  player?: EnrichedPlayer;
+  pointsForFixture?: (player:EnrichedPlayer, fixture:FixtureCell['fixtures'][number], gw:number)=>number|null;
 }) {
   if (cell.isBlank || !cell.fixtures.length) return <span className="fdr-chip fdr-chip--blank" title={`GW${cell.event}: Blank gameweek`} aria-label={`GW${cell.event}: Blank gameweek`}><strong>—</strong><small>BLANK</small></span>;
   return <>{cell.fixtures.map(fixture => {
@@ -49,7 +53,12 @@ export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts }: {
     const label = opponent?.shortName ?? `T${opponentId}`;
     const forecast = (forecasts.get(`${teamId}:${cell.event}`) ?? []).find(item => item.fixture.id === fixture.id);
     const style = forecast ? difficultyFillStyle(overallDifficulty(forecast)) : undefined;
-    return <span key={fixture.id} className="fdr-chip" style={style} title={`GW${cell.event}: ${opponent?.name ?? label} (${home ? 'H' : 'A'})`} aria-label={`GW${cell.event}: ${opponent?.name ?? label}, ${home ? 'home' : 'away'}`}><strong>{label}</strong><small>({home ? 'H' : 'A'})</small></span>;
+    const xp = player && pointsForFixture ? pointsForFixture(player, fixture, cell.event) : null;
+    return <span key={fixture.id} className="fdr-chip" style={style}
+      title={`GW${cell.event}: ${opponent?.name ?? label} (${home ? 'H' : 'A'}), ${xp===null ? 'xPts unavailable' : xp.toFixed(2)+' mechanistic model xPts'}`}
+      aria-label={`GW${cell.event}: ${label} ${home ? 'home' : 'away'}, ${xp===null ? 'xPts unavailable' : xp.toFixed(1)+' expected points'}`}>
+      <strong>{label}</strong><small>{home ? 'H' : 'A'}-{xp === null ? '—' : xp.toFixed(1)}</small><em>GW{cell.event}</em>
+    </span>;
   })}</>;
 }
 
@@ -73,8 +82,10 @@ function scoreTone(value: number): string {
   return 'is-low';
 }
 
-function exportCsv(players: EnrichedPlayer[], gw: number, nextGw: number): void {
-  const csv = playerPredictionsCsv(players, gw, nextGw);
+function exportCsv(players: EnrichedPlayer[], gw: number, nextGw: number,
+  gwPoints:(p:EnrichedPlayer,gw:number)=>number|null,
+  fivePoints:(p:EnrichedPlayer)=>number|null): void {
+  const csv = playerPredictionsCsv(players, gw, nextGw, gwPoints, fivePoints);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
@@ -113,19 +124,44 @@ export function PlayerLab({
     setPage(0);
   }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize, selectedGw, forecastOnly]);
 
-  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map<string, FixtureForecast[]>(), [snapshot, fixtureRows]);
+  // Only Players gets eight fixtures: do not alter the shared Planner/Fixtures horizon.
+  const playerFixtureRows = useMemo(() => snapshot
+    ? buildFixtureMatrix(snapshot.teams, snapshot.fixtures, nextEventId, Math.min(8,39-nextEventId), [], snapshot.historicalTeamModel?.strengths)
+    : [], [snapshot, nextEventId]);
+  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', playerFixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map<string, FixtureForecast[]>(), [snapshot, playerFixtureRows]);
+  const predictionContext = useMemo(() => snapshot ? buildPlayerForecastContext(snapshot) : null, [snapshot]);
+  const predictionCache = useMemo(() => new Map<string, number | null>(), [predictionContext]);
+  const fixturePoints = (player:EnrichedPlayer, fixture:FixtureCell['fixtures'][number], gw:number):number|null => {
+    if (!predictionContext) return null;
+    const key = player.id + ':' + fixture.id + ':' + gw;
+    if (!predictionCache.has(key)) predictionCache.set(key,playerFixtureForecast(predictionContext,player,fixture,gw).points);
+    return predictionCache.get(key) ?? null;
+  };
+  const gameweekPoints = (player:EnrichedPlayer,gw:number):number|null => {
+    if (!predictionContext) return null;
+    const games = predictionContext.snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===player.teamId||f.teamA===player.teamId));
+    if (!games.length || new Set(games.map(f=>f.id)).size!==games.length) return null;
+    let total=0;
+    for (const fixture of games) {
+      const xp=fixturePoints(player,fixture,gw);
+      if (xp===null)return null;
+      total+=xp;
+    }
+    return Math.round(total*100)/100;
+  };
+  const horizonPoints=(player:EnrichedPlayer)=>predictionContext?playerHorizonPoints(predictionContext,player,nextEventId,5):null;
 
   const teamById = useMemo(() => new Map(teams.map(team => [team.id, team])), [teams]);
 
   const fixtureByTeam = useMemo(
-    () => new Map(fixtureRows.map((row) => [row.team.id, row])),
-    [fixtureRows],
+    () => new Map(playerFixtureRows.map((row) => [row.team.id, row])),
+    [playerFixtureRows],
   );
 
-  const vortexFiveGwAvg = useMemo(() => new Map(fixtureRows.map(row => {
+  const vortexFiveGwAvg = useMemo(() => new Map(playerFixtureRows.map(row => {
     const items = row.cells.slice(0, 5).flatMap(cell => sharedFixtureForecasts.get(`${row.team.id}:${cell.event}`) ?? []);
     return [row.team.id, items.length ? items.reduce((sum, item) => sum + overallDifficulty(item), 0) / items.length : null] as const;
-  })), [fixtureRows, sharedFixtureForecasts]);
+  })), [playerFixtureRows, sharedFixtureForecasts]);
 
   const toggleSort = (key: SortKey) => {
     if (sort === key) {
@@ -143,7 +179,7 @@ export function PlayerLab({
       if (teamId !== 'ALL' && player.teamId !== teamId) return false;
       if (player.price > maxPrice + 0.001) return false;
       if (differentialsOnly && player.ownership >= 15) return false;
-      if (forecastOnly && playerGwForecast(player, selectedGw, nextEventId) === null) return false;
+      if (forecastOnly && gameweekPoints(player, selectedGw) === null) return false;
       if (!needle) return true;
       return (
         player.name.toLowerCase().includes(needle) ||
@@ -189,15 +225,15 @@ export function PlayerLab({
           cmp = a.modelBreakdown.optaXP5Gw - b.modelBreakdown.optaXP5Gw;
           break;
         case 'horizon5Projection':
-          cmp = a.horizon5Projection - b.horizon5Projection;
+          cmp = (horizonPoints(a) ?? -1) - (horizonPoints(b) ?? -1);
           break;
         case 'projection':
         default:
-          cmp = (playerGwForecast(a, selectedGw, nextEventId) ?? -1) - (playerGwForecast(b, selectedGw, nextEventId) ?? -1);
+          cmp = (gameweekPoints(a, selectedGw) ?? -1) - (gameweekPoints(b, selectedGw) ?? -1);
           break;
       }
       if (cmp !== 0) return cmp * dir;
-      return (playerGwForecast(b, selectedGw, nextEventId) ?? -1) - (playerGwForecast(a, selectedGw, nextEventId) ?? -1) || a.id - b.id;
+      return (gameweekPoints(b, selectedGw) ?? -1) - (gameweekPoints(a, selectedGw) ?? -1) || a.id - b.id;
     });
     return result;
   }, [deferredQuery, differentialsOnly, forecastOnly, maxPrice, nextEventId, players, position, selectedGw, sort, sortDir, teamId, vortexFiveGwAvg]);
@@ -249,7 +285,7 @@ export function PlayerLab({
               type="button"
               className="button button--subtle"
               onClick={() => {
-                exportCsv(filtered, selectedGw, nextEventId);
+                exportCsv(filtered, selectedGw, nextEventId, gameweekPoints, horizonPoints);
                 onToast(`Exported ${filtered.length} players as CSV.`, 'success');
               }}
             >
@@ -318,7 +354,7 @@ export function PlayerLab({
         </div>
 
         <p role="status" className="planner-data-notice">
-          GW{selectedGw} projections are model estimates, not guaranteed returns. Missing per-GW forecasts show N/A and are not replaced with next-GW figures. Selected-by percentage is not effective ownership.
+          GW{selectedGw} uses the existing per-fixture VORTEX mechanistic model. Official status and a fresh FPL snapshot are required; — indicates suppressed, stale, missing or blank, not a 0-point prediction. Return dates require confirmation. Selected-by is not EO.
         </p>
       </section>
 
@@ -361,8 +397,8 @@ export function PlayerLab({
                   </div>
                 </div>
                 <div className="compare-card__metrics">
-                  <div><span>GW{selectedGw} xPts</span><strong>{playerGwForecast(p, selectedGw, nextEventId)?.toFixed(2) ?? 'N/A'}</strong></div>
-                  <div><span>5-GW xPts</span><strong>{p.horizon5Projection.toFixed(2)}</strong></div>
+                  <div><span>GW{selectedGw} xPts</span><strong>{gameweekPoints(p, selectedGw)?.toFixed(2) ?? '—'}</strong></div>
+                  <div><span>5-GW xPts</span><strong>{horizonPoints(p)?.toFixed(2) ?? '—'}</strong></div>
                   <div><span>Legacy 5GW xP</span><strong>{p.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
                   <div><span>DEFCON xPts</span><strong>+{p.modelBreakdown.defcon.toFixed(2)}</strong></div>
                   <div><span>Attack xPts</span><strong>{p.modelBreakdown.attacking.toFixed(2)}</strong></div>
