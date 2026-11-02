@@ -1,6 +1,7 @@
 import { toRepoElement } from './analytics';
 import { buildProjectionContext, toRepoFixtures, toRepoTeams } from './fixtures';
 import { computePlayerXPts, computePositionPriors } from './repoModel/xpts';
+import { estimateMinutesDistribution } from './repoModel/minutes';
 import type { PositionPriors } from './repoModel/xpts';
 import type { SlimTeam } from './repoModel/types';
 import type { EnrichedPlayer, Fixture, Player, Snapshot } from './types';
@@ -83,4 +84,18 @@ export function playerHorizonPoints(context: PlayerForecastContext,player: Pick<
     total+=points;
   }
   return hasFixture?Math.round(total*100)/100:null;
+}
+
+/** Expected minutes from the SAME repo minutes model used by computePlayerXPts.
+ * Doubles sum a separate fixture exposure; blanks or unverified recovery return null. */
+export function playerGameweekExpectedMinutes(ctx:PlayerForecastContext, player:Pick<EnrichedPlayer,'id'|'teamId'>, gw:number):number|null {
+ const official=ctx.officialPlayers.get(player.id);
+ const games=ctx.snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===player.teamId||f.teamA===player.teamId));
+ if(!ctx.fresh||!official||official.teamId!==player.teamId||!games.length||
+    new Set(games.map(f=>f.id)).size!==games.length||
+    games.some(f=>f.finished)||gw<ctx.snapshot.meta.nextEventId)return null;
+ const av=forecastAvailability(official,gw,ctx.snapshot.meta.nextEventId);
+ if(av!=='available'&&av!=='doubtful')return null;
+ const mins=estimateMinutesDistribution(toRepoElement(official),ctx.completedEvents,gw-ctx.snapshot.meta.nextEventId);
+ return Number.isFinite(mins.expectedMinutes)?Math.round(mins.expectedMinutes*games.length*10)/10:null;
 }

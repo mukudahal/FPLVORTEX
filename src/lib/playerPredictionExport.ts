@@ -27,9 +27,10 @@ export function playerPredictionsCsv(players: EnrichedPlayer[], gw: number, next
     const fiveXp = verifiedFive ? verifiedFive(p) : p.horizon5Projection;
     return [p.id, p.code ?? '', p.name, p.team.shortName, p.position,
       p.price.toFixed(1), gwXp === null ? 'N/A' : gwXp.toFixed(2),
-      fiveXp === null ? 'N/A' : fiveXp.toFixed(2), p.modelBreakdown.optaXP5Gw.toFixed(2),
-      p.modelBreakdown.modelXPts.toFixed(2), p.modelBreakdown.expectedMinutes.toFixed(1),
-      p.modelBreakdown.defcon.toFixed(2), p.ownership.toFixed(1),
+      fiveXp === null ? 'N/A' : fiveXp.toFixed(2), gwXp===null?'N/A':p.modelBreakdown.optaXP5Gw.toFixed(2),
+      gwXp===null?'N/A':p.modelBreakdown.modelXPts.toFixed(2),
+      checkedMinutes ? (checkedMinutes(p,gw)?.toFixed(1)??'N/A') : p.modelBreakdown.expectedMinutes.toFixed(1),
+      gwXp===null?'N/A':p.modelBreakdown.defcon.toFixed(2), p.ownership.toFixed(1),
       p.modelBreakdown.fiveGwEaseScore, gwXp === null ? 'Unavailable' : 'Model forecast; uncalibrated'];
   });
   return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';

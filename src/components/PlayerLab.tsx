@@ -1,6 +1,6 @@
 import { makeFixtureForecasts, difficultyFillStyle, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
 import { buildFixtureMatrix } from '../lib/fixtures';
-import { buildPlayerForecastContext, playerFixtureForecast, playerHorizonPoints } from '../lib/playerTableForecast';
+import { buildPlayerForecastContext, playerFixtureForecast, playerHorizonPoints, playerGameweekExpectedMinutes } from '../lib/playerTableForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -84,8 +84,9 @@ function scoreTone(value: number): string {
 
 function exportCsv(players: EnrichedPlayer[], gw: number, nextGw: number,
   gwPoints:(p:EnrichedPlayer,gw:number)=>number|null,
-  fivePoints:(p:EnrichedPlayer)=>number|null): void {
-  const csv = playerPredictionsCsv(players, gw, nextGw, gwPoints, fivePoints);
+  fivePoints:(p:EnrichedPlayer)=>number|null,
+  gwMinutes:(p:EnrichedPlayer,gw:number)=>number|null): void {
+  const csv = playerPredictionsCsv(players, gw, nextGw, gwPoints, fivePoints, gwMinutes);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
@@ -150,6 +151,7 @@ export function PlayerLab({
     return Math.round(total*100)/100;
   };
   const horizonPoints=(player:EnrichedPlayer)=>predictionContext?playerHorizonPoints(predictionContext,player,nextEventId,5):null;
+  const expectedMinutes=(player:EnrichedPlayer,gw:number)=>predictionContext?playerGameweekExpectedMinutes(predictionContext,player,gw):null;
 
   const teamById = useMemo(() => new Map(teams.map(team => [team.id, team])), [teams]);
 
@@ -280,7 +282,7 @@ export function PlayerLab({
               type="button"
               className="button button--subtle"
               onClick={() => {
-                exportCsv(filtered, selectedGw, nextEventId, gameweekPoints, horizonPoints);
+                exportCsv(filtered, selectedGw, nextEventId, gameweekPoints, horizonPoints, expectedMinutes);
                 onToast(`Exported ${filtered.length} players as CSV.`, 'success');
               }}
             >
@@ -378,8 +380,8 @@ export function PlayerLab({
               {text:p.name+' · '+formatPrice(p.price)+' · '+p.position+' #'+p.id+' '+p.team.shortName},
               {text:gameweekPoints(p,selectedGw)?.toFixed(2)??'—'},
               {text:horizonPoints(p)?.toFixed(2)??'—'},
-              {text:p.modelBreakdown.expectedMinutes.toFixed(0)},
-              {text:p.modelBreakdown.defcon.toFixed(2)},
+              {text:expectedMinutes(p,selectedGw)?.toFixed(0)??'—'},
+              {text:gameweekPoints(p,selectedGw)===null?'—':p.modelBreakdown.defcon.toFixed(2)},
               {text:formatPercent(p.ownership)},
               {text:playerFixtureRows.find(row=>row.team.id===p.teamId)?.cells.map(cell=>
                 cell.isBlank?'GW'+cell.event+' BLANK':cell.fixtures.map(f=>{
@@ -412,7 +414,7 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('expectedMinutes')}>
-                    xMins <ArrowUpDown size={11} />
+                    GW{selectedGw} xMins <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -430,7 +432,7 @@ export function PlayerLab({
                     Next 8 Fixtures · FDR + xPts <ArrowUpDown size={11} />
                   </button>
                 </th>
-                <th>GW7–16 Trend</th>
+                <th>GW{nextEventId}–{Math.min(38,nextEventId+7)} Model Trend</th>
                 <th>H2H</th>
               </tr>
             </thead>
@@ -489,15 +491,20 @@ export function PlayerLab({
                         : <strong className={`score-pill ${scoreTone(xp)}`}>{xp.toFixed(2)}</strong>;
                     })()}</td>
                     <td className="mono-num"><strong>{horizonPoints(player)?.toFixed(2) ?? '—'}</strong></td>
-                    <td className="mono-num">{player.modelBreakdown.expectedMinutes.toFixed(0)}′</td>
-                    <td className="mono-num">+{player.modelBreakdown.defcon.toFixed(2)}</td>
+                    <td className="mono-num">{expectedMinutes(player,selectedGw)?.toFixed(0) ?? '—'}′</td>
+                    <td className="mono-num">{gameweekPoints(player,selectedGw)===null?'—':'+'+player.modelBreakdown.defcon.toFixed(2)}</td>
                     <td className="mono-num">{formatPercent(player.ownership)}</td>
                     <td>
                       <div className="fixture-inline">
                         {(row?.cells.slice(0, 8) ?? []).map(cell => <PlayerFixtureBlocks key={cell.event} cell={cell} teamId={player.teamId} teamById={teamById} forecasts={sharedFixtureForecasts} player={player} pointsForFixture={fixturePoints} />)}
                       </div>
                     </td>
-                    <td><Sparkline values={player.sparkline} width={76} height={22} /></td>
+                    <td>{(() => {
+                      const values=Array.from({length:Math.min(8,39-nextEventId)},(_,i)=>gameweekPoints(player,nextEventId+i));
+                      return values.length>0&&values.every((v):v is number=>v!==null)
+                        ? <Sparkline values={values} width={76} height={22}/>
+                        : <span title="Complete, availability-checked trend unavailable">—</span>;
+                    })()}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
