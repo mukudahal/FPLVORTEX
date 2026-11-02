@@ -193,11 +193,11 @@ export function PlayerLab({
           break;
         case 'projection':
         default:
-          cmp = (playerGwForecast(a, selectedGw, nextEventId) ?? -Infinity) - (playerGwForecast(b, selectedGw, nextEventId) ?? -Infinity);
+          cmp = (playerGwForecast(a, selectedGw, nextEventId) ?? -1) - (playerGwForecast(b, selectedGw, nextEventId) ?? -1);
           break;
       }
       if (cmp !== 0) return cmp * dir;
-      return (playerGwForecast(b, selectedGw, nextEventId) ?? -Infinity) - (playerGwForecast(a, selectedGw, nextEventId) ?? -Infinity);
+      return (playerGwForecast(b, selectedGw, nextEventId) ?? -1) - (playerGwForecast(a, selectedGw, nextEventId) ?? -1) || a.id - b.id;
     });
     return result;
   }, [deferredQuery, differentialsOnly, forecastOnly, maxPrice, nextEventId, players, position, selectedGw, sort, sortDir, teamId, vortexFiveGwAvg]);

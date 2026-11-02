@@ -12,7 +12,7 @@ export function playerGwForecast(player: Pick<EnrichedPlayer, 'projection' | 'gw
 function csvCell(value: unknown): string {
   const str = String(value ?? '');
   // Leading spreadsheet-formula characters must not become executable formulas.
-  const safe = /^[\\t\\r\\n ]*[=+@-]/.test(str) ? "'" + str : str;
+  const safe = /^[\t\r\n ]*[=+@-]/.test(str) ? "'" + str : str;
   return '"' + safe.replaceAll('"', '""') + '"';
 }
 
@@ -29,5 +29,5 @@ export function playerPredictionsCsv(players: EnrichedPlayer[], gw: number, next
       p.modelBreakdown.defcon.toFixed(2), p.ownership.toFixed(1),
       p.modelBreakdown.fiveGwEaseScore, gwXp === null ? 'Unavailable' : 'Model forecast; uncalibrated'];
   });
-  return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\\r\\n') + '\\r\\n';
+  return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }

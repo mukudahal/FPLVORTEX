@@ -28,8 +28,8 @@ test('CSV uses selected GW, correct ownership provenance, and formula-safe quoti
   assert.match(csv, /Selected_By_Pct_NOT_EO/);
   assert.match(csv, /7.22/);
   assert.ok(csv.includes('"\'=HYPERLINK(""https://invalid.example"",""X"")"'));
-  assert.equal(csv.split('\\r\\n').filter(Boolean).length, 2);
+  assert.equal(csv.split('\r\n').filter(Boolean).length, 2);
   const unavailable = playerPredictionsCsv([player], 13, 10);
-  assert.match(unavailable, /"N\\/A"/);
+  assert.ok(unavailable.includes('"N/A"'));
   assert.match(unavailable, /"Unavailable"/);
 });
