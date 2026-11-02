@@ -411,7 +411,27 @@ export function PlayerLab({
       )}
 
       <section className="panel table-panel" aria-label="Player Predictions">
-        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `PLAYER LAB · PAGE ${currentPage + 1}`, headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'SELECTED%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: visiblePlayers.map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: playerGwForecast(player, selectedGw, nextEventId)?.toFixed(2) ?? 'N/A' }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
+        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${selectedGw}.png`}
+          onError={message=>onToast(message,'error')}
+          getTables={()=>[{title:`PLAYERS GW${selectedGw} · VORTEX MECHANISTIC MODEL`,
+            headers:['PLAYER / PRICE / CLUB','GW xPts','5GW xPts','xMINS','DEFCON','SELECTED%','NEXT 8 FIXTURES'],
+            widths:[205,90,90,75,80,85,560],
+            rows:visiblePlayers.map(p=>[
+              {text:p.name+' · '+formatPrice(p.price)+' · '+p.position+' #'+p.id+' '+p.team.shortName},
+              {text:gameweekPoints(p,selectedGw)?.toFixed(2)??'—'},
+              {text:horizonPoints(p)?.toFixed(2)??'—'},
+              {text:p.modelBreakdown.expectedMinutes.toFixed(0)},
+              {text:p.modelBreakdown.defcon.toFixed(2)},
+              {text:formatPercent(p.ownership)},
+              {text:playerFixtureRows.find(row=>row.team.id===p.teamId)?.cells.map(cell=>
+                cell.isBlank?'GW'+cell.event+' BLANK':cell.fixtures.map(f=>{
+                  const home=f.teamH===p.teamId;
+                  const opponent=teamById.get(home?f.teamA:f.teamH)?.shortName??'TBC';
+                  const xp=fixturePoints(p,f,cell.event);
+                  return 'GW'+cell.event+' '+opponent+' '+(home?'H':'A')+'-'+(xp===null?'—':xp.toFixed(1));
+                }).join(' · ')
+              ).join('\n')??'—'}
+            ]) }]} /></div>
         <p className="table-swipe-hint">Swipe left or right to see all columns ↔</p>
         <div className="table-wrap player-table-scroll" role="region" aria-label="Player results, scroll sideways to see all columns" tabIndex={0}>
           <table className="player-table">
@@ -422,12 +442,6 @@ export function PlayerLab({
                     Player <ArrowUpDown size={11} />
                   </button>
                 </th>
-                <th><button type="button" className="sortable-th" onClick={() => toggleSort('club')}>Club <ArrowUpDown size={11} /></button></th>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => toggleSort('price')}>
-                    Price <ArrowUpDown size={11} />
-                  </button>
-                </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('projection')}>
                     GW{selectedGw} xPts <ArrowUpDown size={11} />
@@ -436,11 +450,6 @@ export function PlayerLab({
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('horizon5Projection')}>
                     5-GW xPts <ArrowUpDown size={11} />
-                  </button>
-                </th>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => toggleSort('optaXP5Gw')}>
-                    Legacy xP <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -460,7 +469,7 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('easeSum5')}>
-                    Next 5 Fixtures (VORTEX FDR) <ArrowUpDown size={11} />
+                    Next 8 Fixtures · FDR + xPts <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>GW7–16 Trend</th>
@@ -511,30 +520,23 @@ export function PlayerLab({
                               );
                             })()}
                           </div>
-                          <small>{player.position} · #{player.id}</small>
+                          <span className="vx-players-identity-price">{formatPrice(player.price)}</span>
+                          <small className="vx-players-identity-meta">{player.position} · #{player.id} <ClubBadge teamCode={player.team.code} shortName={player.team.shortName} teamName={player.team.name} size="sm" /></small>
                         </div>
                       </div>
                     </td>
-                    <td>
-                      <span className="inline-player-tag">
-                        <ClubBadge teamCode={player.team.code} shortName={player.team.shortName} teamName={player.team.name} size="sm" />
-                        {player.team.shortName}
-                      </span>
-                    </td>
-                    <td className="mono-num">{formatPrice(player.price)}</td>
                     <td>{(() => {
-                      const xp = playerGwForecast(player, selectedGw, nextEventId);
-                      return xp === null ? <span title="Selected Gameweek forecast unavailable">N/A</span>
+                      const xp = gameweekPoints(player, selectedGw);
+                      return xp === null ? <span title="xPts unavailable: blank, injury, recovery unknown or stale data">—</span>
                         : <strong className={`score-pill ${scoreTone(xp)}`}>{xp.toFixed(2)}</strong>;
                     })()}</td>
-                    <td className="mono-num"><strong>{player.horizon5Projection.toFixed(2)}</strong></td>
-                    <td className="mono-num">{player.modelBreakdown.optaXP5Gw.toFixed(2)}</td>
+                    <td className="mono-num"><strong>{horizonPoints(player)?.toFixed(2) ?? '—'}</strong></td>
                     <td className="mono-num">{player.modelBreakdown.expectedMinutes.toFixed(0)}′</td>
                     <td className="mono-num">+{player.modelBreakdown.defcon.toFixed(2)}</td>
                     <td className="mono-num">{formatPercent(player.ownership)}</td>
                     <td>
                       <div className="fixture-inline">
-                        {(row?.cells.slice(0, 5) ?? []).map(cell => <PlayerFixtureBlocks key={cell.event} cell={cell} teamId={player.teamId} teamById={teamById} forecasts={sharedFixtureForecasts} />)}
+                        {(row?.cells.slice(0, 8) ?? []).map(cell => <PlayerFixtureBlocks key={cell.event} cell={cell} teamId={player.teamId} teamById={teamById} forecasts={sharedFixtureForecasts} player={player} pointsForFixture={fixturePoints} />)}
                       </div>
                     </td>
                     <td><Sparkline values={player.sparkline} width={76} height={22} /></td>
