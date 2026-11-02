@@ -50,6 +50,10 @@ try {
   const joint = page.getByRole('region', { name: 'Verified joint transfer and chip MILP' });
   await joint.waitFor({ timeout: 120000 });
   const compare = joint.getByRole('button', { name: 'Compare verified joint chip strategies' });
+  // The chip simulation re-renders the stage panel while its worker finishes.
+  // Wait for the real control rather than asserting on a transient DOM frame.
+  // This still fails closed if the control never appears.
+  await compare.waitFor({ state: 'visible', timeout: 120000 });
   assert.equal(await compare.count(), 1, 'Opt-in joint comparison control must be visible in staging');
   assert.equal(await joint.getByRole('button', {name:/Verify my current FPL team/}).count(), 1,
     'Read-only private current-team connection control must be explicit in staging.');
