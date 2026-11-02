@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export const ROUTES = ['command', 'review', 'optimizer', 'players', 'fixtures', 'league', 'method'] as const;
+export const ROUTES = ['command', 'optimizer', 'review', 'players', 'fixtures', 'league', 'method'] as const;
 export type RouteId = (typeof ROUTES)[number];
 
+// Old review bookmarks remain valid even though Review is no longer a navigation tab.
+export function resolveHashRoute(value: string): RouteId {
+  const hash = value.replace(/^#\/?/, '').split('?')[0];
+  return (ROUTES as readonly string[]).includes(hash) ? (hash as RouteId) : 'command';
+}
+
 function routeFromHash(): RouteId {
-  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-  return (ROUTES as readonly string[]).includes(hash) ? (hash as RouteId) : 'optimizer';
+  return resolveHashRoute(window.location.hash);
 }
 
 export function useHashRoute(): [RouteId, (route: RouteId) => void] {
