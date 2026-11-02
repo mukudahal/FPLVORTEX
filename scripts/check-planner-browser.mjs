@@ -77,7 +77,7 @@ try {
   const laterGw = String(firstGw + 1);
   await gwSelect.selectOption(laterGw);
   assert.match(await predictions.locator('thead').innerText(), new RegExp(`GW${laterGw} xPts`, 'i'));
-  assert.match(await predictions.locator('thead').innerText(), /Selected%/);
+  assert.match(await predictions.locator('thead').innerText(), /Selected%/i);
   await page.getByRole('checkbox', { name: /Only players with GW/ }).check();
   await page.getByRole('checkbox', { name: /Only players with GW/ }).uncheck();
   const [csvDownload] = await Promise.all([
