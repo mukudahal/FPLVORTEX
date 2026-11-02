@@ -15,7 +15,7 @@ import {
 import type { EnrichedPlayer, FixtureCell, FixtureRow, FplTeam, Position } from '../lib/types';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { importedProjectionsNotice } from '../lib/projectionFreshness';
-import { playerGwForecast, playerPredictionsCsv } from '../lib/playerPredictionExport';
+import { playerPredictionsCsv } from '../lib/playerPredictionExport';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 
 import { ClubBadge } from './ClubBadge';
