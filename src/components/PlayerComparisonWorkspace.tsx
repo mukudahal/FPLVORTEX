@@ -46,7 +46,7 @@ export function PlayerComparisonWorkspace({players,teams,snapshot}:Props) {
        if(payload.playerId!==id||payload.source!=='official-fpl-element-summary'||!Array.isArray(payload.matches))throw Error('FPL history identity or source could not be verified');
        setResponses(prev=>({...prev,[id]:{state:'ready',data:payload}}));
      })
-     .catch((error:unknown)=>setResponses(prev=>({...prev,[id]:{state:'error',error:error instanceof Error?error.message:'Unavailable'}}))
+     .catch((error:unknown)=>setResponses(prev=>({...prev,[id]:{state:'error',error:error instanceof Error?error.message:'Unavailable'}})))
      .finally(()=>pending.current.delete(id));
   }
  },[ids,byId,responses]);
