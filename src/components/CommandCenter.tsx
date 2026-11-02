@@ -979,8 +979,12 @@ export function CommandCenter({
               </button>
               <div className="vx-squad-scorebox__team" title={entry?.teamName || 'Load any official FPL manager ID'}>
                 <strong>{entryLoading ? 'LOADING SQUAD…' : entry?.teamName || 'YOUR SQUAD'}</strong>
-                {entry && entry.provenance?.kind !== 'official' && (entry.source === 'snapshot' || entry.source === 'offline') && (
-                  <small>ARCHIVED / DEMO DATA · NOT LIVE</small>
+                {entry && entry.provenance?.kind !== 'official' && (
+                  <small>{entry.provenance?.kind === 'demo'
+                    ? 'DEMO DATA · NOT LIVE'
+                    : entry.provenance?.kind === 'archived'
+                      ? 'ARCHIVED DATA · NOT LIVE'
+                      : 'SOURCE UNVERIFIED · NOT LIVE'}</small>
                 )}
               </div>
               {managerTotalPoints !== null && (

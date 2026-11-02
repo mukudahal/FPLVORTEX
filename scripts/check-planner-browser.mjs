@@ -35,7 +35,8 @@ try {
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
   assert.match(await dashboard.locator('.vx-dashboard-pitch-context').innerText(), /Recorded points|Model xPts|Historical player scores unavailable/);
-  assert.match(await dashboard.locator('.vx-squad-scorebox__team').innerText(), /ARCHIVED|DEMO DATA|YOUR SQUAD|LOADING SQUAD/i);
+  assert.match(await dashboard.locator('.vx-squad-scorebox__team').textContent() ?? '', /Practice Team/);
+  assert.match(await dashboard.locator('.vx-squad-scorebox__team').textContent() ?? '', /DEMO DATA · NOT LIVE/, 'Cached demo manager provenance must remain visible');
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 950 });
     const rect = await dashboard.locator('.vx-soccer-pitch').boundingBox();
