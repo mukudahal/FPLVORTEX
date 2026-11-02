@@ -106,6 +106,58 @@ try {
     page.getByRole('button', { name: new RegExp(`Export GW${laterGw} CSV`) }).click(),
   ]);
   assert.ok(csvDownload.suggestedFilename().endsWith(`-gw${laterGw}.csv`));
+  // H2H opens a new browser page; original Players selections and route must remain intact.
+  const gwLast = 9;
+  await page.context().route('**/api/vortex/player-history/*', async route => {
+    const id = Number(route.request().url().split('/').at(-1));
+    await route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ playerId: id, source:'official-fpl-element-summary', capturedAt:new Date().toISOString(),
+        matches:[{fixtureId:id+1,gw:gwLast,starts:1,minutes:90,totalPoints:7,goals:1,assists:0,cleanSheets:0,xG:.4,xA:.1}] }) });
+  });
+  const oldPlayerUrl = page.url();
+  const [h2h] = await Promise.all([
+    page.context().waitForEvent('page', { timeout:30000 }),
+    page.getByRole('button', { name:/Open H2H Player Comparison/ }).click(),
+  ]);
+  await h2h.locator('.vx-h2h-workspace').waitFor({ timeout:30000 });
+  assert.equal(page.url(),oldPlayerUrl,'Opening H2H must preserve the original Players page');
+  for(let i=0;i<5;i++) {
+    await h2h.locator('.vx-h2h-search-results button:not([disabled])').first().click();
+  }
+  const cards=h2h.locator('.vx-h2h-player-card');
+  assert.equal(await cards.count(),5,'Five selected players must all render');
+  const fiveNames=await cards.locator('h3').allTextContents();
+  assert.equal(new Set(fiveNames).size,5,'Duplicate comparison players not permitted');
+  const compareUrl=h2h.url();
+  assert.match(compareUrl,/#\/compare\?ids=/);
+  const posSelect=h2h.locator('.vx-h2h-selector select').first();
+  await posSelect.selectOption('DEF');
+  assert.equal(await cards.count(),5,'Search filters must not remove pinned players');
+  await h2h.locator('.vx-h2h-selection-list li').nth(4).locator('button').first().click();
+  const afterMove=await cards.locator('h3').allTextContents();
+  assert.equal(afterMove[3],fiveNames[4],'Move-up should reorder the fifth selected player');
+  await h2h.locator('.vx-h2h-selection-list li').first().locator('button').last().click();
+  assert.equal(await cards.count(),4,'Remove must remove only selected player');
+  await h2h.goto(compareUrl,{waitUntil:'domcontentloaded'});
+  await cards.first().waitFor({timeout:30000});
+  assert.equal(await cards.count(),5,'Direct new-tab comparison route must restore all five IDs');
+  const minutesCheckbox=h2h.getByRole('checkbox',{name:'Minutes'});
+  await minutesCheckbox.uncheck();
+  assert.ok(!(await cards.first().innerText()).includes('Minutes'));
+  await minutesCheckbox.check();
+  const startRange=h2h.locator('.vx-h2h-range select').first();
+  if ((await startRange.locator('option').count())>1) {
+    await startRange.selectOption('1');
+    assert.match(await h2h.locator('.vx-h2h-header').innerText(),/GW1/);
+  }
+  await h2h.setViewportSize({width:390,height:850});
+  const compRect=await h2h.locator('.vx-h2h-cards').boundingBox();
+  assert.ok(compRect && compRect.x>=-2 && compRect.x+compRect.width<=392,'Mobile comparison must scroll inside viewport');
+  await h2h.screenshot({path:'test-results/planner/h2h-five-mobile.png',fullPage:true});
+  await h2h.setViewportSize({width:1440,height:900});
+  await h2h.screenshot({path:'test-results/planner/h2h-five-desktop.png',fullPage:true});
+  await h2h.close();
+  await page.context().unroute('**/api/vortex/player-history/*');
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
