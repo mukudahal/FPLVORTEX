@@ -18,7 +18,8 @@ function csvCell(value: unknown): string {
 
 export function playerPredictionsCsv(players: EnrichedPlayer[], gw: number, nextGw: number,
   verifiedGw?: (p:EnrichedPlayer,gw:number)=>number|null,
-  verifiedFive?: (p:EnrichedPlayer)=>number|null): string {
+  verifiedFive?: (p:EnrichedPlayer)=>number|null,
+  checkedMinutes?: (p:EnrichedPlayer,gw:number)=>number|null): string {
   const headers = ['FPL_ID','Code','Player','Club','Position','Price_GBPm',`GW${gw}_VORTEX_xPts`,
     '5GW_VORTEX_xPts','Legacy_5GW_xP','Model_xPts','Expected_Minutes','DEFCON_xPts',
     'Selected_By_Pct_NOT_EO','Fixture_Ease_5GW','Forecast_Status'];
