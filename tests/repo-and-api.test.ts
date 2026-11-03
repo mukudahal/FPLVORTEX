@@ -24,7 +24,8 @@ test('loads primary repository benchmark CSV (667 players) as Tier-1 data source
     await readFile(path.resolve(process.cwd(), 'public/data/fpl-snapshot.json'), 'utf8'),
   ) as Snapshot;
   const enrichedSnapshot = await enrichSnapshotWithRepoData(rawSnapshot);
-  assert.equal(enrichedSnapshot.players.length, 667);
+  assert.equal(enrichedSnapshot.players.length, rawSnapshot.players.length);
+  assert.deepEqual(enrichedSnapshot.players.map(p=>p.id),rawSnapshot.players.map(p=>p.id));
   assert.equal(enrichedSnapshot.meta.exampleEntryId, null);
   assert.equal(enrichedSnapshot.meta.repoData?.benchmarkPlayers, 667);
   assert.equal(enrichedSnapshot.meta.repoData?.projectionFileDate, '2026-10-15');
@@ -89,12 +90,13 @@ test('loads @FPLVORTEX channel briefings from site/ui/videos.json', async () => 
 test('keeps manager Team ID secret by default and serves offline demo entry & classic league 314 cleanly', async () => {
   const health = await getHealth();
   assert.equal(health.ok, true);
-  assert.equal(health.players, 667);
+  const official = JSON.parse(await readFile('public/data/fpl-snapshot.json','utf8')) as Snapshot;
+  assert.equal(health.players, official.players.length);
   assert.equal(health.fixtures, 380);
   assert.equal(health.defaultEntryId, null);
 
   const snapshot = await getSnapshot();
-  assert.equal(snapshot.players.length, 667);
+  assert.equal(snapshot.players.length, official.players.length);
   assert.equal(snapshot.meta.exampleEntryId, null);
   assert.ok(snapshot.meta.repoData);
 
@@ -179,4 +181,23 @@ test('preserves brand-kit font, tokens, repo assets, and default dark theme conf
   const tokensIdx = mainTsx.indexOf('../brand-kit/design-tokens.css');
   const stylesIdx = mainTsx.indexOf('./styles.css');
   assert.ok(tokensIdx !== -1 && stylesIdx !== -1 && tokensIdx < stylesIdx);
+});
+
+
+
+test('dated CSV never removes a newly registered official player or supplies official identity/price',async()=>{
+ const raw=JSON.parse(await readFile('public/data/fpl-snapshot.json','utf8')) as Snapshot;
+ const registered={...raw.players[0],id:9999999,name:'Synthetic newly registered player'};
+ raw.players.push(registered);
+ const known=raw.players.find(p=>p.id===411)!;
+ // Invalid/missing official fields must stay invalid, not be replaced with old CSV observations.
+ known.price=0;known.cost=0;known.teamId=0;
+ for(const source of ['live','snapshot','cache','offline'] as const){
+  const result=await enrichSnapshotWithRepoData({...raw,meta:{...raw.meta,source}});
+  assert.deepEqual(result.players.map(p=>p.id),raw.players.map(p=>p.id));
+  const fresh=result.players.find(p=>p.id===registered.id)!;
+  assert.equal(fresh.name,registered.name);assert.equal(fresh.repoBenchmarkXpts,undefined);
+  const preserved=result.players.find(p=>p.id===411)!;
+  assert.equal(preserved.price,0);assert.equal(preserved.cost,0);assert.equal(preserved.teamId,0);
+ }
 });

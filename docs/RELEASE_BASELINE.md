@@ -1,7 +1,7 @@
 # Canonical FPL VORTEX release baseline
 
 Updated 2026-11-03. Canonical released source is `main` in `mukudahal/FPLVORTEX`.
-The integration branch is `release/minimal-reliable-20261103`, based on `a42c04ef7e1d196450364026e1f989fed56be089`.
+The single integration branch is `release/minimal-reliable-20261103`, originally based on `a42c04ef7e1d196450364026e1f989fed56be089` and reconciled with current main for release follow-ups. Release #73 merged at `f3072e71d98ab8346f3e79f3bc4dc2588497de5c`; validated official-data child `fba687bfb8bc233ca1a738f983b9817511b431b8` was verified live.
 The authoritative outstanding-work register is `docs/VORTEX_V2_OUTSTANDING.md`; older roadmaps are historical design context, not completion records.
 
 ## Runtime and ownership
@@ -30,4 +30,4 @@ Successful validated official inputs are atomically written to `VORTEX_RECOVERY_
 4. Confirm Render's live commit equals the merge SHA. Check health, a real official refresh, data timestamps, enabled routes, exact solver and local plan/export preservation.
 5. On a material regression, revert the release merge through a normal reviewed PR to restore the previous tested application code. Do not reset/delete plans, databases or current official recovery data. Verify the resulting Render deployment and routes. The pre-release main SHA above is the original code reference; subsequent data-only commits should be retained when feasible.
 
-No deployment is claimed by this document. Commit, CI and live verification evidence are recorded in the authoritative work register.
+Commit, CI, exact Render deployment and live verification evidence are maintained in the authoritative work register. Browser tests use the exact locked Playwright development dependency; do not run an unpinned npm install before the build, because that can change production dependencies and invalidate artifact matching.

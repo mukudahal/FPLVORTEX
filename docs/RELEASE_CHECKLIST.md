@@ -9,10 +9,10 @@ Canonical source/baseline/rollback: `RELEASE_BASELINE.md`. Work status and evide
 - [x] Five GitHub jobs green on 3c3eff6: unit/build, Python, browser/worker/PNG/CSV, Next candidate, Docker/Express HiGHS. Final commit requires its own green run.
 - [x] Dashboard/Planner/Players/H2H mobile/desktop screenshots and real PNG download evidence reviewed from artifact 13222491529. Synthetic H2H scores are test fixtures, not accuracy evidence.
 - [x] Prospective-only archive and separate settled-outcome matching are tested. Calibration remains unverified.
-- [ ] Final integrated commit: all required checks/reviews pass and GitHub normal merge permits release.
-- [ ] Render live SHA matches the merge SHA; read health and execute one actual official refresh.
+- [x] #73 final head 50d6a29: all five checks passed; normal merge f3072e7. Reproducible-test tooling follow-up still requires its own checks.
+- [x] Render confirmed release merge live, then validated official-data child fba687b live. Production official retrieval 2026-11-03T10:33:45.678Z, recovery saved.
 - [ ] Verify live enabled routes/assets, history, source/odds status, solver, local plans and actual exports against the deployed release.
-- [ ] Inspect post-release production logs (owner has now selected My Workspace). Pre-release startup logs have been reviewed.
+- [x] Inspect post-release production logs (owner has now selected My Workspace). Pre-release startup logs have been reviewed.
 
 ## Enabled / deferred contract
 

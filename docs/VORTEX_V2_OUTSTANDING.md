@@ -5,15 +5,15 @@ Canonical production is main / Vite + React + Express on existing Render. Earlie
 
 | Order | Task | Status / exact dependency |
 |---|---|---|
-| 1 | Official FPL freshness/recovery | IMPLEMENTED / TESTED: shared ingestion, atomic recovery, no false TTL failure, explicit failed refresh HTTP 503, one source-age policy and safe diagnostics. PR #73 deployment verification pending. |
+| 1 | Official FPL freshness/recovery | IMPLEMENTED / TESTED: shared ingestion, atomic recovery, no false TTL failure, explicit failed refresh HTTP 503, one source-age policy and safe diagnostics. DEPLOYED via #73 / f3072e7; refreshed data child fba687b live. Production actual refresh/recovery/history/solver passed. |
 | 2 | Reviewed PR #71 public UI | IMPLEMENTED / CI VERIFIED at 3c3eff6: Dashboard/navigation/Players/H2H only. No unfinished joint/private-account endpoints imported. |
 | 3 | Model contracts and timestamped forecast archive | IMPLEMENTED / TESTED: docs/MODEL_SPEC.md declares TS production ownership; immutable prospective archives and settled outcome matching added. First genuine GW10 archive collected on Nov 3. Calibration still BLOCKED on sufficient future forecast/outcome pairs. |
 | 4 | Bookmaker provenance/display | PARTIAL: real production coverage observed; redisplay rights must be verified by the provider/account owner. Missing/stale/partial quotes must remain disclosed, never described as complete live odds. |
 | 5 | Planner/solver acceptance | PARTIAL: merged no-chip HiGHS, price/FT safeguards and alternative-path tests. Genuine manager-entered joint chip acceptance needs authorized roster, purchase/sale values, cash, FT and chip inventory. Keep PR #71 joint/private research flags disabled in minimal release. |
 | 6 | Saved-plan Monte Carlo | PARTIAL: deterministic paired sampler and selected-plan integration exist. Arbitrary A/B workflow, cancellation/export and realistic coverage need acceptance; distributions remain provisional. |
 | 7 | Cloud saving / DATA admin (#60) | BLOCKED: no connected isolated Supabase staging project/authenticated two-user RLS evidence. No production migration; browser-local saving preserved. |
-| 8 | Enabled-route / device / actual export acceptance | CI VERIFIED at 3c3eff6: Chromium Dashboard, Players/H2H, original Planner/saved plans/simulation, real downloaded CSV and 4K PNG files. Screenshot artifact reviewed. Final integrated run pending. |
-| 9 | Final integration checks and rollout | OPEN: normal PR checks/reviews, exact Render commit, refresh timestamps, solver/plan/export smoke and logs. Owner selected My Workspace; production startup logs reviewed. Post-release logs and exact live SHA remain to verify. |
+| 8 | Enabled-route / device / actual export acceptance | CI VERIFIED at 3c3eff6: Chromium Dashboard, Players/H2H, original Planner/saved plans/simulation, real downloaded CSV and 4K PNG files. Screenshot artifact reviewed. Final PR checks passed at 50d6a29; production HTTP smoke passed. Post-deploy browser fingerprint gate exposed CI dependency drift; pinning Playwright in the lockfile. |
+| 9 | Final integration checks and rollout | DEPLOYED / VERIFYING: #73 normal merge f3072e7, Render fba687b (validated data-only child), startup logs healthy. HTTP smoke passed at 10:33:45Z; final locked-dependency browser gate and handoff remain. |
 
 ## Completed before this release (preserve)
 
@@ -37,3 +37,9 @@ PRs #55, #56–59, #61–70 are merged: 4K export; source/UX contracts; 10-GW de
 - Minimal release excludes: joint chip/manual-attestation/private-account research from #71; cloud/admin from #60; unrestricted-optimum and calibration claims; arbitrary saved Plan A/B workflow not yet accepted; framework migration. Existing released chip heuristics and paired simulations retain explicit assumption labels.
 
 - Milestone 3 pushed: `fd076860445c6768f9865a9ec09e488acab2993b`. Prospective archive/outcome and shared-age policy implemented; final release verification adds application-entry hash matching plus production HTTP/browser/download checks (unchanged worker bytes alone do not prove a new UI deployment).
+
+- Release #73 merged normally at `f3072e71d98ab8346f3e79f3bc4dc2588497de5c` after all five final CI jobs passed on `50d6a29c7f906f430dc2e2c0c07dfce461fe45bf` (run 41619767687).
+- Scheduled official refresh run 41620126310 succeeded and produced `fba687bfb8bc233ca1a738f983b9817511b431b8`, whose only parent is the release merge. Render deployed that generated-data child as live (`dep-dbkrgn6n2jqc7396233g`). Official production refresh at `2026-11-03T10:33:45.678Z`: 670 players / 380 fixtures, recovery saved, eight settled player-history rows, feasible synthetic no-chip HTTP solve. Bookmaker state unverified; redisplay rights false. Production startup logs reviewed; no material application regression observed.
+- Reproducibility repair: existing browser job installed Playwright with `--no-save`, silently upgrading lucide-react 1.61.0 to 1.67.0 before building. The improved app-entry hash gate correctly refused to call this a matching production build. Playwright is now an exact locked dev dependency; CI uses npm ci without mutating dependencies. No deployed UI/solver behavior changed by this repair.
+
+- Current-snapshot acceptance found an old 667-player test assumption and a real fallback defect: the dated CSV filtered out newly registered official players on cold/offline responses. Enrichment now preserves every official ID and never fills official identity/price from that dated file. Tests assert exact roster preservation and absent import values for unmatched players; the 667-row benchmark assertion is retained independently.

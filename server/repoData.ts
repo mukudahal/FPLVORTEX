@@ -358,35 +358,16 @@ export async function getRepoMeta(): Promise<RepoDataMeta> {
  * Preserves live/current official FPL player identity, club, position, and prices (`price`, `cost`),
  * while enriching GW7-GW16 model projections (`gwProjections`, `gwExpectedMinutes`) from
  * `3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv`.
- * When `snapshot.meta.source !== 'live'`, restricts the pool strictly to the 667 repo CSV players.
+ * Always preserve the entire official roster and identity, including players absent from the dated CSV.
  */
 export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Snapshot> {
   const [benchmarks, repoData] = await Promise.all([loadRepoBenchmarkIndex(), getRepoMeta()]);
   const targetGw = snapshot.meta.nextEventId || 9;
-  const teamIdByShort = new Map(
-    snapshot.teams.map((t) => [t.shortName.trim().toUpperCase(), t.id]),
-  );
-
-  const sourcePlayers =
-    benchmarks.size > 0 && snapshot.meta.source !== 'live'
-      ? snapshot.players.filter((player) => benchmarks.has(player.id))
-      : snapshot.players;
-
-  const players = sourcePlayers.map((player) => {
+  const players = snapshot.players.map((player) => {
     const bench = benchmarks.get(player.id);
     if (!bench) return player;
-    const resolvedCost = player.cost > 0 ? player.cost : Math.round(bench.price * 10);
-    const resolvedPrice = player.price > 0 ? player.price : resolvedCost / 10;
-    const resolvedTeamId =
-      player.teamId > 0 ? player.teamId : (teamIdByShort.get(bench.team.toUpperCase()) ?? player.teamId);
-    const resolvedPosition = player.position || bench.position;
     return {
       ...player,
-      name: player.name || bench.name,
-      teamId: resolvedTeamId,
-      position: resolvedPosition,
-      price: resolvedPrice,
-      cost: resolvedCost,
       repoExpectedMinutes: resolveGwMetric(bench.xmins, targetGw),
       repoBenchmarkXpts: resolveGwMetric(bench.xpts, targetGw),
       repoHorizon5Xpts: resolveHorizonSum(bench.xpts, targetGw, 5),
@@ -403,9 +384,10 @@ export async function enrichSnapshotWithRepoData(snapshot: Snapshot): Promise<Sn
       fallbackNotice:
         snapshot.meta.source === 'live'
           ? undefined
-          : 'Tier-1 repo projections (3_data_third_party/fplcopilot-projections-gw7-2026-10-15-v4.csv) active; offline snapshot supplying codes & fixtures.',
+          : 'Official FPL recovery snapshot. Dated imported xPts/xMins are separate research inputs, not a live forecast feed.',
       repoData,
     },
     players,
   };
 }
+
