@@ -79,3 +79,5 @@ Evidence: initial 21 targeted model tests and 215 full Node tests passed; TypeSc
 
 Rollback: redeploy prior approved main 61e62622 through existing Render controls; no migration. Remaining release dependency: final CI/browser artifacts and exact live commit verification. Authenticated cloud saving/PR60 stays staging-only; bookmaker rights/access remain unverified. No calibration or accuracy claim added.
 
+
+PR #78 implementation commit 3d7c1fd: all four non-browser CI jobs passed in run 41720786598. Browser reached and passed manual GW19 and save-copy preservation, then failed because the new portrait assertion counted both player photos and club crests (22 images versus 11). Follow-up scopes the same 11-portrait requirement to PlayerAvatar, tightens desktop controls after inspecting the actual screenshot, and adds deterministic hold-squad comparison. Strict UI audit: 0 findings. Final-head CI remains required; no deployment claimed.

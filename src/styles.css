@@ -10859,3 +10859,19 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .strategy-save { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:12px; }
 .strategy-save button { min-height:44px; border:1px solid var(--brand-mint); color:var(--brand-mint); background:transparent; border-radius:8px; padding:8px 14px; }
 .strategy-save small { font-size:11px; color:var(--text-secondary); }
+.strategy-chip-select > .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.strategy-bench .strategy-player > span { max-width:100%; }
+@media (min-width:851px) {
+  .page--chip-strategy [data-testid="active-saved-plan"] { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:4px 12px; align-items:center; }
+  .page--chip-strategy [data-testid="active-saved-plan"] .panel__header { margin:0; }
+  .page--chip-strategy [data-testid="active-saved-plan"] .panel__header h3 { font-size:14px; }
+  .page--chip-strategy [data-testid="active-saved-plan"] .strategy-locks { grid-column:1/-1; margin:0; }
+  .strategy-setup { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 18px; align-items:start; }
+  .strategy-setup .panel__header { grid-column:1/-1; margin:0 0 6px; }
+  .strategy-setup .strategy-mode { grid-column:1; margin:0; }
+  .strategy-setup .planner-control-row { grid-column:1; margin:0; }
+  .strategy-setup .strategy-inventories { grid-column:2; grid-row:2/span 2; }
+  .strategy-setup .strategy-chip-inventory { margin:0 0 6px; }
+  .strategy-setup > p { grid-column:1; margin:0; }
+  .strategy-setup .strategy-run { grid-column:2; grid-row:4/span 2; margin:0; }
+}

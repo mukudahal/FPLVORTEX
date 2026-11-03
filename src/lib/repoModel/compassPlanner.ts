@@ -75,6 +75,7 @@ export interface PlannerSimulationOutput extends FplReviewSimOutput {
     schedule: SeasonChipUse[];
     expectedPoints: number;
     baselinePoints: number;
+    holdPoints: number;
     gain: number;
     planningScore: number;
     horizon: number[];
@@ -664,7 +665,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     sourcePlan: manualPlan ? { id: manualPlan.id, name: manualPlan.name,
       committedGameweeks: new Set([...Object.keys(manualPlan.transfers), ...Object.keys(manualPlan.lineups), ...Object.keys(manualPlan.captains), ...Object.keys(manualPlan.chips)]).size,
       lockedPlayers: locked.size } : undefined,
-    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, chipTiming, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds; optional full-path chip-now vs defer search.' },
+    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), holdPoints: r2(holdWeeks.reduce((sum,week) => sum + week.lineup.totalXPts, 0) - (input.initialHitCost ?? 0)), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, chipTiming, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds; optional full-path chip-now vs defer search.' },
   };
 }
 

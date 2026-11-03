@@ -457,7 +457,7 @@ export function SquadBuilder({
       <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
           <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
-          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Official / template starting squad'}</h3>
+          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Starting squad'}</h3>
         </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
         <div className="planner-control-row">
           <label>Planning scenario

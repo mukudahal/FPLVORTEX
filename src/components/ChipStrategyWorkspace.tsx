@@ -55,7 +55,7 @@ export function ChipStrategyWorkspace(props: Props) {
         <label>Plan ahead<select aria-label="Solver planning horizon" value={props.horizon} onChange={e => props.onHorizonChange(Number(e.target.value))}>{Array.from({length: Math.min(10,39-snapshot.meta.nextEventId)},(_,i)=>i+1).map(value => <option key={value} value={value}>{value} gameweeks</option>)}</select></label>
         <label>Free transfers<select aria-label="Free transfers available" value={props.freeTransfers} onChange={e => props.onFreeTransfersChange(Number(e.target.value))}>{[0,1,2,3,4,5].map(value=><option key={value} value={value}>{value} FT</option>)}</select></label>
       </div>
-      {[...new Set(gws.map(gw => gw <= 19 ? 1 : 2))].map(chipHalf => <div key={chipHalf}>
+      <div className="strategy-inventories">{[...new Set(gws.map(gw => gw <= 19 ? 1 : 2))].map(chipHalf => <div key={chipHalf}>
       {gws[0] <= 19 && gws.at(-1)! >= 20 && <small>Chips · GW{chipHalf === 1 ? '1–19' : '20–38'}</small>}
       <div className="strategy-chip-inventory" aria-label={`Chip inventory half ${chipHalf}`}>
         {CHIPS.map(chip => {
@@ -69,7 +69,7 @@ export function ChipStrategyWorkspace(props: Props) {
             </select></label>}
           </div>;
         })}
-      </div></div>)}
+      </div></div>)}</div>
       {allSpent && <p className="strategy-notice">All chips spent{half === 1 ? ' · next set GW20' : ''}. Transfer recommendations stay on.</p>}
       {!props.historyKnown && <p role="status">Chip history unavailable. Transfers still work; reload your team to enable chips.</p>}
       {props.template && <p className="strategy-notice">Template scenario · load your team or select your saved Plan for personal recommendations.</p>}
@@ -81,7 +81,7 @@ export function ChipStrategyWorkspace(props: Props) {
     </section>
     {result && week && <>
       <section className="panel strategy-results" aria-label="Joint chip schedule">
-        <div className="strategy-summary"><div><small>{mode === 'manual' ? 'YOUR CHIP SCHEDULE' : 'RECOMMENDED PATH'}</small><h3>{total.toFixed(1)} <span>net xPts</span></h3></div><div><strong>{weeks.length} GWs</strong><small>{totalHits ? `−${totalHits} total hits` : 'No transfer hits'}</small></div><span className="badge badge--violet">Shortlist-limited</span></div>
+        <div className="strategy-summary"><div><small>{mode === 'manual' ? 'YOUR CHIP SCHEDULE' : 'RECOMMENDED PATH'}</small><h3>{total.toFixed(1)} <span>net xPts</span></h3></div><div><strong>{weeks.length} GWs</strong><small>{totalHits ? `−${totalHits} total hits` : 'No transfer hits'}</small><small>{total - result.strategy.holdPoints >= 0 ? '+' : ''}{(total - result.strategy.holdPoints).toFixed(1)} vs hold squad</small></div><span className="badge badge--violet">Shortlist-limited</span></div>
         <div className="strategy-gw-strip" role="group" aria-label="Recommended gameweeks">{weeks.map(step => <button type="button" key={step.gw} aria-pressed={week.gw === step.gw} onClick={() => setSelectedGw(step.gw)}><span>GW{step.gw}</span><strong>{step.netXPts.toFixed(1)}</strong><small>{chipBadge(step.chip) ?? (step.moves.length ? `${step.moves.length} transfer${step.moves.length > 1 ? 's' : ''}` : 'Roll')}{step.hitCost ? ` · −${step.hitCost}` : ''}</small></button>)}</div>
         <div className="strategy-main-grid">
           <div className="strategy-timeline" aria-label="Ten-gameweek transfer roadmap">{weeks.map(step => <button type="button" key={step.gw} className={classNames('strategy-step',week.gw === step.gw && 'is-active')} onClick={() => setSelectedGw(step.gw)}><strong>GW{step.gw}</strong><span>{step.chip && <b>{chipBadge(step.chip)} · </b>}{step.moves.length ? step.moves.map(move => `${byId.get(move.outId)?.name ?? 'Unavailable'} → ${byId.get(move.inId)?.name ?? 'Unavailable'}`).join(' / ') : 'Roll transfer'}<small>{step.ftBefore} → {step.ftAfter} FT · {formatPrice(step.bankAfter / 10)} bank{step.hitCost ? ` · −${step.hitCost} hit` : ''}</small></span><b>{step.netXPts.toFixed(1)}</b></button>)}</div>

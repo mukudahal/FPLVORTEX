@@ -332,6 +332,8 @@ test('ten-week solver still recommends hit-adjusted transfers with all chips spe
   const result = runPlannerSimulation(input);
   assert.deepEqual(result.strategy.horizon, [10,11,12,13,14,15,16,17,18,19]);
   assert.equal(result.strategy.weeks.length,10);
+  assert.ok(Number.isFinite(result.strategy.holdPoints));
+  assert.ok(result.strategy.expectedPoints > result.strategy.holdPoints);
   assert.deepEqual(result.strategy.schedule, []);
   assert.ok(result.strategy.weeks.some(week=>week.moves.some(move=>move.inId===16)));
   assert.equal(result.strategy.weeks[0].hitCost,4);

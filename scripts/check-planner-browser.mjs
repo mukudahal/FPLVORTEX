@@ -394,7 +394,7 @@ try {
   for(const width of [320,390,768,1280,1920]){
     await solverPage.setViewportSize({width,height:900});
     assert.ok(await solverPage.evaluate(()=>document.documentElement.scrollWidth)<=width+2,`Chip Strategy overflow at ${width}px`);
-    assert.equal(await solverPage.locator('.strategy-pitch .strategy-player img').count(),11);
+    assert.equal(await solverPage.locator('.strategy-pitch .strategy-player .player-avatar img').count(),11);
     await solverPage.screenshot({path:`test-results/planner/strategy-${width}.png`,fullPage:true});
   }
   await solverPage.getByRole('button',{name:'Check my chip schedule',exact:true}).click();
