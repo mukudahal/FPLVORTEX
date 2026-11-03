@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { BrainCircuit, CalendarDays, ClipboardList, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
+import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
 import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
 import { BRAND_LION_SRC } from './lib/baseUrl';
 import type { RouteId } from './hooks/useHashRoute';
@@ -37,6 +37,7 @@ const FixtureMatrix = lazy(() => import('./components/FixtureMatrix').then(m => 
 const LeagueIntel = lazy(() => import('./components/LeagueIntel').then(m => ({ default: m.LeagueIntel })));
 const Methodology = lazy(() => import('./components/Methodology').then(m => ({ default: m.Methodology })));
 const PlayerLab = lazy(() => import('./components/PlayerLab').then(m => ({ default: m.PlayerLab })));
+const PlayerComparisonWorkspace = lazy(() => import('./components/PlayerComparisonWorkspace').then(m => ({ default: m.PlayerComparisonWorkspace })));
 const SquadBuilder = lazy(() => import('./components/SquadBuilder').then(m => ({ default: m.SquadBuilder })));
 
 type ToastTone = 'success' | 'error' | 'info';
@@ -51,9 +52,8 @@ export interface PendingSwap {
 }
 
 const ROUTE_PILLS: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
-  { id: 'optimizer', label: '10-GW PLANNER', icon: WandSparkles },
   { id: 'command', label: 'DASHBOARD', icon: Gauge },
-  { id: 'review', label: 'REVIEW', icon: ClipboardList },
+  { id: 'optimizer', label: 'PLANNER', icon: WandSparkles },
   { id: 'players', label: 'PLAYERS', icon: Users },
   { id: 'fixtures', label: 'FIXTURES', icon: CalendarDays },
   { id: 'league', label: 'LEAGUE', icon: Trophy },
@@ -384,6 +384,9 @@ export default function App() {
         />
       );
       break;
+    case 'compare':
+      page = <PlayerComparisonWorkspace players={players} teams={snapshot.teams} snapshot={snapshot} />;
+      break;
     case 'fixtures':
       page = (
         <FixtureMatrix
@@ -471,7 +474,7 @@ export default function App() {
         <nav className="vortex-route-pills" aria-label="Main navigation">
           {ROUTE_PILLS.map((tab) => {
             const Icon = tab.icon;
-            const isActive = route === tab.id;
+            const isActive = route === tab.id || (route === 'review' && tab.id === 'command');
             return (
               <button
                 type="button"
@@ -534,9 +537,9 @@ export default function App() {
             <button
               type="button"
               key={item.id}
-              className={route === item.id ? 'is-active' : ''}
+              className={route === item.id || (route === 'review' && item.id === 'command') ? 'is-active' : ''}
               onClick={() => navigate(item.id)}
-              aria-current={route === item.id ? 'page' : undefined}
+              aria-current={route === item.id || (route === 'review' && item.id === 'command') ? 'page' : undefined}
             >
               <Icon size={18} />
               <span>{item.label}</span>

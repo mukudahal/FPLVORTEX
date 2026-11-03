@@ -1,31 +1,14 @@
-# FPL VORTEX — consolidated project
+# FPL VORTEX — start here
 
-Open `1_APP_dashboard` to work on the website. It is the canonical Next.js application.
+The canonical released application is `main` in `mukudahal/FPLVORTEX`: root Vite/React + TypeScript + Express + bounded Python HiGHS, deployed through the existing Render main autoDeploy.
 
-## Contents
+- Release baseline, source ownership and rollback: [docs/RELEASE_BASELINE.md](docs/RELEASE_BASELINE.md).
+- One authoritative backlog and evidence log: [docs/VORTEX_V2_OUTSTANDING.md](docs/VORTEX_V2_OUTSTANDING.md).
+- Intended production forecasting behavior: [docs/MODEL_SPEC.md](docs/MODEL_SPEC.md).
+- UI/token and workflow ownership: [DESIGN.md](DESIGN.md), [UX-CONTRACT.md](UX-CONTRACT.md).
 
-| Location | Purpose |
-| --- | --- |
-| `1_APP_dashboard/` | Website, backend, migrations, jobs, tests, and preserved Git history |
-| `2_notebooks/` | Existing forecasting and reporting notebooks |
-| `3_data_third_party/` | Existing saved third-party projections |
-| `4_backup/` | Existing application backup archive |
-| `5_screenshots_reference/` | Existing visual references |
-| `6_replica_docs/` | Existing feature and design documentation |
-| `7_skills/` | Existing packaged FPL planner skill |
-| `8_project_reports/` | Progress reports and principal-engineer handoff |
-| `design-tools/design-taste-frontend/` | One consolidated copy of the design skill and tools |
-| `MERGE_MANIFEST.json` | Source-to-destination mappings, SHA-256 checksums, and verification results |
+Use `npm ci`, `npm run check`, and `python -m pytest -q fpl_solver/tests`. Runtime: `npm start`. GitHub CI additionally validates the existing Next candidate, Chromium/worker/export behavior and the release production container.
 
-## Merge verification
+`1_APP_dashboard/`, `site/model/` and `2_notebooks/` are preserved candidate/research trees. They do not receive production traffic. Older upgrade-status and migration documents describe historical work and are superseded by the single backlog above. Do not start a framework migration as part of the minimal release.
 
-- Accounted for all 1,557 source files, excluding macOS Finder metadata.
-- Preserved 1,188 source files in the consolidated tree.
-- Combined 369 identical duplicates without overwriting differing files.
-- Preserved 0 differing files in `merge-conflicts/`.
-- Verified every preserved file by SHA-256 and confirmed the original sources were unchanged.
-- Preserved application Git history at `e9233112c1462bbcaa48588ff5055d703dbf2cf1` and the existing working-tree state.
-
-The original Desktop folders remain in place. This consolidation reorganizes files; it does not change application behavior, install dependencies, activate automation, or verify live-data accuracy.
-
-For existing application setup and status, read `1_APP_dashboard/UPGRADE_README.md` and the reports in `8_project_reports/`.
+Browser-local plan storage is retained. Cloud/admin and full joint-chip/private-account work remain unreleased; no database migration is included.

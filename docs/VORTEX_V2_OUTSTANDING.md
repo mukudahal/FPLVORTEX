@@ -1,46 +1,39 @@
-# FPL VORTEX — V2 outstanding-work register
+# FPL VORTEX authoritative release backlog
 
-**Updated:** 2026-10-30
-**Baseline:** `main` @ `efe59675175c3ce51ebac9402e1d7731e609edb9`
-**Source:** `mukudahal/FPLVORTEX` + confirmed Render `FPLVORTEX` service
-**Tracking work branch:** `upgrade/vortex-stage02-contracts-and-provenance`
+Updated 2026-11-03. Runtime/release source of truth: `docs/RELEASE_BASELINE.md`.
+Canonical production is main / Vite + React + Express on existing Render. Earlier stage documents are historical; do not duplicate their stale completion lists.
 
-## Verified completed work
-
-| Deliverable | Evidence | Status |
+| Order | Task | Status / exact dependency |
 |---|---|---|
-| Stage 00 audit, backup branch, inventory | `backup/pre-v2-upgrade-2026-10-30`; baseline documents | COMPLETE |
-| Stage 01 root + Next independent CI | PRs #53 and #54, passing post-merge CI `41108619456` | COMPLETE |
-| Premium 4K 16:9 PNG export for pitch/player/tables | PR #55, browser downloaded-image checks, main CI `41109333620` | COMPLETE |
-| Current Render production deployment | Render `FPLVORTEX`, commit `efe59675` marked `live` | COMPLETE |
-| Stage 02 product/architecture/UX/data contracts | `PRODUCT.md`, `UX-CONTRACT.md`, ADR, data-source contract, tickets, tested helper | IMPLEMENTED IN BRANCH; CI / MERGE PENDING |
+| 1 | Official FPL freshness/recovery | IMPLEMENTED / TESTED: shared ingestion, atomic recovery, no false TTL failure, explicit failed refresh HTTP 503, one source-age policy and safe diagnostics. PR #73 deployment verification pending. |
+| 2 | Reviewed PR #71 public UI | IMPLEMENTED / CI VERIFIED at 3c3eff6: Dashboard/navigation/Players/H2H only. No unfinished joint/private-account endpoints imported. |
+| 3 | Model contracts and timestamped forecast archive | IMPLEMENTED / TESTED: docs/MODEL_SPEC.md declares TS production ownership; immutable prospective archives and settled outcome matching added. First genuine GW10 archive collected on Nov 3. Calibration still BLOCKED on sufficient future forecast/outcome pairs. |
+| 4 | Bookmaker provenance/display | PARTIAL: real production coverage observed; redisplay rights must be verified by the provider/account owner. Missing/stale/partial quotes must remain disclosed, never described as complete live odds. |
+| 5 | Planner/solver acceptance | PARTIAL: merged no-chip HiGHS, price/FT safeguards and alternative-path tests. Genuine manager-entered joint chip acceptance needs authorized roster, purchase/sale values, cash, FT and chip inventory. Keep PR #71 joint/private research flags disabled in minimal release. |
+| 6 | Saved-plan Monte Carlo | PARTIAL: deterministic paired sampler and selected-plan integration exist. Arbitrary A/B workflow, cancellation/export and realistic coverage need acceptance; distributions remain provisional. |
+| 7 | Cloud saving / DATA admin (#60) | BLOCKED: no connected isolated Supabase staging project/authenticated two-user RLS evidence. No production migration; browser-local saving preserved. |
+| 8 | Enabled-route / device / actual export acceptance | CI VERIFIED at 3c3eff6: Chromium Dashboard, Players/H2H, original Planner/saved plans/simulation, real downloaded CSV and 4K PNG files. Screenshot artifact reviewed. Final integrated run pending. |
+| 9 | Final integration checks and rollout | OPEN: normal PR checks/reviews, exact Render commit, refresh timestamps, solver/plan/export smoke and logs. Owner selected My Workspace; production startup logs reviewed. Post-release logs and exact live SHA remain to verify. |
 
-**Truth boundary:** The public site is still the existing Vite/Express application. Passing a Next.js build does not mean the complete 10-GW Next/Supabase platform is deployed. PNG export fixes are live, but future manual and auto planner work remains unfinished.
+## Completed before this release (preserve)
 
-## Outstanding — dependency order
+PRs #55, #56–59, #61–70 are merged: 4K export; source/UX contracts; 10-GW defaults; homepage/data health; rules/market-source safeguards; local plan locks and integration; forecast freshness; FT valuation; chip continuations; bounded no-chip MILP; alternative paths; first-sale/rebuy accounting. PR #71 and #60 are still draft, not released.
 
-| Priority | Outstanding implementation | Current status / gate |
-|---|---|---|
-| P0 | Stage 02 source and UX contracts reviewed/CI accepted | IN REVIEW; run unit and cross-app parity on branch |
-| P0 | Stage 03 responsive 10-GW homepage and app shell | NEXT; dark/light + mobile/desktop + keyboard |
-| P0 | Stage 04 trusted FPL pipeline / source timestamps | OPEN; integrate pure helper into verified server endpoints |
-| P0 | Stage 05 authenticated saved plans and Supabase RLS | BLOCKED on staging auth/DB; no live migration |
-| P0 | Protected DATA tab and audited admin operations | BLOCKED on server sessions/roles/RLS; no hardcoded password |
-| P0 | Stage 06 canonical season FPL rules and cross-app parity | OPEN; 2026/27 chips, selling price, banked FT |
-| P0 | Stage 07 licensed/verified market odds and score distributions | OPEN; provider license & quote coverage decision |
-| P0 | Stage 08 calibrated separate Attack/Defence FDR 1.0–5.0 | OPEN; frozen historical reference & backtests |
-| P0 | Stage 09 player minutes and component xPts calibration | OPEN; chronological no-leak tests |
-| P0 | Stage 10 saved/revisioned legal manual ten-GW plans | OPEN; preserve accepted choices, locks, undo |
-| P0 | Stage 11 constraint-aware automatic transfers and chips | OPEN; heuristic/optimal clarity |
-| P0 | Stage 12 paired simulation comparison with async worker | OPEN; progress, cancel, same sampled outcomes |
-| P1 | Stage 13 player/fixture/market/news/methodology parity | OPEN; source badges and functional navigation |
-| P1 | Reconciling draft PR #45 mobile-screen changes | OPEN; compare against canonical Stage 03 work |
-| P1 | Validate 4K PNG visually with real manager/photos on mobile | OPEN as manual-device visual check; automated PNG regression PASSED |
-| P0 | Stage 14 security, model, a11y, perf, browser release QA | OPEN |
-| P0 | Stage 15 staged Next/Supabase/Vercel cutover | NOT READY; explicit release approval needed |
+## Evidence log
 
-## Development update policy
+- Reverified main and Render live: `a42c04ef7e1d196450364026e1f989fed56be089`; deployment `dep-dbkqq9oae00c73fs4ib0`.
+- Direct production refresh returned official inputs generated `2026-11-03T10:08:16.813Z` (05:08 Eastern), `upstreamOk=true`, `stale=false`, 670 players / 380 fixtures. Initial fast-cache stale status was not proof of permanent upstream denial.
+- New ingestion retrieved and atomically persisted actual official inputs locally at `2026-11-03T10:12:18.243Z`; 670 players / 380 fixtures. This does not yet prove the new code is deployed.
+- Targeted recovery/freshness/loading tests: 13 passed, 0 failed. Full checks and release commit are recorded after completion.
+- PR #60 reviewed: SQL/security groundwork only; not an integrated cloud save system. Preserve it as isolated staging work.
+- Old overlapping PRs #1/#2/#43/#45 must not be merged wholesale. #55 already covers the PNG repair. Dependency PRs require individual checks, not blind bulk merge.
 
-In every future update include **completed changes**, **source-linked CI/tests**, **live production commit/Render status**, and **outstanding items** (blocked versus ready), with no misleading claim of deployment or verified odds. Do not silently merge stale PR #43 or expose the previously shared password; require a new private admin credential/MFA before an admin launch.
+- Milestone 1 pushed: `47aaab312f6149aa6fede1b684db525aab2f73f9`, PR #73. All four applicable CI jobs passed; existing conditional container gate was skipped. Final release branch now explicitly includes that gate.
+- Milestone 2 integrates only public Dashboard/navigation/Players/H2H code from #71; unchanged Planner/Python solver and no joint/auth routes. Negative recorded scores, empty metrics, cancelled requests/retry and backwards-compatible shared fixture tiles were corrected during review.
 
-Roadmap/ticket details: `docs/VORTEX_V2_STAGE02_TICKETS.md`; original plan `docs/VORTEX_V2_UPGRADE_PLAN.md`.
+- Milestone 2 pushed: `3c3eff60e89e13675a1e6b1e91b88e2238672205`, [CI run 41618362572](https://github.com/mukudahal/FPLVORTEX/actions/runs/41618362572): all FIVE jobs passed, including release Docker/Express HiGHS, existing Next candidate, Chromium/worker and real PNG/CSV downloads. Desktop/mobile evidence artifact 13222491529 reviewed.
+- Local model/API/archive tests: full suite 203 passed, Python 14 passed (one dependency deprecation warning), TypeScript/build/static export passed. UI static audit: zero findings. Local Chromium download was unavailable; actual Chromium acceptance ran successfully in GitHub Actions.
+- Genuine future GW10 inputs retrieved 2026-11-03T10:22:59.001Z, first forecast computed 2026-11-03T10:22:59.205Z, 670 players. Archive input SHA-256 c998c4d3dc05ad589b74a082b7735706df8ca0faedc12d71209c875c65a7978e. Subsequent model-code versions create separate observations; no back-dated forecasts.
+- Minimal release excludes: joint chip/manual-attestation/private-account research from #71; cloud/admin from #60; unrestricted-optimum and calibration claims; arbitrary saved Plan A/B workflow not yet accepted; framework migration. Existing released chip heuristics and paired simulations retain explicit assumption labels.
+
+- Milestone 3 pushed: `fd076860445c6768f9865a9ec09e488acab2993b`. Prospective archive/outcome and shared-age policy implemented; final release verification adds application-entry hash matching plus production HTTP/browser/download checks (unchanged worker bytes alone do not prove a new UI deployment).

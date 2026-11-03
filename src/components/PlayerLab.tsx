@@ -1,4 +1,6 @@
 import { makeFixtureForecasts, difficultyFillStyle, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
+import { buildFixtureMatrix } from '../lib/fixtures';
+import { buildPlayerForecastContext, playerFixtureForecast, playerHorizonPoints, playerGameweekExpectedMinutes } from '../lib/playerTableForecast';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -13,6 +15,7 @@ import {
 import type { EnrichedPlayer, FixtureCell, FixtureRow, FplTeam, Position } from '../lib/types';
 import { parsePlayerInjuryDetails } from '../lib/analytics';
 import { importedProjectionsNotice } from '../lib/projectionFreshness';
+import { playerPredictionsCsv } from '../lib/playerPredictionExport';
 import { classNames, formatPercent, formatPrice } from '../lib/format';
 
 import { ClubBadge } from './ClubBadge';
@@ -34,11 +37,13 @@ interface PlayerLabProps {
 }
 
 /** A double gameweek gets a separate, individually coloured block for each match. */
-export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts }: {
+export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts, player, pointsForFixture }: {
   cell: FixtureCell;
   teamId: number;
   teamById: ReadonlyMap<number, FplTeam>;
   forecasts: ReadonlyMap<string, FixtureForecast[]>;
+  player?: EnrichedPlayer;
+  pointsForFixture?: (player:EnrichedPlayer, fixture:FixtureCell['fixtures'][number], gw:number)=>number|null;
 }) {
   if (cell.isBlank || !cell.fixtures.length) return <span className="fdr-chip fdr-chip--blank" title={`GW${cell.event}: Blank gameweek`} aria-label={`GW${cell.event}: Blank gameweek`}><strong>—</strong><small>BLANK</small></span>;
   return <>{cell.fixtures.map(fixture => {
@@ -48,7 +53,12 @@ export function PlayerFixtureBlocks({ cell, teamId, teamById, forecasts }: {
     const label = opponent?.shortName ?? `T${opponentId}`;
     const forecast = (forecasts.get(`${teamId}:${cell.event}`) ?? []).find(item => item.fixture.id === fixture.id);
     const style = forecast ? difficultyFillStyle(overallDifficulty(forecast)) : undefined;
-    return <span key={fixture.id} className="fdr-chip" style={style} title={`GW${cell.event}: ${opponent?.name ?? label} (${home ? 'H' : 'A'})`} aria-label={`GW${cell.event}: ${opponent?.name ?? label}, ${home ? 'home' : 'away'}`}><strong>{label}</strong><small>({home ? 'H' : 'A'})</small></span>;
+    const xp = player && pointsForFixture ? pointsForFixture(player, fixture, cell.event) : null;
+    return <span key={fixture.id} className="fdr-chip" style={style}
+      title={`GW${cell.event}: ${opponent?.name ?? label} (${home ? 'H' : 'A'}), ${xp===null ? 'xPts unavailable' : xp.toFixed(2)+' mechanistic model xPts'}`}
+      aria-label={`GW${cell.event}: ${label} ${home ? 'home' : 'away'}, ${xp===null ? 'xPts unavailable' : xp.toFixed(1)+' expected points'}`}>
+      <strong>{label}</strong><small>{player && pointsForFixture ? `${home ? 'H' : 'A'}-${xp === null ? '—' : xp.toFixed(1)}` : `(${home ? 'H' : 'A'})`}</small>{player && pointsForFixture && <em>GW{cell.event}</em>}
+    </span>;
   })}</>;
 }
 
@@ -72,46 +82,15 @@ function scoreTone(value: number): string {
   return 'is-low';
 }
 
-function exportCsv(players: EnrichedPlayer[], nextGw: number): void {
-  const headers = [
-    'FPL_ID',
-    'Code',
-    'Player',
-    'Club',
-    'Position',
-    'Price',
-    `GW${nextGw}_Repo_xPts`,
-    '5GW_Repo_xPts',
-    'Legacy_5GW_xP',
-    'Model_xPts',
-    'xMins',
-    'DEFCON_xPts',
-    'EO_Pct',
-    'Fixture_Ease_5GW',
-  ];
-  const rows = players.map((p) => [
-    String(p.id),
-    String(p.code),
-    p.name,
-    p.team.shortName,
-    p.position,
-    p.price.toFixed(1),
-    p.projection.toFixed(2),
-    p.horizon5Projection.toFixed(2),
-    p.modelBreakdown.optaXP5Gw.toFixed(2),
-    p.modelBreakdown.modelXPts.toFixed(2),
-    p.modelBreakdown.expectedMinutes.toFixed(1),
-    p.modelBreakdown.defcon.toFixed(2),
-    p.ownership.toFixed(1),
-    String(p.modelBreakdown.fiveGwEaseScore),
-  ]);
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(','))
-    .join('\n');
+function exportCsv(players: EnrichedPlayer[], gw: number, nextGw: number,
+  gwPoints:(p:EnrichedPlayer,gw:number)=>number|null,
+  fivePoints:(p:EnrichedPlayer)=>number|null,
+  gwMinutes:(p:EnrichedPlayer,gw:number)=>number|null): void {
+  const csv = playerPredictionsCsv(players, gw, nextGw, gwPoints, fivePoints, gwMinutes);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `fpl-vortex-667-players-gw${nextGw}.csv`;
+  link.download = `fpl-vortex-${players.length}-players-gw${gw}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -128,6 +107,9 @@ export function PlayerLab({
 }: PlayerLabProps) {
   const deferredQuery = useDeferredValue(query);
   const [position, setPosition] = useState<'ALL' | Position>('ALL');
+  const [selectedGw, setSelectedGw] = useState(nextEventId);
+  const [forecastOnly, setForecastOnly] = useState(false);
+  useEffect(() => { setSelectedGw(nextEventId); }, [nextEventId]);
   const [teamId, setTeamId] = useState<number | 'ALL'>('ALL');
   const [sort, setSort] = useState<SortKey>('projection');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -141,21 +123,47 @@ export function PlayerLab({
 
   useEffect(() => {
     setPage(0);
-  }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize]);
+  }, [deferredQuery, position, teamId, sort, sortDir, maxPrice, differentialsOnly, pageSize, selectedGw, forecastOnly]);
 
-  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', fixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map<string, FixtureForecast[]>(), [snapshot, fixtureRows]);
+  // Only Players gets eight fixtures: do not alter the shared Planner/Fixtures horizon.
+  const playerFixtureRows = useMemo(() => snapshot
+    ? buildFixtureMatrix(snapshot.teams, snapshot.fixtures, nextEventId, Math.min(8,39-nextEventId), [], snapshot.historicalTeamModel?.strengths)
+    : [], [snapshot, nextEventId]);
+  const sharedFixtureForecasts = useMemo(() => snapshot ? makeFixtureForecasts(snapshot, 'vortex', playerFixtureRows[0]?.cells.map(cell => cell.event) ?? []) : new Map<string, FixtureForecast[]>(), [snapshot, playerFixtureRows]);
+  const predictionContext = useMemo(() => snapshot ? buildPlayerForecastContext(snapshot) : null, [snapshot]);
+  const predictionCache = useMemo(() => new Map<string, number | null>(), [predictionContext]);
+  const fixturePoints = (player:EnrichedPlayer, fixture:FixtureCell['fixtures'][number], gw:number):number|null => {
+    if (!predictionContext) return null;
+    const key = player.id + ':' + fixture.id + ':' + gw;
+    if (!predictionCache.has(key)) predictionCache.set(key,playerFixtureForecast(predictionContext,player,fixture,gw).points);
+    return predictionCache.get(key) ?? null;
+  };
+  const gameweekPoints = (player:EnrichedPlayer,gw:number):number|null => {
+    if (!predictionContext) return null;
+    const games = predictionContext.snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===player.teamId||f.teamA===player.teamId));
+    if (!games.length || new Set(games.map(f=>f.id)).size!==games.length) return null;
+    let total=0;
+    for (const fixture of games) {
+      const xp=fixturePoints(player,fixture,gw);
+      if (xp===null)return null;
+      total+=xp;
+    }
+    return Math.round(total*100)/100;
+  };
+  const horizonPoints=(player:EnrichedPlayer)=>predictionContext?playerHorizonPoints(predictionContext,player,nextEventId,5):null;
+  const expectedMinutes=(player:EnrichedPlayer,gw:number)=>predictionContext?playerGameweekExpectedMinutes(predictionContext,player,gw):null;
 
   const teamById = useMemo(() => new Map(teams.map(team => [team.id, team])), [teams]);
 
   const fixtureByTeam = useMemo(
-    () => new Map(fixtureRows.map((row) => [row.team.id, row])),
-    [fixtureRows],
+    () => new Map(playerFixtureRows.map((row) => [row.team.id, row])),
+    [playerFixtureRows],
   );
 
-  const vortexFiveGwAvg = useMemo(() => new Map(fixtureRows.map(row => {
+  const vortexFiveGwAvg = useMemo(() => new Map(playerFixtureRows.map(row => {
     const items = row.cells.slice(0, 5).flatMap(cell => sharedFixtureForecasts.get(`${row.team.id}:${cell.event}`) ?? []);
     return [row.team.id, items.length ? items.reduce((sum, item) => sum + overallDifficulty(item), 0) / items.length : null] as const;
-  })), [fixtureRows, sharedFixtureForecasts]);
+  })), [playerFixtureRows, sharedFixtureForecasts]);
 
   const toggleSort = (key: SortKey) => {
     if (sort === key) {
@@ -173,6 +181,7 @@ export function PlayerLab({
       if (teamId !== 'ALL' && player.teamId !== teamId) return false;
       if (player.price > maxPrice + 0.001) return false;
       if (differentialsOnly && player.ownership >= 15) return false;
+      if (forecastOnly && gameweekPoints(player, selectedGw) === null) return false;
       if (!needle) return true;
       return (
         player.name.toLowerCase().includes(needle) ||
@@ -218,18 +227,18 @@ export function PlayerLab({
           cmp = a.modelBreakdown.optaXP5Gw - b.modelBreakdown.optaXP5Gw;
           break;
         case 'horizon5Projection':
-          cmp = a.horizon5Projection - b.horizon5Projection;
+          cmp = (horizonPoints(a) ?? -1) - (horizonPoints(b) ?? -1);
           break;
         case 'projection':
         default:
-          cmp = a.projection - b.projection;
+          cmp = (gameweekPoints(a, selectedGw) ?? -1) - (gameweekPoints(b, selectedGw) ?? -1);
           break;
       }
       if (cmp !== 0) return cmp * dir;
-      return b.projection - a.projection;
+      return (gameweekPoints(b, selectedGw) ?? -1) - (gameweekPoints(a, selectedGw) ?? -1) || a.id - b.id;
     });
     return result;
-  }, [deferredQuery, differentialsOnly, maxPrice, players, position, sort, sortDir, teamId, vortexFiveGwAvg]);
+  }, [deferredQuery, differentialsOnly, forecastOnly, maxPrice, nextEventId, players, position, selectedGw, sort, sortDir, teamId, vortexFiveGwAvg]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages - 1);
@@ -238,17 +247,12 @@ export function PlayerLab({
   const toggleCompare = (id: number) => {
     setCompareIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 2) return [prev[1], id];
+      if (prev.length >= 8) return prev;
       return [...prev, id];
     });
   };
 
-  const comparedPlayers = useMemo(
-    () => compareIds.map((id) => players.find((p) => p.id === id)).filter((p): p is EnrichedPlayer => Boolean(p)),
-    [compareIds, players],
-  );
-
-  return (
+    return (
     <div className="page page--players">
       <section className="panel player-controls" aria-label="Player search and filters">
         <div className="player-controls__top">
@@ -278,16 +282,28 @@ export function PlayerLab({
               type="button"
               className="button button--subtle"
               onClick={() => {
-                exportCsv(filtered, nextEventId);
+                exportCsv(filtered, selectedGw, nextEventId, gameweekPoints, horizonPoints, expectedMinutes);
                 onToast(`Exported ${filtered.length} players as CSV.`, 'success');
               }}
             >
-              <Download size={15} /> Export CSV
+              <Download size={15} /> Export GW{selectedGw} CSV
             </button>
           </div>
         </div>
 
         <div className="player-filters">
+          <label className="filter-select">
+            <span>Prediction Gameweek</span>
+            <select aria-label="Prediction Gameweek" value={selectedGw}
+              onChange={event => setSelectedGw(Number(event.target.value))}>
+              {Array.from({ length: Math.min(10, Math.max(0, 39 - nextEventId)) }, (_, i) => nextEventId + i)
+                .map(gw => <option key={gw} value={gw}>GW{gw}</option>)}
+            </select>
+          </label>
+          <label className="filter-select" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={forecastOnly} onChange={event => setForecastOnly(event.target.checked)} />
+            <span>Only players with GW{selectedGw} forecast</span>
+          </label>
           <div className="filter-group">
             <span><Filter size={13} /> Position</span>
             <div className="pos-pills">
@@ -334,62 +350,48 @@ export function PlayerLab({
           </label>
         </div>
 
+        <p role="status" className="planner-data-notice">
+          GW{selectedGw} uses the existing per-fixture VORTEX mechanistic model. Official status and a fresh FPL snapshot are required; — indicates suppressed, stale, missing or blank, not a 0-point prediction. Return dates require confirmation. Selected-by is not EO.
+        </p>
       </section>
 
-      {/* Head-to-head comparison bar when 1 or 2 players pinned */}
-      {comparedPlayers.length > 0 && (
-        <section className="panel compare-panel" aria-label="Head-to-head player comparison">
-          <div className="panel__header">
-            <div>
-              <span className="panel__eyebrow">HEAD-TO-HEAD PLAYER COMPARISON</span>
-              <h3>
-                {comparedPlayers.length === 2
-                  ? `${comparedPlayers[0].name} vs ${comparedPlayers[1].name}`
-                  : `Selected ${comparedPlayers[0].name} — pin one more player to compare`}
-              </h3>
-            </div>
-            <button type="button" className="button button--ghost button--sm" onClick={() => setCompareIds([])}>
-              Clear comparison
-            </button>
-          </div>
-          <div className="compare-grid">
-            {comparedPlayers.map((p) => (
-              <div key={p.id} className="compare-card">
-                <div className="compare-card__head">
-                  <PlayerAvatar
-                    code={p.code}
-                    teamCode={p.team.code}
-                    name={p.name}
-                    fullName={p.fullName}
-                    teamShort={p.team.shortName}
-                    position={p.position}
-                    size="lg"
-                  />
-                  <div>
-                    <div className="inline-player-tag">
-                      <ClubBadge teamCode={p.team.code} shortName={p.team.shortName} size="sm" />
-                      <span>{p.team.name} · {p.position} · {formatPrice(p.price)}</span>
-                    </div>
-                    <h4>{p.fullName}</h4>
-                    <small>EO {formatPercent(p.ownership)} · xMins {p.modelBreakdown.expectedMinutes.toFixed(0)}</small>
-                  </div>
-                </div>
-                <div className="compare-card__metrics">
-                  <div><span>GW{nextEventId} xPts</span><strong>{p.projection.toFixed(2)}</strong></div>
-                  <div><span>5-GW xPts</span><strong>{p.horizon5Projection.toFixed(2)}</strong></div>
-                  <div><span>Legacy 5GW xP</span><strong>{p.modelBreakdown.optaXP5Gw.toFixed(2)}</strong></div>
-                  <div><span>DEFCON xPts</span><strong>+{p.modelBreakdown.defcon.toFixed(2)}</strong></div>
-                  <div><span>Attack xPts</span><strong>{p.modelBreakdown.attacking.toFixed(2)}</strong></div>
-                  <div><span>CS / Saves</span><strong>{(p.modelBreakdown.cleanSheet + p.modelBreakdown.saves).toFixed(2)}</strong></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <section className="panel vx-h2h-launch" aria-label="H2H Player Comparison">
+        <div>
+          <strong>H2H Player Comparison</strong>
+          <span>{compareIds.length} of 8 selected · compare five or more players in a dedicated workspace.</span>
+        </div>
+        <div className="button-row">
+          <button type="button" className="button button--ghost" onClick={()=>setCompareIds([])} disabled={!compareIds.length}>Clear selected</button>
+          <button type="button" className="button button--primary" onClick={()=>{
+            const url=window.location.origin+window.location.pathname+window.location.search+'#/compare'+
+              (compareIds.length?'?ids='+compareIds.join(','):'');
+            window.open(url,'_blank','noopener,noreferrer');
+          }}>Open H2H Player Comparison ↗</button>
+        </div>
+      </section>
 
-      <section className="panel table-panel" aria-label="All 667 repository players">
-        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${nextEventId}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `PLAYER LAB · PAGE ${currentPage + 1}`, headers: ['PLAYER', 'CLUB / POS', 'PRICE', 'GW xPTS', '5GW xPTS', 'LEGACY xP', 'xMINS', 'DEFCON', 'EO%', 'NEXT 5 FIXTURES', 'TREND'], widths: [160, 100, 70, 70, 75, 75, 65, 75, 70, 260, 160], rows: visiblePlayers.map(player => [{ text: player.name }, { text: `${player.team.shortName} ${player.position}` }, { text: formatPrice(player.price) }, { text: player.projection.toFixed(2) }, { text: player.horizon5Projection.toFixed(2) }, { text: player.modelBreakdown.optaXP5Gw.toFixed(2) }, { text: player.modelBreakdown.expectedMinutes.toFixed(0) }, { text: player.modelBreakdown.defcon.toFixed(2) }, { text: formatPercent(player.ownership) }, { text: fixtureByTeam.get(player.teamId)?.cells.slice(0, 5).map(cell => { const items = sharedFixtureForecasts.get(`${player.teamId}:${cell.event}`) ?? []; return `GW${cell.event}: ${cell.label}${items.length ? ' ' + items.map(item => `A ${item.attackIndex.toFixed(2)} D ${item.defenceIndex.toFixed(2)}`).join(' / ') : ''}`; }).join('\n') ?? '—' }, { text: player.sparkline.map(value => value.toFixed(1)).join(' / ') }]) }]} /></div>
+      <section className="panel table-panel" aria-label="Player Predictions">
+        <div className="save-table-bar"><SaveTableButton filename={`fpl-vortex-player-lab-gw${selectedGw}.png`}
+          onError={message=>onToast(message,'error')}
+          getTables={()=>[{title:`PLAYERS GW${selectedGw} · VORTEX MECHANISTIC MODEL`,
+            headers:['PLAYER / PRICE / CLUB','GW xPts','5GW xPts','xMINS','DEFCON','SELECTED%','NEXT 8 FIXTURES'],
+            widths:[205,90,90,75,80,85,560],
+            rows:visiblePlayers.map(p=>[
+              {text:p.name+' · '+formatPrice(p.price)+' · '+p.position+' #'+p.id+' '+p.team.shortName},
+              {text:gameweekPoints(p,selectedGw)?.toFixed(2)??'—'},
+              {text:horizonPoints(p)?.toFixed(2)??'—'},
+              {text:expectedMinutes(p,selectedGw)?.toFixed(0)??'—'},
+              {text:gameweekPoints(p,selectedGw)===null?'—':p.modelBreakdown.defcon.toFixed(2)},
+              {text:formatPercent(p.ownership)},
+              {text:playerFixtureRows.find(row=>row.team.id===p.teamId)?.cells.map(cell=>
+                cell.isBlank?'GW'+cell.event+' BLANK':cell.fixtures.map(f=>{
+                  const home=f.teamH===p.teamId;
+                  const opponent=teamById.get(home?f.teamA:f.teamH)?.shortName??'TBC';
+                  const xp=fixturePoints(p,f,cell.event);
+                  return 'GW'+cell.event+' '+opponent+' '+(home?'H':'A')+'-'+(xp===null?'—':xp.toFixed(1));
+                }).join(' · ')
+              ).join('\n')??'—'}
+            ]) }]} /></div>
         <p className="table-swipe-hint">Swipe left or right to see all columns ↔</p>
         <div className="table-wrap player-table-scroll" role="region" aria-label="Player results, scroll sideways to see all columns" tabIndex={0}>
           <table className="player-table">
@@ -400,15 +402,9 @@ export function PlayerLab({
                     Player <ArrowUpDown size={11} />
                   </button>
                 </th>
-                <th><button type="button" className="sortable-th" onClick={() => toggleSort('club')}>Club <ArrowUpDown size={11} /></button></th>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => toggleSort('price')}>
-                    Price <ArrowUpDown size={11} />
-                  </button>
-                </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('projection')}>
-                    GW{nextEventId} xPts <ArrowUpDown size={11} />
+                    GW{selectedGw} xPts <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -417,13 +413,8 @@ export function PlayerLab({
                   </button>
                 </th>
                 <th>
-                  <button type="button" className="sortable-th" onClick={() => toggleSort('optaXP5Gw')}>
-                    Legacy xP <ArrowUpDown size={11} />
-                  </button>
-                </th>
-                <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('expectedMinutes')}>
-                    xMins <ArrowUpDown size={11} />
+                    GW{selectedGw} xMins <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
@@ -433,15 +424,15 @@ export function PlayerLab({
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('ownership')}>
-                    EO% <ArrowUpDown size={11} />
+                    Selected% <ArrowUpDown size={11} />
                   </button>
                 </th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => toggleSort('easeSum5')}>
-                    Next 5 Fixtures (VORTEX FDR) <ArrowUpDown size={11} />
+                    Next 8 Fixtures · FDR + xPts <ArrowUpDown size={11} />
                   </button>
                 </th>
-                <th>GW7–16 Trend</th>
+                <th>GW{nextEventId}–{Math.min(38,nextEventId+7)} Model Trend</th>
                 <th>H2H</th>
               </tr>
             </thead>
@@ -489,36 +480,38 @@ export function PlayerLab({
                               );
                             })()}
                           </div>
-                          <small>{player.position} · #{player.id}</small>
+                          <span className="vx-players-identity-price">{formatPrice(player.price)}</span>
+                          <small className="vx-players-identity-meta">{player.position} · #{player.id} <ClubBadge teamCode={player.team.code} shortName={player.team.shortName} teamName={player.team.name} size="sm" /></small>
                         </div>
                       </div>
                     </td>
-                    <td>
-                      <span className="inline-player-tag">
-                        <ClubBadge teamCode={player.team.code} shortName={player.team.shortName} teamName={player.team.name} size="sm" />
-                        {player.team.shortName}
-                      </span>
-                    </td>
-                    <td className="mono-num">{formatPrice(player.price)}</td>
-                    <td><strong className={`score-pill ${scoreTone(player.projection)}`}>{player.projection.toFixed(2)}</strong></td>
-                    <td className="mono-num"><strong>{player.horizon5Projection.toFixed(2)}</strong></td>
-                    <td className="mono-num">{player.modelBreakdown.optaXP5Gw.toFixed(2)}</td>
-                    <td className="mono-num">{player.modelBreakdown.expectedMinutes.toFixed(0)}′</td>
-                    <td className="mono-num">+{player.modelBreakdown.defcon.toFixed(2)}</td>
+                    <td>{(() => {
+                      const xp = gameweekPoints(player, selectedGw);
+                      return xp === null ? <span title="xPts unavailable: blank, injury, recovery unknown or stale data">—</span>
+                        : <strong className={`score-pill ${scoreTone(xp)}`}>{xp.toFixed(2)}</strong>;
+                    })()}</td>
+                    <td className="mono-num"><strong>{horizonPoints(player)?.toFixed(2) ?? '—'}</strong></td>
+                    <td className="mono-num">{expectedMinutes(player,selectedGw)?.toFixed(0) ?? '—'}′</td>
+                    <td className="mono-num">{gameweekPoints(player,selectedGw)===null?'—':'+'+player.modelBreakdown.defcon.toFixed(2)}</td>
                     <td className="mono-num">{formatPercent(player.ownership)}</td>
                     <td>
                       <div className="fixture-inline">
-                        {(row?.cells.slice(0, 5) ?? []).map(cell => <PlayerFixtureBlocks key={cell.event} cell={cell} teamId={player.teamId} teamById={teamById} forecasts={sharedFixtureForecasts} />)}
+                        {(row?.cells.slice(0, 8) ?? []).map(cell => <PlayerFixtureBlocks key={cell.event} cell={cell} teamId={player.teamId} teamById={teamById} forecasts={sharedFixtureForecasts} player={player} pointsForFixture={fixturePoints} />)}
                       </div>
                     </td>
-                    <td><Sparkline values={player.sparkline} width={76} height={22} /></td>
+                    <td>{(() => {
+                      const values=Array.from({length:Math.min(8,39-nextEventId)},(_,i)=>gameweekPoints(player,nextEventId+i));
+                      return values.length>0&&values.every((v):v is number=>v!==null)
+                        ? <Sparkline values={values} width={76} height={22}/>
+                        : <span title="Complete, availability-checked trend unavailable">—</span>;
+                    })()}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className={classNames('icon-button icon-button--xs', pinned && 'is-selected')}
                         onClick={() => toggleCompare(player.id)}
-                        aria-label={`Compare ${player.name}`}
-                        title="Pin to head-to-head comparison"
+                        aria-label={`${pinned?'Remove':'Add'} ${player.name} ${pinned?'from':'to'} comparison`}
+                        title="Pin or remove for the dedicated H2H comparison tab"
                       >
                         <ArrowLeftRight size={13} />
                       </button>

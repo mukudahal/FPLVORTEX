@@ -73,3 +73,15 @@ For V2 features still absent, keep the capability marked **not implemented**; ne
 ## Quality gates
 
 Acceptance evidence required: root + Next TS/tests/build; component interaction tests; browser 320–1920 width test; focus and dialog tests; saved-plan server authorization and cross-user RLS tests; manually verified mobile screenshots; usable source-status and failure states. No claim of readiness until each relevant test exists and passes.
+
+
+## Canonical UI Map
+
+| Capability | Canonical owner | Source of truth | Allowed variants | Verification |
+|---|---|---|---|---|
+| Select/Listbox | Native select in existing page components | DESIGN.md and this contract | Operating-system-owned popup; existing dense/standard sizes | Browser selectOption and keyboard acceptance |
+| Form | Existing page validation and TeamIdInput | Numeric official IDs; existing planner constraints | Read-only lookup, local-plan edit | Unit validation and browser error states |
+| Scrollbar | src/styles.css | Existing theme tokens | Native geometry; internal table scrolling | Narrow-screen browser checks |
+| Toast | src/components/Toast.tsx | App feedback contract | success/error/info | Existing browser workflow checks |
+| Export | src/lib/savePng.ts and playerPredictionExport.ts | DESIGN.md export standard | PNG and formula-safe CSV | Actual downloaded files in CI |
+| H2H | PlayerComparisonWorkspace.tsx | Public settled FPL match history | 1–8 selected players, native range controls | ID/reorder/range unit and browser checks |

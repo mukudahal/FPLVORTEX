@@ -9,7 +9,7 @@ import type {
   Snapshot,
 } from '../src/lib/types.ts';
 import { clamp, numberValue } from '../src/lib/format.ts';
-import { mirroredSnapshotState } from '../src/lib/snapshotFreshness.ts';
+import { getSnapshotFreshness, mirroredSnapshotState } from '../src/lib/snapshotFreshness.ts';
 import {
   computeDynamicFreeTransfers,
   normalizeChipHistory,
@@ -19,7 +19,9 @@ import {
 import { enrichPlayers } from '../src/lib/analytics.ts';
 import { auditNormalizedPlayers } from '../src/lib/playerDataQuality.ts';
 import { fetchFplJson, UpstreamHttpError, isNumericId } from './http.ts';
-import { normalizeSnapshot, type RawFplData } from './normalize.ts';
+import { fetchOfficialSnapshot } from './officialSnapshot.ts';
+import { readRecoverySnapshot, persistRecoverySnapshot } from './snapshotStore.ts';
+import { classifyRefreshError } from './refreshDiagnostics.ts';
 import { enrichFixturesWithLiveOdds } from './odds.ts';
 import { enrichWithMatchHistory } from './matchHistory.ts';
 import {
@@ -44,6 +46,7 @@ interface OfflineLeagueFallback {
 const cache = new Map<string, CacheEntry<unknown>>();
 let lastGoodSnapshot: Snapshot | null = null;
 let snapshotInFlight: Promise<Snapshot> | null = null;
+const refreshDiagnostics = { lastAttemptAt: null as string | null, lastSuccessAt: null as string | null, lastFailureAt: null as string | null, lastError: null as ReturnType<typeof classifyRefreshError> | null, persistedAt: null as string | null, persistence: 'not-attempted' as string };
 let offlineLeagueFallbackCache: OfflineLeagueFallback | null = null;
 
 const SNAPSHOT_PATH = process.env.VORTEX_SNAPSHOT_PATH ?? 'public/data/fpl-snapshot.json';
@@ -70,7 +73,9 @@ function stringValue(value: unknown, fallback = ''): string {
 
 async function loadOfflineSnapshot(options: { skipOdds?: boolean } = {}): Promise<Snapshot> {
   const file = path.resolve(process.cwd(), SNAPSHOT_PATH);
-  const raw = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
+  const committed = JSON.parse(await readFile(file, 'utf8')) as Snapshot;
+  const recovered = await readRecoverySnapshot();
+  const raw = recovered && Date.parse(recovered.meta.generatedAt) > Date.parse(committed.meta.generatedAt) ? recovered : committed;
   const mirroredState = mirroredSnapshotState(raw.meta, MIRROR_FRESH_MS);
   const markedOffline: Snapshot = {
     ...raw,
@@ -116,27 +121,6 @@ async function loadOfflineLeagueFallback(): Promise<OfflineLeagueFallback> {
   }
 }
 
-function currentEventFromBootstrap(bootstrap: RawRecord): number {
-  const events = Array.isArray(bootstrap.events) ? bootstrap.events : [];
-  const current = events.find((event: RawRecord) => event.is_current) ?? events.find((event: RawRecord) => !event.finished);
-  return numberValue(current?.id, numberValue(events.at(-1)?.id, 1));
-}
-
-async function fetchRawSnapshot(): Promise<RawFplData> {
-  const [bootstrap, fixtures] = await Promise.all([
-    fetchFplJson<RawRecord>('/bootstrap-static/', { retries: 1 }),
-    fetchFplJson<RawRecord[]>('/fixtures/', { retries: 1 }),
-  ]);
-  const eventId = currentEventFromBootstrap(bootstrap);
-  let live: RawRecord | null = null;
-  try {
-    live = await fetchFplJson<RawRecord>(`/event/${eventId}/live/`, { retries: 1, timeoutMs: 5000 });
-  } catch {
-    // Live points are an enhancement; bootstrap and fixtures are enough to run the model.
-  }
-  return { bootstrap, fixtures, live };
-}
-
 function markSnapshot(snapshot: Snapshot, source: DataSource, stale: boolean, upstreamOk: boolean): Snapshot {
   return {
     ...snapshot,
@@ -144,7 +128,7 @@ function markSnapshot(snapshot: Snapshot, source: DataSource, stale: boolean, up
       ...snapshot.meta,
       source,
       servedAt: new Date().toISOString(),
-      stale,
+      stale: stale || getSnapshotFreshness(snapshot.meta).status !== 'recent',
       upstreamOk,
       refreshSeconds: stale ? 120 : snapshot.meta.refreshSeconds,
     },
@@ -160,15 +144,30 @@ export async function getSnapshot(force = false): Promise<Snapshot> {
   if (snapshotInFlight) return snapshotInFlight;
   snapshotInFlight = (async () => {
     try {
-      const raw = await fetchRawSnapshot();
-      const normalized = normalizeSnapshot(raw, { source: 'live', upstreamOk: true, stale: false });
-      const repoEnriched = await enrichWithMatchHistory(await enrichSnapshotWithRepoData(normalized));
-      const { fixtures: oddsFixtures, oddsMeta } = await enrichFixturesWithLiveOdds(
-        repoEnriched.teams,
-        repoEnriched.fixtures,
-        repoEnriched.meta.nextEventId,
-        force,
-      );
+      refreshDiagnostics.lastAttemptAt = new Date().toISOString();
+      const normalized = await fetchOfficialSnapshot();
+      refreshDiagnostics.lastSuccessAt = normalized.meta.generatedAt;
+      refreshDiagnostics.lastError = null;
+      // Persist verified official inputs before optional market/history enrichment.
+      // A disk or odds failure must never turn a successful FPL fetch into an outage.
+      try {
+        await persistRecoverySnapshot(normalized);
+        refreshDiagnostics.persistedAt = normalized.meta.generatedAt;
+        refreshDiagnostics.persistence = 'saved';
+      } catch {
+        refreshDiagnostics.persistence = 'write-failed';
+        console.warn('[fpl] recovery snapshot write failed; verified data remains available in memory');
+      }
+      let repoEnriched = normalized;
+      try { repoEnriched = await enrichWithMatchHistory(await enrichSnapshotWithRepoData(normalized)); }
+      catch { console.warn('[fpl] optional repository enrichment unavailable'); }
+      let oddsFixtures = repoEnriched.fixtures;
+      let oddsMeta: Snapshot['meta']['oddsMeta'];
+      try {
+        const market = await enrichFixturesWithLiveOdds(repoEnriched.teams, repoEnriched.fixtures, repoEnriched.meta.nextEventId, force);
+        oddsFixtures = market.fixtures;
+        oddsMeta = market.oddsMeta;
+      } catch { console.warn('[fpl] optional market enrichment unavailable'); }
       const fresh: Snapshot = {
         ...repoEnriched,
         fixtures: oddsFixtures,
@@ -182,7 +181,9 @@ export async function getSnapshot(force = false): Promise<Snapshot> {
       writeCache(cacheKey, fresh, ttl);
       return fresh;
     } catch (error) {
-      console.warn('[fpl] live refresh failed:', error instanceof Error ? error.message : error);
+      refreshDiagnostics.lastFailureAt = new Date().toISOString();
+      refreshDiagnostics.lastError = classifyRefreshError(error);
+      console.warn('[fpl] official refresh failed:', refreshDiagnostics.lastError);
       const fallback = lastGoodSnapshot ? markSnapshot(lastGoodSnapshot, 'cache', true, false) : await loadOfflineSnapshot();
       writeCache(cacheKey, fallback, 120_000);
       return fallback;
@@ -213,7 +214,7 @@ export async function getSnapshotFast(force = false): Promise<Snapshot> {
   // Already have a live copy but its TTL lapsed: serve it, refresh in the background.
   if (lastGoodSnapshot) {
     void getSnapshot(true).catch(() => undefined);
-    return markSnapshot(lastGoodSnapshot, 'cache', true, false);
+    return markSnapshot(lastGoodSnapshot, 'cache', lastGoodSnapshot.meta.stale, lastGoodSnapshot.meta.upstreamOk);
   }
 
   const fast = await loadOfflineSnapshot({ skipOdds: true });
@@ -513,6 +514,11 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     upstreamOk: snapshot.meta.upstreamOk,
     source: snapshot.meta.source,
     stale: snapshot.meta.stale,
+    generatedAt: snapshot.meta.generatedAt,
+    servedAt: snapshot.meta.servedAt,
+    snapshotAgeSeconds: Number.isFinite(Date.parse(snapshot.meta.generatedAt)) ? Math.max(0, Math.floor((Date.now() - Date.parse(snapshot.meta.generatedAt)) / 1000)) : null,
+    refresh: { ...refreshDiagnostics, inFlight: snapshotInFlight !== null },
+    forecast: { kind: 'provisional', importedFileDate: snapshot.meta.repoData?.projectionFileDate ?? null, calibration: 'unverified' },
     season: snapshot.meta.season,
     seasonRules: REPO_SEASON_RULES_2026_27,
     currentEventId: snapshot.meta.currentEventId,
@@ -526,4 +532,5 @@ export async function getHealth(): Promise<Record<string, unknown>> {
     node: process.version,
   };
 }
+
 

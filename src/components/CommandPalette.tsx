@@ -37,8 +37,7 @@ interface CommandPaletteProps {
 }
 
 const PAGE_ITEMS: Array<{ id: RouteId; label: string; subLabel: string; keywords: string; icon: ReactNode }> = [
-  { id: 'command', label: 'HOME', subLabel: 'Dashboard · Fixtures, projections, transfers, injuries & videos', keywords: 'dashboard home overview goals projections clean sheets news updates injury video price market', icon: <Gauge size={17} /> },
-  { id: 'review', label: 'REVIEW', subLabel: 'Gameweek review · Team ID, squad, captain picks & saved squad highlights', keywords: 'gameweek deadline review squad connect team id captain pitch saved squad', icon: <CalendarDays size={17} /> },
+  { id: 'command', label: 'DASHBOARD', subLabel: 'Squad pitch, gameweek results, fixtures, projections and transfers', keywords: 'dashboard home review pitch squad captain gw overview goals projections clean sheets news updates injury video price market', icon: <Gauge size={17} /> },
   { id: 'optimizer', label: 'PLANNER', subLabel: 'Team planner · Squad, transfers, chips, wildcard & Monte Carlo', keywords: 'planner squad builder pitch wildcard free hit bench boost triple captain transfer team fdr', icon: <WandSparkles size={17} /> },
   { id: 'players', label: 'PLAYERS', subLabel: 'All FPL players · Search, compare, expected points & player stats', keywords: 'players stats footballers player lab compare positions xpts xg injuries ownership', icon: <Users size={17} /> },
   { id: 'fixtures', label: 'FIXTURES', subLabel: 'All clubs · Fixtures, difficulty ratings, goals & clean-sheet odds', keywords: 'fixture fdr matrix schedule odds win probability clean sheet cs%', icon: <CalendarDays size={17} /> },

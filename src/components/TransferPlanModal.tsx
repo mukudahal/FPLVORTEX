@@ -1144,7 +1144,7 @@ export function TransferPlanModal({
 
             <div className="vx-tp-title-pill">
               {editingName ? (
-                <form
+                <form noValidate
                   onSubmit={(e) => {
                     e.preventDefault();
                     const clean = nameInput.trim() || activePlan.name;
@@ -2230,3 +2230,4 @@ export function TransferPlanModal({
 
   return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
+

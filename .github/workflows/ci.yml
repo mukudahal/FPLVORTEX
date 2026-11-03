@@ -121,6 +121,14 @@ jobs:
       - name: Verify automatic production deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/check-planner-deployment.mjs
+      - name: Verify live data, recovery, public history and exact solver
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/check-release-live.mjs
+      - name: Verify enabled production workflows and real downloads
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          PLANNER_BASE_URL: https://fplvortex.onrender.com
+        run: node scripts/check-planner-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -173,7 +181,7 @@ jobs:
     name: Exact no-chip MILP production container smoke
     # Run production-container verification when the live Python MILP runtime or
     # its cash-flow mathematics changes. Other PRs retain the existing gate.
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-'))
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-') || startsWith(github.head_ref, 'release/'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -229,3 +237,4 @@ jobs:
             --data-binary @/tmp/vortex-milp-ci-rebuy.json \
             http://127.0.0.1:3000/api/vortex/solver/exact \
             | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"]; assert [a["bank"] for a in w]==[3.9,3.9,3.9], w; assert [a["transfers_in"] for a in w]==[[24],[15],[24]]; print("HTTP original sale/rebuy/resale cash-flow OK")'
+

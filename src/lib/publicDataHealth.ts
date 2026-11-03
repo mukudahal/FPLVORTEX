@@ -33,12 +33,8 @@ export interface PublicDataHealth {
   };
 }
 
-/** Source-specific freshness settings; do not equate this with a provider SLA. */
-export const DATA_FRESHNESS_POLICY = {
-  fplStandardMs: 30 * 60_000,
-  fplLiveMs: 10 * 60_000,
-  bookmakerQuoteMs: 20 * 60_000,
-} as const;
+export { DATA_FRESHNESS_POLICY } from './freshnessPolicy';
+import { DATA_FRESHNESS_POLICY } from './freshnessPolicy';
 
 function nonemptyTimestamp(value: string | null | undefined): string | null {
   return value?.trim() ? value : null;
@@ -157,3 +153,4 @@ export function buildPublicDataHealth(
     },
   };
 }
+
