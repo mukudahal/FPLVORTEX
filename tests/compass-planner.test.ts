@@ -407,7 +407,8 @@ test('Chip Strategy renders recommendations with spent chips and a selected one-
     pending:false,error:null,horizon:10,mode:'auto',requestedChips:[],savedPlan:null,chipHistory:history,
     historyKnown:true,template:false,onModeChange:noop,onScheduleChange:noop,onHorizonChange:noop,
     freeTransfers:0,onFreeTransfersChange:noop,onSaveAsNew:noop,saveError:null,onRun:noop,onCancel:noop}));
-  assert.match(html,/All chips spent/);
+  assert.equal((html.match(/strategy-chip is-used/g) ?? []).length,4);
+  assert.doesNotMatch(html,/All chips spent|Transfer recommendations stay on|Model forecast ·/);
   assert.match(html,/Ten-gameweek transfer roadmap/);
   const horizonSelect=html.match(/<select aria-label="Solver planning horizon">(.*?)<\/select>/)![1];
   assert.match(horizonSelect,/<option value="1" selected="">1 gameweek<\/option>/);

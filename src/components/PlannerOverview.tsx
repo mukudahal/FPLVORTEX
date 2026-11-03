@@ -1,3 +1,4 @@
+import { InfoDisclosure } from './InfoDisclosure';
 import { useMemo, useState } from 'react';
 import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { toRepoElement } from '../lib/analytics';
@@ -119,7 +120,7 @@ export function PlannerOverview({ mode = 'overview', snapshot, squad, allPlayers
               {(() => { const avg = difficultyFor(row.team.id, 'avg'); return <td className={`vx-planner-fdr${avg === null ? ' fdr-blank' : ''}`} style={avg === null ? undefined : difficultyFillStyle(avg)}>{avg === null ? '—' : avg.toFixed(1)}</td>; })()}</tr>)}</tbody>
           </table>
         </div>
-        <small className="vx-planner-source">Provisional VORTEX index: average attack and defence difficulty. Doubles are averaged; blanks excluded. Not calibrated FDR.</small>
+        <InfoDisclosure label="About fixture difficulty"><p>Provisional 1–5 index. Doubles are averaged; blanks excluded. Historical calibration is pending.</p></InfoDisclosure>
       </section>
   );
   if (mode === 'fixtures') return fixtureTable;

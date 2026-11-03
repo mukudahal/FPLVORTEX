@@ -76,6 +76,7 @@ interface TransferPlanModalProps {
   onInspectPlayer?: (player: EnrichedPlayer) => void;
   onInspectInjury?: (player: EnrichedPlayer) => void;
   initialActivePlan?: StoredTransferPlan | null;
+  plansRevision?: string;
   onPlansChanged?: (plans: StoredTransferPlan[], selectedPlanId: string | null) => void;
   initialPendingOutIds?: number[];
   initialPosFilter?: PositionFilter;
@@ -123,6 +124,7 @@ export function TransferPlanModal({
   onInspectPlayer,
   onInspectInjury,
   initialActivePlan = null,
+  plansRevision = '',
   onPlansChanged,
   initialPendingOutIds = [],
   initialPosFilter = 'ALL',
@@ -207,6 +209,11 @@ export function TransferPlanModal({
     setEditingName(false);
     setMoreMenuOpen(false);
   }, [open, storageScopeId, embedded, initialActivePlan?.id]);
+
+  // Refresh available slots after a Solver save without replacing an open draft.
+  useEffect(() => {
+    if (open && typeof window !== 'undefined') setPlans(readStoredTransferPlans(window.localStorage, storageScopeId));
+  }, [open, storageScopeId, plansRevision]);
 
   useEffect(() => {
     if (editingName && nameInputRef.current) {
@@ -1076,7 +1083,7 @@ export function TransferPlanModal({
         <button type="button" className="button button--ghost" onClick={() => saveManual(true)}>Save as new</button>
         <span className="vx-planner-data-flags" title={source.officialFpl.reason}><b className={`is-${source.officialFpl.state}`}>FPL: {source.officialFpl.state}</b><b className={`is-${source.market.state}`}>ODDS: {source.market.state}</b></span>
       </header>
-      {!entry && <small className="manual-plan-source">Template squad · load your Team ID above</small>}
+      {!entry && <small className="manual-plan-source" title="Load your FPL Team ID for your squad">Template</small>}
       <div className="manual-plan-board">
         <div className="manual-plan-pitch-column">
           <div className="vx-tp-gw-nav">

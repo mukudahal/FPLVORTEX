@@ -1,3 +1,4 @@
+import { InfoDisclosure } from './InfoDisclosure';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import type {EnrichedPlayer, FplTeam, Position, Snapshot} from '../lib/types';
 import {formatPrice,formatPercent} from '../lib/format';
@@ -143,8 +144,9 @@ export function PlayerComparisonWorkspace({players,teams,snapshot}:Props) {
     <div className="vx-h2h-stat-controls">{RANGE_METRICS.map(metric=><label key={metric.key}>
      <input type="checkbox" checked={metrics.includes(metric.key)} onChange={()=>chooseMetric(metric.key)} />{metric.label}
     </label>)}</div>
-    <p className="vx-h2h-disclosure">Source: public FPL element-summary per-match history. Current status/price/ownership from snapshot ({snapshot.meta.generatedAt}). No forecast values are mixed with recorded totals.</p>
+    <InfoDisclosure label="About player history"><p>Source: public FPL element-summary per-match history. Current status/price/ownership from snapshot ({snapshot.meta.generatedAt}). No forecast values are mixed with recorded totals.</p></InfoDisclosure>
    </aside>
   </div>
  </section>;
 }
+
