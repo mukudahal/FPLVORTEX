@@ -275,12 +275,18 @@ try {
   assert.equal(await manual.locator('.vx-tp-pitch-card').count(), 15);
   // Save-as-new never changes another saved plan; switching analytical sections preserves drafts.
   await manual.getByRole('button', { name: 'Save plan', exact: true }).click();
+  await page.getByText('Saved on this device.', {exact:true}).waitFor();
+  assert.equal(await page.getByText('Could not save on this device. Your draft is still open.',{exact:true}).count(),0);
   const storedOnce = await page.evaluate(()=>localStorage.getItem('vortex:transferPlans:v1:template'));
   assert.equal(JSON.parse(storedOnce).length, 1);
   await manual.getByRole('textbox', { name: 'Manual plan name' }).fill('Manual Plan B');
   await manual.getByRole('button', { name: 'Save as new', exact: true }).click();
   const storedTwice = await page.evaluate(()=>JSON.parse(localStorage.getItem('vortex:transferPlans:v1:template')));
   assert.equal(storedTwice.length, 2);
+  const secondSaved = storedTwice.find(p=>p.name==='Manual Plan B');
+  assert.ok(secondSaved);
+  assert.equal(await manual.getByRole('combobox',{name:'Manual saved plan',exact:true}).inputValue(),secondSaved.id);
+  assert.equal(await page.getByText('Could not save on this device. Your draft is still open.',{exact:true}).count(),0);
   const originalSaved = JSON.parse(storedOnce)[0];
   assert.deepEqual(storedTwice.find(p=>p.id===originalSaved.id), originalSaved);
   for (const width of [320,375,390,414,768,1280,1920]) {

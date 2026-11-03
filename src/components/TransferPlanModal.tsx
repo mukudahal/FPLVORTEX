@@ -48,6 +48,7 @@ import {
   getNextFixturesWithVortexFdr,
   MAX_TRANSFER_PLAN_SLOTS,
   readStoredTransferPlans,
+  sanitizeStoredPlan,
   upsertTransferPlan,
   validatePendingReplacement,
   writeStoredTransferPlans,
@@ -1022,12 +1023,14 @@ export function TransferPlanModal({
       const latest = readStoredTransferPlans(window.localStorage, storageScopeId);
       const result = upsertTransferPlan(latest, updated);
       if (!result.ok) { onToast(result.error, 'error'); return; }
+      const committed = result.plans.find(p => p.id === updated.id)!;
       writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
-      if (!readStoredTransferPlans(window.localStorage, storageScopeId).some(p => p.id === updated.id && p.updatedAt === updated.updatedAt && JSON.stringify(p.transfers) === JSON.stringify(updated.transfers))) {
+      const restored = readStoredTransferPlans(window.localStorage, storageScopeId).find(p => p.id === committed.id);
+      if (!restored || JSON.stringify(restored) !== JSON.stringify(sanitizeStoredPlan(committed))) {
         onToast('Could not save on this device. Your draft is still open.', 'error'); return;
       }
       undoHistory.current = [];
-      setActivePlanState(updated); setPlans(result.plans); onPlansChanged?.(result.plans, updated.id);
+      setActivePlanState(committed); setPlans(result.plans); onPlansChanged?.(result.plans, committed.id);
       onToast('Saved on this device.', 'success');
     };
     const changeManualPlan = (id: string) => {
