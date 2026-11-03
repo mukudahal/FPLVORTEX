@@ -1,3 +1,4 @@
+import { InfoDisclosure } from './InfoDisclosure';
 import { makeFixtureForecasts, difficultyFillStyle, overallDifficulty, type FixtureForecast } from '../lib/fixtureForecast';
 import { buildFixtureMatrix } from '../lib/fixtures';
 import { buildPlayerForecastContext, playerFixtureForecast, playerHorizonPoints, playerGameweekExpectedMinutes } from '../lib/playerTableForecast';
@@ -358,9 +359,7 @@ export function PlayerLab({
           </label>
         </div>
 
-        <p role="status" className="planner-data-notice">
-          GW{selectedGw} uses the existing per-fixture VORTEX mechanistic model. Official status and a fresh FPL snapshot are required; — indicates suppressed, stale, missing or blank, not a 0-point prediction. Return dates require confirmation. Selected-by is not EO.
-        </p>
+        <InfoDisclosure label="About player projections"><p>Per-fixture VORTEX forecasts. A dash means no usable prediction. Ownership is selected-by %, not effective ownership.</p><a href="#/method">Methodology</a></InfoDisclosure>
       </section>
 
       <section className="panel vx-h2h-launch" aria-label="H2H Player Comparison">

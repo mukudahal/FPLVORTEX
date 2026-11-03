@@ -90,17 +90,19 @@ export function SquadBuilder({
 }: SquadBuilderProps) {
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
   const [draftTeamId, setDraftTeamId] = useState(teamId);
+  useEffect(() => setDraftTeamId(teamId), [teamId]);
   const [transferPlansOpen, setTransferPlansOpen] = useState(false);
   const [chipMode, setChipMode] = useState<'auto' | 'manual'>('auto');
   const [requestedChips, setRequestedChips] = useState<SeasonChipUse[]>([]);
   const [solverSaveError, setSolverSaveError] = useState<string | null>(null);
   const [scenarioFreeTransfers, setScenarioFreeTransfers] = useState<number | null>(null);
-  const [solverRun, setSolverRun] = useState(0);
-  const plannerWorkerRef = useRef<Worker | null>(null);
+  const [chipRequest, setChipRequest] = useState<{ input: PlannerSimulationInput } | null>(null);
+  const plannerCancelRef = useRef<(() => void) | null>(null);
   const [plannerHorizon, setPlannerHorizon] = useState(10);
   const [plannerDecay, setPlannerDecay] = useState(15);
   const [simulationDraws, setSimulationDraws] = useState<number>(MC_DRAWS);
-  const [reviewSim, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
+  const [simulationOutput, setReviewSim] = useState<PlannerSimulationOutput | null>(null);
+  const [resultInput, setResultInput] = useState<PlannerSimulationInput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [exactResult, setExactResult] = useState<ExactMilpResponse | null>(null);
@@ -115,7 +117,6 @@ export function SquadBuilder({
   const [exactError, setExactError] = useState<string | null>(null);
   const [exactPending, setExactPending] = useState(false);
   const exactAbortRef = useRef<AbortController | null>(null);
-  const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [scenarioLockedIds, setScenarioLockedIds] = useState<number[] | null>(null);
   const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
@@ -212,26 +213,7 @@ export function SquadBuilder({
   }, [activeSquadIds, activeSquadPlayers, baseEntrySquadIds, entry, playerMap, selectedPlan]);
 
   const plannedMoves = selectedPlan ? 0 : activeSquadIds.filter(id => !baseEntrySquadIds.includes(id)).length;
-  useEffect(() => {
-    setReviewSim(null);
-    setSimulationError(null);
-    setSimulationPending(false);
-    setSolverSaveError(null);
-    if (subTab === 'planner') return;
-    if (!selectedPlanIsCurrent) {
-      setSimulationError(`Saved plan starts GW${selectedPlan!.startGw}; current forecasts start GW${snapshot.meta.nextEventId}. Rebase or create a new plan in the Transfer Lab.`);
-      return;
-    }
-    if (players.length < 15 || activeSquadIds.length !== 15) {
-      setSimulationError('Load a complete 15-player squad to simulate.');
-      return;
-    }
-    if (bankTenths < 0) {
-      setSimulationError('Squad exceeds the available budget. Undo a transfer or reset the squad.');
-      return;
-    }
-    setSimulationPending(true);
-    const input: PlannerSimulationInput = {
+  const simulationInput = useMemo<PlannerSimulationInput>(() => ({
       players, currentSquadIds: activeSquadIds, bankTenths,
       horizonOnly: subTab === 'chips',
       chipPolicy: subTab === 'chips' ? chipMode : 'auto',
@@ -253,32 +235,65 @@ export function SquadBuilder({
         return [id, Math.round((pick?.sellingPrice ?? playerMap.get(id)?.price ?? 0) * 10)];
       })),
       dataNotice: entry ? (entry.provenance?.kind === 'official' && !snapshot.meta.stale ? 'Team and snapshot loaded from the connected FPL data sources; projections remain model estimates.' : 'Archived or cached team/data: verify the current squad and chips before acting.') : 'Template squad scenario; load your FPL Team ID for personal chip availability.',
-    };
+  }), [subTab, players, activeSquadIds, bankTenths, freeTransfers, plannedMoves, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap, selectedPlan, chipMode, requestedChips, effectiveFreeTransfers]);
+  const reviewSim = resultInput === simulationInput ? simulationOutput : null;
+  useEffect(() => {
+    setReviewSim(null);
+    setResultInput(null);
+    setSimulationError(null);
+    setSimulationPending(false);
+    setSolverSaveError(null);
+    if (subTab === 'planner' || (subTab === 'chips' && chipRequest?.input !== simulationInput)) return;
+    const input = simulationInput;
+    if (!selectedPlanIsCurrent) {
+      setSimulationError(`Saved plan starts GW${selectedPlan!.startGw}; current forecasts start GW${snapshot.meta.nextEventId}. Rebase or create a new plan in the Transfer Lab.`);
+      return;
+    }
+    if (players.length < 15 || activeSquadIds.length !== 15) {
+      setSimulationError('Load a complete 15-player squad to simulate.');
+      return;
+    }
+    if (bankTenths < 0) {
+      setSimulationError('Squad exceeds the available budget. Undo a transfer or reset the squad.');
+      return;
+    }
+    setSimulationPending(true);
+
     let worker: Worker | null = null;
     let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       worker = new Worker(new URL('../workers/planner.worker.ts', import.meta.url), { type: 'module' });
-      plannerWorkerRef.current = worker;
+      plannerCancelRef.current = () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); };
       worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string }>) => {
         if (cancelled) return;
+        clearTimeout(timeout);
         setSimulationPending(false);
+        setResultInput(input);
         if (event.data.result) setReviewSim(event.data.result);
         else setSimulationError(event.data.error ?? 'Simulation failed. Refresh and try again.');
         worker?.terminate();
       };
       worker.onerror = () => {
         if (cancelled) return;
+        clearTimeout(timeout);
         setSimulationPending(false);
         setSimulationError('Simulation could not finish. Reload the page and try again.');
         worker?.terminate();
       };
+      timeout = setTimeout(() => {
+        cancelled = true;
+        worker?.terminate();
+        setSimulationPending(false);
+        setSimulationError('Solver timed out. Try fewer gameweeks or run again.');
+      }, 90_000);
       worker.postMessage(input);
     } catch {
       setSimulationPending(false);
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
-    return () => { cancelled = true; worker?.terminate(); };
-  }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap, selectedPlan, selectedPlanIsCurrent, chipMode, requestedChips, solverRun, effectiveFreeTransfers]);
+    return () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); };
+  }, [subTab, simulationInput, chipRequest, selectedPlanIsCurrent, selectedPlan, snapshot.meta.nextEventId, players.length, activeSquadIds.length, bankTenths]);
 
   // Cancel and discard MILP output when a squad, projection, lock or GW changes.
   // No saved manager plan is ever changed by the exact-transfer comparison.
@@ -410,7 +425,7 @@ export function SquadBuilder({
       const committed = saved.plans.find(plan => plan.id === proposal.id);
       const readback = readStoredTransferPlans(window.localStorage, storageScopeId).find(plan => plan.id === proposal.id);
       if (!committed || JSON.stringify(readback) !== JSON.stringify(sanitizeStoredPlan(committed))) throw new Error('Could not save on this device. Your proposal is still open.');
-      setSavedPlans(saved.plans);
+      setSavedPlans(previous => saved.plans.map(plan => previous.find(old => old.id === plan.id && old.updatedAt === plan.updatedAt) ?? plan));
       setSolverSaveError(null);
       onToast('Solver proposal saved as a new Plan on this device.', 'success');
     } catch (error) { setSolverSaveError(error instanceof Error ? error.message : 'Could not save the proposal.'); }
@@ -425,7 +440,7 @@ export function SquadBuilder({
         {([
           { id: 'planner', label: 'Plan', icon: Layers },
           { id: 'chips', label: 'Chip Strategy', icon: BarChart3 },
-          { id: 'montecarlo', label: `3. Monte Carlo (${simulationDraws.toLocaleString()} Draws)`, icon: Dices },
+          { id: 'montecarlo', label: 'Monte Carlo', icon: Dices },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" className={classNames('subtab-btn', `planner-choice--${id}`, subTab === id && 'is-active')}
             aria-expanded={subTab === id} aria-controls={subTab === id ? "planner-section-content" : undefined}
@@ -453,7 +468,7 @@ export function SquadBuilder({
           {entryError && <span className="planner-team-link__error" role="alert">{entryError}</span>}
         </form>}
       </div>
-      {subTab !== 'planner' && (
+      {subTab === 'montecarlo' && (
       <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
           <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
@@ -466,9 +481,9 @@ export function SquadBuilder({
               {savedPlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name} (GW{plan.startGw}+)</option>)}
             </select>
           </label>
-          <button type="button" onClick={() => setTransferPlansOpen(true)}>{selectedPlan ? 'Edit saved plan' : 'Create / open transfer plan'}</button>
+          <button type="button" className="button button--ghost" onClick={() => setSubTab('planner')}>Edit Plan</button>
         </div>
-        {subTab === 'montecarlo' && selectedPlan && <p>Manual transfers, captaincy, lineups and chips in this plan are fixed decisions. The Solver only suggests legal additions; simulation includes a separate exact saved-plan path. Changes must be explicitly saved in Transfer Lab.</p>}
+        
         {!selectedPlanIsCurrent && <p role="alert">This saved plan starts in GW{selectedPlan?.startGw}, but the active GW is {snapshot.meta.nextEventId}. Its scenarios are blocked until you rebase or create a current plan.</p>}
         <details className="strategy-locks"><summary>Keep players · {lockedIds.length} locked</summary><div className="planner-control-row" aria-label="Lock players against automatic transfer suggestions">
           {activeSquadPlayers.map(p => <label key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
@@ -481,9 +496,6 @@ export function SquadBuilder({
       {subTab && <div id="planner-section-content" className="planner-section-content">
       {subTab === 'montecarlo' && <section className="panel planner-compact-controls" aria-label="Planning settings">
         <div className="planner-control-row">
-          <label>Strategy<select aria-label="Strategy" value={strategyLabel} onChange={e => setStrategyLabel(e.target.value)}>
-            <option value="steady">Steady</option><option value="top10k">Top 10K</option><option value="template">Template</option>
-          </select></label>
           <label>Simulation draws<select aria-label="Simulation draws" value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))}>
             <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
           </select></label>
@@ -497,7 +509,7 @@ export function SquadBuilder({
             {[0, 5, 10, 15, 20, 30].map(value => <option key={value} value={value}>{value}%</option>)}
           </select></label>
         </div>
-        <p className="planner-strategy-note">Strategy names are labels only for now; they do not change calculations. Current app profile: {profile}.</p>
+        
       </section>}
 
       {subTab === 'montecarlo' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
@@ -547,21 +559,25 @@ export function SquadBuilder({
         <TransferPlanModal embedded open onClose={() => {}} snapshot={snapshot} players={players}
           fallbackSquadIds={baseEntrySquadIds} entry={entry} defaultFreeTransfers={freeTransfers}
           onToast={onToast} onInspectPlayer={onInspectPlayer} onInspectInjury={onInspectInjury}
-          initialActivePlan={selectedPlan} onPlansChanged={handlePlansChanged} />
+          initialActivePlan={selectedPlan} onPlansChanged={handlePlansChanged}
+          plansRevision={savedPlans.map(plan => `${plan.id}:${plan.updatedAt}`).join('|')} />
       </div>
 
       {subTab === 'chips' && <>
         <ChipStrategyWorkspace snapshot={snapshot} players={players} result={reviewSim}
           pending={simulationPending} error={simulationError} horizon={plannerHorizon}
           mode={chipMode} requestedChips={requestedChips} savedPlan={selectedPlan}
+          startingSquad={result} bankTenths={bankTenths}
+          scenarioControls={<div className="strategy-scenario"><label>Squad<select aria-label="Active saved planning scenario" value={selectedPlanId} onChange={e => selectPlan(e.target.value)}><option value="__live__">{entry ? `Team #${entry.id}` : 'Template'}</option>{savedPlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label><button type="button" className="button button--ghost" onClick={() => setSubTab('planner')}>Edit Plan</button></div>}
+          advancedControls={<><label className="strategy-decay">Weekly decay<select aria-label="Solver weekly decay" value={plannerDecay} onChange={event => setPlannerDecay(Number(event.target.value))}>{[0,5,10,15,20,30].map(value => <option key={value} value={value}>{value}%</option>)}</select></label><div className="strategy-lock-grid">{activeSquadPlayers.map(player => <label key={player.id}><input type="checkbox" checked={lockedIds.includes(player.id)} onChange={() => togglePlayerLock(player.id)} aria-label={`Lock ${player.name} against automatic transfers`} />{player.name}</label>)}</div></>}
           chipHistory={entry?.chipsUsed ?? []} historyKnown={entry ? entry.chipsUsed !== undefined : true} template={!entry}
           onModeChange={setChipMode} onScheduleChange={setRequestedChips}
           onHorizonChange={value => { setPlannerHorizon(value); setRequestedChips([]); }}
           freeTransfers={effectiveFreeTransfers} onFreeTransfersChange={changeFreeTransfers}
-          onRun={() => setSolverRun(value => value + 1)}
-          onCancel={() => { if (plannerWorkerRef.current) { plannerWorkerRef.current.onmessage = null; plannerWorkerRef.current.onerror = null; plannerWorkerRef.current.terminate(); } setSimulationPending(false); setSimulationError('Calculation stopped. Your plans are unchanged.'); }}
+          onRun={() => setChipRequest({ input: simulationInput })}
+          onCancel={() => { plannerCancelRef.current?.(); setSimulationPending(false); setSimulationError('Stopped. Run again.'); }}
           onInspectPlayer={onInspectPlayer} onSaveAsNew={saveStrategyAsNew} saveError={solverSaveError} />
-        {reviewSim && <details className="panel strategy-details"><summary>Advanced exact no-chip comparison</summary>
+        {reviewSim && !selectedPlan && plannedMoves === 0 && <details className="panel strategy-details strategy-exact"><summary>Exact comparison</summary>
           <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
@@ -737,7 +753,7 @@ export function SquadBuilder({
               </div>
             </section>
 
-            <section className="panel">
+            <details className="panel strategy-details"><summary>Simulation details</summary>
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">SIMULATION ASSUMPTIONS</span>
@@ -750,7 +766,7 @@ export function SquadBuilder({
                   <li key={line}>{line}</li>
                 ))}
               </ul>
-            </section>
+            </details>
           </div>
         </div>
       )}
