@@ -323,3 +323,70 @@ test('chip timing scenarios are disabled with unknown history or no nominated ch
   });
   assert.equal(noChip.strategy.chipTiming, null);
 });
+
+
+test('ten-week solver still recommends hit-adjusted transfers with all chips spent', () => {
+  const input = { ...scenario(10), horizon: 10, horizonOnly: true,
+    chipsUsed: ['wildcard','freehit','bboost','3xc'].map((name,i)=>({name,event:i+1})) };
+  const before = JSON.stringify(input);
+  const result = runPlannerSimulation(input);
+  assert.deepEqual(result.strategy.horizon, [10,11,12,13,14,15,16,17,18,19]);
+  assert.equal(result.strategy.weeks.length,10);
+  assert.deepEqual(result.strategy.schedule, []);
+  assert.ok(result.strategy.weeks.some(week=>week.moves.some(move=>move.inId===16)));
+  assert.equal(result.strategy.weeks[0].hitCost,4);
+  assert.equal(JSON.stringify(input),before);
+});
+
+test('manual GW19 chip is honoured without automatically playing other chips', () => {
+  const input = { ...scenario(10,false), horizon:10, horizonOnly:true, chipPolicy:'manual' as const,
+    requestedChips:[{gw:19,chip:'tc' as const}] };
+  const result = runPlannerSimulation(input);
+  assert.deepEqual(result.strategy.schedule,[{gw:19,chip:'tc'}]);
+  assert.equal(result.strategy.weeks.at(-1)!.chip,'tc');
+  const held = runPlannerSimulation({...input,requestedChips:[]});
+  assert.deepEqual(held.strategy.schedule,[]);
+});
+
+test('manual schedule rejects spent chips, collisions, unknown inventory and out-of-horizon weeks', () => {
+  const input = {...scenario(18,false),horizonOnly:true,chipPolicy:'manual' as const};
+  assert.throws(()=>runPlannerSimulation({...input, chipsUsed:[{name:'3xc',event:12}],requestedChips:[{gw:19,chip:'tc'}]}),/already used/);
+  assert.throws(()=>runPlannerSimulation({...input,requestedChips:[{gw:19,chip:'tc'},{gw:19,chip:'bb'}]}),/More than one chip/);
+  assert.throws(()=>runPlannerSimulation({...input,chipHistoryKnown:false,requestedChips:[{gw:19,chip:'tc'}]}),/chip history/);
+  assert.throws(()=>runPlannerSimulation({...input,requestedChips:[{gw:20,chip:'tc'}]}),/inside the selected/);
+  const saved = {id:'preserved',name:'Manual',startGw:18,transfers:{},lineups:{},captains:{},chips:{19:'bb' as const}};
+  const before=JSON.stringify(saved);
+  assert.throws(()=>runPlannerSimulation({...input,manualPlan:saved,requestedChips:[{gw:19,chip:'tc'}]}),/conflicts with a saved chip/);
+  assert.equal(JSON.stringify(saved),before);
+});
+
+test('manual Free Hit rebuild is temporary and GW38 clips a requested ten-week run', () => {
+  const input=scenario(37);
+  input.players[15].gwProjections={37:30,38:0};
+  const result=runPlannerSimulation({...input,horizonOnly:true,chipPolicy:'manual',lockedIds:input.currentSquadIds,
+    requestedChips:[{gw:37,chip:'fh'}]});
+  assert.equal(result.strategy.weeks[0].chip,'fh');
+  assert.deepEqual(result.strategy.weeks[1].squad,input.currentSquadIds);
+  const end=runPlannerSimulation({...scenario(38,false),horizon:10,horizonOnly:true,chipPolicy:'manual'});
+  assert.deepEqual(end.strategy.horizon,[38]);
+});
+
+test('a reviewed strategy creates a separate canonical saved-plan revision', async () => {
+  const {createStrategyPlan}=await import('../src/lib/strategyPlan.ts');
+  const {sanitizeStoredPlan,upsertTransferPlan}=await import('../src/lib/transferPlansStore.ts');
+  const input={...scenario(18),horizonOnly:true,chipPolicy:'manual' as const,requestedChips:[{gw:19,chip:'tc' as const}]};
+  const result=runPlannerSimulation(input);
+  const base={id:'original',name:'Keep this',startGw:18,baseSquad:input.currentSquadIds,baseBankTenths:5,baseFreeTransfers:0,
+    sellingPrices:Object.fromEntries(input.players.slice(0,15).map(p=>[p.id,p.cost])),transfers:{},lineups:{},captains:{},chips:{},createdAt:'2026-11-03T00:00:00Z',updatedAt:'2026-11-03T00:00:00Z'};
+  const original=JSON.stringify(base);
+  const copy=createStrategyPlan(base,result,'new','2026-11-03T01:00:00Z');
+  const stored=upsertTransferPlan([base],copy);
+  assert.equal(stored.ok,true);
+  if(!stored.ok) return;
+  assert.equal(JSON.stringify(stored.plans[0]),original);
+  assert.equal(copy.id,'new');assert.equal(copy.chips[19],'tc');
+  assert.equal(copy.lineups[18].length,15);
+  assert.equal(copy.transfers[18][0].in,16);
+  assert.deepEqual(sanitizeStoredPlan(copy)?.transfers,copy.transfers);
+  assert.throws(()=>createStrategyPlan({...base,startGw:17},result,'stale','now'),/no longer matches/);
+});

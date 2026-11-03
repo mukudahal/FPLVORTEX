@@ -67,3 +67,15 @@ PRs #55, #56–59, #61–70 are merged: 4K export; source/UX contracts; 10-GW de
 - Local: TypeScript check passed; all 211 Node tests passed. Vite build passed; static export passed via node --import tsx (tsx CLI IPC is unavailable in this environment). Strict UI audit: 0 findings. Chromium download returned truncated archives; real rendered/mobile/keyboard/transfer/save/export verification must run in GitHub CI before merge. No browser or deployment success is claimed at this point.
 
 - Follow-up PR #77, implementation `e55a987`, captaincy/horizon `ed3b12f`, pitch/bench layout `b55939d`. Local 211 tests and strict UI audit passed. Browser screenshots reviewed at 1440px: all real portraits, centered formation and full bench names. CI caught and repaired an overlong week selector and clipped flex-column bench cards. A subsequent keyboard-transfer check selected the outgoing player itself (the legacy restore rule); the embedded Players picker now disables that row and uses Back to Plan for cancellation. Full browser/swap/save/mobile acceptance remains required before merge.
+
+
+### 2026-11-03 — Compact Chip Strategy transfer workspace (release/chip-strategy-10gw-20261103)
+
+Baseline verified: main 61e62622f869698ca5f6c3d1abec66ea492d55e7 and existing Render Vite/React/Express Docker service. Uploaded screenshot/60008.mp4/60011.mp4 reviewed. Existing compassPlanner runtime and canonical portrait/crest sources reused; no social automation, migrations or stack changes.
+
+Implemented: visible next-10-GW buy/sell/roll/hit roadmap even with all chips spent; Best recommendations and explicit Manual check; selectable GW19 when in horizon; separate half-season inventories; selected-week 11+4 portrait pitch; bank/FT/hits and selling/buy values; cancel/retry; protected save-as-new. Saved plans and manual commitments retained. Model details and existing exact no-chip comparison are collapsible. Shortlisted results are not called globally optimal. Simultaneous batch validation prevents legal proposals being pruned by intermediate budget/club counts.
+
+Evidence: initial 21 targeted model tests and 215 full Node tests passed; TypeScript and Vite/static-export passed. Local static export used a labelled fallback after upstream access failed in this environment. Further save-copy, batch and browser regression coverage added; final CI and production verification pending the PR. Tests cover spent chips with transfer hits, manual GW19, illegal/unknown/conflicting chips, FH restoration, GW38 clipping, immutable saved plans, mobile layouts and cancellation. All checks must pass at final head before merge.
+
+Rollback: redeploy prior approved main 61e62622 through existing Render controls; no migration. Remaining release dependency: final CI/browser artifacts and exact live commit verification. Authenticated cloud saving/PR60 stays staging-only; bookmaker rights/access remain unverified. No calibration or accuracy claim added.
+

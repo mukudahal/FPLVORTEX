@@ -339,9 +339,18 @@ try {
   assert.ok(await page.getByText(/not a probability of a green arrow/).isVisible());
   assert.equal(await page.locator('.vx-soccer-pitch:visible').count(), 0, 'Only the selected section should be visible');
   await page.screenshot({ path: 'test-results/planner/simulation-desktop.png', fullPage: true });
-  await page.getByRole('button', { name: /2. Chip Strategy/ }).click();
+  await page.getByRole('button', { name: /Chip Strategy/ }).click();
   await page.getByRole('region', { name: 'Joint chip schedule' }).waitFor();
   assert.ok(await page.locator('.chip-matrix-table tbody tr').count() > 0);
+  assert.equal(await page.locator('.strategy-gw-strip button').count(), 10);
+  assert.equal(await page.locator('.strategy-pitch .strategy-pitch-player').count(), 11);
+  assert.equal(await page.locator('.strategy-bench > div').count(), 4);
+  assert.equal(await page.getByRole('button', {name:'Best recommendations',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('button', {name:'Manual check',exact:true}).click();
+  await page.getByRole('region', {name:'Joint chip schedule'}).waitFor({timeout:120000});
+  assert.equal(await page.getByRole('button', {name:'Manual check',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('button', {name:'Best recommendations',exact:true}).click();
+  await page.getByRole('region', {name:'Joint chip schedule'}).waitFor({timeout:120000});
   await page.screenshot({ path: 'test-results/planner/chips-desktop.png', fullPage: true });
   await page.getByRole('combobox', { name: 'Free transfers available' }).selectOption('0');
   await page.getByRole('button', { name: /3. Monte Carlo/ }).click();
@@ -362,12 +371,45 @@ try {
 
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'The selected section stays open');
   assert.deepEqual(failures, [], 'No uncaught page or worker errors');
+  const solverContext = await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});
+  const solverPage = await solverContext.newPage();
+  await solverPage.goto(base + '/#/optimizer',{waitUntil:'domcontentloaded'});
+  await solverPage.getByRole('button',{name:'Chip Strategy',exact:true}).waitFor({timeout:90000});
+  await solverPage.getByRole('button',{name:'Chip Strategy',exact:true}).click();
+  await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
+  await solverPage.getByRole('button',{name:'Manual check',exact:true}).click();
+  await solverPage.getByRole('combobox',{name:'Triple Captain gameweek',exact:true}).selectOption('19');
+  await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
+  await solverPage.locator('.strategy-gw-strip button').last().click();
+  await solverPage.getByRole('heading',{name:'GW19 · TC',exact:true}).waitFor();
+  const beforeSolverSave = await solverPage.evaluate(()=>localStorage.getItem('vortex:transferPlans:v1:template'));
+  await solverPage.getByRole('button',{name:'Save as new Plan',exact:true}).click();
+  await solverPage.getByText('Solver proposal saved as a new Plan on this device.',{exact:true}).waitFor();
+  const afterSolverSave=await solverPage.evaluate(()=>JSON.parse(localStorage.getItem('vortex:transferPlans:v1:template')??'[]'));
+  const originalSolverPlans=JSON.parse(beforeSolverSave??'[]');
+  assert.equal(afterSolverSave.length,originalSolverPlans.length+1);
+  assert.deepEqual(afterSolverSave.slice(0,originalSolverPlans.length),originalSolverPlans);
+  assert.equal(afterSolverSave.at(-1).chips['19'],'tc');
+  assert.equal(await solverPage.getByRole('alert').count(),0);
+  for(const width of [320,390,768,1280,1920]){
+    await solverPage.setViewportSize({width,height:900});
+    assert.ok(await solverPage.evaluate(()=>document.documentElement.scrollWidth)<=width+2,`Chip Strategy overflow at ${width}px`);
+    assert.equal(await solverPage.locator('.strategy-pitch .strategy-player img').count(),11);
+    await solverPage.screenshot({path:`test-results/planner/strategy-${width}.png`,fullPage:true});
+  }
+  await solverPage.getByRole('button',{name:'Check my chip schedule',exact:true}).click();
+  await solverPage.getByRole('button',{name:'Stop calculation',exact:true}).click();
+  await solverPage.getByText('Calculation stopped. Your plans are unchanged.',{exact:true}).waitFor();
+  await solverPage.getByRole('button',{name:'Check my chip schedule',exact:true}).click();
+  await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
+  await solverContext.close();
+
   // A fresh session with a blocked module-worker must recover into an explicit error state.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.context().route('**/assets/planner.worker-*.js', route => route.abort());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 90000 });
-  await page.getByRole('button', { name: /2. Chip Strategy/ }).click();
+  await page.getByRole('button', { name: /Chip Strategy/ }).click();
   await page.getByText('Simulation could not finish. Reload the page and try again.', { exact: true }).waitFor({ timeout: 30000 });
   console.log('Planner browser checks passed: production worker, tabs, zero FT, keyboard, mobile, worker failure recovery.');
 } catch (error) {
