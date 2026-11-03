@@ -39,6 +39,7 @@ import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
 import { downloadPitchPng } from '../lib/pitchPng';
+import { dashboardPitchPoints } from '../lib/dashboardPitchPoints';
 import { fetchVideos } from '../lib/api';
 import { videoSourceNotice } from '../lib/videoProvenance';
 import {
@@ -321,6 +322,7 @@ export function CommandCenter({
   }, [players, selectedGw]);
 
   const isReviewMode = hasLinkedTeam && selectedGw <= reviewEventId;
+  const isDashboardRecordedGw = Boolean(entry && entry.currentEvent === selectedGw && snapshot.meta.currentEventId === selectedGw);
 
   const pitchLineup = useMemo(() => {
     const validSquad = squadIds.filter((id) => playerMap.has(id));
@@ -368,6 +370,11 @@ export function CommandCenter({
       nextGwXp: nextGwOptimal.total,
     };
   }, [entry, nextEventId, playerGwXp, playerMap, selectedGw, squadIds]);
+
+  const hasCompletePitchLineup = pitchLineup.starters.length === 11
+    && pitchLineup.bench.length === 4
+    && new Set([...pitchLineup.starters, ...pitchLineup.bench]).size === 15
+    && [...pitchLineup.starters, ...pitchLineup.bench].every((id) => playerMap.has(id));
 
   const heroOrbXp = useMemo(() => {
     if (hasLinkedTeam && pitchLineup.nextGwXp > 0) return pitchLineup.nextGwXp;
@@ -775,6 +782,11 @@ export function CommandCenter({
     const injuryInfo = hasFlag ? parsePlayerInjuryDetails(p, fx.label) : null;
     const showReviewPts = isReviewMode && selectedGw <= snapshot.meta.currentEventId;
     const starterPts = p.eventPoints * (isCap ? 2 : 1);
+    const dashboardPoints = dashboardPitchPoints({
+      selectedGw, entryGw: entry?.currentEvent ?? null,
+      currentGw: snapshot.meta.currentEventId, nextGw: snapshot.meta.nextEventId,
+      eventPoints: p.eventPoints, projectedPoints: xp, multiplier: isCap ? 2 : 1,
+    });
     const benchOrderPrefix = benchSlotIdx === 0 ? 'GKP' : `${benchSlotIdx}. ${p.position}`;
     const benchTopText = showReviewPts
       ? `${benchOrderPrefix} · ${p.eventPoints} pts`
@@ -788,7 +800,8 @@ export function CommandCenter({
         key={p.id}
         role="button"
         tabIndex={0}
-        className={classNames('vx-pitch-player', isBench && 'vx-pitch-player--bench')}
+        className={classNames('vx-pitch-player', mode === 'home' && 'vx-pitch-player--dashboard', isBench && 'vx-pitch-player--bench')}
+        aria-label={`${p.fullName}, ${p.position}, ${mode === 'home' ? `${dashboardPoints.text} ${dashboardPoints.label}` : starterTopText}, ${fx.label}${isCap ? ', captain' : isVice ? ', vice-captain' : ''}`}
         title={`${p.fullName} (${p.team.shortName}) · ${fx.label} — Click player image for FPL VORTEX graphic card`}
         onClick={() => setSelectedCardPlayer(p)}
         onKeyDown={(e) => {
@@ -798,7 +811,9 @@ export function CommandCenter({
           }
         }}
       >
-        {isBench ? (
+        {mode === 'home' ? (
+          <span className="vx-pitch-pos-label">{isBench ? benchOrderPrefix : fx.label}</span>
+        ) : isBench ? (
           <span className="vx-pitch-pos-label">{benchTopText}</span>
         ) : (
           <span className="vx-pitch-xp">{starterTopText}</span>
@@ -838,7 +853,13 @@ export function CommandCenter({
           />
         </div>
         <strong className="vx-pitch-name">{p.name}</strong>
-        <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)} style={fx.isBlank ? undefined : difficultyFillStyle(fx.difficulty)}>{fx.label}</span>
+        {mode === 'home' ? (
+          <span className={classNames('vx-pitch-score', `is-${dashboardPoints.source}`)} title={dashboardPoints.source === 'recorded' ? 'Recorded GW points' : dashboardPoints.source === 'projected' ? 'Model expected points, not a result' : 'Points unavailable for this Gameweek'}>
+            {dashboardPoints.text}<small>{dashboardPoints.label}</small>
+          </span>
+        ) : (
+          <span className={classNames('vx-pitch-fix', tone, `is-${tone}`)} style={fx.isBlank ? undefined : difficultyFillStyle(fx.difficulty)}>{fx.label}</span>
+        )}
         {isBench && (
           <span className="vx-pitch-bench-meta">
             {p.team.shortName} · £{p.price.toFixed(1)}m
@@ -939,7 +960,7 @@ export function CommandCenter({
         {/* COLUMN 1: GATED ON TOP FPL TEAM ID BAR -> UNLOCKS FULL SOCCER PITCH & REVIEW GW DATA */}
         <article className="panel vx-card vx-card--pitch vx-card--review-compact">
           <div className="vx-squad-scorebox">
-            <form className="vx-squad-scorebox__top" onSubmit={handleTeamSubmit} aria-label="Load FPL team and gameweek pitch">
+            <form noValidate className="vx-squad-scorebox__top" onSubmit={handleTeamSubmit} aria-label="Load FPL team and gameweek pitch">
               <label htmlFor="fpl-review-team-id" className="vx-squad-scorebox__id-label">TEAM ID</label>
               <input
                 ref={pitchInputRef}
@@ -958,8 +979,12 @@ export function CommandCenter({
               </button>
               <div className="vx-squad-scorebox__team" title={entry?.teamName || 'Load any official FPL manager ID'}>
                 <strong>{entryLoading ? 'LOADING SQUAD…' : entry?.teamName || 'YOUR SQUAD'}</strong>
-                {entry && entry.provenance?.kind !== 'official' && (entry.source === 'snapshot' || entry.source === 'offline') && (
-                  <small>ARCHIVED / DEMO DATA · NOT LIVE</small>
+                {entry && entry.provenance?.kind !== 'official' && (
+                  <small>{entry.provenance?.kind === 'demo'
+                    ? 'DEMO DATA · NOT LIVE'
+                    : entry.provenance?.kind === 'archived'
+                      ? 'ARCHIVED DATA · NOT LIVE'
+                      : 'SOURCE UNVERIFIED · NOT LIVE'}</small>
                 )}
               </div>
               {managerTotalPoints !== null && (
@@ -989,12 +1014,20 @@ export function CommandCenter({
           {!hasLinkedTeam ? (
             <div className="vx-squad-scorebox__empty">
               <UserCheck size={18} />
-              Enter your FPL Team ID above and select ENTER to load the official Gameweek Review soccer pitch.
+              Enter your FPL Team ID above and select ENTER to load your squad pitch. Public data may reflect a deadline-locked team rather than pending transfers.
             </div>
+          ) : !hasCompletePitchLineup ? (
+            <div className="vx-squad-scorebox__empty" role="alert">Squad pitch unavailable: a complete, unique 15-player lineup (11 starters and 4 substitutes) could not be verified in the loaded data.</div>
           ) : (
             <>
               {squadView === 'pitch' ? (
                 <>
+                {mode === 'home' && (
+                  <div className="vx-dashboard-pitch-context" role="status">
+                    <span>GW{selectedGw} · {isDashboardRecordedGw ? 'Recorded points (captain doubled)' : selectedGw >= nextEventId ? 'Model xPts · not a final score' : 'Historical player scores unavailable'}</span>
+                    <strong>11 STARTERS · 4 SUBSTITUTES</strong>
+                  </div>
+                )}
                 <div className="vx-soccer-pitch" ref={homePitchRef}>
                   <div className="vx-pitch-top-boards">
                     <div className="vx-pitch-board">
@@ -1036,9 +1069,11 @@ export function CommandCenter({
                       <div className="vx-pitch-bench-head">
                         <span>BENCH · SUBSTITUTES</span>
                         <strong>
-                          {isReviewMode && selectedGw <= snapshot.meta.currentEventId
-                            ? `Bench: ${entry?.history?.pointsOnBench ?? benchSummaryPts} pts`
-                            : `Bench: ${benchSummaryXp.toFixed(1)} xP`}
+                          {mode === 'home' && selectedGw < nextEventId && !isDashboardRecordedGw
+                            ? 'Bench: N/A'
+                            : isReviewMode && selectedGw <= snapshot.meta.currentEventId
+                              ? `Bench: ${entry?.history?.pointsOnBench ?? benchSummaryPts} pts`
+                              : `Bench: ${benchSummaryXp.toFixed(1)} xP`}
                         </strong>
                       </div>
                       <div className="vx-pitch-bench">
@@ -1419,7 +1454,7 @@ export function CommandCenter({
         <div className="hero__content hero__content--compact">
 
           {/* PROMINENT TOP FPL TEAM ID CONNECT BAR */}
-          <form className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
+          <form noValidate className="vx-top-id-bar" onSubmit={handleTeamSubmit} aria-label="Connect your FPL Team ID">
             <div className="vx-top-id-bar__field">
               <label htmlFor="fpl-team-id-top" className="vx-top-id-bar__label">
                 <UserCheck size={16} />

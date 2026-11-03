@@ -185,7 +185,7 @@ export function LeagueIntel({
           </p>
         </div>
 
-        <form className="connect-panel__form" onSubmit={handleSubmit}>
+        <form noValidate className="connect-panel__form" onSubmit={handleSubmit}>
           <label className="filter-select">
             <span>FPL Team ID</span>
             <TeamIdInput
@@ -495,3 +495,4 @@ export function LeagueIntel({
     </div>
   );
 }
+

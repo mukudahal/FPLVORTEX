@@ -6,7 +6,7 @@ Canonical production is main / Vite + React + Express on existing Render. Earlie
 | Order | Task | Status / exact dependency |
 |---|---|---|
 | 1 | Official FPL freshness/recovery | IMPLEMENTED locally: shared ingestion, atomic runtime/scheduled writes, no false failure on TTL expiry, safe health diagnostics; targeted tests passed. Live deploy verification pending. |
-| 2 | Reviewed PR #71 public UI | NEXT: select Dashboard/navigation/Players/H2H changes. Do not import unfinished joint/private-account endpoints wholesale. |
+| 2 | Reviewed PR #71 public UI | IMPLEMENTED locally: select Dashboard/navigation/Players/H2H changes. Do not import unfinished joint/private-account endpoints wholesale. |
 | 3 | Model contracts and timestamped forecast archive | OPEN: declare TS production versus notebook research ownership; freeze/version future inputs and outputs. Existing parity/rules tests retained. Historical calibration blocked on genuine pre-deadline observations and settled targets. |
 | 4 | Bookmaker provenance/display | PARTIAL: real production coverage observed; redisplay rights must be verified by the provider/account owner. Missing/stale/partial quotes must remain disclosed, never described as complete live odds. |
 | 5 | Planner/solver acceptance | PARTIAL: merged no-chip HiGHS, price/FT safeguards and alternative-path tests. Genuine manager-entered joint chip acceptance needs authorized roster, purchase/sale values, cash, FT and chip inventory. Keep PR #71 joint/private research flags disabled in minimal release. |
@@ -27,3 +27,6 @@ PRs #55, #56–59, #61–70 are merged: 4K export; source/UX contracts; 10-GW de
 - Targeted recovery/freshness/loading tests: 13 passed, 0 failed. Full checks and release commit are recorded after completion.
 - PR #60 reviewed: SQL/security groundwork only; not an integrated cloud save system. Preserve it as isolated staging work.
 - Old overlapping PRs #1/#2/#43/#45 must not be merged wholesale. #55 already covers the PNG repair. Dependency PRs require individual checks, not blind bulk merge.
+
+- Milestone 1 pushed: `47aaab312f6149aa6fede1b684db525aab2f73f9`, PR #73. All four applicable CI jobs passed; existing conditional container gate was skipped. Final release branch now explicitly includes that gate.
+- Milestone 2 integrates only public Dashboard/navigation/Players/H2H code from #71; unchanged Planner/Python solver and no joint/auth routes. Negative recorded scores, empty metrics, cancelled requests/retry and backwards-compatible shared fixture tiles were corrected during review.

@@ -116,8 +116,8 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onRemoveRecent(item.id);
           }}
+          onClick={() => onRemoveRecent(item.id)}
         >
           <X size={12} />
         </button>
@@ -185,14 +185,13 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         <button
           type="button"
           className={classNames('vx-team-id-clear', recentTeams.length > 0 && 'has-chevron')}
-          tabIndex={-1}
+          tabIndex={0}
           aria-label="Clear typed FPL Team ID"
           title="Clear and pick another saved ID"
           onMouseDown={(e) => {
             e.preventDefault();
-            onChange('');
-            if (recentTeams.length > 0) setOpen(true);
           }}
+          onClick={() => { onChange(''); if (recentTeams.length > 0) setOpen(true); }}
         >
           <X size={12} />
         </button>
@@ -202,13 +201,13 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
         <button
           type="button"
           className="vx-team-id-chevron"
-          tabIndex={-1}
+          tabIndex={0}
           aria-label="Show saved FPL Team IDs"
           title={`Saved FPL Team IDs (${recentTeams.length})`}
           onMouseDown={(e) => {
             e.preventDefault();
-            setOpen((prev) => !prev);
           }}
+          onClick={() => setOpen(prev => !prev)}
         >
           <span>{recentTeams.length}</span>
           <ChevronDown size={13} />
@@ -241,3 +240,4 @@ export const TeamIdInput = forwardRef<HTMLInputElement, TeamIdInputProps>(functi
     </div>
   );
 });
+

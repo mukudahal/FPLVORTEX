@@ -46,7 +46,7 @@ interface OfflineLeagueFallback {
 const cache = new Map<string, CacheEntry<unknown>>();
 let lastGoodSnapshot: Snapshot | null = null;
 let snapshotInFlight: Promise<Snapshot> | null = null;
-const refreshDiagnostics = { lastAttemptAt: null as string | null, lastSuccessAt: null as string | null, lastFailureAt: null as string | null, lastError: null as ReturnType<typeof classifyRefreshError> | null, persistedAt: null as string | null, persistence: 'not-attempted' as string }; 
+const refreshDiagnostics = { lastAttemptAt: null as string | null, lastSuccessAt: null as string | null, lastFailureAt: null as string | null, lastError: null as ReturnType<typeof classifyRefreshError> | null, persistedAt: null as string | null, persistence: 'not-attempted' as string };
 let offlineLeagueFallbackCache: OfflineLeagueFallback | null = null;
 
 const SNAPSHOT_PATH = process.env.VORTEX_SNAPSHOT_PATH ?? 'public/data/fpl-snapshot.json';
