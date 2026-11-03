@@ -17,12 +17,12 @@ export async function imageDataUrl(img: HTMLImageElement): Promise<string> {
   }
   for (const url of sources) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(url.startsWith('/api/img/') ? 20_000 : 4_000) });
       if (!response.ok) continue;
       const image = await response.blob();
       // The server returns a generic SVG shirt when a portrait cannot be fetched.
       // Do not silently replace a visible portrait with a different picture.
-      if (!image.type.startsWith('image/') || (url.startsWith('/api/img/player/') && image.type.includes('svg'))) continue;
+      if (!image.type.startsWith('image/') || (url !== src && url.startsWith('/api/img/player/') && image.type.includes('svg'))) continue;
       return await new Promise<string>((resolve, reject) => {
         const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(image);
       });
@@ -60,11 +60,13 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     if (originals.length !== copies.length) throw new Error('Some pitch images could not be prepared.');
     const images = await Promise.all(originals.map(imageDataUrl));
     await Promise.all(copies.map((image, index) => new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('A player image timed out while preparing the PNG.')), 10_000);
+      const done = () => { clearTimeout(timeout); resolve(); };
       image.loading = 'eager';
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error('A player image could not be loaded for the PNG.'));
+      image.onload = done;
+      image.onerror = () => { clearTimeout(timeout); reject(new Error('A player image could not be loaded for the PNG.')); };
       image.src = images[index];
-      if (image.complete && image.naturalWidth) resolve();
+      if (image.complete && image.naturalWidth) done();
     })));
     await document.fonts?.ready;
 
@@ -72,7 +74,8 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     // its physical AND logical insets only in the serialized html-to-image SVG:
     // without this correction, browsers can generate a correctly sized blank PNG.
     const captured = await toBlob(clone, {
-      width, height, pixelRatio: 2, cacheBust: false,
+      width, height, pixelRatio: 2, cacheBust: false, preferredFontFormat: 'woff2',
+      fetchRequestInit: { signal: AbortSignal.timeout(15_000) },
       style: {
         position: 'relative', left: '0', top: '0', right: 'auto', bottom: 'auto',
         inset: 'auto', insetBlock: 'auto', insetInline: 'auto', transform: 'none',
@@ -215,3 +218,4 @@ export async function downloadPitchPng(pitch: HTMLElement, filename: string): Pr
     clone.remove();
   }
 }
+

@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './fpl.ts';
 import { normalizePlayerMatchHistory } from '../src/lib/playerHistory.ts';
@@ -23,7 +24,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const isProduction = process.env.NODE_ENV === 'production';
 const port = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
-const imageCacheDir = path.join(root, '.cache', 'player-images');
+const imageCacheDir = process.env.VORTEX_IMAGE_CACHE_PATH ?? path.join(tmpdir(), 'fpl-vortex', 'player-images');
+
+async function cacheImage(file: string, bytes: Buffer) {
+  try { await mkdir(imageCacheDir, { recursive: true }); await writeFile(file, bytes); }
+  catch { console.warn('[images] optional disk cache unavailable; serving fetched image'); }
+}
 
 export const app = express();
 
@@ -330,8 +336,7 @@ app.get('/api/img/player/:code', asyncRoute(async (req, res) => {
 
   const upstreamBytes = await fetchImageBytes(candidates);
   if (upstreamBytes) {
-    await mkdir(imageCacheDir, { recursive: true });
-    await writeFile(cachedPath, upstreamBytes);
+    await cacheImage(cachedPath, upstreamBytes);
     res.set('Cache-Control', 'public, max-age=86400');
     res.type('image/png').send(upstreamBytes);
     return;
@@ -368,8 +373,7 @@ app.get('/api/img/badge/:teamCode', asyncRoute(async (req, res) => {
     `${PL_BADGE_BASE}/t${teamCode}.png`,
   ]);
   if (upstreamBytes) {
-    await mkdir(imageCacheDir, { recursive: true });
-    await writeFile(cachedPath, upstreamBytes);
+    await cacheImage(cachedPath, upstreamBytes);
     res.set('Cache-Control', 'public, max-age=86400');
     res.type('image/png').send(upstreamBytes);
     return;

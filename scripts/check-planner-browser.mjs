@@ -79,7 +79,10 @@ try {
   // Exercise the real rendered Dashboard export as well as isolated PNG fixtures.
   await page.setViewportSize({width:1440,height:1000});
   await dashboard.locator('.vx-card--pitch').getByRole('button',{name:'Save as a PNG image',exact:true}).click();
-  await page.locator('.png-save-dialog img').waitFor({timeout:60000});
+  await Promise.race([
+    page.locator('.png-save-dialog img').waitFor({timeout:60000}),
+    page.locator('.toast--error').filter({hasText:/PNG|pitch|image|save/i}).waitFor({timeout:60000}).then(async()=>{throw Error('Dashboard PNG export: '+await page.locator('.toast--error').innerText());}),
+  ]);
   const [pitchDownload]=await Promise.all([
     page.waitForEvent('download',{timeout:30000}),
     page.getByRole('link',{name:'Download PNG',exact:true}).click(),
