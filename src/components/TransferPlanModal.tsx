@@ -524,9 +524,14 @@ export function TransferPlanModal({
     const bi = order.indexOf(secondId);
     if (ai >= 0 && bi >= 0) {
       [order[ai], order[bi]] = [order[bi], order[ai]];
+      const starters = order.slice(0, 11);
+      const ranked = [...starters].sort((a, b) => xpAt(planCtx, b, gwIdx) - xpAt(planCtx, a, gwIdx));
+      const captain = currentLineup.captain && starters.includes(currentLineup.captain) ? currentLineup.captain : ranked[0];
+      const vice = currentLineup.vice && starters.includes(currentLineup.vice) && currentLineup.vice !== captain ? currentLineup.vice : ranked.find(id => id !== captain);
       const nextPlan: StoredTransferPlan = {
         ...activePlan,
         lineups: { ...activePlan.lineups, [safeSelectedGw]: order },
+        captains: { ...activePlan.captains, [safeSelectedGw]: { captain, vice } },
         updatedAt: new Date().toISOString(),
       };
       setActivePlan(nextPlan);
@@ -899,8 +904,9 @@ export function TransferPlanModal({
           if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            if (subSourceId !== null && isSubValidTarget) {
-              performLineupSubstitution(subSourceId, p.id);
+            if (subSourceId !== null) {
+              if (isSubValidTarget) performLineupSubstitution(subSourceId, p.id);
+              else setSubSourceId(null);
             } else {
               handleRemovePitchPlayer(p.id);
             }
@@ -1072,8 +1078,8 @@ export function TransferPlanModal({
         <div className="manual-plan-pitch-column">
           <div className="vx-tp-gw-nav">
             <button type="button" aria-label="Previous gameweek" disabled={gwIdx <= 0} onClick={() => changeGw(planCtx.gws[gwIdx - 1])}><ArrowLeft size={18}/></button>
-            <label>Gameweek<select aria-label="Select planning gameweek" value={safeSelectedGw} onChange={e => changeGw(Number(e.target.value))}>{planCtx.gws.map(gw => <option key={gw} value={gw}>GW{gw}</option>)}</select></label>
-            <button type="button" aria-label="Next gameweek" disabled={gwIdx >= planCtx.gws.length - 1} onClick={() => changeGw(planCtx.gws[gwIdx + 1])}><ArrowRight size={18}/></button>
+            <label>Gameweek<select aria-label="Select planning gameweek" value={safeSelectedGw} onChange={e => changeGw(Number(e.target.value))}>{planCtx.gws.slice(0, 10).map(gw => <option key={gw} value={gw}>GW{gw}</option>)}</select></label>
+            <button type="button" aria-label="Next gameweek" disabled={gwIdx >= Math.min(10, planCtx.gws.length) - 1} onClick={() => changeGw(planCtx.gws[gwIdx + 1])}><ArrowRight size={18}/></button>
           </div>
           <div className="manual-plan-metrics">
             <div><small>Transfers</small><strong>{liveMetrics.transfersUsed} / {liveMetrics.freeTransfers}</strong></div>

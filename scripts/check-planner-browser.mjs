@@ -239,6 +239,17 @@ try {
   assert.deepEqual((await manual.locator('.vx-tp-pitch-card').evaluateAll(cards => cards.map(c => c.getAttribute('data-tp-pitch-player')))).sort(), [...idsBefore].sort());
   await manual.getByRole('button', { name: 'Undo', exact: true }).click();
   assert.equal(await manual.locator(`.vx-tp-formation [data-tp-pitch-player="${starterId}"]`).count(), 1);
+  // Benching the captain must leave distinct captain/vice choices inside the XI.
+  const captainCard = manual.locator('.vx-tp-formation .vx-tp-pitch-card').filter({ has: page.locator('.vx-tp-armband.is-cap') });
+  const oldCaptainId = await captainCard.getAttribute('data-tp-pitch-player');
+  await captainCard.getByRole('button', { name: /^Swap/ }).click();
+  await manual.locator('.vx-tp-bench-tray .is-sub-target').first().click();
+  const nextCaptain = await manual.getByRole('combobox', { name: 'Manual captain', exact: true }).inputValue();
+  const nextVice = await manual.getByRole('combobox', { name: 'Manual vice', exact: true }).inputValue();
+  assert.notEqual(nextCaptain, oldCaptainId);
+  assert.notEqual(nextCaptain, nextVice);
+  assert.equal(await manual.locator(`.vx-tp-formation [data-tp-pitch-player="${nextCaptain}"]`).count(), 1);
+  await manual.getByRole('button', { name: 'Undo', exact: true }).click();
   // Transfer uses the existing Players page, with legal Select buttons.
   const expensive = manual.locator('.vx-tp-formation .vx-tp-pitch-card').nth(await manual.locator('.vx-tp-formation .vx-tp-pitch-card').evaluateAll(cards => {
     let at=0, price=-1; cards.forEach((c,i)=>{const v=parseFloat(c.querySelector('.vx-tp-price-pill')?.textContent?.replace(/[^0-9.]/g,''))||0;if(v>price){at=i;price=v;}});return at;
