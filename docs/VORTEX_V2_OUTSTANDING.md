@@ -81,3 +81,5 @@ Rollback: redeploy prior approved main 61e62622 through existing Render controls
 
 
 PR #78 implementation commit 3d7c1fd: all four non-browser CI jobs passed in run 41720786598. Browser reached and passed manual GW19 and save-copy preservation, then failed because the new portrait assertion counted both player photos and club crests (22 images versus 11). Follow-up scopes the same 11-portrait requirement to PlayerAvatar, tightens desktop controls after inspecting the actual screenshot, and adds deterministic hold-squad comparison. Strict UI audit: 0 findings. Final-head CI remains required; no deployment claimed.
+
+CI at 880d8b9: all five jobs passed (run 41721433781), including actual 4K PNG downloads, manual GW19 save-as-new, preserved source slots, cancellation/retry and mobile widths. Actual 320/1280 screenshots reviewed. Final visual follow-up corrects the inherited five-column control grid for this two-control workspace, styles native manual chip selectors, and resets scroll before evidence screenshots so fixed headers are captured at the top. This follow-up must pass CI before release.
