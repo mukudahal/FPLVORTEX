@@ -13,7 +13,7 @@ Canonical production is main / Vite + React + Express on existing Render. Earlie
 | 6 | Saved-plan Monte Carlo | PARTIAL: deterministic paired sampler and selected-plan integration exist. Arbitrary A/B workflow, cancellation/export and realistic coverage need acceptance; distributions remain provisional. |
 | 7 | Cloud saving / DATA admin (#60) | BLOCKED: no connected isolated Supabase staging project/authenticated two-user RLS evidence. No production migration; browser-local saving preserved. |
 | 8 | Enabled-route / device / actual export acceptance | CI VERIFIED at 3c3eff6: Chromium Dashboard, Players/H2H, original Planner/saved plans/simulation, real downloaded CSV and 4K PNG files. Screenshot artifact reviewed. Final integrated run pending. |
-| 9 | Final integration checks and rollout | OPEN: normal PR checks/reviews, exact Render commit, refresh timestamps, solver/plan/export smoke and logs. Render logs require the account workspace to be selected by its owner; service/deploy metadata reads work. |
+| 9 | Final integration checks and rollout | OPEN: normal PR checks/reviews, exact Render commit, refresh timestamps, solver/plan/export smoke and logs. Owner selected My Workspace; production startup logs reviewed. Post-release logs and exact live SHA remain to verify. |
 
 ## Completed before this release (preserve)
 
@@ -35,3 +35,5 @@ PRs #55, #56–59, #61–70 are merged: 4K export; source/UX contracts; 10-GW de
 - Local model/API/archive tests: full suite 203 passed, Python 14 passed (one dependency deprecation warning), TypeScript/build/static export passed. UI static audit: zero findings. Local Chromium download was unavailable; actual Chromium acceptance ran successfully in GitHub Actions.
 - Genuine future GW10 inputs retrieved 2026-11-03T10:22:59.001Z, first forecast computed 2026-11-03T10:22:59.205Z, 670 players. Archive input SHA-256 c998c4d3dc05ad589b74a082b7735706df8ca0faedc12d71209c875c65a7978e. Subsequent model-code versions create separate observations; no back-dated forecasts.
 - Minimal release excludes: joint chip/manual-attestation/private-account research from #71; cloud/admin from #60; unrestricted-optimum and calibration claims; arbitrary saved Plan A/B workflow not yet accepted; framework migration. Existing released chip heuristics and paired simulations retain explicit assumption labels.
+
+- Milestone 3 pushed: `fd076860445c6768f9865a9ec09e488acab2993b`. Prospective archive/outcome and shared-age policy implemented; final release verification adds application-entry hash matching plus production HTTP/browser/download checks (unchanged worker bytes alone do not prove a new UI deployment).

@@ -121,6 +121,14 @@ jobs:
       - name: Verify automatic production deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/check-planner-deployment.mjs
+      - name: Verify live data, recovery, public history and exact solver
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/check-release-live.mjs
+      - name: Verify enabled production workflows and real downloads
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          PLANNER_BASE_URL: https://fplvortex.onrender.com
+        run: node scripts/check-planner-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

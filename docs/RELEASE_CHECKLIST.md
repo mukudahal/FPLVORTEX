@@ -12,7 +12,7 @@ Canonical source/baseline/rollback: `RELEASE_BASELINE.md`. Work status and evide
 - [ ] Final integrated commit: all required checks/reviews pass and GitHub normal merge permits release.
 - [ ] Render live SHA matches the merge SHA; read health and execute one actual official refresh.
 - [ ] Verify live enabled routes/assets, history, source/odds status, solver, local plans and actual exports against the deployed release.
-- [ ] Inspect production logs if workspace access is available; otherwise explicitly record the dependency and rely on observed endpoint/deploy diagnostics without claiming log review.
+- [ ] Inspect post-release production logs (owner has now selected My Workspace). Pre-release startup logs have been reviewed.
 
 ## Enabled / deferred contract
 

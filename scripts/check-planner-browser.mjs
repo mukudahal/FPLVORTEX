@@ -76,6 +76,18 @@ try {
       await page.screenshot({ path: `test-results/planner/dashboard-pitch-${width}.png`, fullPage: true });
     }
   }
+  // Exercise the real rendered Dashboard export as well as isolated PNG fixtures.
+  await page.setViewportSize({width:1440,height:1000});
+  await dashboard.locator('.vx-card--pitch').getByRole('button',{name:'Save as a PNG image',exact:true}).click();
+  await page.locator('.png-save-dialog img').waitFor({timeout:60000});
+  const [pitchDownload]=await Promise.all([
+    page.waitForEvent('download',{timeout:30000}),
+    page.getByRole('link',{name:'Download PNG',exact:true}).click(),
+  ]);
+  const pitchBytes=await readFile(await pitchDownload.path());
+  assert.deepEqual([...pitchBytes.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+  assert.deepEqual([pitchBytes.readUInt32BE(16),pitchBytes.readUInt32BE(20)],[3840,2160]);
+  await page.locator('.png-save-dialog').waitFor({state:'detached',timeout:15000});
   // Restore a clean manager-free Planner session for existing browser assertions.
   // Navigation alone retains React state, so remount after clearing storage.
   await page.evaluate(() => localStorage.removeItem('vortex:linkedManagerId'));
