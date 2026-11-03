@@ -56,8 +56,14 @@ import {
 import type { EnrichedPlayer, EntryData, Position, Snapshot } from '../lib/types';
 import { ClubBadge } from './ClubBadge';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerLab } from './PlayerLab';
+import { PlanDraftDialog } from './PlanDraftDialog';
+import { PlannerOverview } from './PlannerOverview';
+import { buildFixtureMatrix } from '../lib/fixtures';
+import { buildPublicDataHealth } from '../lib/publicDataHealth';
 
 interface TransferPlanModalProps {
+  embedded?: boolean;
   open: boolean;
   onClose: () => void;
   snapshot: Snapshot;
@@ -104,6 +110,7 @@ const SHORT_POS_LABEL: Record<Position, string> = {
 };
 
 export function TransferPlanModal({
+  embedded = false,
   open,
   onClose,
   snapshot,
@@ -119,11 +126,18 @@ export function TransferPlanModal({
   initialPendingOutIds = [],
   initialPosFilter = 'ALL',
 }: TransferPlanModalProps) {
-  const [view, setView] = useState<ModalView>(initialActivePlan ? 'editor' : 'list');
+  const [initialDraft] = useState(() => initialActivePlan ?? (embedded ? createNewTransferPlan({ snapshot, players, fallbackSquadIds, entry, defaultFreeTransfers }) : null));
+  const [view, setView] = useState<ModalView>(initialDraft ? 'editor' : 'list');
   const [plans, setPlans] = useState<StoredTransferPlan[]>([]);
-  const [activePlan, setActivePlan] = useState<StoredTransferPlan | null>(initialActivePlan);
+  const [activePlan, setActivePlanState] = useState<StoredTransferPlan | null>(initialDraft);
+  const undoHistory = useRef<StoredTransferPlan[]>([]);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const setActivePlan = (next: StoredTransferPlan | null) => {
+    if (embedded && activePlan && next?.id === activePlan.id) undoHistory.current = [...undoHistory.current.slice(-49), activePlan];
+    setActivePlanState(next);
+  };
   const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(initialActivePlan?.name ?? '');
+  const [nameInput, setNameInput] = useState(initialDraft?.name ?? '');
   const [selectedGw, setSelectedGw] = useState<number>(initialActivePlan?.startGw ?? snapshot.meta.nextEventId);
   const [pendingOutIds, setPendingOutIds] = useState<number[]>(initialPendingOutIds);
   const [focusedPendingOutId, setFocusedPendingOutId] = useState<number | null>(initialPendingOutIds[0] ?? null);
@@ -180,14 +194,18 @@ export function TransferPlanModal({
         // Ignore storage read errors
       }
     }
-    setView(initialActivePlan ? 'editor' : 'list');
-    setActivePlan(initialActivePlan ?? null);
+    const initial = initialActivePlan ?? (embedded ? createNewTransferPlan({ snapshot, players, fallbackSquadIds, entry, defaultFreeTransfers }) : null);
+    setView(initial ? 'editor' : 'list');
+    setActivePlanState(initial);
+    setNameInput(initial?.name ?? '');
+    setSelectedGw(initial?.startGw ?? snapshot.meta.nextEventId);
+    undoHistory.current = [];
     setPendingOutIds(initialPendingOutIds);
     setFocusedPendingOutId(initialPendingOutIds[0] ?? null);
     setSubSourceId(null);
     setEditingName(false);
     setMoreMenuOpen(false);
-  }, [open, storageScopeId]);
+  }, [open, storageScopeId, embedded, initialActivePlan?.id]);
 
   useEffect(() => {
     if (editingName && nameInputRef.current) {
@@ -218,12 +236,12 @@ export function TransferPlanModal({
         }
         // Closing the selected saved editor matches the same keyboard escape
         // behavior as the plan list; unsaved edits are not silently persisted.
-        onClose();
+        if (embedded) { setPendingOutIds([]); setFocusedPendingOutId(null); } else onClose();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, moreMenuOpen, editingName, subSourceId, view, onClose]);
+  }, [open, moreMenuOpen, editingName, subSourceId, view, onClose, embedded]);
 
   useEffect(() => {
     if (!moreMenuOpen) return undefined;
@@ -592,6 +610,10 @@ export function TransferPlanModal({
     else delete rawNextTransfers[safeSelectedGw];
 
     const sanitizedTransfers = sanitize(planCtx, rawNextTransfers, activePlan.chips);
+    if (embedded && !planCtx.gws.every(gw => JSON.stringify(sanitizedTransfers[gw] ?? []) === JSON.stringify(rawNextTransfers[gw] ?? []))) {
+      onToast('This transfer conflicts with a later saved move. Review that gameweek first.', 'error');
+      return;
+    }
 
     // Preserve captain/vice inheritance if outgoing was captain/vice
     const prevCapCfg = activePlan.captains[safeSelectedGw] ?? {
@@ -782,6 +804,12 @@ export function TransferPlanModal({
     return topMoves(planCtx, replayState, gwIdx, labHorizon, 6);
   }, [planCtx, replayState, gwIdx, labHorizon]);
 
+  const manualSuggestions = useMemo(() => {
+    if (!embedded || !planCtx || !replayState) return [];
+    return [1, 4, 6].map(h => ({ horizon: Math.min(h, planCtx.gws.length - gwIdx), move: topMoves(planCtx, replayState, gwIdx, h, 1)[0] }));
+  }, [embedded, planCtx, replayState, gwIdx]);
+  const pickerFixtures = useMemo(() => embedded ? buildFixtureMatrix(snapshot.teams, snapshot.fixtures, snapshot.meta.nextEventId, 5, [], snapshot.historicalTeamModel?.strengths) : [], [embedded, snapshot]);
+
   if (!open) return null;
 
   const cacheGwIdx = Math.max(0, vortexCache.gws.indexOf(safeSelectedGw));
@@ -868,6 +896,7 @@ export function TransferPlanModal({
           handleRemovePitchPlayer(p.id);
         }}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (subSourceId !== null && isSubValidTarget) {
@@ -884,8 +913,8 @@ export function TransferPlanModal({
             type="button"
             className={classNames('vx-tp-card-action is-sub', isSubArmed && 'is-active')}
             onClick={(e) => handleSubButtonClick(p.id, e)}
-            title={`Substitute ${p.name}`}
-            aria-label={`Substitute ${p.name}`}
+            title={`${embedded ? "Swap" : "Substitute"} ${p.name}`}
+            aria-label={`${embedded ? "Swap" : "Substitute"} ${p.name}`}
           >
             <ArrowUpDown size={11} />
           </button>
@@ -965,6 +994,131 @@ export function TransferPlanModal({
       </div>
     );
   };
+
+  if (embedded && activePlan && planCtx && replayState && currentLineup) {
+    const source = buildPublicDataHealth(snapshot);
+    const outgoing = focusedPendingOutId === null ? null : playerMap.get(focusedPendingOutId);
+    const clearPending = () => { setPendingOutIds([]); setFocusedPendingOutId(null); setSubSourceId(null); };
+    const freshDraft = () => {
+      clearPending(); undoHistory.current = [];
+      const next = createNewTransferPlan({ snapshot, players, fallbackSquadIds, entry, defaultFreeTransfers });
+      setActivePlanState(next); setNameInput(next.name); setSelectedGw(next.startGw);
+    };
+    const saveManual = (asNew = false) => {
+      if (pendingOutIds.length) { onToast('Choose a replacement or cancel the transfer first.', 'error'); return; }
+      const clean = sanitize(planCtx, activePlan.transfers, activePlan.chips);
+      if (!planCtx.gws.every(gw => JSON.stringify(clean[gw] ?? []) === JSON.stringify(activePlan.transfers[gw] ?? []))) {
+        onToast('A planned transfer is no longer legal. Review the plan before saving.', 'error'); return;
+      }
+      const updated = { ...activePlan, id: asNew ? `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}` : activePlan.id,
+        name: nameInput.trim() || activePlan.name, updatedAt: new Date().toISOString() };
+      // Read the latest device plans at the time of this explicit save, preserving unrelated slots.
+      const latest = readStoredTransferPlans(window.localStorage, storageScopeId);
+      const result = upsertTransferPlan(latest, updated);
+      if (!result.ok) { onToast(result.error, 'error'); return; }
+      writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
+      if (!readStoredTransferPlans(window.localStorage, storageScopeId).some(p => p.id === updated.id && p.updatedAt === updated.updatedAt && JSON.stringify(p.transfers) === JSON.stringify(updated.transfers))) {
+        onToast('Could not save on this device. Your draft is still open.', 'error'); return;
+      }
+      undoHistory.current = [];
+      setActivePlanState(updated); setPlans(result.plans); onPlansChanged?.(result.plans, updated.id);
+      onToast('Saved on this device.', 'success');
+    };
+    const changeManualPlan = (id: string) => {
+      if (id === '__new__') freshDraft();
+      else { const next = plans.find(p => p.id === id); if (next) { undoHistory.current = []; openEditorWithPlan(next); onPlansChanged?.(plans, next.id); } }
+    };
+    const requestManualPlan = (id: string) => {
+      if (undoHistory.current.length || nameInput !== activePlan.name) setPendingNavigation(id);
+      else changeManualPlan(id);
+    };
+    if (activePlan.startGw !== snapshot.meta.nextEventId) return <section className="panel" aria-label="Plan needs review">
+      <p role="alert">This plan starts GW{activePlan.startGw}. Current planning starts GW{snapshot.meta.nextEventId}; the saved plan is unchanged.</p>
+      <button type="button" onClick={freshDraft}>New plan</button>
+    </section>;
+    if (outgoing) return <section className="manual-plan-picker" aria-label="Choose transfer replacement">
+      <header className="manual-plan-toolbar">
+        <button type="button" className="button button--ghost" autoFocus onClick={clearPending}><ArrowLeft size={16} /> Back to Plan</button>
+        <PlayerAvatar code={outgoing.code} teamCode={outgoing.team.code} name={outgoing.name} fullName={outgoing.fullName} teamShort={outgoing.team.shortName} position={outgoing.position} size="md" />
+        <strong>Transfer out: {outgoing.name}</strong>
+        <span>£{(liveMetrics.effectiveBankTenths / 10).toFixed(1)}m available · GW{safeSelectedGw}</span>
+      </header>
+      <PlayerLab key={`${outgoing.id}:${safeSelectedGw}`} snapshot={snapshot} players={players} teams={snapshot.teams}
+        fixtureRows={pickerFixtures} nextEventId={snapshot.meta.nextEventId} query={searchQuery} onQueryChange={setSearchQuery} onToast={onToast}
+        selection={{ outgoing, gameweek: safeSelectedGw, onSelect: handleSelectIncomingPlayer,
+          unavailableReason: p => validatePendingReplacement({ ctx: planCtx, stateSquad: replayState.squad,
+            effectiveBankTenths: liveMetrics.effectiveBankTenths, pendingOutIds, outId: outgoing.id, inId: p.id }) }} />
+    </section>;
+    const advicePlayer = (id: number) => {
+      const p = playerMap.get(id);
+      return p ? <div className="manual-advice-player"><PlayerAvatar code={p.code} teamCode={p.team.code} name={p.name} fullName={p.fullName} teamShort={p.team.shortName} position={p.position} size="md" /><strong>{p.name}</strong></div> : null;
+    };
+    return <section className="manual-plan" aria-label="Manual Plan" data-testid="manual-plan">
+      <header className="manual-plan-toolbar">
+        <label>Plan<select aria-label="Manual saved plan" value={plans.some(p => p.id === activePlan.id) ? activePlan.id : '__draft__'} onChange={e => {
+          requestManualPlan(e.target.value);
+        }}>
+          {!plans.some(p => p.id === activePlan.id) && <option value="__draft__">Unsaved plan</option>}
+          {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select></label>
+        <label>Name<input aria-label="Manual plan name" value={nameInput} maxLength={60} onChange={e => setNameInput(e.target.value)} /></label>
+        <button type="button" className="button button--ghost" onClick={() => requestManualPlan('__new__')}>New plan</button>
+        <button type="button" className="button button--primary" onClick={() => saveManual()}>Save plan</button>
+        <button type="button" className="button button--ghost" onClick={() => saveManual(true)}>Save as new</button>
+        <span className="vx-planner-data-flags" title={source.officialFpl.reason}><b className={`is-${source.officialFpl.state}`}>FPL: {source.officialFpl.state}</b><b className={`is-${source.market.state}`}>ODDS: {source.market.state}</b></span>
+      </header>
+      {!entry && <small className="manual-plan-source">Template squad · load your Team ID above</small>}
+      <div className="manual-plan-board">
+        <div className="manual-plan-pitch-column">
+          <div className="vx-tp-gw-nav">
+            <button type="button" aria-label="Previous gameweek" disabled={gwIdx <= 0} onClick={() => changeGw(planCtx.gws[gwIdx - 1])}><ArrowLeft size={18}/></button>
+            <label>Gameweek<select aria-label="Select planning gameweek" value={safeSelectedGw} onChange={e => changeGw(Number(e.target.value))}>{planCtx.gws.map(gw => <option key={gw} value={gw}>GW{gw}</option>)}</select></label>
+            <button type="button" aria-label="Next gameweek" disabled={gwIdx >= planCtx.gws.length - 1} onClick={() => changeGw(planCtx.gws[gwIdx + 1])}><ArrowRight size={18}/></button>
+          </div>
+          <div className="manual-plan-metrics">
+            <div><small>Transfers</small><strong>{liveMetrics.transfersUsed} / {liveMetrics.freeTransfers}</strong></div>
+            <div><small>Hits</small><strong>−{liveMetrics.hitCost}</strong></div>
+            <div><small>Bank</small><strong>£{(liveMetrics.effectiveBankTenths / 10).toFixed(1)}m</strong></div>
+            <div><small>Model xPts</small><strong>{liveMetrics.projectedGwXp.toFixed(1)}</strong></div>
+          </div>
+          {subSourceId !== null && <div className="manual-swap-notice" role="status">Swap {playerMap.get(subSourceId)?.name} with a highlighted {currentLineup.starters.includes(subSourceId) ? 'bench player' : 'starter'} <button type="button" onClick={() => setSubSourceId(null)}>Cancel</button></div>}
+          <div className="vx-tp-pitch vx-soccer-pitch">
+            <div className="vx-pitch-top-boards"><div className="vx-pitch-board"><img src={BRAND_LION_SRC} alt=""/><span>FPL VORTEX</span></div></div>
+            <div className="vx-pitch-turf vx-tp-turf">
+              <div className="vx-pitch-lines" aria-hidden="true"><span className="vx-pitch-box-18"/><span className="vx-pitch-box-6"/><span className="vx-pitch-halfway"/><span className="vx-pitch-circle"/></div>
+              <div className="vx-tp-formation">{(['GKP','DEF','MID','FWD'] as const).map(pos => <div className="vx-tp-pitch-row" key={pos}>{currentLineup.starters.filter(id => playerMap.get(id)?.position === pos).map(id => renderPitchSlot(id))}</div>)}</div>
+              <div className="vx-tp-bench-tray">{currentLineup.bench.map((id, i) => <div className="vx-tp-bench-col" key={id}><span className="vx-tp-bench-pos">{i === 0 ? 'GK' : `Bench ${i}`}</span>{renderPitchSlot(id, true)}</div>)}</div>
+            </div>
+          </div>
+          <div className="manual-plan-chips" aria-label="Manual chips">{CHIP_ORDER.map(chip => <button type="button" key={chip} className={classNames('button button--ghost', activeChip === chip && 'is-active')} aria-pressed={activeChip === chip} onClick={() => handleToggleChip(chip)}>{CHIP_LABEL[chip]}</button>)}</div>
+          <div className="manual-plan-actions">
+            <button type="button" className="button button--ghost" disabled={!undoHistory.current.length} onClick={() => { const previous = undoHistory.current.pop(); if (previous) { setActivePlanState(previous); clearPending(); } }}>Undo</button>
+            <button type="button" className="button button--ghost" onClick={handleResetGwTransfers}>Reset GW</button>
+            <label>Bank £m<input aria-label="Starting bank millions" type="number" min="0" step="0.1" value={activePlan.baseBankTenths / 10} onChange={e => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 0) setActivePlan({ ...activePlan, baseBankTenths: Math.round(v * 10) }); }}/></label>
+            <label>FT<select aria-label="Manual starting free transfers" value={activePlan.baseFreeTransfers} onChange={e => setActivePlan({ ...activePlan, baseFreeTransfers: Number(e.target.value) })}>{[0,1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}</select></label>
+          </div>
+        </div>
+        <aside className="manual-plan-advice">
+          <section className="panel" aria-label="Assistant Manager"><div className="panel__header"><h3>Assistant Manager</h3></div>
+            {[['Captain', currentLineup.captain], ['Vice-captain', currentLineup.vice]].map(([label, id]) => <div className="manual-advice-row" key={label}>{typeof id === 'number' && advicePlayer(id)}<div><strong>{label}</strong><span>{typeof id === 'number' ? xpAt(planCtx, id, gwIdx).toFixed(2) : '—'} model xPts</span></div></div>)}
+            <div className="manual-captain-controls">{(['captain', 'vice'] as const).map(role => <label key={role}>{role === 'captain' ? 'Captain' : 'Vice'}<select aria-label={`Manual ${role}`} value={currentLineup[role] ?? ''} onChange={e => {
+              const id = Number(e.target.value), other = role === 'captain' ? 'vice' : 'captain';
+              const otherId = currentLineup[other] === id ? currentLineup[role] : currentLineup[other];
+              setActivePlan({ ...activePlan, captains: { ...activePlan.captains, [safeSelectedGw]: { [role]: id, [other]: otherId } } });
+            }}>{currentLineup.starters.map(id => <option key={id} value={id}>{playerMap.get(id)?.name}</option>)}</select></label>)}</div>
+          </section>
+          <section className="panel" aria-label="Director of Football"><div className="panel__header"><h3>Director of Football</h3></div>
+            {manualSuggestions.map(({horizon, move}, index) => <div className="manual-director-row" key={index}>
+              {move ? <>{advicePlayer(move.out)}<ArrowRight size={18} aria-label="to"/>{advicePlayer(move.in)}<div><strong>+{move.gain.toFixed(2)} xPts</strong><small>{horizon} GW · before hits</small></div></> : <span>No shortlisted upgrade · {horizon} GW</span>}
+            </div>)}
+            <small className="manual-plan-source">Model suggestions · before hits · choose transfers yourself</small>
+          </section>
+        </aside>
+      </div>
+      <PlannerOverview mode="fixtures" snapshot={snapshot} squad={[]} />
+      {pendingNavigation && <PlanDraftDialog onCancel={() => setPendingNavigation(null)} onDiscard={() => { const id = pendingNavigation; setPendingNavigation(null); changeManualPlan(id); }} />}
+    </section>;
+  }
 
   const modalNode = (
     <div
@@ -2230,4 +2384,5 @@ export function TransferPlanModal({
 
   return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
+
 

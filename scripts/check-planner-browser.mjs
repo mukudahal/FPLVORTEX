@@ -97,7 +97,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
+  await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 90000 });
   assert.equal(await page.locator('.planner-team-link').count(), 1, 'Planner must retain the team loader');
   const managerInput = page.getByRole('textbox', { name: 'FPL Team ID' });
   const loadTeamButton = page.getByRole('button', { name: 'Load team' });
@@ -196,7 +196,7 @@ try {
   await h2h.close();
   await page.context().unroute('**/api/vortex/player-history/*');
   await page.goto(base + '/#/optimizer', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
+  await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 90000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   const sourceBadges = page.locator('.vx-planner-data-flags b');
   assert.equal(await sourceBadges.count(), 2, 'Planner must distinguish official FPL retrieval and bookmaker odds confidence');
@@ -209,81 +209,75 @@ try {
   assert.ok(['fresh', 'stale', 'unverified', 'unavailable'].includes(healthJson.officialFpl.state));
   assert.equal(healthJson.model.calibration, 'unverified', 'Provisional model must not claim calibrated forecasts');
   assert.ok(!JSON.stringify(healthJson).includes('ODDS_API_KEY'), 'Source-health API must not expose credentials');
-  assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'Team planner should show one pitch');
-  assert.equal(await page.locator('.vx-planner-fixtures').count(), 1, 'FDR table should appear alongside the pitch');
+  const manual = page.getByRole('region', { name: 'Manual Plan', exact: true });
+  await manual.waitFor();
+  assert.equal(await manual.locator('.vx-tp-pitch-card').count(), 15);
+  assert.equal(await manual.locator('.vx-tp-formation .vx-tp-pitch-card').count(), 11);
+  assert.equal(await manual.locator('.vx-tp-bench-tray .vx-tp-pitch-card').count(), 4);
+  assert.equal(await manual.locator('.vx-tp-pitch-avatar img').count(), 15);
+  assert.equal(await page.getByRole('region', { name: 'Exact no-chip Solver' }).count(), 0);
+  assert.equal(await manual.getByRole('button', { name: /Run.*Solver|Optimise|Auto-pick/ }).count(), 0);
   assert.equal(await page.locator('.vx-planner-fixtures tbody tr').count(), 20);
-  assert.equal(await page.getByRole('button', { name: 'Suggest transfers' }).count(), 0);
-  assert.equal(await page.locator('.vx-planner-gws button').count(), 10, 'Planner defaults to next 10 verified GWs');
-  assert.match(await page.locator('.vx-planner-timeline-summary').innerText(), /10-GW PLANNING ROADMAP/);
+  const fdrBox = await page.locator('.vx-planner-fixtures').boundingBox();
+  const directorBox = await page.getByRole('region', { name: 'Director of Football', exact: true }).boundingBox();
+  assert.ok(fdrBox && directorBox && fdrBox.y >= directorBox.y + directorBox.height, 'FDR follows Director of Football');
+  assert.equal(await page.getByRole('combobox', { name: 'Select planning gameweek' }).locator('option').count(), 10);
   await page.getByRole('combobox', { name: 'Fixture gameweeks' }).selectOption('5');
-  assert.equal(await page.locator('.vx-planner-gws button').count(), 5, 'Short horizon must work');
+  assert.equal(await page.locator('.vx-planner-fixtures thead th').count(), 7);
   await page.getByRole('combobox', { name: 'Fixture gameweeks' }).selectOption('10');
-  assert.equal(await page.locator('.vx-planner-gws button').count(), 10);
   await page.getByRole('button', { name: 'Sort by average difficulty' }).click();
-  const pitchClass = await page.locator('.vx-soccer-pitch').first().getAttribute('class');
-  for (const width of [320, 375, 390, 414, 768, 1280, 1920]) {
+  const idsBefore = await manual.locator('.vx-tp-pitch-card').evaluateAll(cards => cards.map(c => c.getAttribute('data-tp-pitch-player')));
+  const starter = manual.locator('.vx-tp-formation .vx-tp-pitch-card').first();
+  const starterId = await starter.getAttribute('data-tp-pitch-player');
+  await starter.getByRole('button', { name: /^Swap/ }).click();
+  assert.equal(await manual.locator('.vx-tp-formation .is-sub-target').count(), 0, 'Starter swaps never select another starter');
+  const benchTarget = manual.locator('.vx-tp-bench-tray .is-sub-target').first();
+  const benchId = await benchTarget.getAttribute('data-tp-pitch-player');
+  await benchTarget.click();
+  assert.equal(await manual.locator(`.vx-tp-formation [data-tp-pitch-player="${benchId}"]`).count(), 1);
+  assert.equal(await manual.locator(`.vx-tp-bench-tray [data-tp-pitch-player="${starterId}"]`).count(), 1);
+  assert.deepEqual((await manual.locator('.vx-tp-pitch-card').evaluateAll(cards => cards.map(c => c.getAttribute('data-tp-pitch-player')))).sort(), [...idsBefore].sort());
+  await manual.getByRole('button', { name: 'Undo', exact: true }).click();
+  assert.equal(await manual.locator(`.vx-tp-formation [data-tp-pitch-player="${starterId}"]`).count(), 1);
+  // Transfer uses the existing Players page, with legal Select buttons.
+  const expensive = manual.locator('.vx-tp-formation .vx-tp-pitch-card').nth(await manual.locator('.vx-tp-formation .vx-tp-pitch-card').evaluateAll(cards => {
+    let at=0, price=-1; cards.forEach((c,i)=>{const v=parseFloat(c.querySelector('.vx-tp-price-pill')?.textContent?.replace(/[^0-9.]/g,''))||0;if(v>price){at=i;price=v;}});return at;
+  }));
+  const outId = await expensive.getAttribute('data-tp-pitch-player');
+  await expensive.getByRole('button', { name: /^Transfer out/ }).click();
+  const picker = page.getByRole('region', { name: 'Choose transfer replacement' });
+  await picker.waitFor();
+  assert.equal(await picker.getByRole('region', { name: 'Player Predictions', exact: true }).count(), 1);
+  const incoming = picker.locator('button[data-select-player]:enabled').first();
+  await incoming.waitFor();
+  const inId = await incoming.getAttribute('data-select-player');
+  await incoming.focus(); await page.keyboard.press('Enter');
+  await manual.waitFor();
+  assert.equal(await manual.locator(`[data-tp-pitch-player="${outId}"]`).count(), 0);
+  assert.equal(await manual.locator(`[data-tp-pitch-player="${inId}"]`).count(), 1);
+  assert.equal(await manual.locator('.vx-tp-pitch-card').count(), 15);
+  // Save-as-new never changes another saved plan; switching analytical sections preserves drafts.
+  await manual.getByRole('button', { name: 'Save plan', exact: true }).click();
+  const storedOnce = await page.evaluate(()=>localStorage.getItem('vortex:transferPlans:v1:template'));
+  assert.equal(JSON.parse(storedOnce).length, 1);
+  await manual.getByRole('textbox', { name: 'Manual plan name' }).fill('Manual Plan B');
+  await manual.getByRole('button', { name: 'Save as new', exact: true }).click();
+  const storedTwice = await page.evaluate(()=>JSON.parse(localStorage.getItem('vortex:transferPlans:v1:template')));
+  assert.equal(storedTwice.length, 2);
+  const originalSaved = JSON.parse(storedOnce)[0];
+  assert.deepEqual(storedTwice.find(p=>p.id===originalSaved.id), originalSaved);
+  for (const width of [320,375,390,414,768,1280,1920]) {
     await page.setViewportSize({ width, height: 900 });
-    const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-    assert.ok(pageWidth <= width, `Team planner overflows at ${width}px: ${pageWidth}px`);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth) <= width, `Manual Plan overflows at ${width}px`);
+    if(width===390)await page.screenshot({path:'test-results/planner/manual-plan-mobile.png',fullPage:true});
   }
-  for (const width of [1280, 1440]) {
-    await page.setViewportSize({ width, height: 800 });
-    for (const selector of ['.vx-soccer-pitch', '.vx-planner-fixtures']) {
-      const box = await page.locator(selector).boundingBox();
-      assert.ok(box && box.y + box.height <= 800, `${selector} does not fit the 800px viewport at ${width}px`);
-    }
-  }
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.screenshot({ path: 'test-results/planner/team-plan-desktop.png', fullPage: true });
-
-  // Verify Fix 1 -> Fix 2 -> Fix 3 in the Transfer Plans popup window
-  await page.getByRole('button', { name: /1\. Team Planner & Solver/ }).click();
-  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ timeout: 15000 });
-  await page.getByText('Transfer plans', { exact: true }).waitFor();
-  await page.getByText('0 of 10 plan slots used', { exact: true }).waitFor();
-  await page.getByText('Create your first plan', { exact: true }).waitFor();
-  await page.screenshot({ path: 'test-results/planner/fix1-transfer-plans.png' });
-
-  // Fix 2: Click New + -> opens full VORTEX Transfer Plan editor with NEXT 5 fixtures
-  await page.locator('[data-testid="vx-tp-new-plan"]').click();
-  await page.locator('[data-testid="vx-tp-editor-view"]').waitFor({ timeout: 15000 });
-  assert.equal(await page.locator('.vx-tp-pitch-card').count(), 15, 'Should render 15 squad cards (11 XI + 4 bench)');
-  assert.ok(await page.locator('th.is-next5-col').isVisible(), 'Right player table must show NEXT 5 header');
-  assert.match(await page.locator('th.is-next5-col').innerText(), /NEXT 5/);
-  assert.equal(await page.locator('.vx-tp-player-row').first().locator('.vx-tp-next5-chip').count(), 5, 'Each player row shows Next 5 fixtures');
-  await page.screenshot({ path: 'test-results/planner/fix2-workspace.png' });
-
-  // Fix 3: Click the highest-priced starter on the pitch -> "+ / <Name> / Replace" slot & position filter
-  const priciestIdx = await page.locator('.vx-tp-formation .vx-tp-pitch-card').evaluateAll((cards) => {
-    let bestIdx = 0;
-    let bestPrice = -1;
-    cards.forEach((card, idx) => {
-      const pill = card.querySelector('.vx-tp-price-pill')?.textContent ?? '';
-      const val = Number.parseFloat(pill.replace(/[^0-9.]/g, '')) || 0;
-      if (val > bestPrice) {
-        bestPrice = val;
-        bestIdx = idx;
-      }
-    });
-    return bestIdx;
-  });
-  await page.locator('.vx-tp-formation .vx-tp-pitch-card').nth(priciestIdx).click();
-  await page.locator('.vx-tp-replace-slot').first().waitFor({ timeout: 10000 });
-  assert.equal(await page.locator('.vx-tp-replace-slot').count(), 1, 'Clicked pitch player becomes + / Replace slot');
-  await page.screenshot({ path: 'test-results/planner/fix3-replace-slot.png' });
-
-  // Select first eligible unowned replacement from the right-hand VORTEX xPts table
-  const candidateRow = page.locator('.vx-tp-player-row[data-tp-eligible="true"]').first();
-  await candidateRow.waitFor({ timeout: 10000 });
-  await candidateRow.click();
-  assert.equal(await page.locator('.vx-tp-replace-slot').count(), 0, 'Replacement fills the pitch slot');
-  assert.equal(await page.locator('.vx-tp-pitch-card').count(), 15, 'Squad returns to 15 active players');
-
-  // Save & Exit -> returns to Transfer plans list showing 1 of 10 plan slots used, then close modal
-  await page.getByRole('button', { name: /Save & Exit/ }).click();
-  await page.getByText('1 of 10 plan slots used', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Close transfer plans window' }).click();
-  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ state: 'detached' });
+  await page.setViewportSize({width:1440,height:1000});
+  await page.screenshot({path:'test-results/planner/manual-plan-desktop.png',fullPage:true});
+  // Keep the original stored plan immutable while later simulator checks run.
+  const pitchClass = await manual.locator('.vx-soccer-pitch').getAttribute('class');
+  await page.evaluate(()=>{localStorage.removeItem('vortex:transferPlans:v1:template');localStorage.setItem('vortex:selectedTransferPlan:v1:template','__live__');});
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByRole('region',{name:'Manual Plan',exact:true}).waitFor();
 
   // Fix 4: Verify VORTEX 4-band fill & White-on-Red / Black-on-other text contrast on Fixture Matrix
   await page.goto((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/#/fixtures', { waitUntil: 'domcontentloaded' });
@@ -312,7 +306,7 @@ try {
   await page.screenshot({ path: 'test-results/planner/fix4-fixture-matrix.png' });
 
   await page.goto((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/#/optimizer', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /1\. Team Planner & Solver/ }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: /3. Monte Carlo/ }).click();
   await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
@@ -320,7 +314,7 @@ try {
   assert.ok(await page.getByText(/Versus best transfer plan \(chips saved\):/).count() >= 2);
   assert.ok(await page.getByText(/Win share sampling interval \(95%\):/).count() >= 2);
   assert.ok(await page.getByText(/not a probability of a green arrow/).isVisible());
-  assert.equal(await page.locator('.vx-soccer-pitch').count(), 0, 'Only the selected section should be visible');
+  assert.equal(await page.locator('.vx-soccer-pitch:visible').count(), 0, 'Only the selected section should be visible');
   await page.screenshot({ path: 'test-results/planner/simulation-desktop.png', fullPage: true });
   await page.getByRole('button', { name: /2. Chip Strategy/ }).click();
   await page.getByRole('region', { name: 'Joint chip schedule' }).waitFor();
@@ -335,24 +329,21 @@ try {
   await page.screenshot({ path: 'test-results/planner/simulation-mobile.png', fullPage: true });
   const bodyWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(bodyWidth <= 406, 'Planner should keep page-level overflow within the narrow viewport');
-  await page.getByRole('button', { name: /1. Team Planner/ }).click();
-  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: 'Close transfer plans window' }).click();
-  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ state: 'detached' });
-  assert.equal(await page.locator('.vx-soccer-pitch').first().getAttribute('class'), pitchClass);
-  await page.getByRole('button', { name: /1. Team Planner & Solver/ }).focus();
-  assert.ok(await page.getByRole('button', { name: /1. Team Planner & Solver/ }).evaluate(el => el === document.activeElement));
+  await page.getByRole('button', { name: 'Plan', exact: true }).click();
+  await page.getByRole('region', {name:'Manual Plan',exact:true}).waitFor();
+  assert.equal(await page.locator('.vx-soccer-pitch:visible').getAttribute('class'), pitchClass);
+  assert.equal(await page.locator('[data-testid="vx-transfer-plans-modal"]').count(), 0, 'Plan is inline, not an automatic popup');
+  await page.getByRole('button', { name: 'Plan', exact: true }).focus();
   await page.keyboard.press('Enter');
-  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ timeout: 10000 });
-  await page.keyboard.press('Escape');
-  await page.locator('[data-testid="vx-transfer-plans-modal"]').waitFor({ state: 'detached' });
+  assert.equal(await page.locator('[data-testid="vx-transfer-plans-modal"]').count(), 0);
+
   assert.equal(await page.locator('.vx-soccer-pitch').count(), 1, 'The selected section stays open');
   assert.deepEqual(failures, [], 'No uncaught page or worker errors');
   // A fresh session with a blocked module-worker must recover into an explicit error state.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.context().route('**/assets/planner.worker-*.js', route => route.abort());
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /1. Team Planner & Solver/ }).waitFor({ timeout: 90000 });
+  await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 90000 });
   await page.getByRole('button', { name: /2. Chip Strategy/ }).click();
   await page.getByText('Simulation could not finish. Reload the page and try again.', { exact: true }).waitFor({ timeout: 30000 });
   console.log('Planner browser checks passed: production worker, tabs, zero FT, keyboard, mobile, worker failure recovery.');
@@ -363,4 +354,5 @@ try {
 } finally {
   await browser.close();
 }
+
 

@@ -270,3 +270,21 @@ test('Fix 4: Rendered FixtureMatrix and PlayerGraphicModal apply 4-band fills wi
   assert.match(cardHtml, new RegExp(`background:${VORTEX_FILL_COLORS.red};color:#ffffff`));
   assert.match(cardHtml, new RegExp(`background:${VORTEX_FILL_COLORS.green};color:#000000`));
 });
+
+
+test('Manual Plan is inline, image-led, solver-free and places shared FDR below recommendations', async () => {
+  const { snapshot, players, fallbackSquadIds, plan } = await loadPlannerSetup();
+  const before = JSON.stringify(plan);
+  const html = renderToStaticMarkup(React.createElement(TransferPlanModal, {
+    embedded: true, open: true, onClose: () => {}, snapshot, players, fallbackSquadIds,
+    initialActivePlan: plan, onToast: () => {},
+  }));
+  assert.match(html, /aria-label="Manual Plan"/);
+  assert.doesNotMatch(html, /role="dialog"|Run VORTEX Solver|Auto-pick|10-Gameweek transfer MILP/);
+  assert.equal((html.match(/data-tp-pitch-player=/g) ?? []).length, 15);
+  assert.equal((html.match(/aria-label="Transfer out /g) ?? []).length, 15);
+  assert.match(html, /Assistant Manager/);
+  assert.match(html, /Director of Football/);
+  assert.ok(html.indexOf('Director of Football') < html.indexOf('aria-label="Fixture difficulty table"'));
+  assert.equal(JSON.stringify(plan), before, 'Opening Plan must not mutate an existing saved scenario');
+});
