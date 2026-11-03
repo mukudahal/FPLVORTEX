@@ -531,7 +531,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /vx-social-svg--yt/);
   assert.match(htmlOptimizer, /Manual Plan/);
   assert.doesNotMatch(htmlOptimizer, /10-Gameweek transfer MILP/);
-  assert.match(htmlOptimizer, /Chip Strategy &amp; EV Matrix/);
+  assert.match(htmlOptimizer, /Chip Strategy/);
   assert.match(htmlOptimizer, /Monte Carlo \(3,000 Draws\)/);
   assert.match(htmlOptimizer, /Fixture difficulty table/);
   assert.match(htmlOptimizer, /vx-planner-fixtures/);

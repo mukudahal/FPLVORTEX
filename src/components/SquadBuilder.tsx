@@ -5,7 +5,6 @@ import {
   Crown,
   Dices,
   Layers,
-  RefreshCw,
   ShieldCheck,
   WandSparkles,
 } from 'lucide-react';
@@ -25,6 +24,10 @@ import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpB
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
+  buildVortexPlannerCache,
+  buildPlanCtxFromCache,
+  createNewTransferPlan,
+  sanitizeStoredPlan,
   readStoredTransferPlans,
   readSelectedTransferPlanId,
   writeSelectedTransferPlanId,
@@ -32,11 +35,14 @@ import {
   upsertTransferPlan,
   type StoredTransferPlan,
 } from '../lib/transferPlansStore';
-import { ClubBadge } from './ClubBadge';
 import { TeamIdInput } from './TeamIdInput';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { PlayerAvatar } from './PlayerAvatar';
 import { StatCard } from './StatCard';
+import { replay, sanitize } from '../lib/repoModel/planEngine';
+import { createStrategyPlan } from '../lib/strategyPlan';
+import { ChipStrategyWorkspace } from './ChipStrategyWorkspace';
+import type { SeasonChipUse } from '../lib/repoModel/seasonRules';
 import { TransferPlanModal } from './TransferPlanModal';
 
 interface SquadBuilderProps {
@@ -85,6 +91,12 @@ export function SquadBuilder({
   const [subTab, setSubTab] = useState<OptimizerSubTab>('planner');
   const [draftTeamId, setDraftTeamId] = useState(teamId);
   const [transferPlansOpen, setTransferPlansOpen] = useState(false);
+  const [chipMode, setChipMode] = useState<'auto' | 'manual'>('auto');
+  const [requestedChips, setRequestedChips] = useState<SeasonChipUse[]>([]);
+  const [solverSaveError, setSolverSaveError] = useState<string | null>(null);
+  const [scenarioFreeTransfers, setScenarioFreeTransfers] = useState<number | null>(null);
+  const [solverRun, setSolverRun] = useState(0);
+  const plannerWorkerRef = useRef<Worker | null>(null);
   const [plannerHorizon, setPlannerHorizon] = useState(10);
   const [plannerDecay, setPlannerDecay] = useState(15);
   const [simulationDraws, setSimulationDraws] = useState<number>(MC_DRAWS);
@@ -105,6 +117,7 @@ export function SquadBuilder({
   const exactAbortRef = useRef<AbortController | null>(null);
   const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
+  const [scenarioLockedIds, setScenarioLockedIds] = useState<number[] | null>(null);
   const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
   const [savedPlans, setSavedPlans] = useState<StoredTransferPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState('__live__');
@@ -119,9 +132,11 @@ export function SquadBuilder({
   }, [storageScopeId]);
   const selectedPlan = savedPlans.find(plan => plan.id === selectedPlanId) ?? null;
   const selectedPlanIsCurrent = !selectedPlan || selectedPlan.startGw === snapshot.meta.nextEventId;
-  const lockedIds = selectedPlan ? (selectedPlan.lockedPlayerIds ?? []) : adHocLockedIds;
+  const lockedIds = selectedPlan ? scenarioLockedIds ?? selectedPlan.lockedPlayerIds ?? [] : adHocLockedIds;
   const selectPlan = (id: string) => {
     setSelectedPlanId(id);
+    setScenarioFreeTransfers(null);
+    setScenarioLockedIds(null);
     if (typeof window !== 'undefined') writeSelectedTransferPlanId(window.localStorage, storageScopeId, id);
   };
   const handlePlansChanged = (plans: StoredTransferPlan[], preferredId: string | null) => {
@@ -129,25 +144,16 @@ export function SquadBuilder({
     selectPlan(preferredId && plans.some(plan => plan.id === preferredId) ? preferredId : plans[0]?.id ?? '__live__');
   };
   const changeFreeTransfers = (next: number) => {
-    if (!selectedPlan) { setFreeTransfers(next); return; }
-    // A deliberate FT control change updates the active saved plan's own starting state.
-    const update = { ...selectedPlan, baseFreeTransfers: next };
-    const result = upsertTransferPlan(savedPlans, update);
-    if (!result.ok) { onToast(result.error, 'error'); return; }
-    setSavedPlans(result.plans);
-    if (typeof window !== 'undefined') writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
+    if (selectedPlan) setScenarioFreeTransfers(next);
+    else setFreeTransfers(next);
   };
+  const effectiveFreeTransfers = scenarioFreeTransfers ?? selectedPlan?.baseFreeTransfers ?? freeTransfers;
   const togglePlayerLock = (playerId: number) => {
     const next = lockedIds.includes(playerId) ? lockedIds.filter(id => id !== playerId) : [...lockedIds, playerId];
     if (!selectedPlan) { setAdHocLockedIds(next); return; }
-    const update = { ...selectedPlan, lockedPlayerIds: next };
-    const result = upsertTransferPlan(savedPlans, update);
-    if (!result.ok) { onToast(result.error, 'error'); return; }
-    setSavedPlans(result.plans);
-    if (typeof window !== 'undefined') writeStoredTransferPlans(window.localStorage, storageScopeId, result.plans);
+    setScenarioLockedIds(next);
   };
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
-  const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const baseEntrySquadIds = useMemo(() => {
     if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
@@ -210,6 +216,7 @@ export function SquadBuilder({
     setReviewSim(null);
     setSimulationError(null);
     setSimulationPending(false);
+    setSolverSaveError(null);
     if (subTab === 'planner') return;
     if (!selectedPlanIsCurrent) {
       setSimulationError(`Saved plan starts GW${selectedPlan!.startGw}; current forecasts start GW${snapshot.meta.nextEventId}. Rebase or create a new plan in the Transfer Lab.`);
@@ -226,9 +233,12 @@ export function SquadBuilder({
     setSimulationPending(true);
     const input: PlannerSimulationInput = {
       players, currentSquadIds: activeSquadIds, bankTenths,
-      freeTransfersNow: selectedPlan ? selectedPlan.baseFreeTransfers : Math.max(0, freeTransfers - plannedMoves),
+      horizonOnly: subTab === 'chips',
+      chipPolicy: subTab === 'chips' ? chipMode : 'auto',
+      requestedChips: subTab === 'chips' && chipMode === 'manual' ? requestedChips : [],
+      freeTransfersNow: selectedPlan ? effectiveFreeTransfers : Math.max(0, freeTransfers - plannedMoves),
       initialHitCost: selectedPlan ? 0 : Math.max(0, plannedMoves - freeTransfers) * 4,
-      initialFreeTransfersBeforeScenario: selectedPlan?.baseFreeTransfers ?? freeTransfers,
+      initialFreeTransfersBeforeScenario: effectiveFreeTransfers,
       nextGw: snapshot.meta.nextEventId, horizon: plannerHorizon, decay: 1 - plannerDecay / 100,
       repoFixtures: toRepoFixtures(snapshot.fixtures), repoTeams: toRepoTeams(snapshot.teams),
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
@@ -248,6 +258,7 @@ export function SquadBuilder({
     let cancelled = false;
     try {
       worker = new Worker(new URL('../workers/planner.worker.ts', import.meta.url), { type: 'module' });
+      plannerWorkerRef.current = worker;
       worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string }>) => {
         if (cancelled) return;
         setSimulationPending(false);
@@ -267,7 +278,7 @@ export function SquadBuilder({
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
     return () => { cancelled = true; worker?.terminate(); };
-  }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap, selectedPlan, selectedPlanIsCurrent]);
+  }, [subTab, activeSquadIds, bankTenths, freeTransfers, plannedMoves, players, snapshot, plannerHorizon, plannerDecay, simulationDraws, lockedIds, entry, playerMap, selectedPlan, selectedPlanIsCurrent, chipMode, requestedChips, solverRun, effectiveFreeTransfers]);
 
   // Cancel and discard MILP output when a squad, projection, lock or GW changes.
   // No saved manager plan is ever changed by the exact-transfer comparison.
@@ -379,16 +390,41 @@ export function SquadBuilder({
     }
   };
 
+  const saveStrategyAsNew = () => {
+    if (!reviewSim || simulationPending || typeof window === 'undefined') return;
+    try {
+      const base = selectedPlan ?? createNewTransferPlan({ snapshot, players, fallbackSquadIds: activeSquadIds, entry, defaultFreeTransfers: effectiveFreeTransfers });
+      const proposal = createStrategyPlan({ ...base, baseBankTenths: bankTenths, baseFreeTransfers: effectiveFreeTransfers, lockedPlayerIds: lockedIds }, reviewSim, crypto.randomUUID(), new Date().toISOString());
+      const context = buildPlanCtxFromCache(proposal, players, buildVortexPlannerCache(snapshot, players));
+      const checked = sanitize(context, proposal.transfers, proposal.chips);
+      const wanted = Object.fromEntries(Object.entries(proposal.transfers).filter(([,moves]) => moves.length));
+      if (JSON.stringify(checked) !== JSON.stringify(wanted)) throw new Error('This proposal conflicts with a saved future transfer. Your original plan is unchanged.');
+      for (const [gw, captain] of Object.entries(proposal.captains)) {
+        const squad = replay(context, proposal.transfers, Number(gw), proposal.chips).squad;
+        if ([captain.captain,captain.vice].some(id => id !== undefined && !squad.includes(id))) throw new Error(`GW${gw} has a saved captain outside this proposal's squad. Review your future decisions first.`);
+      }
+      const stored = readStoredTransferPlans(window.localStorage, storageScopeId);
+      const saved = upsertTransferPlan(stored, proposal);
+      if (!saved.ok) throw new Error(saved.error);
+      writeStoredTransferPlans(window.localStorage, storageScopeId, saved.plans);
+      const committed = saved.plans.find(plan => plan.id === proposal.id);
+      const readback = readStoredTransferPlans(window.localStorage, storageScopeId).find(plan => plan.id === proposal.id);
+      if (!committed || JSON.stringify(readback) !== JSON.stringify(sanitizeStoredPlan(committed))) throw new Error('Could not save on this device. Your proposal is still open.');
+      setSavedPlans(saved.plans);
+      setSolverSaveError(null);
+      onToast('Solver proposal saved as a new Plan on this device.', 'success');
+    } catch (error) { setSolverSaveError(error instanceof Error ? error.message : 'Could not save the proposal.'); }
+  };
+
   const transfersUsedCount = selectedPlan ? 0 : activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
   const hitPoints = selectedPlan ? 0 : Math.max(0, transfersUsedCount - freeTransfers) * 4;
 
-  const activeChipSim = reviewSim?.chipSimulations.find((c) => c.chip === selectedChipPreview) ?? null;
   return (
-    <div className="page page--optimizer">
+    <div className={classNames('page page--optimizer', subTab === 'chips' && 'page--chip-strategy')}>
       <div className="planner-section-picker" role="group" aria-label="Planner sections">
         {([
           { id: 'planner', label: 'Plan', icon: Layers },
-          { id: 'chips', label: '2. Chip Strategy & EV Matrix', icon: BarChart3 },
+          { id: 'chips', label: 'Chip Strategy', icon: BarChart3 },
           { id: 'montecarlo', label: `3. Monte Carlo (${simulationDraws.toLocaleString()} Draws)`, icon: Dices },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" className={classNames('subtab-btn', `planner-choice--${id}`, subTab === id && 'is-active')}
@@ -421,7 +457,7 @@ export function SquadBuilder({
       <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
           <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
-          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Official / template starting squad'}</h3>
+          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Starting squad'}</h3>
         </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
         <div className="planner-control-row">
           <label>Planning scenario
@@ -432,18 +468,18 @@ export function SquadBuilder({
           </label>
           <button type="button" onClick={() => setTransferPlansOpen(true)}>{selectedPlan ? 'Edit saved plan' : 'Create / open transfer plan'}</button>
         </div>
-        {selectedPlan && <p>Manual transfers, captaincy, lineups and chips in this plan are fixed decisions. The Solver only suggests legal additions; simulation includes a separate exact saved-plan path. Changes must be explicitly saved in Transfer Lab.</p>}
+        {subTab === 'montecarlo' && selectedPlan && <p>Manual transfers, captaincy, lineups and chips in this plan are fixed decisions. The Solver only suggests legal additions; simulation includes a separate exact saved-plan path. Changes must be explicitly saved in Transfer Lab.</p>}
         {!selectedPlanIsCurrent && <p role="alert">This saved plan starts in GW{selectedPlan?.startGw}, but the active GW is {snapshot.meta.nextEventId}. Its scenarios are blocked until you rebase or create a current plan.</p>}
-        <div className="planner-control-row" aria-label="Lock players against automatic transfer suggestions">
+        <details className="strategy-locks"><summary>Keep players · {lockedIds.length} locked</summary><div className="planner-control-row" aria-label="Lock players against automatic transfer suggestions">
           {activeSquadPlayers.map(p => <label key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
             <input type="checkbox" checked={lockedIds.includes(p.id)} onChange={() => togglePlayerLock(p.id)} aria-label={`Lock ${p.name} against automatic transfers`} />
             {p.name}
           </label>)}
-        </div>
+        </div></details>
       </section>
       )}
       {subTab && <div id="planner-section-content" className="planner-section-content">
-      {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
+      {subTab === 'montecarlo' && <section className="panel planner-compact-controls" aria-label="Planning settings">
         <div className="planner-control-row">
           <label>Strategy<select aria-label="Strategy" value={strategyLabel} onChange={e => setStrategyLabel(e.target.value)}>
             <option value="steady">Steady</option><option value="top10k">Top 10K</option><option value="template">Template</option>
@@ -451,7 +487,7 @@ export function SquadBuilder({
           <label>Simulation draws<select aria-label="Simulation draws" value={simulationDraws} onChange={e => setSimulationDraws(Number(e.target.value))}>
             <option value={3000}>3,000 draws</option><option value={10000}>10,000 draws</option>
           </select></label>
-          <label>Free transfers<select aria-label="Free transfers available" value={selectedPlan?.baseFreeTransfers ?? freeTransfers} onChange={e => changeFreeTransfers(Number(e.target.value))}>
+          <label>Free transfers<select aria-label="Free transfers available" value={effectiveFreeTransfers} onChange={e => changeFreeTransfers(Number(e.target.value))}>
             {[0, 1, 2, 3, 4, 5].map(ft => <option key={ft} value={ft}>{ft} FT</option>)}
           </select></label>
           <label>Planning horizon<select aria-label="Planning horizon" value={plannerHorizon} onChange={e => setPlannerHorizon(Number(e.target.value))}>
@@ -464,11 +500,11 @@ export function SquadBuilder({
         <p className="planner-strategy-note">Strategy names are labels only for now; they do not change calculations. Current app profile: {profile}.</p>
       </section>}
 
-      {subTab !== 'planner' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
+      {subTab === 'montecarlo' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
         <div className="panel__header"><div><span className="panel__eyebrow">{simulationPending ? 'RUNNING SIMULATION' : 'SIMULATION UNAVAILABLE'}</span><h3>{simulationPending ? 'Comparing legal transfer and chip paths…' : simulationError}</h3></div></div>
       </section>}
 
-      {subTab !== 'planner' && <section className="stat-grid stat-grid--optimizer">
+      {subTab === 'montecarlo' && <section className="stat-grid stat-grid--optimizer">
         <StatCard
           label={`GW${snapshot.meta.nextEventId} XI Projection`}
           value={`${(reviewSim?.strategy.weeks[0]?.netXPts ?? result.projectedPoints - hitPoints).toFixed(1)} pts`}
@@ -514,19 +550,18 @@ export function SquadBuilder({
           initialActivePlan={selectedPlan} onPlansChanged={handlePlansChanged} />
       </div>
 
-      {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
-      {subTab === 'chips' && reviewSim && (
-        <div className="chips-strategy-stack">
-          <section className="panel" aria-label="Joint chip schedule">
-            <div className="panel__header"><div><span className="panel__eyebrow">TRANSFER + CHIP PLAN</span><h3>{reviewSim.strategy.schedule.length ? reviewSim.strategy.schedule.map(use => `${({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[use.chip]} GW${use.gw}`).join(' · ') : 'Keep chips available and re-evaluate before the deadline'}</h3></div><span className="badge badge--mint">{reviewSim.strategy.expectedPoints.toFixed(1)} model xPts</span></div>
-            <p>GW{reviewSim.strategy.horizon[0]}–GW{reviewSim.strategy.horizon.at(-1)} · {reviewSim.strategy.gain >= 0 ? '+' : ''}{reviewSim.strategy.gain.toFixed(1)} undiscounted xPts versus the no-chip transfer path. Weeks below show legal budgets, hits and Free Hit restoration. This is an approximate plan; rank gains are not guaranteed.</p>
-            <p>Marginal banked FT value next GW: +{reviewSim.bankedTransferValueNextGw.toFixed(2)} estimated model points (legal shortlisted transfers only). This affects Solver search pruning, not your projected or simulated points.</p>
-            {reviewSim.strategy.chipTiming && <div role="group" aria-label="Chip timing comparison: play now versus save">
-              <p><strong>{({ wc: 'Wildcard', fh: 'Free Hit', bb: 'Bench Boost', tc: 'Triple Captain' } as const)[reviewSim.strategy.chipTiming.chip]} — GW{reviewSim.nextGw} versus saving the chip</strong></p>
-              <p>Play now: {reviewSim.strategy.chipTiming.playNow.expectedPoints.toFixed(2)} undiscounted xPts; save this GW: {reviewSim.strategy.chipTiming.defer.expectedPoints.toFixed(2)} undiscounted xPts. Search-weighted difference (play minus save): {reviewSim.strategy.chipTiming.gainPlayNow >= 0 ? '+' : ''}{reviewSim.strategy.chipTiming.gainPlayNow.toFixed(2)} model points.</p>
-              <p>{reviewSim.strategy.chipTiming.preferred === 'PLAY_NOW' ? 'Play-now path ranks higher' : 'Save-now path ranks as high or higher'} under current assumptions. Saving permits using this chip later. Both options include legal transfers, other chips, hits and the same full planning period; they are heuristic comparisons, not guaranteed gains or automatic transfers.</p>
-            </div>}
-          </section>
+      {subTab === 'chips' && <>
+        <ChipStrategyWorkspace snapshot={snapshot} players={players} result={reviewSim}
+          pending={simulationPending} error={simulationError} horizon={plannerHorizon}
+          mode={chipMode} requestedChips={requestedChips} savedPlan={selectedPlan}
+          chipHistory={entry?.chipsUsed ?? []} historyKnown={entry ? entry.chipsUsed !== undefined : true} template={!entry}
+          onModeChange={setChipMode} onScheduleChange={setRequestedChips}
+          onHorizonChange={value => { setPlannerHorizon(value); setRequestedChips([]); }}
+          freeTransfers={effectiveFreeTransfers} onFreeTransfersChange={changeFreeTransfers}
+          onRun={() => setSolverRun(value => value + 1)}
+          onCancel={() => { if (plannerWorkerRef.current) { plannerWorkerRef.current.onmessage = null; plannerWorkerRef.current.onerror = null; plannerWorkerRef.current.terminate(); } setSimulationPending(false); setSimulationError('Calculation stopped. Your plans are unchanged.'); }}
+          onInspectPlayer={onInspectPlayer} onSaveAsNew={saveStrategyAsNew} saveError={solverSaveError} />
+        {reviewSim && <details className="panel strategy-details"><summary>Advanced exact no-chip comparison</summary>
           <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
@@ -586,191 +621,8 @@ export function SquadBuilder({
               </div>)}
             </div> : <p role="status">HiGHS returned no feasible transfer path within the shared time limit. No alternative is fabricated; review the input constraints before retrying.</p>)}
           </section>
-          <section className="chip-cards-grid" aria-label="Half-season chip valuations">
-            {reviewSim.chipSimulations.map((chip) => {
-              const meta = CHIP_META[chip.chip] ?? { label: chip.chip, badge: 'CHIP', tone: 'violet' };
-              const isSelected = selectedChipPreview === chip.chip;
-              return (
-                <article
-                  key={chip.chip}
-                  className={classNames('panel chip-sim-card', isSelected && 'chip-sim-card--active')}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={isSelected}
-                  aria-label={`Preview ${meta.label}`}
-                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc'); } }}
-                  onClick={() => setSelectedChipPreview(chip.chip as 'wildcard' | 'freehit' | 'bboost' | '3xc')}
-                >
-                  <div className="chip-sim-card__head">
-                    <span className={`badge badge--${meta.tone}`}>{meta.badge} · {meta.label}</span>
-                    <small>{chip.available ? `Expires GW${chip.expiresGw}` : chip.usedGw ? `Used GW${chip.usedGw}` : 'Availability unverified'}</small>
-                  </div>
-                  <div className="chip-sim-card__kpis">
-                    <div>
-                      <span>Peak Window</span>
-                      <strong>{chip.bestGw ? `GW${chip.bestGw}` : '—'}</strong>
-                    </div>
-                    <div>
-                      <span>Peak Net EV</span>
-                      <strong className="is-positive">+{chip.bestGain.toFixed(2)} xPts</strong>
-                    </div>
-                    <div>
-                      <span>GW{reviewSim.nextGw} Gain</span>
-                      <strong>+{chip.gainNow.toFixed(2)}</strong>
-                    </div>
-                  </div>
-                  <p className="chip-sim-card__verdict">{chip.verdictLine}</p>
-                </article>
-              );
-            })}
-          </section>
-
-          {/* FPLReview-style GW × Chip Expected Value Matrix */}
-          <section className="panel" aria-label="Gameweek by chip EV matrix">
-            <div className="panel__header">
-              <div>
-                <span className="panel__eyebrow">CHIP HORIZON EV MATRIX</span>
-                <h3>Diagnostic chip gains · WC uses a 3-GW hold-squad reference · GW{reviewSim.chipHalfGws[0]}–GW{reviewSim.chipHalfGws.at(-1)}</h3>
-              </div>
-              <span className="badge badge--mint">2026/27 Half-Season Chip Rules</span>
-            </div>
-
-            <div className="table-wrap">
-              <table className="chip-matrix-table">
-                <thead>
-                  <tr>
-                    <th>Gameweek</th>
-                    <th>Base XI xPts</th>
-                    <th>Wildcard (3-GW ΔxPts)</th>
-                    <th>Free Hit (1-GW ΔxPts)</th>
-                    <th>Bench Boost (ΔxPts)</th>
-                    <th>Triple Captain (ΔxPts)</th>
-                    <th>Optimal Captain</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviewSim.chipMatrixByGw.map((row) => {
-                    const wcBest = reviewSim.chipSimulations.find((c) => c.chip === 'wildcard')?.bestGw === row.gw;
-                    const fhBest = reviewSim.chipSimulations.find((c) => c.chip === 'freehit')?.bestGw === row.gw;
-                    const bbBest = reviewSim.chipSimulations.find((c) => c.chip === 'bboost')?.bestGw === row.gw;
-                    const tcSim = reviewSim.chipSimulations.find((c) => c.chip === '3xc');
-                    const tcBest = tcSim?.bestGw === row.gw;
-                    const capId = tcSim?.topGws.find((g) => g.gw === row.gw)?.captainId ?? result.captain.id;
-                    const capPlayer = playerMap.get(capId);
-                    return (
-                      <tr key={row.gw}>
-                        <td><strong>GW{row.gw}</strong></td>
-                        <td className="mono-num">{row.baseXPts.toFixed(2)}</td>
-                        <td className={classNames('chip-ev-cell', wcBest && 'is-peak')}>
-                          {row.wildcardGain >= 0 ? '+' : ''}{row.wildcardGain.toFixed(2)} {wcBest && <em>★ Peak</em>}
-                        </td>
-                        <td className={classNames('chip-ev-cell', fhBest && 'is-peak')}>
-                          {row.freehitGain >= 0 ? '+' : ''}{row.freehitGain.toFixed(2)} {fhBest && <em>★ Peak</em>}
-                        </td>
-                        <td className={classNames('chip-ev-cell', bbBest && 'is-peak')}>
-                          {row.bboostGain >= 0 ? '+' : ''}{row.bboostGain.toFixed(2)} {bbBest && <em>★ Peak</em>}
-                        </td>
-                        <td className={classNames('chip-ev-cell', tcBest && 'is-peak')}>
-                          {row.tripleCapGain >= 0 ? '+' : ''}{row.tripleCapGain.toFixed(2)} {tcBest && <em>★ Peak</em>}
-                        </td>
-                        <td>
-                          {capPlayer ? (
-                            <span className="inline-player-tag">
-                              <ClubBadge teamCode={capPlayer.team.code} shortName={capPlayer.team.shortName} size="sm" />
-                              {capPlayer.name}
-                            </span>
-                          ) : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Optimal Chip Squad Preview + Multi-GW Rollout */}
-          <div className="method-grid">
-            {activeChipSim?.bestPitch && (
-              <section className="panel">
-                <div className="panel__header">
-                  <div>
-                    <span className="panel__eyebrow">OPTIMAL CHIP LINEUP PREVIEW</span>
-                    <h3>
-                      {CHIP_META[activeChipSim.chip]?.label} Peak Squad · GW{activeChipSim.bestPitch.gw} (+{activeChipSim.bestPitch.gain.toFixed(2)} xPts)
-                    </h3>
-                  </div>
-                  <span className="badge badge--mint">{activeChipSim.bestPitch.xPtsWithChip.toFixed(1)} xPts</span>
-                </div>
-                <div className="squad-mini-grid">
-                  {activeChipSim.bestPitch.starters.map((id) => {
-                    const p = playerMap.get(id);
-                    if (!p) return null;
-                    const isCap = id === activeChipSim.bestPitch?.captainId;
-                    return (
-                      <div
-                        key={id}
-                        role="button"
-                        tabIndex={0}
-                        data-player-card-trigger="1"
-                        className="squad-mini-card vx-clickable-row"
-                        onClick={() => onInspectPlayer?.(p)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onInspectPlayer?.(p);
-                          }
-                        }}
-                      >
-                        {isCap && <span className="squad-mini-card__cap is-cap">{activeChipSim.chip === '3xc' ? '3×' : 'C'}</span>}
-                        <PlayerAvatar
-                          code={p.code}
-                          teamCode={p.team.code}
-                          name={p.name}
-                          fullName={p.fullName}
-                          teamShort={p.team.shortName}
-                          position={p.position}
-                          size="sm"
-                        />
-                        <strong>{p.name}</strong>
-                        <small>{p.team.shortName} · {formatPrice(p.price)}</small>
-                        <span className="squad-mini-card__xp">
-                          {((reviewSim.forecastByGw[activeChipSim.bestPitch!.gw]?.[p.id] ?? 0) * (isCap ? (activeChipSim.chip === '3xc' ? 3 : 2) : 1)).toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            <section className="panel">
-              <div className="panel__header">
-                <div>
-                  <span className="panel__eyebrow">{reviewSim.strategy.horizon.length}-GAMEWEEK CHIP PLAN</span>
-                  <h3>Projected XI & FT trajectory</h3>
-                </div>
-                <RefreshCw size={16} />
-              </div>
-              <div className="rollout-list">
-                {reviewSim.strategy.weeks.map((step) => {
-                  const cap = playerMap.get(step.lineup.captainId);
-                  return (
-                    <div key={step.gw} className="rollout-row">
-                      <span className="badge badge--violet">GW{step.gw}</span>
-                      <div>
-                        <strong>{step.lineup.formation} · Captain {cap?.name ?? '—'}</strong>
-                        <small>{step.ftBefore} → {step.ftAfter} FT · {step.chip ? ({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[step.chip] : step.moves.length ? step.moves.map(move => `${playerMap.get(move.outId)?.name} → ${playerMap.get(move.inId)?.name}`).join(', ') : 'Roll'} · Bank {formatPrice(step.bankAfter / 10)} · Hit −{step.hitCost}</small>
-                      </div>
-                      <strong className="score-pill is-elite">{step.netXPts.toFixed(2)} xPts</strong>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-        </div>
-      )}
+        </details>}
+      </>}
 
       {/* ==================== TAB 3: PAIRED 3,000-DRAW MONTE CARLO SIMULATION ==================== */}
       {subTab === 'montecarlo' && reviewSim && (

@@ -288,3 +288,26 @@ test('Manual Plan is inline, image-led, solver-free and places shared FDR below 
   assert.ok(html.indexOf('Director of Football') < html.indexOf('aria-label="Fixture difficulty table"'));
   assert.equal(JSON.stringify(plan), before, 'Opening Plan must not mutate an existing saved scenario');
 });
+
+test('a simultaneous legal batch survives an intermediate club-count conflict', async () => {
+  const {validateTransferBatch,sanitize,validateTransfer}=await import('../src/lib/repoModel/planEngine.ts');
+  const {ctx}=await loadPlannerSetup();
+  const defenders=ctx.baseSquad.filter(id=>ctx.players.get(id)!.type===2);
+  const first=defenders[0],second=defenders[1];
+  const remaining=ctx.baseSquad.filter(id=>id!==first && id!==second);
+  const modified={...ctx,bank0:1000,players:new Map(ctx.players)};
+  // Freeze two full clubs with a defender leaving each. Either incoming alone
+  // would breach the three-player quota; the simultaneous final squad is legal.
+  for(const id of ctx.baseSquad) modified.players.set(id,{...ctx.players.get(id)!,team:10+ctx.baseSquad.indexOf(id)});
+  for(const id of [first,...remaining.slice(0,2)]) modified.players.set(id,{...modified.players.get(id)!,team:1});
+  for(const id of [second,...remaining.slice(2,4)]) modified.players.set(id,{...modified.players.get(id)!,team:2});
+  const fakeA=999901,fakeB=999902;
+  modified.players.set(fakeA,{...modified.players.get(first)!,id:fakeA,team:2});
+  modified.players.set(fakeB,{...modified.players.get(second)!,id:fakeB,team:1});
+  const batch=[{out:first,in:fakeA},{out:second,in:fakeB}];
+  const state=replay(modified,{},ctx.gws[0]);
+  assert.equal(validateTransfer(modified,state,first,fakeA),'Max 3 players from one club.');
+  assert.equal(validateTransferBatch(modified,state,batch),null);
+  assert.deepEqual(sanitize(modified,{[ctx.gws[0]]:batch})[ctx.gws[0]],batch);
+  assert.ok(replay(modified,{[ctx.gws[0]]:batch},ctx.gws[0]).squad.includes(fakeB));
+});

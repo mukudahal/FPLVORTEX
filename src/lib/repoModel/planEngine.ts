@@ -269,12 +269,33 @@ export function validateTransfer(
   return null;
 }
 
+/** Validate simultaneous sales/purchases against the final squad, not an intermediate budget/club count. */
+export function validateTransferBatch(ctx: PlanCtx, state: ReplayState, moves: readonly PlanTransfer[]): string | null {
+  if (new Set(moves.map(move => move.out)).size !== moves.length || new Set(moves.map(move => move.in)).size !== moves.length) return 'Duplicate transfer in batch.';
+  const sold = new Set(moves.map(move => move.out));
+  for (const move of moves) {
+    const out = ctx.players.get(move.out), incoming = ctx.players.get(move.in);
+    if (!out || !incoming || !state.squad.includes(move.out)) return 'Transfer batch includes an unavailable player.';
+    if (out.type !== incoming.type) return 'Replacement must play the same position.';
+    if (state.squad.includes(move.in)) return 'Incoming player is already owned.';
+  }
+  const final = [...state.squad.filter(id => !sold.has(id)), ...moves.map(move => move.in)];
+  if (final.length !== 15 || new Set(final).size !== 15) return 'Transfer batch must retain 15 unique players.';
+  const clubs = new Map<number, number>();
+  for (const id of final) { const team = ctx.players.get(id)!.team; clubs.set(team,(clubs.get(team) ?? 0)+1); }
+  if ([...clubs.values()].some(count => count > MAX_PER_CLUB)) return 'Max 3 players from one club.';
+  const bank = moves.reduce((balance, move) => balance + sellOf(ctx,state,move.out) - ctx.players.get(move.in)!.cost,state.bank);
+  return bank < 0 ? 'Transfer batch exceeds the available budget.' : null;
+}
+
 /** Replay transfers, dropping any that are no longer valid. */
 export function sanitize(ctx: PlanCtx, transfers: TransferMap, chips: ChipMap = {}): TransferMap {
   const clean: TransferMap = {};
   for (const gw of ctx.gws) {
     const wanted = transfers[gw] ?? [];
     if (wanted.length === 0) continue;
+    const batchState = replay(ctx, clean, gw, chips);
+    if (validateTransferBatch(ctx, batchState, wanted) === null) { clean[gw] = [...wanted]; continue; }
     const kept: PlanTransfer[] = [];
     for (const t of wanted) {
       const trial: TransferMap = { ...clean, [gw]: [...kept] };
@@ -565,3 +586,4 @@ export function topMoves(
   }
   return moves.sort((a, b) => b.gain - a.gain).slice(0, limit);
 }
+

@@ -22,6 +22,11 @@ const CHIPS: PlanningChip[] = ['wc', 'fh', 'bb', 'tc'];
 
 export interface PlannerSimulationInput extends FplReviewSimInput {
   lockedIds?: number[];
+  /** Explicit what-if schedule; never written into the saved manual plan. */
+  requestedChips?: SeasonChipUse[];
+  chipPolicy?: 'auto' | 'manual';
+  /** Product solver limits the search and diagnostics to the selected next 1–10 GWs. */
+  horizonOnly?: boolean;
   /** Authoritative browser-saved decisions. They are constraints, not overwritable suggestions. */
   manualPlan?: Pick<StoredTransferPlan, 'id' | 'name' | 'startGw' | 'transfers' | 'lineups' | 'captains' | 'chips'>;
   /** Hits already committed by manual scenario transfers, charged once in the first GW. */
@@ -47,6 +52,7 @@ export interface StrategyWeek {
   ftAfter: number;
   bankAfter: number;
   sellingPricesAfter: Record<number, number>;
+  sellingPricesBefore: Record<number, number>;
   hitCost: number;
   netXPts: number;
 }
@@ -69,6 +75,7 @@ export interface PlannerSimulationOutput extends FplReviewSimOutput {
     schedule: SeasonChipUse[];
     expectedPoints: number;
     baselinePoints: number;
+    holdPoints: number;
     gain: number;
     planningScore: number;
     horizon: number[];
@@ -112,7 +119,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   if (!Number.isFinite(decay) || decay < 0.5 || decay > 1) throw new RangeError('Decay must be between 0.5 and 1.');
   const gws = Array.from({ length: Math.min(horizon, 39 - nextGw) }, (_, i) => nextGw + i);
   const halfEnd = nextGw <= 19 ? 19 : 38;
-  const chipHalfGws = Array.from({ length: halfEnd - nextGw + 1 }, (_, i) => nextGw + i);
+  const chipHalfGws = Array.from({ length: (input.horizonOnly ? Math.min(halfEnd, gws.at(-1)!) : halfEnd) - nextGw + 1 }, (_, i) => nextGw + i);
   // Chip search spans the remaining half, including expiry; simulation uses the chosen horizon.
   const allGws = [...new Set([...gws, ...chipHalfGws])].sort((a, b) => a - b);
   const byId = new Map<number, SolverPlayerNode>();
@@ -132,6 +139,11 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const chip = CHIPS.find(c => CHIP_NAMES[c] === use.name || c === use.name);
     return chip && use.event < nextGw ? [{ gw: use.event, chip }] : [];
   });
+  const requested = input.requestedChips ?? [];
+  if (requested.some(use => !gws.includes(use.gw))) throw new RangeError('Manual chip gameweeks must be inside the selected planning horizon.');
+  const chipAt = (gw: number) => manualPlan?.chips[gw] ?? requested.find(use => use.gw === gw)?.chip;
+  if (requested.some(use => manualPlan?.chips[use.gw] && manualPlan.chips[use.gw] !== use.chip))
+    throw new RangeError('The manual chip check conflicts with a saved chip commitment. Edit your saved plan first.');
   const warnings: string[] = [];
   if (!knownHistory) warnings.push('Chip history is unavailable. Refresh the team to enable chip recommendations.');
   if (input.dataNotice) warnings.push(input.dataNotice);
@@ -297,7 +309,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
    */
   const bankedFtOptionAt = (state: SearchState, gw: number): number => {
     if (!forecastByGw[gw] || state.ft === 0) return 0;
-    const fixedChip = manualPlan?.chips[gw];
+    const fixedChip = chipAt(gw);
     if (fixedChip === 'wc' || fixedChip === 'fh') return 0;
     const fixedMoves = manualPlan?.transfers[gw]?.length ?? 0;
     if (fixedMoves === 0 && state.ft > 2) return 0; // normal candidate shortlist has at most two moves
@@ -398,9 +410,12 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     return action;
   };
   const reservedChipUses: SeasonChipUse[] = Object.entries(manualPlan?.chips ?? {}).map(([gw, chip]) => ({ gw: Number(gw), chip }));
+  for (const use of requested) {
+    if (!reservedChipUses.some(saved => saved.gw === use.gw && saved.chip === use.chip)) reservedChipUses.push(use);
+  }
   const manualChipErrors = validateSeasonChipPlan([...history, ...reservedChipUses]);
   if (manualChipErrors.length) throw new RangeError(`Saved chip schedule is illegal: ${manualChipErrors.join(' ')}`);
-  if (manualPlan && reservedChipUses.length && !knownHistory) throw new RangeError('Refresh the official manager chip history before simulating saved chip commitments.');
+  if (reservedChipUses.length && !knownHistory) throw new RangeError('Refresh the official manager chip history before simulating saved chip commitments.');
   const available = (state: SearchState, gw: number, chip: PlanningChip): boolean => knownHistory &&
     !((chip === 'wc' || chip === 'fh') && gw === (input.startedEvent ?? 1)) &&
     validateSeasonChipPlan([...history, ...state.uses, { gw, chip }, ...reservedChipUses.filter(use => use.gw > gw)]).length === 0;
@@ -411,7 +426,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const ftBefore = gw === nextGw && (chip === 'wc' || chip === 'fh') ? input.initialFreeTransfersBeforeScenario ?? state.ft : state.ft;
     const ftAfter = nextFreeTransfers(ftBefore, action.moves.length, chip);
     const uses = chip ? [...state.uses, { gw, chip }] : state.uses;
-    const week: StrategyWeek = { gw, squad: action.squad, lineup: lu, chip, moves: action.moves, ftBefore, ftAfter, bankAfter: action.bank, sellingPricesAfter: action.sell, hitCost, netXPts: r2(lu.totalXPts - hitCost) };
+    const week: StrategyWeek = { gw, squad: action.squad, lineup: lu, chip, moves: action.moves, ftBefore, ftAfter, bankAfter: action.bank, sellingPricesAfter: action.sell, sellingPricesBefore: { ...state.sell }, hitCost, netXPts: r2(lu.totalXPts - hitCost) };
     return { squad: chip === 'fh' ? state.squad : action.squad, bank: chip === 'fh' ? state.bank : action.bank, sell: chip === 'fh' ? state.sell : action.sell, ft: ftAfter, uses, weeks: [...state.weeks, week], score: state.score + Math.pow(decay, gw - nextGw) * week.netXPts, total: state.total + week.netXPts };
   };
   const searchGws = allGws;
@@ -425,7 +440,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
         if (hasCommittedMoves && !committed) continue; // Skip branches that invalidate a later saved transfer.
         const actions = (committed ? [committed] : actionsAt(state, gw))
           .filter(a => gw !== nextGw || firstMoves === undefined || a.moves.length === firstMoves);
-        const fixedChip = manualPlan?.chips[gw];
+        const fixedChip = chipAt(gw);
         const chipPolicy = gw === nextGw ? firstChipPolicy : undefined;
         const allowedFirstChip = (chip: PlanningChip) => !chipPolicy || (chipPolicy.mode === 'play' ? chip === chipPolicy.chip : chip !== chipPolicy.chip);
         const add = (action: Action, chip?: PlanningChip) => {
@@ -438,15 +453,20 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
         };
         if (fixedChip) {
           if (!available(state, gw, fixedChip) || !allowedFirstChip(fixedChip)) continue;
+          // A manually timed WC/FH must still rebuild the squad, just as automatic timing does.
+          if ((fixedChip === 'wc' || fixedChip === 'fh') && !hasCommittedMoves) {
+            const built = rebuild(state, gw, fixedChip);
+            if (built) add(built, fixedChip);
+          }
           for (const action of actions) add(action, fixedChip);
           continue;
         }
         for (const action of actions) {
           if (chipPolicy?.mode !== 'play') add(action);
-          if (withChips) for (const chip of ['bb', 'tc'] as const)
+          if (withChips && input.chipPolicy !== 'manual') for (const chip of ['bb', 'tc'] as const)
             if (allowedFirstChip(chip) && available(state, gw, chip)) add(action, chip);
         }
-        if (withChips && !hasCommittedMoves) for (const chip of ['wc', 'fh'] as const)
+        if (withChips && input.chipPolicy !== 'manual' && !hasCommittedMoves) for (const chip of ['wc', 'fh'] as const)
           if (allowedFirstChip(chip) && available(state, gw, chip)) {
             const built = rebuild(state, gw, chip);
             if (built) add(built, chip);
@@ -505,10 +525,11 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     return state;
   })() : null;
 
-  const variants = manualPlan ? [search(false)] : [0, 1, 2].map(n => search(false, n));
+  const variants = manualPlan || requested.length ? [search(false)] : [0, 1, 2].map(n => search(false, n));
   const baseline = [...variants].filter(s => s.weeks.length).sort((a, b) => b.score - a.score)[0];
   if (!baseline) throw new RangeError('No legal transfer plan found.');
   const searched = knownHistory ? search(true) : baseline;
+  if (requested.length && !knownHistory) throw new RangeError('Verify chip history before checking a manual chip schedule.');
   // The available no-chip plan is always a candidate: chips cannot force a worse recommendation.
   let best = searched.score > baseline.score + 0.01 ? searched : baseline;
   let chipTiming: ChipTimingComparison | null = null;
@@ -517,7 +538,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   // nominated chip in the current GW; the other forbids only that chip in the
   // current GW but permits it later. Other chips and transfers stay jointly
   // optimized. Never override a saved manager chip or transfer commitment.
-  if (knownHistory && !manualPlan && nominatedChip && available(initial, nextGw, nominatedChip)) {
+  if (knownHistory && !manualPlan && !requested.length && input.chipPolicy !== 'manual' && nominatedChip && available(initial, nextGw, nominatedChip)) {
     const now = search(true, undefined, { chip: nominatedChip, mode: 'play' });
     const later = search(true, undefined, { chip: nominatedChip, mode: 'defer' });
     if (now.weeks.length === searchGws.length && now.weeks[0]?.chip === nominatedChip &&
@@ -644,7 +665,8 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     sourcePlan: manualPlan ? { id: manualPlan.id, name: manualPlan.name,
       committedGameweeks: new Set([...Object.keys(manualPlan.transfers), ...Object.keys(manualPlan.lineups), ...Object.keys(manualPlan.captains), ...Object.keys(manualPlan.chips)]).size,
       lockedPlayers: locked.size } : undefined,
-    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, chipTiming, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds; optional full-path chip-now vs defer search.' },
+    strategy: { weeks: best.weeks, schedule: best.uses, expectedPoints: r2(best.total), baselinePoints: r2(baseline.total), holdPoints: r2(holdWeeks.reduce((sum,week) => sum + week.lineup.totalXPts, 0) - (input.initialHitCost ?? 0)), gain: r2(best.total - baseline.total), planningScore: r2(best.score), horizon: allGws, chipTiming, search: manualPlan ? 'Saved transfers, chips, captaincy and lineups fixed; six-state heuristic searches compatible extra decisions only.' : 'Six-state beam; shortlisted 0/1/2 weekly transfers and full WC/FH rebuilds; optional full-path chip-now vs defer search.' },
   };
 }
+
 
