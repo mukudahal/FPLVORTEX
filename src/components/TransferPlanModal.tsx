@@ -1052,7 +1052,7 @@ export function TransferPlanModal({
       <PlayerLab key={`${outgoing.id}:${safeSelectedGw}`} snapshot={snapshot} players={players} teams={snapshot.teams}
         fixtureRows={pickerFixtures} nextEventId={snapshot.meta.nextEventId} query={searchQuery} onQueryChange={setSearchQuery} onToast={onToast}
         selection={{ outgoing, gameweek: safeSelectedGw, onSelect: handleSelectIncomingPlayer,
-          unavailableReason: p => validatePendingReplacement({ ctx: planCtx, stateSquad: replayState.squad,
+          unavailableReason: p => p.id === outgoing.id ? "Use Back to Plan to cancel this transfer." : validatePendingReplacement({ ctx: planCtx, stateSquad: replayState.squad,
             effectiveBankTenths: liveMetrics.effectiveBankTenths, pendingOutIds, outId: outgoing.id, inId: p.id }) }} />
     </section>;
     const advicePlayer = (id: number) => {
