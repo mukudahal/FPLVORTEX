@@ -392,3 +392,25 @@ test('a reviewed strategy creates a separate canonical saved-plan revision', asy
   assert.deepEqual(sanitizeStoredPlan(copy)?.transfers,copy.transfers);
   assert.throws(()=>createStrategyPlan({...base,startGw:17},result,'stale','now'),/no longer matches/);
 });
+
+test('Chip Strategy renders recommendations with spent chips and a selected one-week horizon at GW38', async () => {
+  const React=await import('react');
+  const {renderToStaticMarkup}=await import('react-dom/server');
+  const {ChipStrategyWorkspace}=await import('../src/components/ChipStrategyWorkspace.tsx');
+  const history=['wildcard','freehit','bboost','3xc'].map((name,i)=>({name,event:30+i}));
+  const input={...scenario(38,false),horizon:10,horizonOnly:true,chipsUsed:history};
+  const result=runPlannerSimulation(input);
+  const snapshot=JSON.parse(await readFile('public/data/fpl-snapshot.json','utf8')) as Snapshot;
+  snapshot.meta.nextEventId=38;
+  const noop=()=>{};
+  const html=renderToStaticMarkup(React.createElement(ChipStrategyWorkspace,{snapshot,players:input.players,result,
+    pending:false,error:null,horizon:10,mode:'auto',requestedChips:[],savedPlan:null,chipHistory:history,
+    historyKnown:true,template:false,onModeChange:noop,onScheduleChange:noop,onHorizonChange:noop,
+    freeTransfers:0,onFreeTransfersChange:noop,onSaveAsNew:noop,saveError:null,onRun:noop,onCancel:noop}));
+  assert.match(html,/All chips spent/);
+  assert.match(html,/Ten-gameweek transfer roadmap/);
+  const horizonSelect=html.match(/<select aria-label="Solver planning horizon">(.*?)<\/select>/)![1];
+  assert.match(horizonSelect,/<option value="1" selected="">1 gameweek<\/option>/);
+  assert.doesNotMatch(horizonSelect,/value="10"/);
+  assert.match(html,/recommended starting eleven/);
+});

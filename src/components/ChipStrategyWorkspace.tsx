@@ -52,7 +52,7 @@ export function ChipStrategyWorkspace(props: Props) {
         <button type="button" aria-pressed={mode === 'manual'} className={classNames(mode === 'manual' && 'is-active')} onClick={() => props.onModeChange('manual')}>Manual check</button>
       </div>
       <div className="planner-control-row">
-        <label>Plan ahead<select aria-label="Solver planning horizon" value={props.horizon} onChange={e => props.onHorizonChange(Number(e.target.value))}>{Array.from({length: Math.min(10,39-snapshot.meta.nextEventId)},(_,i)=>i+1).map(value => <option key={value} value={value}>{value} gameweeks</option>)}</select></label>
+        <label>Plan ahead<select aria-label="Solver planning horizon" value={Math.min(props.horizon,39-snapshot.meta.nextEventId)} onChange={e => props.onHorizonChange(Number(e.target.value))}>{Array.from({length: Math.min(10,39-snapshot.meta.nextEventId)},(_,i)=>i+1).map(value => <option key={value} value={value}>{value} gameweek{value === 1 ? '' : 's'}</option>)}</select></label>
         <label>Free transfers<select aria-label="Free transfers available" value={props.freeTransfers} onChange={e => props.onFreeTransfersChange(Number(e.target.value))}>{[0,1,2,3,4,5].map(value=><option key={value} value={value}>{value} FT</option>)}</select></label>
       </div>
       <div className="strategy-inventories">{[...new Set(gws.map(gw => gw <= 19 ? 1 : 2))].map(chipHalf => <div key={chipHalf}>
