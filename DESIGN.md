@@ -15,7 +15,7 @@ The current website is the visual reference. The owner explicitly requested that
 | Forecast components | src/lib/repoModel/xpts.ts |
 | Simulation sampling and automatic substitutions | src/lib/repoModel/monteCarlo.ts |
 
-The runtime CSS is the token source; do not duplicate token values in screen-specific styles. Existing dark tokens include --bg #070914, --text-primary #f3f6ff, --brand-mint #5bf5d6, --brand-violet #7772ff and --brand-pink #ff5bc8. Inter Variable remains the typeface. The planner upgrade introduces no CSS or asset changes.
+The runtime CSS is the token source; do not duplicate token values in screen-specific styles. Existing dark tokens include --bg #070914, --text-primary #f3f6ff, --brand-mint #5bf5d6, --brand-violet #7772ff and --brand-pink #ff5bc8. Inter Variable remains the typeface. Manual Plan uses these existing tokens and the canonical portrait/badge resolvers.
 
 Extend existing panel, badge, button, table, select and status conventions for new information. Keep the native selects already used by the planner. Do not import Compass visuals or assets. The current dashboard and planner share the established brand primitives.
 
@@ -49,3 +49,11 @@ This is an **additional image-output contract**, not a replacement for existing 
 **Anti-patterns:** forced 16:9 live pages, rainbow dashboard gradients, informational walls of text, fake-live odds, oversized KPI cards, duplicate scrollbars, color-only FDR legends, and nonfunctional button mockups.
 
 See `PRODUCT.md`, `UX-CONTRACT.md`, `docs/adr/0001-v2-runtime-migration.md` and `docs/VORTEX_V2_SOURCE_CONTRACT.md` for authority and implementation gates.
+
+
+
+## Manual Plan — 2026-11-03 owner instruction
+
+The first Planner section is named **Plan** and contains manual controls only. Use the existing pitch/portraits, compact transfer/hit/bank/xPts values, manual captain/vice and chips, then Assistant Manager / Director of Football image cards, followed by the existing shared FDR table. Long model/solver explanations and automatic controls do not belong here. The other analytical sections retain their existing behavior in this increment.
+
+TransferPlanModal's embedded variant owns the manual editing workflow and preserves the existing StoredTransferPlan schema. The actual PlayerLab component owns replacement selection, with position/budget/club/duplicate validation and explicit Select buttons. Swap only changes a legal starter/bench pairing; it never browses outside players. PlannerOverview's fixtures-only variant owns the bottom FDR table. No new palette, forecast model, image source or storage key is introduced.

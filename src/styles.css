@@ -10695,3 +10695,91 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 /* Global scrollbar ownership: native geometry with existing VORTEX tokens. */
 * { scrollbar-width: thin; scrollbar-color: var(--brand-violet) var(--bg); }
 @media (forced-colors: active) { * { scrollbar-color: auto; } }
+
+
+/* Manual Plan: canonical saved-plan editor, pitch imagery and FDR; no solver surface. */
+.manual-plan-host { min-width: 0; }
+.manual-plan-host[hidden] { display: none; }
+.manual-plan, .manual-plan-picker { display: grid; gap: 16px; min-width: 0; }
+.manual-plan-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.manual-plan-toolbar label, .manual-plan-actions label, .manual-captain-controls label { display: grid; gap: 5px; font-size: 12px; color: var(--text-secondary); min-width: 0; }
+.manual-plan-toolbar input, .manual-plan-toolbar select, .manual-plan-actions input, .manual-plan-actions select, .manual-captain-controls select { max-width: 100%; min-width: 0; min-height: 40px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); background: var(--bg); }
+.manual-plan-toolbar input { width: 200px; }
+.manual-plan-toolbar select { max-width: 220px; }
+.manual-plan-board { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: 18px; align-items: start; }
+.manual-plan-pitch-column { min-width: 0; display: grid; gap: 12px; }
+.manual-plan .vx-tp-gw-nav { display: flex; justify-content: center; gap: 18px; padding: 8px; background: var(--panel-soft); border-radius: 10px; }
+.manual-plan .vx-tp-gw-nav button { min-width: 44px; min-height: 44px; border: 0; border-radius: 8px; color: var(--text-primary); background: var(--panel-soft); cursor: pointer; }
+.manual-plan .vx-tp-gw-nav label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.manual-plan .vx-tp-gw-nav select { min-height: 40px; padding: 8px; border-radius: 8px; }
+.manual-plan-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; text-align: center; }
+.manual-plan-metrics div { display: grid; gap: 5px; padding: 8px 2px; border-bottom: 2px solid var(--brand-mint); }
+.manual-plan-metrics small { color: var(--text-secondary); font-size: 12px; }
+.manual-plan-metrics strong { font-size: 21px; font-variant-numeric: tabular-nums; }
+.manual-plan .vx-soccer-pitch { width: 100%; min-width: 0; height: auto; max-height: none; }
+.manual-plan .vx-tp-turf { padding: 8px; gap: 12px; }
+.manual-plan .vx-tp-formation { gap: 12px; }
+.manual-plan .vx-tp-pitch-row { gap: 4px; }
+.manual-plan .vx-tp-pitch-card { flex: 0 1 94px; width: 94px; min-width: 0; }
+.manual-plan .vx-tp-pitch-card__top { padding-top: 28px; }
+.manual-plan .vx-tp-pitch-avatar.player-avatar { width: 72px; height: 76px; max-width: 100%; border-radius: 0; }
+.manual-plan .vx-tp-pitch-avatar img { object-fit: contain; }
+.manual-plan .vx-tp-card-action { width: 26px; height: 26px; top: 1px; }
+.manual-plan .vx-tp-card-action.is-sub { left: 0; }
+.manual-plan .vx-tp-card-action.is-remove { right: 0; }
+.manual-plan .vx-tp-name-bar { max-width: 100%; padding: 5px 2px; }
+.manual-plan .vx-tp-name-bar strong { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.manual-plan .vx-tp-bench-tray { gap: 4px; padding: 8px 4px; }
+.manual-plan .vx-tp-bench-col { width: 100%; }
+.manual-plan-chips, .manual-plan-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.manual-plan-chips .button { flex: 1 1 120px; }
+.manual-plan-chips .is-active { border-color: var(--brand-mint); color: var(--brand-mint); }
+.manual-plan-actions input { width: 92px; }
+.manual-plan-advice { display: grid; gap: 16px; min-width: 0; }
+.manual-plan-advice .panel { padding: 16px; min-width: 0; }
+.manual-plan-advice h3 { margin: 0; font-size: 18px; }
+.manual-advice-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; }
+.manual-advice-row > div:last-child { display: grid; gap: 6px; }
+.manual-advice-player { display: grid; justify-items: center; gap: 4px; min-width: 0; text-align: center; }
+.manual-advice-player strong { font-size: 12px; overflow-wrap: anywhere; }
+.manual-advice-row .manual-advice-player { width: 96px; }
+.manual-advice-row span, .manual-director-row small { display: block; color: var(--text-secondary); font-size: 12px; }
+.manual-director-row { display: grid; grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) minmax(85px,1fr); gap: 8px; align-items: center; padding: 15px 0; border-top: 1px solid var(--border); }
+.manual-director-row > div:last-child { display: grid; gap: 5px; }
+.manual-director-row > div:last-child strong { color: var(--brand-mint); font-size: 17px; }
+.manual-plan-source { display: block; color: var(--text-secondary); font-size: 11px; }
+.manual-captain-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.manual-plan .vx-planner-fixtures { width: 100%; max-height: none; }
+.manual-plan .vx-planner-table-scroll { max-height: none; overflow-x: auto; }
+.manual-swap-notice { display: flex; gap: 10px; justify-content: space-between; padding: 10px; border: 1px solid var(--brand-mint); border-radius: 8px; font-size: 13px; }
+.manual-plan-picker { min-width: 0; }
+.manual-player-picker .vx-h2h-launch, .manual-player-picker .planner-data-notice, .manual-player-picker .player-projection-details { display: none; }
+.manual-player-picker .player-table-scroll { max-width: 100%; }
+.manual-player-picker .button[disabled] { opacity: .45; }
+.manual-plan button:focus-visible, .manual-plan-picker button:focus-visible { outline: 3px solid var(--brand-mint); outline-offset: 3px; }
+@media (max-width: 900px) {
+  .manual-plan-board { grid-template-columns: minmax(0,1fr); }
+  .manual-plan-advice { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 600px) {
+  .manual-plan-advice { grid-template-columns: minmax(0,1fr); }
+  .manual-plan-toolbar { align-items: stretch; }
+  .manual-plan-toolbar label { flex: 1 1 130px; }
+  .manual-plan-toolbar input, .manual-plan-toolbar select { width: 100%; max-width: 100%; }
+  .manual-plan .vx-tp-pitch-avatar.player-avatar { width: 100%; height: 64px; }
+  .manual-plan .vx-tp-fix-cell { font-size: 9px; }
+  .manual-plan .vx-tp-sp-row { display: none; }
+  .manual-plan .vx-tp-armband { top: 30px; }
+  .manual-plan .vx-tp-turf { padding: 5px; }
+  .manual-plan .vx-tp-pitch-row { gap: 2px; }
+  .manual-plan-metrics strong { font-size: 18px; }
+}
+.plan-draft-dialog { max-width: min(440px, calc(100vw - 32px)); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 24px; background: var(--panel-solid); color: var(--text-primary); box-shadow: var(--shadow-lg); }
+.plan-draft-dialog::backdrop { background: rgba(0,0,0,.6); }
+/* Explicit pitch flow: bench cards must retain natural height inside a column flexbox. */
+.manual-plan .vx-tp-turf { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; min-height: 0; }
+.manual-plan .vx-tp-formation { width: 100%; flex: none; }
+.manual-plan .vx-tp-pitch-row { width: 100%; min-width: 0; justify-content: space-evenly; }
+.manual-plan .vx-tp-bench-tray { width: 100%; height: auto; min-height: 0; flex: none; overflow: visible; }
+.manual-plan .vx-tp-bench-col > .vx-tp-pitch-card { flex: none; }
+@media (max-width: 400px) { .manual-plan .vx-tp-card-action.is-remove { top: 29px; } }

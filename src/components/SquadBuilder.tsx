@@ -36,7 +36,6 @@ import { ClubBadge } from './ClubBadge';
 import { TeamIdInput } from './TeamIdInput';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { PlayerAvatar } from './PlayerAvatar';
-import { PlannerOverview } from './PlannerOverview';
 import { StatCard } from './StatCard';
 import { TransferPlanModal } from './TransferPlanModal';
 
@@ -388,7 +387,7 @@ export function SquadBuilder({
     <div className="page page--optimizer">
       <div className="planner-section-picker" role="group" aria-label="Planner sections">
         {([
-          { id: 'planner', label: '1. Team Planner & Solver', icon: Layers },
+          { id: 'planner', label: 'Plan', icon: Layers },
           { id: 'chips', label: '2. Chip Strategy & EV Matrix', icon: BarChart3 },
           { id: 'montecarlo', label: `3. Monte Carlo (${simulationDraws.toLocaleString()} Draws)`, icon: Dices },
         ] as const).map(({ id, label, icon: Icon }) => (
@@ -396,9 +395,7 @@ export function SquadBuilder({
             aria-expanded={subTab === id} aria-controls={subTab === id ? "planner-section-content" : undefined}
             onClick={() => {
               setSubTab(id);
-              if (id === 'planner') {
-                setTransferPlansOpen(true);
-              }
+
             }}>
             <Icon size={16} aria-hidden="true" /><span>{label}</span>
           </button>
@@ -510,41 +507,12 @@ export function SquadBuilder({
         />
       </section>}
 
-      {/* ==================== TAB 1: TEAM PLANNER & TRANSFER SOLVER ==================== */}
-      {subTab === 'planner' && !entry && <p className="planner-data-notice">Template squad scenario — load your FPL Team ID on Home for a personal starting squad. Verify bank and free transfers before acting.</p>}
-      {subTab === 'planner' && (
-        <>
-          <PlannerOverview snapshot={snapshot} squad={activeSquadPlayers} allPlayers={players} savedPlan={selectedPlanIsCurrent ? selectedPlan : null} onInspectPlayer={onInspectPlayer} />
-          <section className="panel" aria-label="Exact no-chip Solver">
-            <div className="panel__header"><div><span className="panel__eyebrow">EXACT FORMULATION · NO CHIPS</span><h3>10-Gameweek transfer MILP</h3></div></div>
-            <p>Compare legal transfer paths with the bounded SciPy/HiGHS solver, using the same VORTEX xPts as Chip Strategy. It is a separate read-only calculation, not an automatic squad change. Results disclose candidate coverage, MIP gap and whether optimality was proven.</p>
-            <button type="button" onClick={() => setSubTab('chips')}>Open exact transfer comparison in Solver &amp; Chip Strategy</button>
-          </section>
-          <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
-        <div className="panel__header"><div>
-          <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
-          <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Official / template starting squad'}</h3>
-        </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
-        <div className="planner-control-row">
-          <label>Planning scenario
-            <select aria-label="Active saved planning scenario" value={selectedPlanId} onChange={e => selectPlan(e.target.value)}>
-              <option value="__live__">Official / template · no saved plan</option>
-              {savedPlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name} (GW{plan.startGw}+)</option>)}
-            </select>
-          </label>
-          <button type="button" onClick={() => setTransferPlansOpen(true)}>{selectedPlan ? 'Edit saved plan' : 'Create / open transfer plan'}</button>
-        </div>
-        {selectedPlan && <p>Manual transfers, captaincy, lineups and chips in this plan are fixed decisions. The Solver only suggests legal additions; simulation includes a separate exact saved-plan path. Changes must be explicitly saved in Transfer Lab.</p>}
-        {!selectedPlanIsCurrent && <p role="alert">This saved plan starts in GW{selectedPlan?.startGw}, but the active GW is {snapshot.meta.nextEventId}. Its scenarios are blocked until you rebase or create a current plan.</p>}
-        <div className="planner-control-row" aria-label="Lock players against automatic transfer suggestions">
-          {activeSquadPlayers.map(p => <label key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            <input type="checkbox" checked={lockedIds.includes(p.id)} onChange={() => togglePlayerLock(p.id)} aria-label={`Lock ${p.name} against automatic transfers`} />
-            {p.name}
-          </label>)}
-        </div>
-      </section>
-        </>
-      )}
+      <div className="manual-plan-host" hidden={subTab !== 'planner'}>
+        <TransferPlanModal embedded open onClose={() => {}} snapshot={snapshot} players={players}
+          fallbackSquadIds={baseEntrySquadIds} entry={entry} defaultFreeTransfers={freeTransfers}
+          onToast={onToast} onInspectPlayer={onInspectPlayer} onInspectInjury={onInspectInjury}
+          initialActivePlan={selectedPlan} onPlansChanged={handlePlansChanged} />
+      </div>
 
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
       {subTab === 'chips' && reviewSim && (
@@ -952,4 +920,5 @@ export function SquadBuilder({
     </div>
   );
 }
+
 

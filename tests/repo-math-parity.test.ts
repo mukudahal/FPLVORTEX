@@ -424,7 +424,7 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
       onToast: noop,
     }),
   );
-  assert.match(htmlOptimizer, /Team Planner/);
+  assert.match(htmlOptimizer, /Manual Plan/);
   assert.match(htmlOptimizer, /Chip Strategy/);
   assert.match(htmlOptimizer, /Monte Carlo/);
 
@@ -529,7 +529,8 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.match(htmlCommand, /float-card--artistic/);
   assert.match(htmlCommand, /float-card__fdr-strip/);
   assert.match(htmlCommand, /vx-social-svg--yt/);
-  assert.match(htmlOptimizer, /Team Planner &amp; Solver/);
+  assert.match(htmlOptimizer, /Manual Plan/);
+  assert.doesNotMatch(htmlOptimizer, /10-Gameweek transfer MILP/);
   assert.match(htmlOptimizer, /Chip Strategy &amp; EV Matrix/);
   assert.match(htmlOptimizer, /Monte Carlo \(3,000 Draws\)/);
   assert.match(htmlOptimizer, /Fixture difficulty table/);
@@ -713,3 +714,4 @@ test('computes dynamic Free Transfers, Injury Return parsing & Price Change Stat
     'Expected all 15 EntryPicks to include dynamic purchasePrice & sellingPrice',
   );
 });
+

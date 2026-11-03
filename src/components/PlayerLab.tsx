@@ -26,6 +26,12 @@ import { Sparkline } from './Sparkline';
 import { SaveTableButton } from './SaveTableButton';
 
 interface PlayerLabProps {
+  selection?: {
+    outgoing: EnrichedPlayer;
+    gameweek: number;
+    onSelect: (player: EnrichedPlayer) => void;
+    unavailableReason: (player: EnrichedPlayer) => string | null;
+  };
   snapshot?: import('../lib/types').Snapshot;
   players: EnrichedPlayer[];
   teams: FplTeam[];
@@ -96,6 +102,7 @@ function exportCsv(players: EnrichedPlayer[], gw: number, nextGw: number,
 }
 
 export function PlayerLab({
+  selection,
   snapshot,
   players,
   teams,
@@ -107,9 +114,9 @@ export function PlayerLab({
 }: PlayerLabProps) {
   const deferredQuery = useDeferredValue(query);
   const [position, setPosition] = useState<'ALL' | Position>('ALL');
-  const [selectedGw, setSelectedGw] = useState(nextEventId);
+  const [selectedGw, setSelectedGw] = useState(selection?.gameweek ?? nextEventId);
   const [forecastOnly, setForecastOnly] = useState(false);
-  useEffect(() => { setSelectedGw(nextEventId); }, [nextEventId]);
+  useEffect(() => { setSelectedGw(selection?.gameweek ?? nextEventId); }, [nextEventId, selection?.gameweek]);
   const [teamId, setTeamId] = useState<number | 'ALL'>('ALL');
   const [sort, setSort] = useState<SortKey>('projection');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -177,6 +184,7 @@ export function PlayerLab({
   const filtered = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase();
     const result = players.filter((player) => {
+      if (selection && player.position !== selection.outgoing.position) return false;
       if (position !== 'ALL' && player.position !== position) return false;
       if (teamId !== 'ALL' && player.teamId !== teamId) return false;
       if (player.price > maxPrice + 0.001) return false;
@@ -238,7 +246,7 @@ export function PlayerLab({
       return (gameweekPoints(b, selectedGw) ?? -1) - (gameweekPoints(a, selectedGw) ?? -1) || a.id - b.id;
     });
     return result;
-  }, [deferredQuery, differentialsOnly, forecastOnly, maxPrice, nextEventId, players, position, selectedGw, sort, sortDir, teamId, vortexFiveGwAvg]);
+  }, [deferredQuery, differentialsOnly, forecastOnly, maxPrice, nextEventId, players, position, selectedGw, sort, sortDir, teamId, vortexFiveGwAvg, selection?.outgoing.position]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages - 1);
@@ -253,7 +261,7 @@ export function PlayerLab({
   };
 
     return (
-    <div className="page page--players">
+    <div className={classNames("page page--players", selection && "manual-player-picker")}>
       <section className="panel player-controls" aria-label="Player search and filters">
         <div className="player-controls__top">
           <label className="search-input">
@@ -433,7 +441,7 @@ export function PlayerLab({
                   </button>
                 </th>
                 <th>GW{nextEventId}–{Math.min(38,nextEventId+7)} Model Trend</th>
-                <th>H2H</th>
+                <th>{selection ? "Transfer in" : "H2H"}</th>
               </tr>
             </thead>
             <tbody>
@@ -442,6 +450,7 @@ export function PlayerLab({
                 const pinned = compareIds.includes(player.id);
                 return (
                   <tr key={player.id} onClick={() => setSelected(player)} tabIndex={0} onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
                       setSelected(player);
@@ -506,7 +515,12 @@ export function PlayerLab({
                         : <span title="Complete, availability-checked trend unavailable">—</span>;
                     })()}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <button
+                      {selection ? <button type="button" className="button button--primary"
+                        data-select-player={player.id}
+                        disabled={selection.unavailableReason(player) !== null}
+                        title={selection.unavailableReason(player) ?? `Select ${player.name}`}
+                        aria-label={`Select ${player.name}`}
+                        onClick={() => selection.onSelect(player)}>Select</button> : <button
                         type="button"
                         className={classNames('icon-button icon-button--xs', pinned && 'is-selected')}
                         onClick={() => toggleCompare(player.id)}
@@ -514,7 +528,7 @@ export function PlayerLab({
                         title="Pin or remove for the dedicated H2H comparison tab"
                       >
                         <ArrowLeftRight size={13} />
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 );
@@ -561,3 +575,4 @@ export function PlayerLab({
     </div>
   );
 }
+

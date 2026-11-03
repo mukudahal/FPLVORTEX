@@ -85,3 +85,11 @@ Acceptance evidence required: root + Next TS/tests/build; component interaction 
 | Toast | src/components/Toast.tsx | App feedback contract | success/error/info | Existing browser workflow checks |
 | Export | src/lib/savePng.ts and playerPredictionExport.ts | DESIGN.md export standard | PNG and formula-safe CSV | Actual downloaded files in CI |
 | H2H | PlayerComparisonWorkspace.tsx | Public settled FPL match history | 1–8 selected players, native range controls | ID/reorder/range unit and browser checks |
+
+
+
+## Manual Plan acceptance — 2026-11-03
+
+Current owner instruction and uploaded 59876.mp4 govern this increment. The first Planner section is **Plan**, not Team Planner & Solver. It opens inline without a popup. Swap uses existing validateSubstitution to exchange one starter and one bench player while preserving squad membership and formation. Transfer out opens the canonical Players table in a replacement-selection variant and returns after a legal explicit Select. No solver or automatic XI action appears in Plan.
+
+The embedded TransferPlanModal retains manual draft state while switching analytical sections. Explicit Save and Save as new use existing browser-local storage, preserve unrelated slots and verify readback before success feedback. Undo is draft-only; switching saved plans or starting a new plan warns before discarding edits through PlanDraftDialog. Future saved transfer conflicts fail visibly rather than silently pruning moves. Source confidence remains compact and visible. FDR follows the two portrait-based advisory panels and scrolls inside its table region. The existing modal is retained for the other tools.

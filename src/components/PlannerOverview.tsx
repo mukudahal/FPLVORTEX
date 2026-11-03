@@ -15,6 +15,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { ClubBadge } from './ClubBadge';
 
 interface Props {
+  mode?: 'overview' | 'fixtures';
   snapshot: Snapshot;
   squad: EnrichedPlayer[];
   allPlayers?: EnrichedPlayer[];
@@ -22,7 +23,7 @@ interface Props {
   onInspectPlayer?: (player: EnrichedPlayer) => void;
 }
 
-export function PlannerOverview({ snapshot, squad, allPlayers, savedPlan, onInspectPlayer }: Props) {
+export function PlannerOverview({ mode = 'overview', snapshot, squad, allPlayers, savedPlan, onInspectPlayer }: Props) {
   const [horizon, setHorizon] = useState(10);
   const now = useNow(60_000);
   const sourceHealth = useMemo(() => buildPublicDataHealth(snapshot, now), [snapshot, now]);
@@ -103,6 +104,25 @@ export function PlannerOverview({ snapshot, squad, allPlayers, savedPlan, onInsp
       <strong className="vx-pitch-name">{p.name}</strong><span className={`vx-pitch-fix ${tone} is-${tone}`} style={difficulty === null ? undefined : difficultyFillStyle(difficulty)}>{cell?.label ?? '—'}</span>
     </div>;
   };
+  const fixtureTable = (
+      <section className="panel vx-planner-fixtures" aria-label="Fixture difficulty table">
+        <div className="vx-planner-fixture-head">
+          <div><strong>FIXTURE DIFFICULTY</strong><small>VORTEX model · lower is easier</small></div>
+          <label>GAMEWEEKS <select aria-label="Fixture gameweeks" value={horizon} onChange={e => setHorizon(Number(e.target.value))}>
+            {[3, 5, 10].map(n => <option key={n} value={n}>{`${n} GW`}</option>)}
+          </select></label>
+        </div>
+        <div className="vx-planner-table-scroll" role="region" aria-label="Fixture difficulty table scroll" tabIndex={0}>
+          <table><thead><tr><th scope="col">TEAM</th>{gws.map(gw => <th key={gw} scope="col"><button type="button" onClick={() => toggleSort(gw)} aria-label={`Sort by GW${gw} difficulty`}>GW{gw}{sort.gw === gw ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th>)}<th scope="col"><button type="button" onClick={() => toggleSort('avg')} aria-label="Sort by average difficulty">AVG{sort.gw === 'avg' ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th></tr></thead>
+            <tbody>{sortedRows.map(row => <tr key={row.team.id}><th scope="row"><ClubBadge teamCode={row.team.code} shortName={row.team.shortName} teamName={row.team.name} size="sm" /> {row.team.shortName}</th>
+              {row.cells.map(cell => { const value = difficultyFor(row.team.id, cell.event); return <td key={cell.event} className={`vx-planner-fdr${value === null ? ' fdr-blank' : ''}`} style={value === null ? undefined : difficultyFillStyle(value)} title={`${cell.label} · VORTEX difficulty ${value === null ? 'unavailable' : value.toFixed(1)}`}><span>{cell.label && !cell.isBlank ? cell.label : '—'}</span><b>{value === null ? '—' : value.toFixed(1)}</b></td>; })}
+              {(() => { const avg = difficultyFor(row.team.id, 'avg'); return <td className={`vx-planner-fdr${avg === null ? ' fdr-blank' : ''}`} style={avg === null ? undefined : difficultyFillStyle(avg)}>{avg === null ? '—' : avg.toFixed(1)}</td>; })()}</tr>)}</tbody>
+          </table>
+        </div>
+        <small className="vx-planner-source">Provisional VORTEX index: average attack and defence difficulty. Doubles are averaged; blanks excluded. Not calibrated FDR.</small>
+      </section>
+  );
+  if (mode === 'fixtures') return fixtureTable;
   return <section className="vx-planner-overview" aria-label="Team planner">
     <div className="vx-planner-timeline-bar">
       <div className="vx-planner-timeline-summary" role="status">
@@ -124,22 +144,8 @@ export function PlannerOverview({ snapshot, squad, allPlayers, savedPlan, onInsp
           <div className="vx-pitch-bench-wrap"><div className="vx-pitch-bench-head"><span>BENCH</span></div><div className="vx-pitch-bench">{lineup?.bench.map(p => card(p, true))}</div></div>
         </div>
       </div>
-      <section className="panel vx-planner-fixtures" aria-label="Fixture difficulty table">
-        <div className="vx-planner-fixture-head">
-          <div><strong>FIXTURE DIFFICULTY</strong><small>VORTEX model · lower is easier</small></div>
-          <label>GAMEWEEKS <select aria-label="Fixture gameweeks" value={horizon} onChange={e => setHorizon(Number(e.target.value))}>
-            {[3, 5, 10].map(n => <option key={n} value={n}>{`${n} GW`}</option>)}
-          </select></label>
-        </div>
-        <div className="vx-planner-table-scroll" role="region" aria-label="Fixture difficulty table scroll" tabIndex={0}>
-          <table><thead><tr><th scope="col">TEAM</th>{gws.map(gw => <th key={gw} scope="col"><button type="button" onClick={() => toggleSort(gw)} aria-label={`Sort by GW${gw} difficulty`}>GW{gw}{sort.gw === gw ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th>)}<th scope="col"><button type="button" onClick={() => toggleSort('avg')} aria-label="Sort by average difficulty">AVG{sort.gw === 'avg' ? (sort.ascending ? ' ↑' : ' ↓') : ''}</button></th></tr></thead>
-            <tbody>{sortedRows.map(row => <tr key={row.team.id}><th scope="row"><ClubBadge teamCode={row.team.code} shortName={row.team.shortName} teamName={row.team.name} size="sm" /> {row.team.shortName}</th>
-              {row.cells.map(cell => { const value = difficultyFor(row.team.id, cell.event); return <td key={cell.event} className={`vx-planner-fdr${value === null ? ' fdr-blank' : ''}`} style={value === null ? undefined : difficultyFillStyle(value)} title={`${cell.label} · VORTEX difficulty ${value === null ? 'unavailable' : value.toFixed(1)}`}><span>{cell.label && !cell.isBlank ? cell.label : '—'}</span><b>{value === null ? '—' : value.toFixed(1)}</b></td>; })}
-              {(() => { const avg = difficultyFor(row.team.id, 'avg'); return <td className={`vx-planner-fdr${avg === null ? ' fdr-blank' : ''}`} style={avg === null ? undefined : difficultyFillStyle(avg)}>{avg === null ? '—' : avg.toFixed(1)}</td>; })()}</tr>)}</tbody>
-          </table>
-        </div>
-        <small className="vx-planner-source">Provisional VORTEX index: average attack and defence difficulty. Doubles are averaged; blanks excluded. Not calibrated FDR.</small>
-      </section>
+      {fixtureTable}
     </div>
   </section>;
 }
+
