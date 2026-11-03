@@ -1122,6 +1122,146 @@
           "awayGoals": 0
         }
       ]
+    },
+    {
+      "fixtureId": 81,
+      "homeTeamCode": 7,
+      "awayTeamCode": 54,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T20:00:00Z",
+          "homeGoals": 1,
+          "awayGoals": 1
+        }
+      ]
+    },
+    {
+      "fixtureId": 82,
+      "homeTeamCode": 91,
+      "awayTeamCode": 2,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T15:00:00Z",
+          "homeGoals": 2,
+          "awayGoals": 0
+        }
+      ]
+    },
+    {
+      "fixtureId": 83,
+      "homeTeamCode": 94,
+      "awayTeamCode": 17,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T15:00:00Z",
+          "homeGoals": 2,
+          "awayGoals": 0
+        }
+      ]
+    },
+    {
+      "fixtureId": 84,
+      "homeTeamCode": 8,
+      "awayTeamCode": 1,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T12:30:00Z",
+          "homeGoals": 2,
+          "awayGoals": 0
+        }
+      ]
+    },
+    {
+      "fixtureId": 85,
+      "homeTeamCode": 9,
+      "awayTeamCode": 56,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T15:00:00Z",
+          "homeGoals": 3,
+          "awayGoals": 1
+        }
+      ]
+    },
+    {
+      "fixtureId": 86,
+      "homeTeamCode": 88,
+      "awayTeamCode": 40,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T15:00:00Z",
+          "homeGoals": 2,
+          "awayGoals": 2
+        }
+      ]
+    },
+    {
+      "fixtureId": 87,
+      "homeTeamCode": 14,
+      "awayTeamCode": 3,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-11-01T16:30:00Z",
+          "homeGoals": 0,
+          "awayGoals": 1
+        }
+      ]
+    },
+    {
+      "fixtureId": 88,
+      "homeTeamCode": 43,
+      "awayTeamCode": 36,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T15:00:00Z",
+          "homeGoals": 0,
+          "awayGoals": 1
+        }
+      ]
+    },
+    {
+      "fixtureId": 89,
+      "homeTeamCode": 4,
+      "awayTeamCode": 11,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-11-02T20:00:00Z",
+          "homeGoals": 0,
+          "awayGoals": 1
+        }
+      ]
+    },
+    {
+      "fixtureId": 90,
+      "homeTeamCode": 6,
+      "awayTeamCode": 31,
+      "versions": [
+        {
+          "observedAt": "2026-11-03T09:45:07.926Z",
+          "event": 9,
+          "kickoffTime": "2026-10-31T17:30:00Z",
+          "homeGoals": 2,
+          "awayGoals": 0
+        }
+      ]
     }
   ]
 }
