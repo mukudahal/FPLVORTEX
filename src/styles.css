@@ -10399,3 +10399,293 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .vx-planner-timeline-bar .vx-planner-timeline-summary { flex-basis: auto; }
   .vx-planner-data-flags b { max-width: none; }
 }
+
+
+/* Dashboard pitch appearance only. Preserve the original three-column hub:
+   pitch LEFT, fixtures CENTRE, and projected goals RIGHT on desktop.
+   Shared responsive grid rules continue to control tablet/mobile layout.
+   Review bookmarks and the Planner remain untouched. */
+.page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch {
+  min-width: 0;
+  padding: clamp(6px, 1vw, 12px);
+}
+.page--command:not(.page--review) .vx-dashboard-pitch-context {
+  margin: 8px 1px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 18px;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font-size: clamp(11px, .85vw, 13px);
+}
+.page--command:not(.page--review) .vx-dashboard-pitch-context strong {
+  color: var(--brand-mint);
+  font-size: inherit;
+  letter-spacing: .03em;
+}
+.page--command:not(.page--review) .vx-soccer-pitch {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(91, 245, 214, .52);
+}
+.page--command:not(.page--review) .vx-pitch-turf {
+  background: repeating-linear-gradient(180deg, #54b765 0px, #54b765 88px, #4da95e 88px, #4da95e 176px);
+}
+.page--command:not(.page--review) .vx-pitch-lines {
+  border-color: rgba(255, 255, 255, .8);
+}
+.page--command:not(.page--review) .vx-pitch-formation {
+  height: auto;
+  min-height: 560px;
+  padding: 18px clamp(6px, 2vw, 32px) 14px;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.page--command:not(.page--review) .vx-pitch-row {
+  min-height: 125px;
+  justify-content: space-around;
+  align-items: flex-end;
+  gap: 4px;
+}
+.page--command:not(.page--review) .vx-pitch-row > .vx-pitch-player {
+  width: min(18.8%, 144px);
+  max-width: 18.8%;
+  min-width: 0;
+  flex: 0 1 144px;
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-portrait.player-avatar {
+  width: clamp(60px, 7.2vw, 112px);
+  height: clamp(65px, 7.8vw, 116px);
+  max-width: 100%;
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard.vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+  width: clamp(55px, 6.1vw, 96px);
+  height: clamp(57px, 6.3vw, 100px);
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-name {
+  margin-top: -4px;
+  padding: 5px 4px;
+  border-radius: 7px 7px 0 0;
+  font-size: clamp(11px, 1.1vw, 16px);
+  line-height: 1.18;
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-pos-label {
+  margin-bottom: 4px;
+  background: rgba(28, 20, 60, .82);
+  color: #f7f8ff;
+  border-color: rgba(255, 255, 255, .48);
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-score {
+  z-index: 3;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 4px;
+  border-radius: 0 0 9px 9px;
+  background: #2e104f;
+  color: #fff;
+  font-weight: 850;
+  font-size: clamp(12px, 1.3vw, 18px);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-score small {
+  color: #e4cdfa;
+  font-size: .63em;
+  letter-spacing: .025em;
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-score.is-unavailable {
+  background: #33334b;
+  color: #fff;
+}
+.page--command:not(.page--review) .vx-pitch-bench {
+  background: rgba(240, 255, 240, .24);
+  border-top: 2px solid rgba(255, 255, 255, .5);
+  padding: 10px 14px 16px;
+  gap: 12px;
+}
+.page--command:not(.page--review) .vx-pitch-bench-head {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-bench-meta {
+  margin-top: 3px;
+  color: #fff;
+  font-weight: 650;
+}
+.page--command:not(.page--review) .vx-pitch-player--dashboard:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+@media (max-width: 900px) {
+  .page--command:not(.page--review) .vx-hub-upper { grid-template-columns: minmax(0, 1fr); }
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch,
+  .page--command:not(.page--review) .vx-hub-upper > .vx-fixture-rail,
+  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+@media (max-width: 520px) {
+  .page--command:not(.page--review) .vx-pitch-top-boards { gap: 5px; padding: 6px 5px; }
+  .page--command:not(.page--review) .vx-pitch-board { font-size: 9px; padding: 4px 6px; }
+  .page--command:not(.page--review) .vx-pitch-goal-net { display: none; }
+  .page--command:not(.page--review) .vx-pitch-formation {
+    min-height: 395px;
+    padding: 10px 3px;
+    gap: 8px;
+  }
+  .page--command:not(.page--review) .vx-pitch-row { min-height: 83px; gap: 2px; }
+  .page--command:not(.page--review) .vx-pitch-row > .vx-pitch-player {
+    width: 18.9%;
+    max-width: 18.9%;
+  }
+  .page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-portrait.player-avatar {
+    width: clamp(32px, 11vw, 52px);
+    height: clamp(39px, 13vw, 59px);
+  }
+  .page--command:not(.page--review) .vx-pitch-player--dashboard.vx-pitch-player--bench .vx-pitch-portrait.player-avatar {
+    width: clamp(32px, 10vw, 46px);
+    height: clamp(34px, 11vw, 49px);
+  }
+  .page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-name { font-size: clamp(8px, 2.4vw, 11px); padding: 3px 1px; }
+  .page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-score { font-size: clamp(9px, 2.6vw, 12px); padding: 3px 1px; gap: 2px; }
+  .page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-pos-label { font-size: 8px; padding: 1px 3px; }
+  .page--command:not(.page--review) .vx-pitch-bench { gap: 3px; padding: 8px 3px; }
+  .page--command:not(.page--review) .vx-pitch-player--dashboard .vx-pitch-bench-meta { font-size: 8px; }
+}
+
+/* Compass-inspired layout, owned by VORTEX. Actual solver output only. */
+.page--optimizer .vx-solver-workspace {
+  border: 1px solid rgba(70, 215, 227, .36);
+  background: linear-gradient(130deg, rgba(21, 48, 88, .94), rgba(19, 27, 56, .98));
+}
+.page--optimizer .vx-solver-workspace h2 { margin: 0; font-size: clamp(19px, 2vw, 28px); color: var(--text-primary); }
+.page--optimizer .vx-solver-workspace p { margin: 8px 0; color: var(--text-secondary); line-height: 1.55; }
+.page--optimizer .vx-solver-actions { display: flex; gap: 9px; flex-wrap: wrap; margin-block: 13px; }
+.page--optimizer .vx-solver-action {
+  border: 1px solid rgba(91, 245, 214, .35);
+  border-radius: 12px;
+  padding: 10px 15px;
+  background: #243451;
+  color: #f4f7ff;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.page--optimizer .vx-solver-action:focus-visible,
+.page--optimizer .vx-chip-trial:focus-visible { outline: 2px solid var(--brand-mint); outline-offset: 2px; }
+.page--optimizer .vx-solver-action[disabled] { opacity: .52; cursor: not-allowed; }
+.page--optimizer .vx-solver-action--primary:not([disabled]) { color: #082f2a; background: #43d89e; border-color: #7af5c5; }
+.page--optimizer .vx-solver-activity { border-radius: 9px; border: 1px solid rgba(93, 233, 212, .35); padding: 9px; color: var(--text-primary); font-size: 12px; }
+.page--optimizer .vx-solver-activity__bar { display: block; height: 3px; width: 100%; background: repeating-linear-gradient(90deg, #5bf5d6 0 16px, rgba(91,245,214,.15) 16px 34px); margin-bottom: 7px; }
+.page--optimizer .vx-solver-blocker { color: var(--brand-amber) !important; }
+.page--optimizer .vx-solver-assumptions { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; margin-top: 12px; }
+.page--optimizer .vx-solver-assumptions > div { padding: 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-soft); display: flex; flex-direction: column; gap: 5px; }
+.page--optimizer .vx-solver-assumptions strong { font-size: 12px; color: var(--text-primary); }
+.page--optimizer .vx-solver-assumptions span { color: var(--brand-mint); font-weight: 750; font-size: 13px; }
+.page--optimizer .vx-solver-assumptions small { font-size: 11px; line-height: 1.4; color: var(--text-secondary); }
+.page--optimizer .vx-chip-trials { border: 1px solid rgba(119,114,255,.32); }
+.page--optimizer .vx-chip-trial-table { width: 100%; border-collapse: separate; border-spacing: 4px; text-align: center; min-width: 520px; }
+.page--optimizer .vx-chip-trial-table th { font-size: 11px; color: var(--text-secondary); }
+.page--optimizer .vx-chip-trial-table td { padding: 0; }
+.page--optimizer .vx-chip-trial {
+  width: 100%; border: 1px solid #425472; border-radius: 7px; background: #10213c;
+  color: #d3f7ec; font-variant-numeric: tabular-nums; font-size: 12px;
+  padding: 9px 3px; cursor: pointer; min-height: 38px;
+}
+.page--optimizer .vx-chip-trial.is-active { background: #1b6359; border-color: var(--brand-mint); box-shadow: 0 0 0 2px rgba(91,245,214,.16); }
+.page--optimizer .vx-chip-trial small { display: block; color: #c6bdcb; font-size: 9px; margin-top: 3px; }
+.page--optimizer .vx-chip-trial-result { color: var(--brand-mint); font-weight: 600; margin: 9px 0; }
+@media (max-width: 900px) { .page--optimizer .vx-solver-assumptions { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 520px) {
+  .page--optimizer .vx-solver-assumptions { grid-template-columns: 1fr; }
+  .page--optimizer .vx-solver-action { flex: 1 1 44%; font-size: 11px; padding: 10px 5px; }
+}
+
+/* Players tab only: no global Dashboard/Planner layout changes. */
+.page--players .player-table { min-width: 1160px; }
+.page--players .player-table th:nth-child(7),
+.page--players .player-table td:nth-child(7) { min-width: 560px; }
+.page--players .player-table .fixture-inline { display: flex; gap: 5px; width: max-content; align-items: stretch; }
+.page--players .player-table .fixture-inline .fdr-chip {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 64px; min-width: 64px; min-height: 61px; padding: 5px 3px; gap: 3px; border-radius: 7px;
+}
+.page--players .player-table .fixture-inline .fdr-chip strong { font-size: 13px; line-height: 1.15; }
+.page--players .player-table .fixture-inline .fdr-chip small { font-size: 12px; margin: 0; line-height: 1.2; }
+.page--players .player-table .fixture-inline .fdr-chip em { font-style: normal; font-weight: 600; font-size: 8px; opacity: .8; }
+.page--players .vx-players-identity-price { display:block; font-size: 13px; font-weight: 850; line-height:1.5; color:#43F7A1; }
+.page--players .vx-players-identity-meta { display:inline-flex; align-items:center; gap:5px; font-size:11px; }
+.page--players .vx-players-identity-meta .club-badge { width:20px; height:20px; flex-basis:20px; }
+.page--players .player-table-scroll { overflow-x: auto; -webkit-overflow-scrolling:touch; }
+@media(max-width:600px) {
+ .page--players .player-table .fixture-inline .fdr-chip { width:57px; min-width:57px; }
+ .page--players .vx-players-identity-price { font-size: 12px; }
+}
+
+/* H2H-only workspace; all existing Dashboard/Planner/Fixtures styles unchanged. */
+.vx-h2h-workspace { display:grid; gap:14px; width:100%; }
+.vx-h2h-title { padding:18px 20px; border-radius:16px; border:1px solid var(--border); background:linear-gradient(110deg,rgba(34,60,101,.90),rgba(34,21,64,.82)); }
+.vx-h2h-title h1 { font-size:clamp(22px,2.5vw,36px); margin:6px 0 8px; color:var(--text-primary); }
+.vx-h2h-title p { max-width:92ch; margin:0; color:var(--text-secondary); line-height:1.6; }
+.vx-h2h-layout { display:grid; grid-template-columns:minmax(210px,240px) minmax(0,1fr) minmax(250px,290px); gap:12px; align-items:start; }
+.vx-h2h-layout>.panel { min-width:0; padding:16px; }
+.vx-h2h-layout h2 { font-size:18px; margin:0 0 12px; }
+.vx-h2h-selector label,.vx-h2h-settings label { display:grid; gap:5px; margin:9px 0; font-size:12px; font-weight:650; color:var(--text-secondary); }
+.vx-h2h-selector input,.vx-h2h-selector select,.vx-h2h-settings select { width:100%; min-height:37px; border:1px solid var(--border-strong); border-radius:8px; padding:7px; background:var(--panel-soft); color:var(--text-primary); }
+.vx-h2h-search-results { display:grid; gap:5px; max-height:510px; overflow:auto; }
+.vx-h2h-search-results button { display:flex; justify-content:space-between; gap:5px; padding:9px; border:1px solid var(--border); background:var(--panel-soft); color:var(--text-primary); border-radius:7px; text-align:left; cursor:pointer; font-size:12px; }
+.vx-h2h-search-results button span:first-child { display:grid; gap:2px; min-width:0; }
+.vx-h2h-search-results button small { color:var(--text-secondary); }
+.vx-h2h-search-results button:disabled { opacity:.45; cursor:not-allowed; }
+.vx-h2h-header { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:13px; }
+.vx-h2h-header h2 { margin:0; }
+.vx-h2h-header>span { color:var(--brand-mint); font-size:12px; font-weight:700; }
+.vx-h2h-cards { display:flex; align-items:stretch; gap:10px; width:100%; overflow-x:auto; padding:4px 2px 14px; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.vx-h2h-player-card { flex:0 0 230px; width:230px; min-width:230px; border-radius:14px; border:1px solid rgba(81,231,205,.35); background:linear-gradient(180deg,#192d51,#121d34); color:#f3f8ff; padding:11px; }
+.vx-h2h-player-top { display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; min-height:252px; }
+.vx-h2h-player-top h3 { margin:0; font-size:16px; line-height:1.25; }
+.vx-h2h-team { display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; }
+.vx-h2h-current { display:grid; width:100%; gap:3px; font-size:11px; }
+.vx-h2h-current span { display:flex; justify-content:space-between; gap:5px; text-align:left; padding:3px; border-bottom:1px solid rgba(255,255,255,.1); }
+.vx-h2h-current strong { color:#5bf5a2; }
+.vx-h2h-metrics { display:grid; gap:0; margin:12px 0; }
+.vx-h2h-metrics>div { display:flex; justify-content:space-between; align-items:center; padding:10px 5px; gap:5px; min-height:38px; border-top:1px solid rgba(255,255,255,.1); font-size:12px; }
+.vx-h2h-metrics strong { font-size:14px; font-variant-numeric:tabular-nums; color:#b7fff0; }
+.vx-h2h-player-card>small,.vx-h2h-disclosure { color:#bac8d6; font-size:11px; line-height:1.5; }
+.vx-h2h-empty { color:var(--text-secondary); padding:22px; }
+.vx-h2h-selection-list { list-style:none; padding:0; margin:10px 0; display:grid; gap:5px; }
+.vx-h2h-selection-list li { display:flex; justify-content:space-between; align-items:center; gap:7px; padding:7px; border:1px solid var(--border); border-radius:8px; font-size:12px; }
+.vx-h2h-selection-list li>div { display:flex; gap:3px; }
+.vx-h2h-selection-list button { border:1px solid var(--border-strong); background:var(--panel-soft); color:var(--text-primary); min-width:26px; min-height:27px; border-radius:5px; cursor:pointer; }
+.vx-h2h-selection-list button:disabled { opacity:.35; }
+.vx-h2h-range { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.vx-h2h-stat-controls { display:grid; grid-template-columns:1fr 1fr; gap:4px 6px; }
+.vx-h2h-stat-controls label { display:flex; align-items:center; gap:6px; font-size:11px; }
+.vx-h2h-launch { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+.vx-h2h-launch>div:first-child { display:grid; gap:5px; }
+.vx-h2h-launch strong { font-size:16px; }
+.vx-h2h-launch span { font-size:12px; color:var(--text-secondary); }
+@media(max-width:1100px) {
+ .vx-h2h-layout { grid-template-columns:1fr; }
+ .vx-h2h-layout>.panel { width:100%; }
+ .vx-h2h-search-results { max-height:240px; }
+ .vx-h2h-cards { overflow-x:auto; }
+}
+@media(max-width:520px) {
+ .vx-h2h-player-card { flex-basis:205px; min-width:205px; width:205px; }
+ .vx-h2h-layout>.panel { padding:11px; }
+ .vx-h2h-title { padding:12px; }
+}
+
+/* Five aligned H2H cards can fit a wide desktop; 6–8 remain scrollable. */
+@media(min-width:1300px) {
+ .vx-h2h-layout { grid-template-columns:minmax(180px,200px) minmax(0,1fr) minmax(210px,225px); }
+ .vx-h2h-player-card { flex:0 0 max(168px,calc((100% - 40px)/5)); width:max(168px,calc((100% - 40px)/5)); min-width:168px; }
+}

@@ -22,6 +22,12 @@ import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
+import { buildJointSolverRequest, type JointSolverRequest } from '../lib/jointSolverRequest';
+import { verifyJointChipPaths, type ComparedJointPlan } from '../lib/jointChipPathValidation';
+import { createReviewedJointChipPlan } from '../lib/jointChipPlanAdapter';
+import { ManualJointTeamEditor } from './ManualJointTeamEditor';
+import { buildManualJointSolverRequest, type ManualJointSolverRequest } from '../lib/manualJointSolverRequest';
+import type { ManualJointTeamInput } from '../lib/manualJointTeam';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
@@ -72,7 +78,7 @@ const CHIP_META: Record<string, { label: string; badge: string; tone: string }> 
 export function SquadBuilder({
   snapshot,
   players,
-  entry,
+  entry: publicEntry,
   teamId = '',
   recentTeams = [],
   entryLoading = false,
@@ -104,6 +110,49 @@ export function SquadBuilder({
   const [exactError, setExactError] = useState<string | null>(null);
   const [exactPending, setExactPending] = useState(false);
   const exactAbortRef = useRef<AbortController | null>(null);
+  // Staging-only preview. The backend also independently requires its own
+  // default-OFF flag and freshly verifies official chip/price provenance.
+  const jointUiEnabled = import.meta.env?.VITE_VORTEX_JOINT_SOLVER_UI_ENABLED === '1';
+  // Keep private current-team data only in React memory, never browser
+  // storage; invalidate immediately when account or GW context changes.
+  const [verifiedPrivateEntry, setVerifiedPrivateEntry] = useState<{
+    entry:EntryData;
+    gameweek:number;
+  } | null>(null);
+  const entry=jointUiEnabled && verifiedPrivateEntry!==null &&
+    publicEntry!==null && publicEntry!==undefined &&
+    verifiedPrivateEntry.entry.id===publicEntry.id &&
+    verifiedPrivateEntry.gameweek===snapshot.meta.nextEventId
+    ? verifiedPrivateEntry.entry : publicEntry;
+  const [currentTeamPending,setCurrentTeamPending]=useState(false);
+  const [currentTeamError,setCurrentTeamError]=useState<string|null>(null);
+  useEffect(()=>{
+    setVerifiedPrivateEntry(null);
+    setCurrentTeamError(null);
+  },[publicEntry?.id,snapshot.meta.nextEventId]);
+  const [jointComparison, setJointComparison] = useState<{
+    input: JointSolverRequest;
+    paths: ComparedJointPlan[];
+    result: ExactMilpResponse;
+    sourceEntry: EntryData;
+    sourceSnapshot: Snapshot;
+    sourcePlanner: PlannerSimulationOutput;
+  } | null>(null);
+  const [jointPending, setJointPending] = useState(false);
+  const [jointError, setJointError] = useState<string | null>(null);
+  const [jointReview, setJointReview] = useState(false);
+  const jointAbortRef = useRef<AbortController | null>(null);
+  const [manualComparison,setManualComparison]=useState<{
+    input:ManualJointSolverRequest;
+    paths:ComparedJointPlan[];
+    result:ExactMilpResponse;
+    sourceSnapshot:Snapshot;
+    sourcePlanner:PlannerSimulationOutput;
+  }|null>(null);
+  const [manualPending,setManualPending]=useState(false);
+  const [manualError,setManualError]=useState<string|null>(null);
+  const [manualReview,setManualReview]=useState(false);
+  const manualAbortRef=useRef<AbortController|null>(null);
   const [strategyLabel, setStrategyLabel] = useState('steady');
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [adHocLockedIds, setAdHocLockedIds] = useState<number[]>([]);
@@ -149,6 +198,9 @@ export function SquadBuilder({
   };
   const [customSquadIds, setCustomSquadIds] = useState<number[]>([]);
   const [selectedChipPreview, setSelectedChipPreview] = useState<'wildcard' | 'freehit' | 'bboost' | '3xc'>('wildcard');
+  const [solverSettingsOpen, setSolverSettingsOpen] = useState(true);
+  const [solverMathVisible, setSolverMathVisible] = useState(true);
+  const [trialChipGw, setTrialChipGw] = useState<number | null>(null);
   const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const baseEntrySquadIds = useMemo(() => {
     if (entry && entry.picks.length === 15 && entry.picks.every((p) => playerMap.has(p.element))) {
@@ -281,6 +333,18 @@ export function SquadBuilder({
     setSelectedExactRank(1);
     setReviewExactRank(null);
     setExactError(null);
+    jointAbortRef.current?.abort();
+    jointAbortRef.current = null;
+    setJointPending(false);
+    setJointComparison(null);
+    setJointReview(false);
+    setJointError(null);
+    manualAbortRef.current?.abort();
+    manualAbortRef.current=null;
+    setManualPending(false);
+    setManualComparison(null);
+    setManualReview(false);
+    setManualError(null);
   }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry]);
 
   const runExactTransferComparison = async () => {
@@ -327,6 +391,237 @@ export function SquadBuilder({
       setExactError(error instanceof Error ? error.message : 'Exact Solver is unavailable.');
     } finally {
       if (controller && exactAbortRef.current === controller && !controller.signal.aborted) setExactPending(false);
+    }
+  };
+
+  const verifyMyCurrentFplTeam = async () => {
+    if (!jointUiEnabled || !publicEntry?.id) return;
+    setCurrentTeamPending(true);
+    setCurrentTeamError(null);
+    try {
+      // Authenticated FPL session never enters this URL or client state.
+      // The server itself must obtain a trusted, request-bound read-only
+      // provider; it refuses public last-deadline picks as proof of cash.
+      const response=await fetch(
+        `/api/vortex/solver/current-team?entryId=${publicEntry.id}`,
+        { method:'GET',credentials:'same-origin',cache:'no-store' },
+      );
+      const data=await response.json() as EntryData & {error?:string};
+      if (!response.ok) throw new Error(data.error ??
+        'No consented current-team FPL connection is available.');
+      if (data.id!==publicEntry.id ||
+          data.managerStateSource!=='authenticated-current-team' ||
+          !Array.isArray(data.picks) || data.picks.length!==15 ||
+          !data.authenticatedAvailableChipHalves) {
+        throw new RangeError('The server did not return a verified current FPL team.');
+      }
+      setVerifiedPrivateEntry({entry:data,gameweek:snapshot.meta.nextEventId});
+      setReviewSim(null);
+      setJointComparison(null);
+      setJointReview(false);
+      onToast('Current FPL squad verified. Re-run Planner to use the exact current cash and chips.', 'success');
+    } catch(error) {
+      setVerifiedPrivateEntry(null);
+      setCurrentTeamError(error instanceof Error ? error.message :
+        'Authenticated current-team FPL verification is unavailable.');
+    } finally {
+      setCurrentTeamPending(false);
+    }
+  };
+
+  const runJointChipComparison = async () => {
+    let controller: AbortController | null = null;
+    if (!jointUiEnabled) return;
+    if (!entry || !reviewSim || selectedPlan || plannedMoves > 0) {
+      setJointError('Load a verified current FPL team, run the Planner, and clear all manual commitments first.');
+      return;
+    }
+    try {
+      const sellingPrices = Object.fromEntries(activeSquadIds.map(id => {
+        const sale = entry.picks.find(pick => pick.element === id)?.sellingPrice;
+        return [id, typeof sale === 'number' ? Math.round(sale * 10) : Number.NaN];
+      }));
+      const input = buildJointSolverRequest({
+        entry, snapshot, players, planner: reviewSim,
+        squadIds: activeSquadIds, bankTenths, freeTransfers, sellingPrices,
+        lockedIds, decay: 1 - plannerDecay / 100,
+      });
+      jointAbortRef.current?.abort();
+      controller = new AbortController();
+      jointAbortRef.current = controller;
+      setJointPending(true);
+      setJointError(null);
+      setJointComparison(null);
+      setJointReview(false);
+      const response = await fetch('/api/vortex/solver/joint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId: input.entryId, solver: input.solver }),
+        signal: controller.signal,
+      });
+      const data = await response.json() as ExactMilpResponse & { error?: string };
+      if (!response.ok)
+        throw new Error(data.error ?? 'Joint-chip Solver is unavailable on this deployment.');
+      const paths = verifyJointChipPaths(input.solver, data, input.chips);
+      if (!controller.signal.aborted)
+        setJointComparison({
+          input, paths, result: data,
+          sourceEntry: entry, sourceSnapshot: snapshot, sourcePlanner: reviewSim,
+        });
+    } catch (error) {
+      if (controller?.signal.aborted) return;
+      setJointError(error instanceof Error ? error.message : 'Joint-chip Solver could not be verified.');
+    } finally {
+      if (controller && jointAbortRef.current === controller && !controller.signal.aborted)
+        setJointPending(false);
+    }
+  };
+
+  const saveReviewedJointChipPlan = () => {
+    const comparison = jointComparison;
+    if (!jointUiEnabled || !comparison || !jointReview ||
+        !entry || !reviewSim || comparison.sourceEntry !== entry ||
+        comparison.sourceSnapshot !== snapshot ||
+        comparison.sourcePlanner !== reviewSim ||
+        selectedPlan || plannedMoves > 0 || jointPending || snapshot.meta.stale ||
+        typeof window === 'undefined') {
+      setJointError('The verified team or forecast has changed. Re-run the joint-chip comparison.');
+      setJointReview(false);
+      return;
+    }
+    try {
+      const sellingPrices = Object.fromEntries(activeSquadIds.map(id => {
+        const sale = entry.picks.find(pick => pick.element === id)?.sellingPrice;
+        return [id, typeof sale === 'number' ? Math.round(sale * 10) : Number.NaN];
+      }));
+      const fresh = buildJointSolverRequest({
+        entry, snapshot, players, planner: reviewSim,
+        squadIds: activeSquadIds, bankTenths, freeTransfers, sellingPrices,
+        lockedIds, decay: 1 - plannerDecay / 100,
+      });
+      if (fresh.entryId !== comparison.input.entryId ||
+          JSON.stringify(fresh.solver) !== JSON.stringify(comparison.input.solver)) {
+        throw new RangeError('The manager state no longer matches the reviewed proposal.');
+      }
+      const [chosen] = verifyJointChipPaths(
+        comparison.input.solver, comparison.result, fresh.chips,
+      );
+      if (!chosen) throw new RangeError('The joint optimizer found no valid proposal to save.');
+      const nowIso = new Date().toISOString();
+      const proposal = createReviewedJointChipPlan({
+        request: comparison.input.solver,
+        path: chosen,
+        id: 'joint-' + crypto.randomUUID(),
+        name: `Reviewed Joint Chips GW${comparison.input.solver.settings.start_gw}+`,
+        createdAt: nowIso,
+      });
+      const previous = readStoredTransferPlans(window.localStorage, storageScopeId);
+      const upsert = upsertTransferPlan(previous, proposal);
+      if (!upsert.ok) throw new RangeError(upsert.error);
+      writeStoredTransferPlans(window.localStorage, storageScopeId, upsert.plans);
+      if (!readStoredTransferPlans(window.localStorage, storageScopeId)
+        .some(stored => stored.id === proposal.id))
+        throw new RangeError('Browser storage refused to persist the new plan.');
+      setSavedPlans(upsert.plans);
+      selectPlan(proposal.id);
+      setJointReview(false);
+      setTransferPlansOpen(true);
+      onToast('A NEW reviewed joint-chip scenario was saved. No official FPL action was taken.', 'success');
+    } catch (error) {
+      setJointReview(false);
+      setJointError(error instanceof Error ? error.message : 'The joint scenario could not be safely saved.');
+    }
+  };
+
+  const runManualJointComparison = async (manual:ManualJointTeamInput) => {
+    let controller:AbortController|null=null;
+    if(!jointUiEnabled)return;
+    if(!reviewSim||selectedPlan||plannedMoves>0||snapshot.meta.stale){
+      setManualError('Run the Planner with current data and clear saved/unsaved manual transfer commitments first.');
+      return;
+    }
+    try{
+      const input=buildManualJointSolverRequest({
+        manual,snapshot,players,planner:reviewSim,lockedIds,
+        decay:1-plannerDecay/100,
+      });
+      manualAbortRef.current?.abort();
+      controller=new AbortController();
+      manualAbortRef.current=controller;
+      setManualPending(true);
+      setManualError(null);
+      setManualComparison(null);
+      setManualReview(false);
+      const reply=await fetch('/api/vortex/solver/joint-manual',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({manual:input.manual,solver:input.solver}),
+        signal:controller.signal,
+      });
+      const data=await reply.json() as ExactMilpResponse & {
+        error?:string;input_provenance?:string;
+        manual_unknown_chips?:string[];
+      };
+      if(!reply.ok)throw new Error(data.error??'Manual joint-chip Solver is unavailable.');
+      if(data.input_provenance!=='manager-entered-unverified')
+        throw new RangeError('Server did not preserve manager-entered data provenance.');
+      const paths=verifyJointChipPaths(input.solver,data,input.validated.chips);
+      if(!controller.signal.aborted)
+        setManualComparison({
+          input,paths,result:data,sourceSnapshot:snapshot,sourcePlanner:reviewSim,
+        });
+    }catch(error){
+      if(controller?.signal.aborted)return;
+      setManualError(error instanceof Error?error.message:'Manual joint-chip inputs could not be verified.');
+    }finally{
+      if(controller&&manualAbortRef.current===controller&&!controller.signal.aborted)
+        setManualPending(false);
+    }
+  };
+
+  const saveReviewedManualJointPlan = () => {
+    const comparison=manualComparison;
+    if(!jointUiEnabled||!comparison||!manualReview||!reviewSim||
+       comparison.sourceSnapshot!==snapshot||
+       comparison.sourcePlanner!==reviewSim||
+       selectedPlan||plannedMoves>0||manualPending||snapshot.meta.stale||
+       typeof window==='undefined'){
+      setManualError('The input or forecast changed. Re-run the manually entered strategy.');
+      setManualReview(false);
+      return;
+    }
+    try{
+      const fresh=buildManualJointSolverRequest({
+        manual:comparison.input.manual,snapshot,players,planner:reviewSim,
+        lockedIds,decay:1-plannerDecay/100,
+      });
+      if(JSON.stringify(fresh.solver)!==JSON.stringify(comparison.input.solver))
+        throw new RangeError('The current team/forecast no longer matches the manual proposal.');
+      const [chosen]=verifyJointChipPaths(
+        comparison.input.solver,comparison.result,fresh.validated.chips,
+      );
+      if(!chosen)throw new RangeError('No independently validated manual proposal is available to save.');
+      const nowIso=new Date().toISOString();
+      const proposal=createReviewedJointChipPlan({
+        request:comparison.input.solver,path:chosen,
+        id:'manual-joint-'+crypto.randomUUID(),
+        name:`MANAGER-ENTERED (UNVERIFIED) GW${comparison.input.solver.settings.start_gw}+`,
+        createdAt:nowIso,
+      });
+      const previous=readStoredTransferPlans(window.localStorage,storageScopeId);
+      const upsert=upsertTransferPlan(previous,proposal);
+      if(!upsert.ok)throw new RangeError(upsert.error);
+      writeStoredTransferPlans(window.localStorage,storageScopeId,upsert.plans);
+      if(!readStoredTransferPlans(window.localStorage,storageScopeId)
+        .some(saved=>saved.id===proposal.id))
+        throw new RangeError('The NEW manually reviewed plan was not persisted. No existing plan was changed.');
+      setSavedPlans(upsert.plans);
+      selectPlan(proposal.id);
+      setManualReview(false);
+      setTransferPlansOpen(true);
+      onToast('NEW manager-entered UNVERIFIED plan saved. No official FPL transfer or chip was played.', 'success');
+    }catch(error){
+      setManualReview(false);
+      setManualError(error instanceof Error?error.message:'Manual scenario could not be saved.');
     }
   };
 
@@ -446,7 +741,7 @@ export function SquadBuilder({
       </section>
       )}
       {subTab && <div id="planner-section-content" className="planner-section-content">
-      {subTab !== 'planner' && <section className="panel planner-compact-controls" aria-label="Planning settings">
+      {subTab !== 'planner' && (subTab !== 'chips' || solverSettingsOpen) && <section id="solver-planning-settings" className="panel planner-compact-controls" aria-label="Planning settings">
         <div className="planner-control-row">
           <label>Strategy<select aria-label="Strategy" value={strategyLabel} onChange={e => setStrategyLabel(e.target.value)}>
             <option value="steady">Steady</option><option value="top10k">Top 10K</option><option value="template">Template</option>
@@ -465,6 +760,14 @@ export function SquadBuilder({
           </select></label>
         </div>
         <p className="planner-strategy-note">Strategy names are labels only for now; they do not change calculations. Current app profile: {profile}.</p>
+        {subTab === 'chips' && (
+          <div className="vx-solver-assumptions" role="group" aria-label="Additional Solver assumptions">
+            <div><strong>FT option value</strong><span>{reviewSim ? `${reviewSim.bankedTransferValueNextGw.toFixed(2)} model pts next GW` : 'Calculating'}</span><small>Calculated by the existing marginal-FT model. The exact MILP holds its terminal FT reward at 0; no unvalidated override is exposed.</small></div>
+            <div><strong>Covariance</strong><span>Not calibrated</span><small>The exact MILP does not accept a covariance parameter. No fabricated risk penalty is applied.</small></div>
+            <div><strong>Bench weighting</strong><span>Model-defined</span><small>The existing VORTEX lineup/chip model controls bench scoring; no unsupported override is submitted.</small></div>
+            <div><strong>Chip controls</strong><span>GW trial matrix below</span><small>Trial selections preview model diagnostics only. Verified chip inventory is required for joint recommendations.</small></div>
+          </div>
+        )}
       </section>}
 
       {subTab !== 'planner' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
@@ -549,6 +852,87 @@ export function SquadBuilder({
       {/* ==================== TAB 2: FPLREVIEW-STYLE CHIP STRATEGY & HORIZON EV MATRIX ==================== */}
       {subTab === 'chips' && reviewSim && (
         <div className="chips-strategy-stack">
+          <section className="panel vx-solver-workspace" aria-label="Solver workspace">
+            <div className="panel__header">
+              <div>
+                <span className="panel__eyebrow">FPL VORTEX · BOUNDED MATHEMATICAL OPTIMIZATION</span>
+                <h2>Solver · Transfer Paths</h2>
+                <p>Compare actual SciPy/HiGHS no-chip plans and inspect verified chip-aware results. Forecasts are estimates. No FPL transfer or chip is applied.</p>
+              </div>
+              <span className="badge badge--violet">Research · 10-GW maximum</span>
+            </div>
+            <div className="vx-solver-actions" role="group" aria-label="Solver actions">
+              <button type="button" className="vx-solver-action vx-solver-action--primary"
+                onClick={() => { void runExactTransferComparison(); }}
+                disabled={exactPending || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0 || !reviewSim}
+                aria-busy={exactPending}>{exactPending ? 'Solving with HiGHS…' : 'Optimise · No-chip MILP'}</button>
+              <button type="button" className="vx-solver-action"
+                aria-expanded={solverSettingsOpen} aria-controls="solver-planning-settings"
+                onClick={() => setSolverSettingsOpen(open => !open)}>Settings</button>
+              <button type="button" className="vx-solver-action"
+                onClick={() => document.getElementById('solver-transfer-paths')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Transfer Paths</button>
+              <button type="button" className="vx-solver-action"
+                aria-pressed={!solverMathVisible}
+                onClick={() => setSolverMathVisible(value => !value)}>{solverMathVisible ? 'Hide Math' : 'Show Math'}</button>
+            </div>
+            {exactPending && (
+              <div className="vx-solver-activity" role="status" aria-live="polite" aria-busy="true">
+                <span className="vx-solver-activity__bar" aria-hidden="true" />
+                A real solver request is in progress. HiGHS does not stream intermediate progress; results and solver certificates appear only after the response is validated.
+              </div>
+            )}
+            {(jointPending || manualPending) && (
+              <p role="status" aria-live="polite">A joint-chip Solver request is running. No progress percentage is available; the eventual result will be independently checked before presentation.</p>
+            )}
+            {(snapshot.meta.stale || selectedPlan || plannedMoves > 0) && (
+              <p className="vx-solver-blocker" role="status">
+                {snapshot.meta.stale ? 'Fresh official FPL data are required before requesting a new MILP.' :
+                 selectedPlan ? 'A saved plan is active. The exact no-chip Solver cannot overwrite its protected decisions.' :
+                 'Reset uncommitted manual transfers before running this separate exact Solver.'}
+              </p>
+            )}
+          </section>
+          <section className="panel vx-chip-trials" aria-label="Gameweek chip trial selection">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">DIAGNOSTIC PREVIEW · NO CHIP WILL BE PLAYED</span>
+              <h3>Gameweek chip trial matrix</h3>
+            </div><span className="badge badge--mint">WC · FH · BB · TC</span></div>
+            <p>Select one chip and Gameweek to inspect its existing modeled diagnostic gain. This does not constrain the joint MILP, certify chip availability or create a saved plan.</p>
+            <div className="table-wrap"><table className="vx-chip-trial-table">
+              <thead><tr><th>GW</th>{(['wildcard', 'freehit', 'bboost', '3xc'] as const).map(chip =>
+                <th key={chip}>{CHIP_META[chip].badge}</th>)}</tr></thead>
+              <tbody>{reviewSim.chipMatrixByGw.filter(row => reviewSim.gws.includes(row.gw)).map(row => (
+                <tr key={row.gw}>
+                  <th scope="row">GW{row.gw}</th>
+                  {(['wildcard', 'freehit', 'bboost', '3xc'] as const).map(chip => {
+                    const value = chip === 'wildcard' ? row.wildcardGain
+                      : chip === 'freehit' ? row.freehitGain
+                      : chip === 'bboost' ? row.bboostGain : row.tripleCapGain;
+                    const selected = selectedChipPreview === chip && trialChipGw === row.gw;
+                    const available = reviewSim.chipSimulations.find(item => item.chip === chip)?.available ?? false;
+                    return <td key={chip}><button type="button"
+                      aria-label={`Trial ${CHIP_META[chip].label} GW${row.gw}: ${value >= 0 ? '+' : ''}${value.toFixed(2)} diagnostic xPts`}
+                      aria-pressed={selected}
+                      className={classNames('vx-chip-trial', selected && 'is-active')}
+                      onClick={() => { setSelectedChipPreview(chip); setTrialChipGw(row.gw); }}>
+                      {value >= 0 ? '+' : ''}{value.toFixed(2)}
+                      {!available && <small>Inventory N/A</small>}
+                    </button></td>;
+                  })}
+                </tr>
+              ))}</tbody>
+            </table></div>
+            {trialChipGw !== null && (() => {
+              const row = reviewSim.chipMatrixByGw.find(item => item.gw === trialChipGw);
+              const rawGain = row && (selectedChipPreview === 'wildcard' ? row.wildcardGain :
+                selectedChipPreview === 'freehit' ? row.freehitGain :
+                selectedChipPreview === 'bboost' ? row.bboostGain : row.tripleCapGain);
+              return <p role="status" className="vx-chip-trial-result">
+                {row && rawGain !== undefined ? `${CHIP_META[selectedChipPreview].label} GW${trialChipGw} · ${rawGain >= 0 ? '+' : ''}${rawGain.toFixed(2)} modeled diagnostic xPts (NOT a full-path net gain or chip recommendation).` : 'Selected trial is unavailable in this forecast horizon.'}
+              </p>;
+            })()}
+          </section>
+
           <section className="panel" aria-label="Joint chip schedule">
             <div className="panel__header"><div><span className="panel__eyebrow">TRANSFER + CHIP PLAN</span><h3>{reviewSim.strategy.schedule.length ? reviewSim.strategy.schedule.map(use => `${({ wc: 'WC', fh: 'FH', bb: 'BB', tc: 'TC' })[use.chip]} GW${use.gw}`).join(' · ') : 'Keep chips available and re-evaluate before the deadline'}</h3></div><span className="badge badge--mint">{reviewSim.strategy.expectedPoints.toFixed(1)} model xPts</span></div>
             <p>GW{reviewSim.strategy.horizon[0]}–GW{reviewSim.strategy.horizon.at(-1)} · {reviewSim.strategy.gain >= 0 ? '+' : ''}{reviewSim.strategy.gain.toFixed(1)} undiscounted xPts versus the no-chip transfer path. Weeks below show legal budgets, hits and Free Hit restoration. This is an approximate plan; rank gains are not guaranteed.</p>
@@ -559,7 +943,114 @@ export function SquadBuilder({
               <p>{reviewSim.strategy.chipTiming.preferred === 'PLAY_NOW' ? 'Play-now path ranks higher' : 'Save-now path ranks as high or higher'} under current assumptions. Saving permits using this chip later. Both options include legal transfers, other chips, hits and the same full planning period; they are heuristic comparisons, not guaranteed gains or automatic transfers.</p>
             </div>}
           </section>
-          <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
+          {jointUiEnabled && <section className="panel" aria-label="Verified joint transfer and chip MILP">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">P0-A09 · RESEARCH · VERIFIED ACCOUNT REQUIRED</span>
+              <h3>Joint WC / FH / BB / TC and 10-GW transfers</h3>
+            </div><span className="badge badge--violet">Staging-only · read-only</span></div>
+            <p>Optional research model combining all four FPL chips and transfer decisions. Requires independently verified official chip history, the full current 15-man squad, real purchase/selling values and the same fresh VORTEX forecasts. Shortlists are explicitly limited to 30 players for 8–10 GWs and up to 40 for shorter windows, preserving all 15 original players; the optimizer has a 10-second time limit. Any optimum is only for that shortlist and must be separately certified.</p>
+            <button type="button" onClick={() => { void verifyMyCurrentFplTeam(); }}
+              disabled={currentTeamPending || !publicEntry?.id || snapshot.meta.stale}
+              aria-busy={currentTeamPending}>
+              {currentTeamPending ? 'Verifying FPL current team…' : 'Verify my current FPL team (read-only)'}
+            </button>
+            {currentTeamError && <p role="alert">{currentTeamError}</p>}
+            {entry?.managerStateSource === 'authenticated-current-team' && <p role="status">
+              Current FPL squad, bank and chip availability were verified through a
+              request-bound, read-only provider. The account credentials are never
+              copied into the Planner or stored in this browser.
+            </p>}
+            <button type="button" onClick={() => { void runJointChipComparison(); }}
+              disabled={jointPending || !entry || entry.managerStateSource !== 'authenticated-current-team' || !reviewSim || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
+              aria-busy={jointPending}>{jointPending ? 'Evaluating joint chip schedule…' : 'Compare verified joint chip strategies'}</button>
+            {entry?.managerStateSource !== 'authenticated-current-team' && <p role="status">Official public FPL picks are deadline-locked history, not your authenticated editable team. Pending transfers, current bank and chip commitments cannot be certified from this source. Joint optimization stays disabled until a secure current-team verification path is available; the existing Planner and saved scenarios remain usable.</p>}
+            {selectedPlan && <p role="status">A saved scenario is active. Joint optimization cannot silently override manual transfers, chips, lineups or captaincy.</p>}
+            {jointError && <p role="alert">{jointError}</p>}
+            {jointComparison && (jointComparison.paths[0] ? <div role="group" aria-label="Independently validated full-horizon chip proposal">
+              {jointComparison.paths.map(path => <div key={path.rank}>
+                <p><strong>{path.plan.method === 'independent_verified_hold_scoring_fallback'
+                  ? 'DEGRADED · validated hold/BB/TC baseline; HiGHS found NO full MILP incumbent'
+                  : path.plan.solver.optimality_proven
+                    ? 'Optimality certified for the supplied shortlist'
+                    : 'Full joint MILP feasible incumbent · optimality unproven'}</strong> · {path.plan.raw_expected_points_after_hits.toFixed(2)} undiscounted model xPts · {path.plan.evaluation_score.toFixed(2)} discounted objective · MIP gap {path.plan.solver.mip_gap === null ? 'N/A' : (path.plan.solver.mip_gap * 100).toFixed(2) + '%'}.</p>
+                {path.plan.method === 'independent_verified_hold_scoring_fallback' && <p role="alert">The full 10-Gameweek WC/FH/transfer MILP timed out with no feasible incumbent. This separately replay-verified fallback keeps your original squad and may schedule BB/TC only. It is not a jointly optimized transfer plan and must not be treated as an optimal chip strategy.</p>}
+                <p>Chips: {path.chipSchedule.length ? path.chipSchedule.map(c => `${c.chip.replaceAll('_', ' ')} GW${c.gw}`).join(' · ') : 'No available chip selected'} · {path.totalMoves} total permanent/temporary player moves · −{path.totalHits} hit points.</p>
+                <div className="rollout-list">
+                  {path.plan.gameweeks.map(week => <details key={week.gw} className="rollout-row">
+                    <summary>GW{week.gw} · {week.chip?.replaceAll('_', ' ') ?? 'No chip'} · {week.expected_points_after_hits.toFixed(2)} model xPts after hits</summary>
+                    <p>Permanent OUT: {week.transfers_out.map(id => playerMap.get(id)?.name ?? id).join(', ') || 'None'} · IN: {week.transfers_in.map(id => playerMap.get(id)?.name ?? id).join(', ') || 'None'}</p>
+                    {week.chip === 'free_hit' && <p>One-week Free Hit: OUT {week.temporary_transfers_out.map(id => playerMap.get(id)?.name ?? id).join(', ')} · IN {week.temporary_transfers_in.map(id => playerMap.get(id)?.name ?? id).join(', ')} · Temporary bank £{week.temporary_bank?.toFixed(1) ?? 'N/A'}m · Original squad and bank restore next GW.</p>}
+                    <p>Bank £{week.bank.toFixed(1)}m · FT {week.free_transfers_before} → {week.free_transfers_after} · Hits −{week.hit_cost} · Chip bonus +{week.chip_bonus.toFixed(2)} model points</p>
+                    <p>Captain {playerMap.get(week.captain)?.name ?? week.captain} · Vice {playerMap.get(week.vice_captain)?.name ?? week.vice_captain} · XI {week.starters.map(id => playerMap.get(id)?.name ?? id).join(', ')} · Bench {week.bench.map(id => playerMap.get(id)?.name ?? id).join(', ')}</p>
+                  </details>)}
+                </div>
+              </div>)}
+              <p>No chip or transfer is ever submitted to the official FPL game. A reviewed strategy is saved only as a NEW independent Transfer Lab scenario; current saved plans remain unchanged.</p>
+              {jointReview ? <div role="group" aria-label="Confirm reviewed joint-chip proposal">
+                <p role="status">Confirm saving a new joint-chip scenario to this browser's Transfer Lab. This does not play any chip or make an official FPL transfer.</p>
+                <button type="button" onClick={saveReviewedJointChipPlan}>Confirm: save as NEW joint-chip plan</button>
+                <button type="button" onClick={() => setJointReview(false)}>Cancel</button>
+              </div> : <button type="button" onClick={() => setJointReview(true)}>Review joint strategy before saving</button>}
+            </div> : <p role="status">No fully verified, feasible joint-chip proposal was returned within the bounded solve. The existing chip-aware Planner remains unchanged.</p>)}
+          </section>}
+          {jointUiEnabled && <section className="panel" aria-label="Manager-entered FPL current team and chip comparison">
+            <div className="panel__header"><div>
+              <span className="panel__eyebrow">P0-A09 · OPTION A · NO FPL LOGIN REQUIRED</span>
+              <h3>Enter your current 15-player team — manual joint-chip Solver</h3>
+            </div><span className="badge badge--violet">MANAGER-ENTERED · UNVERIFIED</span></div>
+            <p>Review the figures directly on your FPL account. The website does NOT authenticate these team details. We check player identities, current market prices, position quotas, club limits, FPL selling-price arithmetic and chip legality. Forecasts are VORTEX model estimates, not guaranteed returns. A bounded result is optimal only within its declared candidate shortlist if certified by HiGHS.</p>
+            <ManualJointTeamEditor
+              key={`manual-${publicEntry?.id??'none'}-${snapshot.meta.nextEventId}`}
+              entry={publicEntry} snapshot={snapshot} players={players}
+              horizon={reviewSim?.gws.length??Math.min(plannerHorizon,39-snapshot.meta.nextEventId)}
+              disabled={!reviewSim||snapshot.meta.stale||Boolean(selectedPlan)||plannedMoves>0}
+              pending={manualPending}
+              onCompare={data=>{void runManualJointComparison(data);}}
+              onChanged={()=>{
+                manualAbortRef.current?.abort();
+                setManualPending(false);
+                setManualComparison(null);
+                setManualReview(false);
+                setManualError(null);
+              }}
+            />
+            {!reviewSim&&<p role="status">Run the Planner forecast first to compare the current Gameweek and horizon.</p>}
+            {selectedPlan&&<p role="status">A saved scenario is active. It will not be overwritten. Select the live/no saved plan before comparing another manually entered squad.</p>}
+            {manualError&&<p role="alert">{manualError}</p>}
+            {manualComparison&&(manualComparison.paths.length?
+              <div role="group" aria-label="Manager-entered joint-chip strategies">
+                <p><strong>MANAGER-ENTERED INPUT · NOT AUTHENTICATED BY FPL.</strong> This proposal uses the 15 players, purchase/sell prices, bank and chip availability you entered. Only public market identity and internal financial/chip rules were checked. Unknown chips are excluded.</p>
+                {manualComparison.input.validated.unknownChips.length>0&&
+                  <p role="status">Excluded unknown chips: {manualComparison.input.validated.unknownChips.join(', ')}.</p>}
+                {manualComparison.paths.map(path=><div key={path.rank}>
+                  <p><strong>{path.plan.method==='independent_verified_hold_scoring_fallback'
+                    ? 'DEGRADED: hold squad with limited BB/TC checks; NOT joint WC/FH optimization'
+                    :path.plan.solver.optimality_proven
+                      ? 'Optimality certified for this finite shortlist'
+                      :'Feasible shortlist strategy; optimality not proven'}</strong> · {path.plan.raw_expected_points_after_hits.toFixed(2)} model xPts after hits · {path.plan.evaluation_score.toFixed(2)} discounted objective · HiGHS gap {path.plan.solver.mip_gap===null?'N/A':(path.plan.solver.mip_gap*100).toFixed(2)+'%'}.</p>
+                  <p>Chips: {path.chipSchedule.length?path.chipSchedule.map(chip=>`${chip.chip.replaceAll('_',' ')} GW${chip.gw}`).join(' · '):'No confirmed available chips selected'} · {path.totalMoves} changes · −{path.totalHits} hit points.</p>
+                  <div className="rollout-list">
+                    {path.plan.gameweeks.map(week=><details key={week.gw} className="rollout-row">
+                      <summary>GW{week.gw} · {week.chip?.replaceAll('_',' ')??'No chip'} · {week.expected_points_after_hits.toFixed(2)} model xPts</summary>
+                      <p>Permanent OUT: {week.transfers_out.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'} · IN: {week.transfers_in.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'}</p>
+                      {week.chip==='free_hit'&&<p>Temporary FH OUT: {week.temporary_transfers_out.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'} · IN: {week.temporary_transfers_in.map(id=>playerMap.get(id)?.name??id).join(', ')||'None'} · Temporary bank £{week.temporary_bank?.toFixed(1)??'N/A'}m · Original squad and bank restore.</p>}
+                      <p>Bank £{week.bank.toFixed(1)}m · FT {week.free_transfers_before} → {week.free_transfers_after} · Hits −{week.hit_cost} · Chip bonus +{week.chip_bonus.toFixed(2)} model points</p>
+                      <p>Captain {playerMap.get(week.captain)?.name??week.captain} · Vice {playerMap.get(week.vice_captain)?.name??week.vice_captain} · XI: {week.starters.map(id=>playerMap.get(id)?.name??id).join(', ')} · Bench: {week.bench.map(id=>playerMap.get(id)?.name??id).join(', ')}</p>
+                    </details>)}
+                  </div>
+                </div>)}
+                <p>Saving a NEW plan will store its squad, purchase/selling basis and proposed chip dates in this browser's Transfer Lab. It will not apply an official FPL transfer or replace any existing saved plan.</p>
+                {manualReview?
+                  <div role="group" aria-label="Confirm manager-entered joint plan">
+                    <p role="status">Confirm saving as a separate MANAGER-ENTERED (UNVERIFIED) Transfer Lab scenario.</p>
+                    <button type="button" onClick={saveReviewedManualJointPlan}>Confirm: save NEW unverified manual plan</button>
+                    <button type="button" onClick={()=>setManualReview(false)}>Cancel</button>
+                  </div>
+                  :<button type="button" onClick={()=>setManualReview(true)}>Review manual joint-chip proposal before saving</button>}
+              </div>
+              :<p role="status">No independently validated feasible result. The original Planner and saved plans remain unchanged.</p>)}
+          </section>}
+          <section id="solver-transfer-paths" className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
               <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
               <h3>Exact-formulation transfer comparison — no chips</h3>
@@ -658,7 +1149,7 @@ export function SquadBuilder({
           </section>
 
           {/* FPLReview-style GW × Chip Expected Value Matrix */}
-          <section className="panel" aria-label="Gameweek by chip EV matrix">
+          {solverMathVisible && <section className="panel" aria-label="Gameweek by chip EV matrix">
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">CHIP HORIZON EV MATRIX</span>
@@ -719,7 +1210,7 @@ export function SquadBuilder({
                 </tbody>
               </table>
             </div>
-          </section>
+          </section>}
 
           {/* Optimal Chip Squad Preview + Multi-GW Rollout */}
           <div className="method-grid">

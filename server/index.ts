@@ -6,10 +6,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getEntry, getHealth, getLeague, getSnapshot, getSnapshotFast } from './fpl.ts';
 import { createImageDownloadRouter } from './imageDownloads.ts';
-import { isNumericId, UpstreamHttpError } from './http.ts';
+import { fetchFplJson, isNumericId, UpstreamHttpError } from './http.ts';
+import { normalizePlayerMatchHistory } from '../src/lib/playerHistory.ts';
 import { getRepoBenchmarks, getRepoVideos } from './repoData.ts';
 import { marketCoverage } from '../src/lib/marketCoverage.ts';
 import { buildPublicDataHealth } from '../src/lib/publicDataHealth.ts';
+import { verifiedJointManagerState } from '../src/lib/verifiedJointManagerState.ts';
+import { validateManualJointTeam, type ManualJointTeamInput } from '../src/lib/manualJointTeam.ts';
+import { readAuthenticatedCurrentTeam } from './authenticatedCurrentTeam.ts';
+import { getTrustedFplReadForRequest } from './trustedFplAuth.ts';
+import type { JointRequest } from '../src/lib/jointChipPathValidation.ts';
 import {
   PL_BADGE_BASE,
   PL_PHOTO_BASE_CURRENT,
@@ -190,6 +196,25 @@ app.get(
     const entry = await getEntry(id, { force, gameweek: gwParam });
     res.set('Cache-Control', force ? 'no-store' : 'public, max-age=30');
     res.json(entry);
+  }),
+);
+
+// Public FPL history for the dedicated Players H2H range comparison.
+app.get(
+  '/api/vortex/player-history/:id',
+  rateLimit(30, 60_000),
+  asyncRoute(async (req,res)=>{
+    const id=String(req.params.id??'');
+    if(!isNumericId(id)){res.status(400).json({error:'Invalid FPL player ID'});return;}
+    const playerId=Number(id);
+    const snapshot=await getSnapshotFast();
+    if(!snapshot.players.some(p=>p.id===playerId)){res.status(404).json({error:'Player not found in current season'});return;}
+    const data=await fetchFplJson<unknown>('/element-summary/'+playerId+'/',{retries:1});
+    let matches;
+    try{matches=normalizePlayerMatchHistory(data,playerId);}
+    catch{throw new UpstreamHttpError('Official FPL player history is incomplete or invalid',502);}
+    res.set('Cache-Control','public,max-age=60');
+    res.json({playerId,source:'official-fpl-element-summary',capturedAt:new Date().toISOString(),matches});
   }),
 );
 
@@ -434,6 +459,324 @@ app.post('/api/vortex/solver/exact', rateLimit(3, 60_000), asyncRoute(async (req
       : 'Exact Solver is unavailable. The existing Planner remains unchanged.' });
   } finally {
     exactMilpBusy = false;
+  }
+}));
+
+/**
+ * Current authenticated FPL squad, read-only and never publicly cached.
+ * A trusted request-scoped provider must first verify the VORTEX caller
+ * and authorize reading that same manager's FPL account. No passwords,
+ * cookies, or self-asserted private JSON accepted in this HTTP endpoint.
+ */
+app.get('/api/vortex/solver/current-team', rateLimit(5, 60_000), asyncRoute(async (req,res) => {
+  res.set('Cache-Control', 'no-store, private');
+  if (process.env.VORTEX_JOINT_SOLVER_ENABLED !== '1') {
+    res.status(503).json({error:'Joint-chip research authentication is not enabled on this deployment.'});
+    return;
+  }
+  const entryId=Number(req.query.entryId);
+  if (!Number.isSafeInteger(entryId) || entryId<=0 || String(entryId)!==String(req.query.entryId)) {
+    res.status(422).json({error:'Expected one valid numeric FPL manager ID.'});
+    return;
+  }
+  const trustedRead=await getTrustedFplReadForRequest(req);
+  if (!trustedRead) {
+    res.status(409).json({
+      code:'CURRENT_TEAM_AUTH_REQUIRED',
+      error:'A consented, request-bound FPL current-team connection is not available. No credential, team or chip data was collected.',
+    });
+    return;
+  }
+  const snapshot=await getSnapshot(true);
+  if (snapshot.meta.stale || !snapshot.meta.upstreamOk || !snapshot.meta.isLive ||
+      !Number.isInteger(snapshot.meta.nextEventId)) {
+    res.status(503).json({error:'Fresh official current-Gameweek player market unavailable.'});
+    return;
+  }
+  try {
+    const historical=await getEntry(String(entryId),{force:true});
+    const verified=await readAuthenticatedCurrentTeam(
+      entryId,snapshot.meta.nextEventId,historical,snapshot,trustedRead,
+    );
+    res.json(verified);
+  } catch {
+    res.status(409).json({
+      code:'CURRENT_TEAM_VERIFICATION_FAILED',
+      error:'The authenticated FPL account, live team, price basis or chip availability failed verification.',
+    });
+  }
+}));
+
+/**
+ * Research-only joint WC/FH/BB/TC exact model. DEFAULT-OFF on Render.
+ *
+ * When deliberately enabled in staging, the server itself MUST verify the
+ * requested FPL entry, original selling prices and unused chip inventory.
+ * A client's claim that it owns a chip or has spare bank money is ignored.
+ * No official FPL account mutation and no saved Transfer Lab plan write.
+ */
+let jointMilpPreflightBusy = false;
+app.post('/api/vortex/solver/joint', rateLimit(1, 60_000), asyncRoute(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (process.env.VORTEX_JOINT_SOLVER_ENABLED !== '1') {
+    res.status(503).json({ error: 'Joint-chip research Solver is not enabled on this deployment.' });
+    return;
+  }
+  const input = req.body as { entryId?: number; solver?: JointRequest };
+  const request = input?.solver;
+  const settings = request?.settings;
+  if (!Number.isSafeInteger(input?.entryId) || (input.entryId ?? 0) <= 0 ||
+      !request || !settings || !Array.isArray(request.players) ||
+      request.players.length < 15 || request.players.length > 40 ||
+      !Array.isArray(request.current_team?.squad_player_ids) ||
+      request.current_team.squad_player_ids.length !== 15 ||
+      settings.time_limit_seconds > 10 || settings.time_limit_seconds < 1 ||
+      settings.solutions_requested !== 1 ||
+      settings.max_transfers_per_gw > 2 ||
+      settings.start_gw < 1 || settings.end_gw > 38 ||
+      settings.end_gw < settings.start_gw ||
+      settings.end_gw - settings.start_gw >= 10 ||
+      Object.keys(settings.forced_chip_uses ?? {}).length !== 0) {
+    res.status(422).json({ error: 'Invalid bounded joint-chip Solver research request.' });
+    return;
+  }
+  const serialized = JSON.stringify(request);
+  if (Buffer.byteLength(serialized) > 120_000) {
+    res.status(413).json({ error: 'Joint solver request exceeds the 120 KB limit.' });
+    return;
+  }
+  if (exactMilpBusy || jointMilpPreflightBusy) {
+    res.status(429).json({ error: 'Solver is occupied; retry after the current run.' });
+    return;
+  }
+  // Claim the preflight lock BEFORE any await. Concurrent requests must not
+  // all fetch official FPL manager data or race into overlapping HiGHS jobs.
+  jointMilpPreflightBusy = true;
+  try {
+  // Only a server-installed first-party, REQUEST-BOUND session resolver
+  // can authorize the two read-only FPL endpoints. Never accept user
+  // session cookies, credentials or self-asserted private records in JSON.
+  const trustedRead = await getTrustedFplReadForRequest(req);
+  if (!trustedRead) {
+    res.status(409).json({
+      code: 'CURRENT_TEAM_AUTH_REQUIRED',
+      error: 'Authenticated current FPL squad access is not connected. The public last-deadline team cannot verify pending transfers or chip state.',
+    });
+    return;
+  }
+  // Independently verify the official public history and live market,
+  // then /me/ owner ID and GET /my-team/ prices/roster/chips/transfer cash.
+  // The private data is never returned to another caller.
+  const snapshot = await getSnapshot(true);
+  if (snapshot.meta.stale || !snapshot.meta.upstreamOk ||
+      snapshot.meta.nextEventId !== settings.start_gw || !snapshot.meta.isLive) {
+    res.status(503).json({ error: 'Live FPL fixtures are not verified; refresh before joint optimization.' });
+    return;
+  }
+  let officialEntry;
+  try {
+    const publicEntry = await getEntry(String(input.entryId), { force: true });
+    officialEntry = await readAuthenticatedCurrentTeam(
+      input.entryId!,settings.start_gw,publicEntry,snapshot,trustedRead,
+    );
+  } catch {
+    res.status(409).json({
+      code: 'CURRENT_TEAM_VERIFICATION_FAILED',
+      error: 'Authenticated current FPL manager identity, squad, bank, chip or selling values could not be verified.',
+    });
+    return;
+  }
+  const official = verifiedJointManagerState(
+    officialEntry, request.current_team.squad_player_ids, settings.start_gw,
+  );
+  const originals = request.current_team.squad_player_ids;
+  const officialSaleMatches = originals.every((id: number) => {
+    const p = request.players.find(player => player.player_id === id);
+    return p && official.sellingPricesTenths[id] === Math.round(p.selling_price! * 10);
+  });
+  if (official.entryId !== input.entryId ||
+      request.current_team.free_transfers !== official.freeTransfersNow ||
+      Math.round(request.current_team.bank * 10) !== official.bankTenths ||
+      !officialSaleMatches) {
+    res.status(422).json({ error: 'FPL entry bank, selling values or free transfers do not match verified live account.' });
+    return;
+  }
+  const sameChipInventory = (provided: Record<string, unknown>, verified: Record<string, unknown>) => {
+    const order = (record: Record<string, unknown>) => JSON.stringify(
+      Object.fromEntries(Object.keys(record).sort().map(key =>
+        [key, Array.isArray(record[key]) ? [...record[key] as number[]].sort() : record[key]])),
+    );
+    return order(provided) === order(verified);
+  };
+  if (!sameChipInventory(settings.scoring_chip_halves ?? {},
+        official.chips.scoring_chip_halves) ||
+      !sameChipInventory(settings.squad_chip_halves ?? {},
+        official.chips.squad_chip_halves) ||
+      settings.first_half_fh_used_gw19 !== official.chips.first_half_fh_used_gw19) {
+    res.status(422).json({ error: 'Requested chip inventory conflicts with verified official FPL history.' });
+    return;
+  }
+  // Official identity, club, position and current market price also matter.
+  const market = new Map(snapshot.players.map(player => [player.id, player]));
+  if (request.players.some(player => {
+    const current = market.get(player.player_id);
+    return !current || current.teamId !== player.team_id ||
+      Math.round(player.current_price * 10) !== current.cost ||
+      ({ GKP:'GK',DEF:'DEF',MID:'MID',FWD:'FWD' } as Record<string,string>)[current.position] !== player.position;
+  })) {
+    res.status(422).json({ error: 'Player identities or market prices are inconsistent with the official live snapshot.' });
+    return;
+  }
+  // The existing public no-chip endpoint may have started during our
+  // upstream preflight. Check again before launching the joint subprocess.
+  if (exactMilpBusy) {
+    res.status(429).json({ error: 'Solver became occupied during verification. Retry.' });
+    return;
+  }
+  exactMilpBusy = true;
+  try {
+    const python = process.env.VORTEX_EXACT_PYTHON || 'python3';
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = execFile(python, ['-m', 'fpl_solver.joint_cli'], {
+        cwd: root, timeout: 12_000, maxBuffer: 2 * 1024 * 1024,
+        env: { ...process.env, OPENBLAS_NUM_THREADS:'1', OMP_NUM_THREADS:'1' },
+      }, (err, stdout) => err ? reject(err) : resolve(stdout));
+      child.stdin?.on('error', () => { /* execFile callback owns child errors. */ });
+      child.stdin?.end(serialized);
+    });
+    const result = JSON.parse(output) as { plans?: unknown[]; solver_attempts?: unknown[] };
+    if (!Array.isArray(result.plans) || !Array.isArray(result.solver_attempts))
+      throw new Error('Malformed bounded joint optimizer response.');
+    res.json(result);
+  } catch {
+    res.status(503).json({ error: 'No verified joint-chip optimization result. Existing Planner is unchanged.' });
+  } finally {
+    exactMilpBusy = false;
+  }
+  } finally {
+    jointMilpPreflightBusy = false;
+  }
+}));
+
+/**
+ * P0-A09 MANUAL current-team option — data is manager-entered and NOT
+ * authenticated by FPL. Strictly checks FPL price/roster rules against the
+ * *fresh official PUBLIC player market* and only then uses bounded HiGHS.
+ * Never invokes FPL /my-team, captures credentials or mutates saved plans.
+ */
+app.post('/api/vortex/solver/joint-manual', rateLimit(1,60_000), asyncRoute(async (req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(process.env.VORTEX_JOINT_SOLVER_ENABLED!=='1'){
+    res.status(503).json({error:'Manual joint-chip research Solver is disabled on this deployment.'});
+    return;
+  }
+  const input=req.body as {manual?:ManualJointTeamInput;solver?:JointRequest};
+  const manual=input?.manual,solver=input?.solver,settings=solver?.settings;
+  if(!manual||!solver||!settings||!Array.isArray(solver.players)||
+     solver.players.length<15||solver.players.length>40||
+     !Array.isArray(solver.current_team?.squad_player_ids)||
+     solver.current_team.squad_player_ids.length!==15||
+     !Number.isInteger(settings.start_gw)||!Number.isInteger(settings.end_gw)||
+     settings.start_gw<1||settings.end_gw>38||
+     settings.end_gw<settings.start_gw||settings.end_gw-settings.start_gw>=10||
+     settings.time_limit_seconds<1||settings.time_limit_seconds>10||
+     settings.solutions_requested!==1||settings.max_transfers_per_gw>2||
+     Object.keys(settings.forced_chip_uses??{}).length>0||
+     (settings.forced_transfers??[]).length>0||
+     (settings.excluded_players??[]).length>0) {
+    res.status(422).json({error:'Invalid bounded manager-entered joint Solver request.'});
+    return;
+  }
+  const serialized=JSON.stringify(solver);
+  if(Buffer.byteLength(serialized)>120_000){
+    res.status(413).json({error:'Joint Solver input exceeds the size limit.'});
+    return;
+  }
+  if(exactMilpBusy||jointMilpPreflightBusy){
+    res.status(429).json({error:'Solver is occupied; retry after the current run.'});
+    return;
+  }
+  jointMilpPreflightBusy=true;
+  try{
+    const snapshot=await getSnapshot(true);
+    let checked:ReturnType<typeof validateManualJointTeam>;
+    try{
+      checked=validateManualJointTeam(manual,snapshot,
+        settings.end_gw-settings.start_gw+1);
+    }catch(error){
+      res.status(422).json({
+        code:'INVALID_MANAGER_ENTERED_TEAM',
+        error:error instanceof Error?error.message:'Manual FPL input failed validation.',
+      });
+      return;
+    }
+    const ids=solver.current_team.squad_player_ids;
+    const identical=(a:readonly number[],b:readonly number[])=>
+      a.length===b.length&&new Set(a).size===a.length&&a.every(id=>b.includes(id));
+    const sameInventory=(a:Record<string,unknown>,b:Record<string,unknown>)=>
+      JSON.stringify(Object.fromEntries(Object.keys(a).sort().map(key=>
+        [key,Array.isArray(a[key])?[...(a[key] as number[])].sort():a[key]])))===
+      JSON.stringify(Object.fromEntries(Object.keys(b).sort().map(key=>
+        [key,Array.isArray(b[key])?[...(b[key] as number[])].sort():b[key]])));
+    if(settings.start_gw!==checked.gameweek||
+       solver.current_team.current_gameweek!==checked.gameweek||
+       !identical(ids,checked.squadIds)||
+       solver.current_team.free_transfers!==checked.freeTransfers||
+       Math.round(solver.current_team.bank*10)!==checked.bankTenths||
+       !sameInventory(settings.squad_chip_halves??{},checked.chips.squad_chip_halves)||
+       !sameInventory(settings.scoring_chip_halves??{},checked.chips.scoring_chip_halves)||
+       settings.first_half_fh_used_gw19!==checked.chips.first_half_fh_used_gw19) {
+      res.status(422).json({error:'The optimizer request disagrees with manager-entered roster, chips, bank or free transfers.'});
+      return;
+    }
+    const official=new Map(snapshot.players.map(p=>[p.id,p]));
+    if(solver.players.some(p=>{
+      const current=official.get(p.player_id);
+      return !current||p.team_id!==current.teamId||
+        Math.round(p.current_price*10)!==current.cost||
+        ({GKP:'GK',DEF:'DEF',MID:'MID',FWD:'FWD'} as Record<string,string>)[current.position]!==p.position||
+        (ids.includes(p.player_id)?
+          Math.round((p.selling_price??NaN)*10)!==checked.sellingPricesTenths[p.player_id]:
+          p.selling_price!==null);
+    })){
+      res.status(422).json({error:'Optimizer player identities, prices or ownership contradict current official market or manually entered sale prices.'});
+      return;
+    }
+    if(!Object.keys(settings.squad_chip_halves??{}).length&&
+       !Object.keys(settings.scoring_chip_halves??{}).length){
+      res.status(422).json({error:'No manually confirmed eligible chips. Use the existing no-chip Planner; unknown means unavailable.'});
+      return;
+    }
+    if(exactMilpBusy){
+      res.status(429).json({error:'Solver became occupied during manual validation.'});
+      return;
+    }
+    exactMilpBusy=true;
+    try{
+      const python=process.env.VORTEX_EXACT_PYTHON||'python3';
+      const stdout=await new Promise<string>((resolve,reject)=>{
+        const child=execFile(python,['-m','fpl_solver.joint_cli'],{
+          cwd:root,timeout:12_000,maxBuffer:2*1024*1024,
+          env:{...process.env,OPENBLAS_NUM_THREADS:'1',OMP_NUM_THREADS:'1'},
+        },(error,out)=>error?reject(error):resolve(out));
+        child.stdin?.on('error',()=>{});
+        child.stdin?.end(serialized);
+      });
+      const result=JSON.parse(stdout) as {plans?:unknown[];solver_attempts?:unknown[]};
+      if(!Array.isArray(result.plans)||!Array.isArray(result.solver_attempts))
+        throw new Error('Malformed bounded joint optimizer response.');
+      res.json({
+        ...result,input_provenance:'manager-entered-unverified',
+        input_disclaimer:'Roster, purchase prices, chips, bank and FTs were entered by the manager, NOT authenticated or verified against the manager account by FPL. Only player identity, market prices and internal FPL rules were cross-checked.',
+        manual_unknown_chips:checked.unknownChips,
+      });
+    }catch{
+      res.status(503).json({error:'No independently validated joint strategy returned. Your existing saved plans are untouched.'});
+    }finally{
+      exactMilpBusy=false;
+    }
+  }finally{
+    jointMilpPreflightBusy=false;
   }
 }));
 

@@ -354,6 +354,8 @@ export interface EntryPick {
   isViceCaptain: boolean;
   purchasePrice?: number;
   sellingPrice?: number;
+  /** Explicit source; omitted on legacy/cached entries. Never treat inference as verified. */
+  priceBasisSource?: import('./priceEvidence').PurchasePriceEvidence;
 }
 
 export interface EntryHistory {
@@ -400,6 +402,20 @@ export interface EntryData {
   projectedPoints: number;
   squadValue: number;
   recentTransfers?: EntryTransferRecord[];
+  /** Actual transfers after latest locked GW, counted from full official transfer feed. */
+  postLockTransfersUsed?: number | null;
+  /** Public entry picks are locked-GW history, not the authenticated editable squad.
+   * Only a securely verified /my-team/ response can attest pending transfers,
+   * latest purchase/sale basis, and actual pre-deadline cash/FT balances.
+   */
+  managerStateSource?: 'public-locked-snapshot' | 'authenticated-current-team';
+  /** Availability verified by the server's private /my-team/ response.
+   * Absent means no private entitlement can be claimed. Does not include
+   * session identifiers, cookies, account emails or other credentials.
+   */
+  authenticatedAvailableChipHalves?: Partial<Record<
+    'wildcard' | 'free_hit' | 'bench_boost' | 'triple_captain', Array<1 | 2>
+  >>;
   source: DataSource;
   generatedAt: string;
   /** Archive and demo records are not the user's verified current FPL team. */

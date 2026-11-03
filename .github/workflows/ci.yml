@@ -80,6 +80,33 @@ jobs:
       - run: python -m pip install -r fpl_solver/requirements.txt
       - run: python -m pytest -q fpl_solver/tests
       - run: python -m fpl_solver.examples.run_example > /dev/null
+      - name: P0-A09 — realistic 40-player / 10-GW all-chip feasibility benchmark
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          set -o pipefail
+          python -m fpl_solver.examples.benchmark_joint_horizon --candidates 30 --horizon 10 | tee joint-milp-benchmark-30.json
+          python -m fpl_solver.examples.benchmark_joint_horizon --candidates 40 --horizon 10 | tee joint-milp-benchmark-40.json
+      - name: Enforce staged 30-player horizon MIP gap; disclose unrestricted 40-player limitations
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          python3 - <<'PY'
+          import json
+          with open('joint-milp-benchmark-30.json') as f:
+              staged = json.load(f)
+          with open('joint-milp-benchmark-40.json') as f:
+              stress = json.load(f)
+          assert staged.get('release_performance_gate_met'), ('30-player full-horizon staged release gate failed', staged)
+          if not stress.get('release_performance_gate_met'):
+              print('::warning title=P0-A09 40-player stress limit::Full 40-player 10-GW release gate not met; staged 8–10 GW optimization is capped at a disclosed 30 candidates.')
+          print('Verified staged 30-player/10-GW MILP release speed-and-gap criterion.', staged['elapsed_seconds'], 's', staged['mip_gap'])
+          PY
+      - name: Upload joint-chip benchmark evidence
+        if: always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-a09-joint-milp-benchmark
+          path: joint-milp-benchmark-*.json
+          retention-days: 14
 
 
   planner-browser:
@@ -118,6 +145,22 @@ jobs:
           exit 1
       - name: Verify 4K pitch and table PNG downloads in Chromium
         run: node scripts/check-png-browser.mjs
+      - name: Build isolated joint-chip staging bundle (NOT a hosted deployment)
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: VITE_VORTEX_JOINT_SOLVER_UI_ENABLED=1 npm run build
+      - name: Start isolated opt-in research server on local port 3001
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          PORT=3001 VORTEX_JOINT_SOLVER_ENABLED=1 NODE_ENV=production npm start > /tmp/vortex-joint-staging.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3001/api/health >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/vortex-joint-staging.log
+          exit 1
+      - name: Exercise staging chip UI, default-save safety and read-only input rejection
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: PLANNER_BASE_URL=http://127.0.0.1:3001 node scripts/check-joint-staging-browser.mjs
       - name: Verify automatic production deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/check-planner-deployment.mjs
@@ -173,7 +216,7 @@ jobs:
     name: Exact no-chip MILP production container smoke
     # Run production-container verification when the live Python MILP runtime or
     # its cash-flow mathematics changes. Other PRs retain the existing gate.
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-'))
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'upgrade/p0-a06-') || startsWith(github.head_ref, 'upgrade/p0-a08-') || startsWith(github.head_ref, 'upgrade/p0-a09-'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -229,3 +272,39 @@ jobs:
             --data-binary @/tmp/vortex-milp-ci-rebuy.json \
             http://127.0.0.1:3000/api/vortex/solver/exact \
             | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"]; assert [a["bank"] for a in w]==[3.9,3.9,3.9], w; assert [a["transfers_in"] for a in w]==[[24],[15],[24]]; print("HTTP original sale/rebuy/resale cash-flow OK")'
+          # A production image must NEVER expose the research joint endpoint
+          # without its two explicit server/client staging flags.
+          joint_status=$(curl --silent --show-error --max-time 5 \
+            -o /tmp/vortex-joint-disabled.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' --data '{}' \
+            http://127.0.0.1:3000/api/vortex/solver/joint)
+          test "$joint_status" = "503"
+          python3 -c 'import json; r=json.load(open("/tmp/vortex-joint-disabled.json")); assert "not enabled" in r.get("error",""), r; print("Research joint API is default-OFF in production Docker runtime")'
+          private_status=$(curl --silent --show-error --max-time 5 \
+            -o /tmp/vortex-myteam-disabled.json -w '%{http_code}' \
+            http://127.0.0.1:3000/api/vortex/solver/current-team?entryId=12345)
+          test "$private_status" = "503"
+          python3 -c 'import json; r=json.load(open("/tmp/vortex-myteam-disabled.json")); assert "not enabled" in r.get("error",""), r; print("Private manager current-team API is default-OFF in production Docker runtime")'
+
+      - name: Exercise isolated research joint-chip CLI in production image
+        if: startsWith(github.head_ref, 'upgrade/p0-a09-')
+        run: |
+          python3 - <<'PY'
+          import json
+          with open('fpl_solver/examples/sample_input.json') as file:
+              data = json.load(file)
+          data['current_team']['current_gameweek'] = 2
+          data['settings'].update({
+              'start_gw': 2, 'end_gw': 2,
+              'time_limit_seconds': 8, 'mip_gap': .02,
+              'solutions_requested': 1,
+              'scoring_chip_halves': {},
+              'squad_chip_halves': {'free_hit': [1]},
+              'forced_chip_uses': {'2': 'free_hit'},
+          })
+          with open('/tmp/vortex-joint-ci.json', 'w') as file:
+              json.dump(data, file)
+          PY
+          docker run --rm -i --entrypoint /opt/vortex-milp/bin/python vortex-milp-ci \
+            -m fpl_solver.joint_cli < /tmp/vortex-joint-ci.json \
+            | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("plans"), r; w=r["plans"][0]["gameweeks"][0]; assert w["chip"]=="free_hit" and w["temporary_bank"] is not None and w["permanent_squad_after"], w; print("Production image research WC/FH MILP smoke OK")'

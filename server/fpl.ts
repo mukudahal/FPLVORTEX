@@ -17,6 +17,7 @@ import {
   type RawEntryHistoryPayload,
 } from '../src/lib/freeTransfers.ts';
 import { enrichPlayers } from '../src/lib/analytics.ts';
+import { classifyPurchasePriceEvidence } from '../src/lib/priceEvidence.ts';
 import { auditNormalizedPlayers } from '../src/lib/playerDataQuality.ts';
 import { fetchFplJson, UpstreamHttpError, isNumericId } from './http.ts';
 import { normalizeSnapshot, type RawFplData } from './normalize.ts';
@@ -263,6 +264,11 @@ function normalizeEntry(
       isCaptain: Boolean(pick.is_captain),
       isViceCaptain: Boolean(pick.is_vice_captain),
       ...(prices ?? {}),
+      ...(matchedPlayer ? { priceBasisSource: classifyPurchasePriceEvidence(
+        pick.purchase_price,
+        pick.selling_price,
+        latestTransferInCostByElement?.get(element),
+      ) } : {}),
     };
   });
   const players = normalizedPicks
@@ -307,6 +313,11 @@ function normalizeEntry(
     players,
     projectedPoints: Math.round(projectedPoints * 10) / 10,
     squadValue: history.value / 10,
+    // /entry/{id}/event/{gw}/picks/ is a public, deadline-locked team.
+    // It cannot confirm unsubmitted chips, pending transfers or the
+    // authenticated current bank from /my-team/{id}/. Never label it as
+    // verified editable current state, even when source === 'live'.
+    managerStateSource: 'public-locked-snapshot',
     source,
     generatedAt: new Date().toISOString(),
   };
@@ -366,7 +377,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const targetGw = requestedGw ? Math.min(requestedGw, latestLockedGw) : latestLockedGw;
     const [picks, rawTransfers, entryHistory] = await Promise.all([
       fetchFplJson<RawRecord>(`/entry/${id}/event/${targetGw}/picks/`, { retries: 1 }),
-      fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => [] as RawRecord[]),
+      fetchFplJson<RawRecord[]>(`/entry/${id}/transfers/`, { retries: 1 }).catch(() => null),
       fetchFplJson<RawEntryHistoryPayload>(`/entry/${id}/history/`, { retries: 1 }).catch(() => null),
     ]);
     const recentTransfers = Array.isArray(rawTransfers)
@@ -383,9 +394,12 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     const maxHistoryEvent = Array.isArray(entryHistory?.current)
       ? entryHistory!.current!.reduce((maxEv, row) => Math.max(maxEv, numberValue(row?.event, 0)), 0)
       : latestLockedGw;
-    const postLockTransfersUsed = Array.isArray(rawTransfers)
+    // A transfer-feed failure is UNKNOWN, not proof no transfers happened.
+    // The chip MILP fails closed unless both this feed and official history
+    // were obtained; normal read-only team display can still use fallback.
+    const postLockTransfersUsed = Array.isArray(rawTransfers) && Array.isArray(entryHistory?.current)
       ? rawTransfers.filter((tr) => numberValue(tr.event, 0) > maxHistoryEvent).length
-      : 0;
+      : null;
 
     const latestTransferInCostByElement = new Map<number, number>();
     if (Array.isArray(rawTransfers)) {
@@ -410,7 +424,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       enriched,
       'live',
       entryHistory,
-      postLockTransfersUsed,
+      postLockTransfersUsed ?? 0,
       latestTransferInCostByElement,
     );
     if (numberValue(root.id) !== Number(id)) {
@@ -418,6 +432,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     }
     result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
     result.recentTransfers = recentTransfers;
+    result.postLockTransfersUsed = postLockTransfersUsed;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
       .reverse();
@@ -437,6 +452,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
           );
           slot.purchasePrice = prices.purchasePrice;
           slot.sellingPrice = prices.sellingPrice;
+          slot.priceBasisSource = classifyPurchasePriceEvidence(undefined, undefined, tr.elementInCost > 0 ? tr.elementInCost : latestTransferInCostByElement.get(tr.elementIn));
         }
       }
       result.picks = updatedPicks;
