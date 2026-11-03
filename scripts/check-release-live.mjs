@@ -19,6 +19,13 @@ if(!status.market.rightsVerified)assert.notEqual(status.market.state,'fresh');
 const player=snapshot.players.find(p=>p.minutes>500)??snapshot.players[0];
 const history=await json('/api/vortex/player-history/'+player.id);
 assert.equal(history.playerId,player.id);assert.equal(history.source,'official-fpl-element-summary');
+const team=snapshot.teams.find(t=>t.id===player.teamId);
+for(const endpoint of ['/api/img/player/'+player.code+'?teamCode='+team.code,'/api/img/badge/'+team.code]){
+ const image=await fetch(base+endpoint,{signal:AbortSignal.timeout(25000)});
+ assert.ok(image.ok,`Production image proxy failed: ${endpoint} HTTP ${image.status}`);
+ assert.ok(image.headers.get('content-type')?.startsWith('image/'));
+ assert.ok((await image.arrayBuffer()).byteLength>300);
+}
 const input=JSON.parse(await readFile('fpl_solver/examples/sample_input.json','utf8'));
 Object.assign(input.settings,{end_gw:1,time_limit_seconds:5,solutions_requested:1,mip_gap:.02,free_transfer_value:0,bank_value_per_million:0});
 const solver=await json('/api/vortex/solver/exact',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)});
