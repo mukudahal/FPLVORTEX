@@ -215,6 +215,12 @@ try {
   assert.equal(await manual.locator('.vx-tp-formation .vx-tp-pitch-card').count(), 11);
   assert.equal(await manual.locator('.vx-tp-bench-tray .vx-tp-pitch-card').count(), 4);
   assert.equal(await manual.locator('.vx-tp-pitch-avatar img').count(), 15);
+  for (const card of await manual.locator('.vx-tp-bench-tray .vx-tp-pitch-card').all()) {
+    const name = await card.locator('.vx-tp-name-bar').boundingBox();
+    const bounds = await card.boundingBox();
+    assert.ok(name && bounds && name.y + name.height <= bounds.y + bounds.height, 'Bench name/photo cards must not be clipped');
+  }
+
   assert.equal(await page.getByRole('region', { name: 'Exact no-chip Solver' }).count(), 0);
   assert.equal(await manual.getByRole('button', { name: /Run.*Solver|Optimise|Auto-pick/ }).count(), 0);
   assert.equal(await page.locator('.vx-planner-fixtures tbody tr').count(), 20);

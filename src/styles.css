@@ -10776,3 +10776,10 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 }
 .plan-draft-dialog { max-width: min(440px, calc(100vw - 32px)); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 24px; background: var(--panel-solid); color: var(--text-primary); box-shadow: var(--shadow-lg); }
 .plan-draft-dialog::backdrop { background: rgba(0,0,0,.6); }
+/* Explicit pitch flow: bench cards must retain natural height inside a column flexbox. */
+.manual-plan .vx-tp-turf { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; min-height: 0; }
+.manual-plan .vx-tp-formation { width: 100%; flex: none; }
+.manual-plan .vx-tp-pitch-row { width: 100%; min-width: 0; justify-content: space-evenly; }
+.manual-plan .vx-tp-bench-tray { width: 100%; height: auto; min-height: 0; flex: none; overflow: visible; }
+.manual-plan .vx-tp-bench-col > .vx-tp-pitch-card { flex: none; }
+@media (max-width: 400px) { .manual-plan .vx-tp-card-action.is-remove { top: 29px; } }
