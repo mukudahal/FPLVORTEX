@@ -16,3 +16,7 @@ coverage/
 *.tar.gz
 
 **/.venv/
+
+
+# Forecast observations are immutable, generated only by validated pre-deadline ingestion.
+!data/forecast-archive/**/*.json.gz

@@ -41,7 +41,8 @@ test('instant browser snapshot preserves source dates and always discloses offli
 test('refresh validation refuses to promote stale, future, incomplete or offline data', async () => {
   const s = await sample();
   assert.doesNotThrow(() => assertFreshSnapshot(s, now));
-  for (const bad of [null, {}, { ...s, players: [] },
+  for (const bad of [null, {}, { ...s, players: [] }, { ...s, players: s.players.map((p,i)=>i===1?s.players[0]:p) },
+    { ...s, fixtures: s.fixtures.map((f,i)=>i===0?{...f,teamH:99999}:f) },
     { ...s, meta: { ...s.meta, stale: true } },
     { ...s, meta: { ...s.meta, upstreamOk: false } },
     { ...s, meta: { ...s.meta, source: 'offline' } },
@@ -118,3 +119,4 @@ test('health readiness returns the labelled snapshot while external feeds are st
     else process.env.VORTEX_OFFLINE = originalOffline;
   }
 });
+

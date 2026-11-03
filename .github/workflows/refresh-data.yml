@@ -52,6 +52,18 @@ jobs:
         if: ${{ steps.official.outcome == 'success' }}
         run: npm run data:archive-matches
 
+      - name: Archive prospective model inputs and match settled outcomes
+        id: forecast_archive
+        continue-on-error: true
+        if: ${{ steps.official.outcome == 'success' }}
+        run: |
+          npm run data:archive-forecasts
+          npm run data:settle-forecasts
+
+      - name: Report optional archive failure
+        if: ${{ steps.forecast_archive.outcome == 'failure' }}
+        run: echo '::warning::Prospective forecast archive failed. Official snapshot refresh remains independent; inspect archive diagnostics.'
+
       - name: Mirror the published deployment snapshot
         if: ${{ github.event.inputs.source == 'deployment' || steps.official.outcome == 'failure' }}
         env:
@@ -63,13 +75,13 @@ jobs:
 
       - name: Commit changed snapshot
         run: |
-          if git diff --quiet -- public/data/fpl-snapshot.json data/fpl-match-history && [ -z "$(git ls-files --others --exclude-standard -- data/fpl-match-history)" ]; then
+          if git diff --quiet -- public/data/fpl-snapshot.json data/fpl-match-history data/forecast-archive && [ -z "$(git ls-files --others --exclude-standard -- data/fpl-match-history data/forecast-archive)" ]; then
             echo "Snapshot is already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/fpl-snapshot.json data/fpl-match-history
+          git add public/data/fpl-snapshot.json data/fpl-match-history data/forecast-archive
           git commit -m "chore(data): refresh FPL snapshot [skip ci]"
           # Rebase only our generated files over unrelated commits; conflicts fail visibly.
           git pull --rebase origin main
@@ -80,4 +92,5 @@ jobs:
         run: |
           echo '::error::Snapshot refresh failed. The previous recovery snapshot was retained; inspect this run before calling it fresh.'
           echo '## Snapshot refresh FAILED — previous recovery data retained' >> "$GITHUB_STEP_SUMMARY"
+
 

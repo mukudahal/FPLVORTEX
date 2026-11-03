@@ -1,3 +1,4 @@
+import { getSnapshotFreshness } from './snapshotFreshness';
 import { toRepoElement } from './analytics';
 import { buildProjectionContext, toRepoFixtures, toRepoTeams } from './fixtures';
 import { computePlayerXPts, computePositionPriors } from './repoModel/xpts';
@@ -38,11 +39,7 @@ export interface PlayerForecastContext {
   fresh: boolean;
 }
 export function buildPlayerForecastContext(snapshot: Snapshot): PlayerForecastContext {
-  const timestamp = Date.parse(snapshot.meta.generatedAt);
-  const age = Date.now() - timestamp;
-  // A cached imported xPts score never exempts the player from this gate.
-  const fresh = snapshot.meta.upstreamOk === true && !snapshot.meta.stale &&
-    Number.isFinite(timestamp) && age >= -60000 && age <= 2 * 60 * 60 * 1000;
+  const fresh = snapshot.meta.upstreamOk === true && getSnapshotFreshness(snapshot.meta).status === 'recent';
   const ctx = buildProjectionContext(snapshot.teams, snapshot.fixtures, snapshot.gameweeks, snapshot.meta.nextEventId);
   const elements = snapshot.players.map(toRepoElement);
   return { snapshot, completedEvents: ctx.completedEvents, priors: computePositionPriors(elements),
@@ -53,7 +50,7 @@ export function playerFixtureForecast(context: PlayerForecastContext,
     player: Pick<EnrichedPlayer,'id'|'teamId'>, fixture: Fixture, gw: number): FixturePlayerForecast {
   const blocked=(availability: ForecastAvailability):FixturePlayerForecast => ({fixtureId:fixture.id,gw,points:null,availability});
   const official = context.officialPlayers.get(player.id);
-  if (!context.fresh || !official || official.teamId!==player.teamId) return blocked('stale');
+  if (!Number.isInteger(gw) || gw > 38 || gw >= context.snapshot.meta.nextEventId + 10 || !context.fresh || !official || official.teamId!==player.teamId) return blocked('stale');
   const availability = forecastAvailability(official,gw,context.snapshot.meta.nextEventId);
   if (availability!=='available' && availability!=='doubtful') return blocked(availability);
   if (!Number.isInteger(fixture.id) || fixture.id<=0 || fixture.event!==gw ||
@@ -91,7 +88,7 @@ export function playerHorizonPoints(context: PlayerForecastContext,player: Pick<
 export function playerGameweekExpectedMinutes(ctx:PlayerForecastContext, player:Pick<EnrichedPlayer,'id'|'teamId'>, gw:number):number|null {
  const official=ctx.officialPlayers.get(player.id);
  const games=ctx.snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===player.teamId||f.teamA===player.teamId));
- if(!ctx.fresh||!official||official.teamId!==player.teamId||!games.length||
+ if(!Number.isInteger(gw)||gw>38||gw>=ctx.snapshot.meta.nextEventId+10||!ctx.fresh||!official||official.teamId!==player.teamId||!games.length||
     new Set(games.map(f=>f.id)).size!==games.length||
     games.some(f=>f.finished)||gw<ctx.snapshot.meta.nextEventId)return null;
  const av=forecastAvailability(official,gw,ctx.snapshot.meta.nextEventId);

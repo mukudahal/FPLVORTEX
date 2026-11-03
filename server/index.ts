@@ -142,7 +142,8 @@ app.get('/api/vortex/snapshot', asyncRoute(async (req, res) => {
 app.post('/api/vortex/refresh', rateLimit(12, 60_000), asyncRoute(async (_req, res) => {
   const snapshot = await getSnapshot(true);
   res.set('Cache-Control', 'no-store');
-  res.json({ ok: true, meta: snapshot.meta });
+  const success = snapshot.meta.upstreamOk && !snapshot.meta.stale;
+  res.status(success ? 200 : 503).json({ ok: success, ...(success ? {} : { error: 'Official FPL refresh unavailable; the labelled recovery snapshot is retained.' }), meta: snapshot.meta });
 }));
 
 app.get(

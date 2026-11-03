@@ -1,3 +1,5 @@
+> **Canonical release:** the root Vite/React/Express app on Render. Start with [release baseline](docs/RELEASE_BASELINE.md), [production model specification](docs/MODEL_SPEC.md), and the sole [release backlog](docs/VORTEX_V2_OUTSTANDING.md). Next.js, model-lab and notebook trees are retained research/candidates, not deployed replacements.
+
 # FPL VORTEX (`@FPLVORTEX`)
 
 <p align="center">
@@ -155,3 +157,4 @@ repository private, and review the Dependabot pull requests listed in the reposi
 ```bash
 docker compose up --build
 ```
+

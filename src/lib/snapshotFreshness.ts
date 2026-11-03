@@ -1,3 +1,4 @@
+import { DATA_FRESHNESS_POLICY } from './freshnessPolicy';
 import type { DataSource, Snapshot, SnapshotMeta } from './types';
 
 export type SnapshotFreshness = 'recent' | 'stale' | 'unknown';
@@ -13,9 +14,7 @@ export function getSnapshotFreshness(
   if (!Number.isFinite(generated) || !Number.isFinite(ageMs) || ageMs < 0) {
     return { status: 'unknown', ageMinutes: null };
   }
-  const intervalSeconds = Number.isFinite(meta.refreshSeconds) && meta.refreshSeconds > 0
-    ? meta.refreshSeconds : 600;
-  const thresholdMs = Math.max(120_000, Math.min(1_800_000, intervalSeconds * 2_000));
+  const thresholdMs = meta.isLive ? DATA_FRESHNESS_POLICY.fplLiveMs : DATA_FRESHNESS_POLICY.fplStandardMs;
   return {
     status: meta.stale || ageMs > thresholdMs ? 'stale' : 'recent',
     ageMinutes: Math.floor(ageMs / 60_000),
@@ -62,3 +61,4 @@ export function isOlderSnapshot(current: Snapshot | null, incoming: Snapshot): b
   const incomingTime = Date.parse(incoming.meta.generatedAt ?? '');
   return Number.isFinite(currentTime) && Number.isFinite(incomingTime) && incomingTime < currentTime;
 }
+
