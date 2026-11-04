@@ -44,7 +44,11 @@ function sameMembers(a: readonly number[], b: readonly number[]): boolean {
  * Response may be incomplete when HiGHS reaches its shared time limit.
  * Do not synthesize paths or assume an optimality certificate.
  */
-export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpResponse): ComparedMilpPath[] {
+export function compareMilpPaths(
+  request: ExactMilpRequest,
+  response: ExactMilpResponse,
+  eligibleIncoming?: (id: number) => boolean,
+): ComparedMilpPath[] {
   assertInvariant(Array.isArray(response.plans) &&
     response.plans.length <= request.settings.solutions_requested, 'unexpected plan count');
   assertInvariant(Array.isArray(response.solver_attempts) &&
@@ -85,6 +89,8 @@ export function compareMilpPaths(request: ExactMilpRequest, response: ExactMilpR
         new Set(ins).size === ins.length && new Set(outs).size === outs.length, 'invalid transfer batch');
       assertInvariant(outs.every(id => previous.includes(id)) &&
         ins.every(id => byId.has(id) && !previous.includes(id)), 'transfers are not based on previous ownership');
+      assertInvariant(!eligibleIncoming || ins.every(id => eligibleIncoming(id)),
+        'incoming player is currently flagged by official FPL availability');
       assertInvariant(squad.length === 15 && new Set(squad).size === 15 &&
         sameMembers(squad, [...previous.filter(id => !outs.includes(id)), ...ins]), 'squad transition');
       assertInvariant(settings.locked_players.every(id => squad.includes(id)) &&
