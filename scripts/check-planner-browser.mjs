@@ -383,9 +383,9 @@ try {
   const repeatSimulation = JSON.parse(await readFile(await (await repeatDownload).path(),'utf8'));
   assert.deepEqual(repeatSimulation.result.monteCarlo,firstSimulation.result.monteCarlo);
   assert.equal(repeatSimulation.inputVersion,firstSimulation.inputVersion);
-  const csvDownload = page.waitForEvent('download');
+  const simulationCsvDownload = page.waitForEvent('download');
   await page.getByRole('button',{name:'Export simulation CSV',exact:true}).click();
-  const actualCsv = await readFile(await (await csvDownload).path(),'utf8');
+  const actualCsv = await readFile(await (await simulationCsvDownload).path(),'utf8');
   assert.ok(actualCsv.includes(firstSimulation.inputVersion));
   assert.equal(actualCsv.split('\r\n').length,firstSimulation.result.monteCarlo.paths.length+2);
   assert.equal(await page.getByText('Recommended plan', { exact: true }).count(), 1);
