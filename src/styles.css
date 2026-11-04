@@ -11065,3 +11065,100 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
     gap: 3px;
   }
 }
+
+/* Plan | Solver: two primary workspaces, with simulation inside the solver.
+   Player portraits, badges and pitch renderers retain their existing rules. */
+.page--optimizer .planner-section-picker {
+  grid-template-columns: repeat(2, minmax(0, 166px)) minmax(240px, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.page--optimizer .planner-section-picker .subtab-btn {
+  min-height: 48px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text-secondary);
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+.page--optimizer .planner-section-picker .subtab-btn.is-active {
+  background: rgba(119, 114, 255, .17);
+  border-color: var(--brand-violet);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(119, 114, 255, .18);
+}
+.page--optimizer .planner-section-picker .subtab-btn svg {
+  color: inherit;
+}
+.page--optimizer .planner-section-picker .subtab-btn:focus-visible,
+.planner-solver-modes button:focus-visible {
+  outline: 2px solid var(--brand-violet);
+  outline-offset: 2px;
+}
+.page--optimizer .planner-team-link {
+  align-self: stretch;
+  padding: 4px 10px;
+}
+.planner-solver-modes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+.planner-solver-modes button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.planner-solver-modes button.is-active {
+  border-color: rgba(119, 114, 255, .32);
+  background: rgba(119, 114, 255, .13);
+  color: var(--text-primary);
+}
+@media (max-width: 1100px) {
+  .page--optimizer .planner-section-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page--optimizer .planner-team-link {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 700px) {
+  .page--optimizer .planner-section-picker .subtab-btn {
+    min-height: 46px;
+    padding: 9px 12px;
+  }
+  .page--optimizer .planner-team-link {
+    display: grid;
+  }
+  .planner-solver-modes {
+    width: 100%;
+  }
+  .planner-solver-modes button {
+    flex: 1 1 0;
+    min-height: 42px;
+  }
+}

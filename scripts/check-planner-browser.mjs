@@ -46,6 +46,10 @@ try {
   const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
   assert.equal(entryResponse.status(), 200);
   const entryJson = await entryResponse.json();
+  // The initial pitch may render from the latest snapshot before the asynchronous
+  // manager entry finishes. Wait for the verified team identity, not a timeout.
+  await dashboard.locator('.vx-squad-scorebox__team strong')
+    .filter({ hasText: entryJson.teamName }).waitFor({ timeout: 30000 });
   assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
   const provenance = entryJson.provenance?.kind;
   const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
@@ -337,7 +341,16 @@ try {
 
   await page.goto((process.env.PLANNER_BASE_URL ?? 'http://127.0.0.1:3000') + '/#/optimizer', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 30000 });
-  await page.getByRole('button', { name: /Monte Carlo/ }).click();
+  const workspaceChoices = page.getByRole('group', { name: 'Planner workspaces' });
+  assert.deepEqual((await workspaceChoices.locator('.subtab-btn span').allTextContents()).map(label => label.trim()),
+    ['Plan', 'Solver'], 'Planner exposes exactly two primary workspaces');
+  assert.equal(await page.getByRole('group', { name: 'Solver views' }).count(), 0,
+    'Simulation controls stay hidden until Solver is selected');
+  await page.getByRole('button', { name: 'Solver', exact: true }).click();
+  const solverViews = page.getByRole('group', { name: 'Solver views' });
+  assert.deepEqual((await solverViews.locator('button span').allTextContents()).map(label => label.trim()),
+    ['Recommendations', 'Simulation'], 'Simulation belongs inside Solver');
+  await page.getByRole('button', { name: 'Simulation', exact: true }).click();
   await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
   assert.equal(await page.getByText('Recommended plan', { exact: true }).count(), 1);
@@ -348,7 +361,7 @@ try {
   await page.getByText('Simulation details',{exact:true}).click();
   assert.equal(await page.locator('.vx-soccer-pitch:visible').count(), 0, 'Only the selected section should be visible');
   await page.screenshot({ path: 'test-results/planner/simulation-desktop.png', fullPage: true });
-  await page.getByRole('button', { name: /Chip Strategy/ }).click();
+  await page.getByRole('button', { name: 'Solver', exact: true }).click();
   await page.getByRole('button',{name:'Run Solver',exact:true}).click();
   await page.getByRole('region', { name: 'Joint chip schedule' }).waitFor({timeout:120000});
   assert.ok(await page.locator('.chip-matrix-table tbody tr').count() > 0);
@@ -365,7 +378,7 @@ try {
   await page.getByRole('region', {name:'Joint chip schedule'}).waitFor({timeout:120000});
   await page.screenshot({ path: 'test-results/planner/chips-desktop.png', fullPage: true });
   await page.getByRole('combobox', { name: 'Free transfers available' }).selectOption('0');
-  await page.getByRole('button', { name: /Monte Carlo/ }).click();
+  await page.getByRole('button', { name: 'Simulation', exact: true }).click();
   await waitForSimulation();
   await page.getByRole('combobox', { name: 'Simulation draws' }).selectOption('10000');
   await page.getByText(/10,000 PAIRED DRAWS/).waitFor({ timeout: 120000 });
@@ -386,15 +399,15 @@ try {
   const solverContext = await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});
   const solverPage = await solverContext.newPage();
   await solverPage.goto(base + '/#/optimizer',{waitUntil:'domcontentloaded'});
-  await solverPage.getByRole('button',{name:'Chip Strategy',exact:true}).waitFor({timeout:90000});
-  await solverPage.getByRole('button',{name:'Chip Strategy',exact:true}).click();
+  await solverPage.getByRole('button',{name:'Solver',exact:true}).waitFor({timeout:90000});
+  await solverPage.getByRole('button',{name:'Solver',exact:true}).click();
   assert.equal(await solverPage.getByRole('region',{name:'Joint chip schedule',exact:true}).count(),0);
   assert.equal(await solverPage.locator('.strategy-pitch .strategy-pitch-player').count(),11);
   assert.equal(await solverPage.getByRole('button',{name:'Run Solver',exact:true}).isEnabled(),true);
   assert.equal(await solverPage.getByRole('button',{name:'Stop',exact:true}).count(),0);
   await solverPage.getByRole('button',{name:'Edit Plan',exact:true}).click();
   await solverPage.getByRole('region',{name:'Manual Plan',exact:true}).waitFor();
-  await solverPage.getByRole('button',{name:'Chip Strategy',exact:true}).click();
+  await solverPage.getByRole('button',{name:'Solver',exact:true}).click();
 
   await solverPage.getByRole('button',{name:'Run Solver',exact:true}).click();
   await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
@@ -441,7 +454,7 @@ try {
   const manualSolverPlan=solverPage.getByRole('combobox',{name:'Manual saved plan',exact:true});
   await manualSolverPlan.selectOption(afterSolverSave.at(-1).id);
   assert.equal(await manualSolverPlan.inputValue(),afterSolverSave.at(-1).id);
-  await solverPage.getByRole('button',{name:'Chip Strategy',exact:true}).click();
+  await solverPage.getByRole('button',{name:'Solver',exact:true}).click();
   await solverPage.clock.install();
   await solverPage.route('**/assets/planner.worker-*.js', route=>route.fulfill({status:200,contentType:'application/javascript',headers:{'cache-control':'no-store'},body:'self.onmessage = () => {};'}));
   await solverPage.getByRole('button',{name:'Run Solver',exact:true}).click();
@@ -460,7 +473,7 @@ try {
   await page.context().route('**/assets/planner.worker-*.js', route => route.abort());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Plan', exact: true }).waitFor({ timeout: 90000 });
-  await page.getByRole('button', { name: /Chip Strategy/ }).click();
+  await page.getByRole('button', { name: 'Solver', exact: true }).click();
   await page.getByRole('button',{name:'Run Solver',exact:true}).click();
   await page.getByText('Simulation could not finish. Reload the page and try again.', { exact: true }).waitFor({ timeout: 30000 });
   console.log('Planner browser checks passed: production worker, tabs, zero FT, keyboard, mobile, worker failure recovery.');
