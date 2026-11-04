@@ -354,7 +354,8 @@ test('all 6 pages render cleanly with >= 15 real PL player portraits and club ba
   assert.doesNotMatch(htmlCommand, /vx-swap-modal/);
   // Saved IDs quick-switch strip + all 4 bench players' names, points, and club/price visibly rendered
   assert.match(htmlCommand, /vx-saved-ids-strip/);
-  assert.match(htmlCommand, /BENCH · SUBSTITUTES/);
+  assert.match(htmlCommand, /aria-label="Substitutes bench"/);
+  assert.doesNotMatch(htmlCommand, /11 STARTERS|4 SUBSTITUTES|BENCH · SUBSTITUTES|vx-dashboard-pitch-context/);
   assert.equal((htmlCommand.match(/vx-pitch-player vx-pitch-player--bench"/g) ?? []).length, 4);
   assert.equal((htmlCommand.match(/class="vx-pitch-bench-meta"/g) ?? []).length, 4);
   for (const benchName of ['Bentley', 'De Cuyper', 'Van Hecke', 'Crooks']) {

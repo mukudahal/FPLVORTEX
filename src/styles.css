@@ -11162,3 +11162,22 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
     min-height: 42px;
   }
 }
+/* Compact planning surfaces: one accent, quiet dividers, useful data first. */
+.manual-plan, .manual-plan-picker { gap: 10px; }
+.manual-plan-toolbar { gap: 8px; padding: 10px; }
+.manual-plan-board { gap: 12px; }
+.manual-plan-pitch-column { gap: 8px; }
+.manual-plan-metrics div { gap: 3px; padding: 5px 2px; border-bottom: 1px solid var(--border); }
+.manual-plan-metrics strong { font-size: 19px; }
+.manual-plan .vx-tp-gw-nav { padding: 4px 8px; }
+.manual-plan-advice .panel { box-shadow: none; background: var(--panel); }
+.manual-plan-advice .panel__header { margin-bottom: 8px; }
+.manual-plan-advice .panel__header h3 { font-size: 14px; }
+.manual-plan-advice .manual-director-row { border-color: var(--border); }
+.strategy-workspace--quiet { gap: 10px; }
+.strategy-workspace--quiet .strategy-summary { margin-bottom: 8px; }
+.strategy-workspace--quiet .strategy-summary h3 { font-size: 23px; }
+.strategy-workspace--quiet .strategy-chip { box-shadow: none; }
+.strategy-workspace--quiet .strategy-step { box-shadow: none; }
+.strategy-workspace--quiet .strategy-step:not(.is-active) { background: var(--panel); }
+.strategy-workspace--quiet .strategy-week-heading { padding-bottom: 8px; }

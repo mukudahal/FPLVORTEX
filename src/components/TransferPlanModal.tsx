@@ -1095,7 +1095,7 @@ export function TransferPlanModal({
             <div><small>Transfers</small><strong>{liveMetrics.transfersUsed} / {liveMetrics.freeTransfers}</strong></div>
             <div><small>Hits</small><strong>−{liveMetrics.hitCost}</strong></div>
             <div><small>Bank</small><strong>£{(liveMetrics.effectiveBankTenths / 10).toFixed(1)}m</strong></div>
-            <div><small>Model xPts</small><strong>{liveMetrics.projectedGwXp.toFixed(1)}</strong></div>
+            <div><small>xPts</small><strong>{liveMetrics.projectedGwXp.toFixed(1)}</strong></div>
           </div>
           {subSourceId !== null && <div className="manual-swap-notice" role="status">Swap {playerMap.get(subSourceId)?.name} with a highlighted {currentLineup.starters.includes(subSourceId) ? 'bench player' : 'starter'} <button type="button" onClick={() => setSubSourceId(null)}>Cancel</button></div>}
           <div className="vx-tp-pitch vx-soccer-pitch">
@@ -1127,7 +1127,6 @@ export function TransferPlanModal({
             {manualSuggestions.map(({horizon, move}, index) => <div className="manual-director-row" key={index}>
               {move ? <>{advicePlayer(move.out)}<ArrowRight size={18} aria-label="to"/>{advicePlayer(move.in)}<div><strong>+{move.gain.toFixed(2)} xPts</strong><small>{horizon} GW · before hits</small></div></> : <span>No shortlisted upgrade · {horizon} GW</span>}
             </div>)}
-            <small className="manual-plan-source">Model suggestions · before hits · choose transfers yourself</small>
           </section>
         </aside>
       </div>
