@@ -108,7 +108,7 @@ export function PlannerOverview({ mode = 'overview', snapshot, squad, allPlayers
   const fixtureTable = (
       <section className="panel vx-planner-fixtures" aria-label="Fixture difficulty table">
         <div className="vx-planner-fixture-head">
-          <div><strong>FIXTURE DIFFICULTY</strong><small>VORTEX model · lower is easier</small></div>
+          <div><strong>FIXTURE DIFFICULTY</strong></div>
           <label>GAMEWEEKS <select aria-label="Fixture gameweeks" value={horizon} onChange={e => setHorizon(Number(e.target.value))}>
             {[3, 5, 10].map(n => <option key={n} value={n}>{`${n} GW`}</option>)}
           </select></label>
@@ -120,7 +120,7 @@ export function PlannerOverview({ mode = 'overview', snapshot, squad, allPlayers
               {(() => { const avg = difficultyFor(row.team.id, 'avg'); return <td className={`vx-planner-fdr${avg === null ? ' fdr-blank' : ''}`} style={avg === null ? undefined : difficultyFillStyle(avg)}>{avg === null ? '—' : avg.toFixed(1)}</td>; })()}</tr>)}</tbody>
           </table>
         </div>
-        <InfoDisclosure label="About fixture difficulty"><p>Provisional 1–5 index. Doubles are averaged; blanks excluded. Historical calibration is pending.</p></InfoDisclosure>
+        <InfoDisclosure label="About fixture difficulty"><p>VORTEX model · lower is easier. Provisional 1–5 index. Doubles are averaged; blanks excluded. Historical calibration is pending.</p></InfoDisclosure>
       </section>
   );
   if (mode === 'fixtures') return fixtureTable;

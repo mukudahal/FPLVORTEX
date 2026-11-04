@@ -1116,7 +1116,7 @@ export function TransferPlanModal({
         </div>
         <aside className="manual-plan-advice">
           <section className="panel" aria-label="Assistant Manager"><div className="panel__header"><h3>Assistant Manager</h3></div>
-            {[['Captain', currentLineup.captain], ['Vice-captain', currentLineup.vice]].map(([label, id]) => <div className="manual-advice-row" key={label}>{typeof id === 'number' && advicePlayer(id)}<div><strong>{label}</strong><span>{typeof id === 'number' ? xpAt(planCtx, id, gwIdx).toFixed(2) : '—'} model xPts</span></div></div>)}
+            {[['Captain', currentLineup.captain], ['Vice-captain', currentLineup.vice]].map(([label, id]) => <div className="manual-advice-row" key={label}>{typeof id === 'number' && advicePlayer(id)}<div><strong>{label}</strong><span>{typeof id === 'number' ? xpAt(planCtx, id, gwIdx).toFixed(2) : '—'} xPts</span></div></div>)}
             <div className="manual-captain-controls">{(['captain', 'vice'] as const).map(role => <label key={role}>{role === 'captain' ? 'Captain' : 'Vice'}<select aria-label={`Manual ${role}`} value={currentLineup[role] ?? ''} onChange={e => {
               const id = Number(e.target.value), other = role === 'captain' ? 'vice' : 'captain';
               const otherId = currentLineup[other] === id ? currentLineup[role] : currentLineup[other];
