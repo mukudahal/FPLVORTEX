@@ -13,6 +13,7 @@ import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
 import { marginalFtOptionValue } from './marginalFtOption';
 import { expectedFixturePoints } from './playerModel';
 import { projectionFreshness } from '../projectionFreshness';
+import { isEligibleNewTransferTarget, isOfficiallyUnflagged } from '../transferEligibility';
 import { validateSeasonChipPlan, validateSquad, type SeasonChipUse } from './seasonRules';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -161,6 +162,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   }
   if (manualPlan) warnings.push(`Using saved plan “${manualPlan.name}”. Its manual transfers, lineup, captain and chip selections are constraints. Auto suggestions do not change your saved plan.`);
   warnings.push('Forecasts assume the published fixture schedule and fixed player prices; future postponements, injuries and price changes are unknown.');
+  warnings.push('New transfers exclude players currently flagged doubtful, injured, suspended or unavailable by official FPL. Existing owned players remain in your squad unless legally transferred out.');
 
   const teams = new Map(input.repoTeams.map(t => [t.id, t]));
   const elements = new Map(input.repoElements.map(e => [e.id, e]));
@@ -177,7 +179,10 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
       const imported = p.gwProjections?.[gw];
       // Fixture blanks override imported projections. Zero is a legitimate imported forecast.
       if (!Number.isFinite(bd.xPts)) throw new RangeError(`Non-finite GW${gw} forecast for player ${p.id}; refresh the data before optimizing.`);
-      values[p.id] = bd.fixtureCount === 0 ? 0 : allowImportedMeans && Number.isFinite(imported) ? Math.max(0, imported!) : Math.max(0, bd.xPts);
+      // An imported forecast may predate a new official injury/doubt/suspension.
+      // Current FPL availability always wins; the local model already adjusts minutes.
+      values[p.id] = bd.fixtureCount === 0 ? 0 : allowImportedMeans && isOfficiallyUnflagged(p) && Number.isFinite(imported)
+        ? Math.max(0, imported!) : Math.max(0, bd.xPts);
     }
     forecastByGw[gw] = values;
   }
@@ -211,7 +216,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   for (const gw of allGws) {
     const pool = new Set(input.currentSquadIds);
     for (const type of [1, 2, 3, 4]) {
-      const eligible = input.players.filter(p => positionToType(p.position) === type && p.availability > 0);
+      const eligible = input.players.filter(p => positionToType(p.position) === type && isEligibleNewTransferTarget(p));
       const value = (p: EnrichedPlayer) => [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * (forecastByGw[gw + o]?.[p.id] ?? 0), 0);
       eligible.sort((a, b) => value(b) - value(a) || a.id - b.id).slice(0, 14).forEach(p => pool.add(p.id));
       eligible.sort((a, b) => a.cost - b.cost || value(b) - value(a)).slice(0, 4).forEach(p => pool.add(p.id));
@@ -232,7 +237,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
       const out = byId.get(outId)!;
       for (const inId of pools.get(gw) ?? []) {
         const inc = byId.get(inId)!;
-        if (current.has(inId) || inc.type !== out.type) continue;
+        if (current.has(inId) || inc.type !== out.type || !isEligibleNewTransferTarget(playerMap.get(inId)!)) continue;
         const gain = [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * ((forecastByGw[gw + o]?.[inId] ?? 0) - (forecastByGw[gw + o]?.[outId] ?? 0)), 0);
         swaps.push({ outId, inId, delta: state.sell[outId] - inc.cost, gain });
       }
@@ -369,7 +374,8 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     const budget = state.bank + state.squad.reduce((sum, id) => sum + state.sell[id], 0);
     const key = `${gw}:${chip}:${budget}:${state.squad.map(id => id + '=' + state.sell[id]).sort().join(',')}`;
     if (rebuildCache.has(key)) return rebuildCache.get(key)!;
-    const candidates = [...new Set([...(pools.get(gw) ?? []), ...state.squad, ...locked])];
+    const candidates = [...new Set([...(pools.get(gw) ?? []), ...state.squad, ...locked])]
+      .filter(id => state.squad.includes(id) || isEligibleNewTransferTarget(playerMap.get(id)!));
     // Keeping a player costs their sale value in the liquidation budget, not the
     // market price of buying them again. The difference is not spendable cash.
     const rebuildNodes = new Map([...byId].map(([id, player]) => [id, {
@@ -386,7 +392,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     let best = objective(sq);
     if (objective(state.squad) > best) { sq = [...state.squad]; best = objective(sq); }
     for (let pass = 0; pass < 2; pass++) for (const inc of candidates) {
-      if (sq.includes(inc)) continue;
+      if (sq.includes(inc) || !isEligibleNewTransferTarget(playerMap.get(inc)!)) continue;
       const p = byId.get(inc)!;
       for (const out of sq) {
         if (locked.has(out) || byId.get(out)!.type !== p.type) continue;
