@@ -11181,3 +11181,30 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .strategy-workspace--quiet .strategy-step { box-shadow: none; }
 .strategy-workspace--quiet .strategy-step:not(.is-active) { background: var(--panel); }
 .strategy-workspace--quiet .strategy-week-heading { padding-bottom: 8px; }
+
+/* Navigation shares one accent; fixture and availability colors retain meaning. */
+:root .vortex-route-pills .vortex-route-pill {
+  background: var(--panel);
+  color: var(--text-secondary);
+  border-color: var(--border);
+  box-shadow: none;
+  filter: none;
+  font-weight: 650;
+  letter-spacing: .02em;
+}
+:root .vortex-route-pills .vortex-route-pill:hover {
+  background: var(--panel-soft);
+  color: var(--text-primary);
+}
+:root .vortex-route-pills .vortex-route-pill.is-active {
+  background: rgba(119, 114, 255, .16);
+  border-color: var(--brand-violet);
+  color: var(--text-primary);
+}
+:root .vortex-route-pills .vortex-route-pill .vortex-route-pill__icon { color: inherit; }
+:root .vortex-route-pills .vortex-route-pill:focus-visible { outline: 2px solid var(--brand-violet); outline-offset: 2px; }
+.manual-plan-advice { gap: 10px; }
+.manual-plan-advice .panel { padding: 12px; }
+.manual-advice-row { padding: 8px 0; }
+.manual-director-row { padding: 10px 0; }
+.manual-plan .button--primary { background: var(--brand-violet); box-shadow: none; color: #fff; }
