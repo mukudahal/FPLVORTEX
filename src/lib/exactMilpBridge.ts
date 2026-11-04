@@ -7,6 +7,7 @@
  */
 import type { EnrichedPlayer, Snapshot, Position } from './types';
 import type { PlannerSimulationOutput } from './repoModel/compassPlanner';
+import { isEligibleNewTransferTarget } from './transferEligibility';
 
 export interface ExactMilpWeek {
   gw: number;
@@ -82,7 +83,7 @@ export function buildExactMilpRequest(options: {
     .reduce((sum, value, i) => sum + Math.pow(decay, i) * value, 0);
   const ids = new Set(squadIds);
   for (const pos of ['GKP', 'DEF', 'MID', 'FWD'] as const) {
-    const choices = players.filter(p => p.position === pos && p.cost > 0 && p.availability > 0);
+    const choices = players.filter(p => p.position === pos && isEligibleNewTransferTarget(p));
     choices.sort((a,b) => ranked(b) - ranked(a) || a.cost - b.cost || a.id - b.id);
     choices.slice(0, quotas[pos]).forEach(p => ids.add(p.id));
     choices.sort((a,b) => a.cost - b.cost || ranked(b) - ranked(a) || a.id - b.id);
