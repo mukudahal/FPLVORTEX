@@ -1,8 +1,8 @@
 # Canonical FPL VORTEX release baseline
 
 Updated 2026-11-04. Canonical released source is `main` in `mukudahal/FPLVORTEX`.
-Verified release baseline: `5fa8ec13e83a2e5941b0efa51ee50c16647b1d0c`, confirmed live on Render deployment `dep-dbld8rvb9u1s73bb3a80` before this increment. This contains PR83 and the scheduled official snapshot/prospective archive refresh.
-Current integration branch: `release/simulation-controls-evidence-20261104`, based on that baseline. This increment validates selected saved-plan simulations and adds cancellation/retry and replayable CSV/JSON exports. Final-head CI and exact production commit/data/browser verification remain release gates; the approved merge and final evidence belong to its release PR and existing Render deployment record.
+Verified release baseline: PR84 / `7c9159d9d320e544e91aeb29778520a48708c80c`, live Render deployment `dep-dblikb17lnhs739pgoh0`. PR and main CI passed, including production browser/downloads and official refresh/persistence at 2026-11-04T12:53:20.697Z.
+Current integration branch: `release/forecast-consistency-20261104`. This increment centralizes imported mean admission, availability/blank handling and uses actual completed-event counts. Final-head CI and exact production commit/data/browser verification remain release gates; the approved merge and final evidence belong to its release PR and existing Render deployment record.
 The authoritative outstanding-work register is `docs/VORTEX_V2_OUTSTANDING.md`; older roadmaps are historical design context, not completion records.
 
 ## Runtime and ownership

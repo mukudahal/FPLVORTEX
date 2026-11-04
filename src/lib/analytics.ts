@@ -34,6 +34,7 @@ import {
 } from './repoModel/xpts';
 import type { Fixture as RepoFixture, SlimElement, SlimTeam } from './repoModel/types';
 import { isOfficiallyUnflagged } from './transferEligibility';
+import { forecastMean, importedForecastDate, importedForecastPolicy } from './forecastPolicy';
 
 function positionToElementType(pos: Position): 1 | 2 | 3 | 4 {
   if (pos === 'GKP') return 1;
@@ -118,11 +119,11 @@ export function projectionReasons(
   availability: number,
   csProb: number,
   team?: FplTeam,
+  allowImported = true,
 ): string[] {
   const reasons: string[] = [];
-  if (isOfficiallyUnflagged(player) && player.gwProjections && Object.keys(player.gwProjections).length > 0) {
-    const mins = player.repoExpectedMinutes ?? 0;
-    reasons.push(`Repo projection ${projection.toFixed(2)} xPts (${Math.round(mins)} xMins)`);
+  if (allowImported && isOfficiallyUnflagged(player) && player.gwProjections && Object.keys(player.gwProjections).length > 0) {
+    reasons.push(`Repo projection ${projection.toFixed(2)} xPts`);
   } else {
     reasons.push(`Mechanistic model ${projection.toFixed(2)} xPts (Shrinkage + Poisson)`);
   }
@@ -171,6 +172,7 @@ export function projectPlayer(
     priors: PositionPriors;
     repoFixtures: RepoFixture[];
     allFixtures: Snapshot['fixtures'];
+    allowImported?: boolean;
   },
 ): EnrichedPlayer {
   const team: FplTeam = context.teamIndex.get(player.teamId) ?? {
@@ -207,13 +209,9 @@ export function projectPlayer(
 
   // A dated import may predate today's official FPL injury/suspension flag.
   // For flagged players, prefer the live-status-adjusted mechanistic forecast.
-  const unflagged = isOfficiallyUnflagged(player);
-  const csvGwXpts = unflagged
-    ? (player.gwProjections?.[nextGw] ??
-      (player.repoBenchmarkXpts !== null && player.repoBenchmarkXpts !== undefined
-        ? player.repoBenchmarkXpts : null))
-    : null;
-  const baseNextGwXPts = csvGwXpts !== null ? csvGwXpts : modelOut.xPts;
+  const allowImported = shared?.allowImported ?? true;
+  const csvGwXpts = allowImported && isOfficiallyUnflagged(player) ? player.gwProjections?.[nextGw] ?? null : null;
+  const baseNextGwXPts = forecastMean(player, modelOut, csvGwXpts, allowImported);
 
   const availability = clamp(minsDist.p60 + minsDist.pSub, 0, 1);
   const eoRatio = clamp(numberValue(player.ownership, 0) / 100, 0, 1);
@@ -224,41 +222,20 @@ export function projectPlayer(
     2,
   );
 
-  const sparkline: number[] = [];
-  if (isOfficiallyUnflagged(player) && player.gwProjections && Object.keys(player.gwProjections).length > 0) {
-    const sortedGws = Object.keys(player.gwProjections)
-      .map(Number)
-      .sort((a, b) => a - b);
-    for (const gw of sortedGws) {
-      sparkline.push(round(player.gwProjections[gw] ?? 0, 2));
-    }
-  } else {
-    for (let offset = 0; offset < 6; offset += 1) {
-      const gw = nextGw + offset;
-      sparkline.push(
-        round(computePlayerXPts(el, gw, repoFixtures, teamsMap, completedEvents, offset, priors).xPts, 2),
-      );
-    }
-  }
-
-  let horizon5Projection = 0;
-  for (let offset = 0; offset < 5; offset += 1) {
+  const futureMeans: number[] = [];
+  for (let offset = 0; offset < 6 && nextGw + offset <= context.maxEventId; offset++) {
     const gw = nextGw + offset;
-    if (unflagged && player.gwProjections?.[gw] !== undefined) {
-      horizon5Projection += player.gwProjections[gw];
-    } else {
-      horizon5Projection += computePlayerXPts(el, gw, repoFixtures, teamsMap, completedEvents, offset, priors).xPts;
-    }
+    const model = offset === 0 ? modelOut : computePlayerXPts(el, gw, repoFixtures, teamsMap, completedEvents, offset, priors);
+    futureMeans.push(forecastMean(player, model, player.gwProjections?.[gw], allowImported));
   }
-  horizon5Projection = round(horizon5Projection, 2);
+  const sparkline = futureMeans.map(value => round(value, 2));
+  const horizon5Projection = round(futureMeans.slice(0, 5).reduce((sum, value) => sum + value, 0), 2);
 
   const fixtureScore = averageFixtureDifficulty(player, context, 5);
   const fixtureDelta = round(clamp((3 - fixtureScore) * 0.11, -0.25, 0.25), 3);
   const momentum = round(Math.tanh((player.transfersInEvent - player.transfersOutEvent) / 50000), 3);
-  const expectedMinutes =
-    unflagged && player.repoExpectedMinutes !== null && player.repoExpectedMinutes !== undefined
-      ? player.repoExpectedMinutes
-      : minsDist.expectedMinutes;
+  // Describe the actual minutes distribution used by the model, including doubles/blanks.
+  const expectedMinutes = minsDist.expectedMinutes * modelOut.fixtureCount;
   const confidence = round(clamp(modelOut.confidence / 100, 0.08, 0.99), 3);
   const roleScore = round(attackingPts + modelOut.defensivePts + modelOut.bonusPts, 3);
   const leverage = round(projection * (1 - eoRatio), 3);
@@ -271,6 +248,7 @@ export function projectPlayer(
     availability,
     modelOut.csProb,
     team,
+    allowImported && modelOut.fixtureCount > 0 && typeof csvGwXpts === 'number' && Number.isFinite(csvGwXpts),
   );
 
   return {
@@ -328,6 +306,7 @@ export function enrichPlayers(snapshot: Snapshot, profile: RiskProfile = 'balanc
     priors,
     repoFixtures,
     allFixtures: snapshot.fixtures,
+    allowImported: importedForecastPolicy(importedForecastDate(snapshot.meta.repoData), new Date(snapshot.meta.generatedAt)).allowed,
   };
   return snapshot.players.map((player) => projectPlayer(player, context, profile, shared));
 }
