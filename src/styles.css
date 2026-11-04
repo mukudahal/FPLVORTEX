@@ -11001,3 +11001,67 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 .strategy-workspace--quiet .strategy-run .button--primary { color:var(--bg); }
 .vx-info-disclosure > summary { width:44px; min-height:44px; }
 .strategy-fresh { display:inline-flex; align-items:center; color:var(--brand-mint); }
+
+/* Quiet three-section navigation: secondary tools are available on demand.
+   Preserve all existing page, portrait, badge, and pitch styling. */
+.vortex-route-pills {
+  background: var(--panel-soft);
+  box-shadow: none;
+  border-radius: 13px;
+}
+.vortex-route-pill.is-active {
+  background: rgba(119, 114, 255, 0.18);
+  border-color: rgba(119, 114, 255, 0.38);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.vortex-route-pill.is-active .vortex-route-pill__icon {
+  color: var(--text-primary);
+  filter: none;
+}
+.vortex-route-pill--more {
+  margin-left: auto;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+.vortex-secondary-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px;
+  margin: -8px 0 14px;
+}
+.vortex-secondary-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.vortex-secondary-route:hover,
+.vortex-secondary-route.is-active {
+  color: var(--text-primary);
+  border-color: rgba(119, 114, 255, 0.5);
+}
+.vortex-secondary-route:focus-visible,
+.vortex-route-pill--more:focus-visible {
+  outline: 2px solid var(--brand-violet);
+  outline-offset: 2px;
+}
+.mobile-nav.mobile-nav--primary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 700px) {
+  .mobile-nav.mobile-nav--primary button {
+    min-height: 44px;
+    font-size: 10px;
+    gap: 3px;
+  }
+}
