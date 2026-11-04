@@ -218,3 +218,15 @@ test('P0-A08: no fabricated original selling price in independently checked path
   request.players.find(p => p.player_id === 1)!.selling_price = null;
   assert.throws(() => compareMilpPaths(request, response), /selling-price basis/);
 });
+
+
+test('rejects a mathematically valid purchase when current official FPL flags that player', () => {
+  const { request, response } = fixture();
+  assert.throws(
+    () => compareMilpPaths(request, response, id => id !== 16),
+    /incoming player is currently flagged/,
+  );
+  const heldOnly = { ...response, plans: [response.plans[0]], solver_attempts: [response.solver_attempts[0]] };
+  assert.equal(compareMilpPaths(request, heldOnly, id => id !== 16).length, 1,
+    'Existing squad may still be held without acquiring the flagged player');
+});
