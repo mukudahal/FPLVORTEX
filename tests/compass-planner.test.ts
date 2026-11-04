@@ -415,3 +415,26 @@ test('Chip Strategy renders recommendations with spent chips and a selected one-
   assert.doesNotMatch(horizonSelect,/value="10"/);
   assert.match(html,/recommended starting eleven/);
 });
+
+
+test('official FPL flags override imported xPts and prevent a flagged purchase across the planner horizon', () => {
+  const input = scenario(18, true);
+  const healthy = runPlannerSimulation({ ...input, horizonOnly: true });
+  assert.equal(healthy.forecastByGw[18][16], 12, 'A healthy player retains a valid imported estimate');
+
+  // A high historical/imported forecast must not defeat fresh official doubt.
+  input.players[15] = { ...input.players[15], status: 'd', chance: 50, availability: 0.35 };
+  input.repoElements = input.players.map(toRepoElement);
+  const doubtful = runPlannerSimulation({ ...input, horizonOnly: true });
+  assert.ok(doubtful.forecastByGw[18][16] < 12, 'Fresh official doubts force the availability-adjusted model');
+  assert.ok(doubtful.strategy.weeks.every(week => week.moves.every(move => move.inId !== 16)));
+  assert.ok(doubtful.options.every(option => option.transfers.every(move => move.inId !== 16)));
+
+  // Even a stale imported 12 xPts cannot resurrect a known zero-minute player.
+  input.players[15] = { ...input.players[15], status: 'i', chance: 0, availability: 0.15 };
+  input.repoElements = input.players.map(toRepoElement);
+  const injured = runPlannerSimulation({ ...input, horizonOnly: true });
+  assert.equal(injured.forecastByGw[18][16], 0);
+  assert.ok(injured.strategy.weeks.every(week => week.moves.every(move => move.inId !== 16)));
+  assert.ok(injured.strategy.weeks.every(week => week.squad.length === 15));
+});
