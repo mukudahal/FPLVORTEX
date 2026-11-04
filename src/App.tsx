@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { BrainCircuit, CalendarDays, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
+import { BrainCircuit, CalendarDays, ChevronDown, Gauge, Trophy, Users, WandSparkles, X } from 'lucide-react';
 import type { EnrichedPlayer, EntryData, RiskProfile } from './lib/types';
 import { BRAND_LION_SRC } from './lib/baseUrl';
 import type { RouteId } from './hooks/useHashRoute';
@@ -55,6 +55,10 @@ const ROUTE_PILLS: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
   { id: 'command', label: 'DASHBOARD', icon: Gauge },
   { id: 'optimizer', label: 'PLANNER', icon: WandSparkles },
   { id: 'players', label: 'PLAYERS', icon: Users },
+];
+
+// Secondary tools remain available, but do not crowd the three primary decisions.
+const SECONDARY_ROUTES: Array<{ id: RouteId; label: string; icon: typeof Gauge }> = [
   { id: 'fixtures', label: 'FIXTURES', icon: CalendarDays },
   { id: 'league', label: 'LEAGUE', icon: Trophy },
   { id: 'method', label: 'METHOD', icon: BrainCircuit },
@@ -80,6 +84,7 @@ export default function App() {
   const [entryError, setEntryError] = useState<string | null>(null);
   const [entrySyncNonce, setEntrySyncNonce] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchRevision, setSearchRevision] = useState(0);
   const [playerQuery, setPlayerQuery] = useState('');
@@ -100,6 +105,7 @@ export default function App() {
   useEffect(() => {
     setGlobalCardPlayer(null);
     setGlobalInjuryPlayer(null);
+    setMoreOpen(false);
   }, [route]);
 
   const showToast = useCallback((message: string, tone: ToastTone = 'success') => setToast({ message, tone }), []);
@@ -480,7 +486,7 @@ export default function App() {
                 type="button"
                 key={tab.id}
                 className={`vortex-route-pill ${isActive ? 'is-active' : ''}`}
-                onClick={() => navigate(tab.id)}
+                onClick={() => { setMoreOpen(false); navigate(tab.id); }}
                 aria-current={isActive ? 'page' : undefined}
               >
                 <Icon size={16} className="vortex-route-pill__icon" />
@@ -488,7 +494,36 @@ export default function App() {
               </button>
             );
           })}
+          <button
+            type="button"
+            className={`vortex-route-pill vortex-route-pill--more ${SECONDARY_ROUTES.some(tab => tab.id === route) ? 'is-active' : ''}`}
+            aria-expanded={moreOpen}
+            aria-controls="vortex-secondary-routes"
+            onClick={() => setMoreOpen(value => !value)}
+          >
+            <span className="vortex-route-pill__label">MORE</span>
+            <ChevronDown size={15} aria-hidden="true" />
+          </button>
         </nav>
+        {moreOpen && (
+          <nav id="vortex-secondary-routes" className="vortex-secondary-routes" aria-label="Additional tools">
+            {SECONDARY_ROUTES.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  type="button"
+                  key={tab.id}
+                  className={`vortex-secondary-route ${route === tab.id ? 'is-active' : ''}`}
+                  onClick={() => { setMoreOpen(false); navigate(tab.id); }}
+                  aria-current={route === tab.id ? 'page' : undefined}
+                >
+                  <Icon size={15} aria-hidden="true" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
         <main className="content" id="main-content">
 
 
@@ -530,7 +565,7 @@ export default function App() {
         </main>
       </div>
 
-      <nav className="mobile-nav mobile-nav--seven" aria-label="Mobile navigation">
+      <nav className="mobile-nav mobile-nav--primary" aria-label="Mobile navigation">
         {MOBILE_NAV.map((item) => {
           const Icon = item.icon;
           return (
