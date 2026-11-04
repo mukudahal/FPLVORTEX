@@ -123,8 +123,9 @@ test('exact mathematical parity on 25 sample players against site/model/{xpts,mi
     // Verify adapter's modelBreakdown carries exact modelXPts & rounded components
     assert.equal(ep.modelBreakdown.modelXPts, origOut.xPts);
     assert.equal(ep.modelBreakdown.defcon, Math.round(origOut.defensivePts * 100) / 100);
-    // Verify Tier-1 CSV override is honored when present
-    if (ep.gwProjections?.[nextGw] !== undefined) {
+    // Imported forecasts never override a newly flagged injury or suspension.
+    if (ep.gwProjections?.[nextGw] !== undefined && ep.status === 'a' &&
+        (ep.chance == null || ep.chance === 100)) {
       assert.equal(ep.projection, Math.round(ep.gwProjections[nextGw] * 100) / 100);
     }
   }
