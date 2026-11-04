@@ -1022,13 +1022,7 @@ export function CommandCenter({
             <>
               {squadView === 'pitch' ? (
                 <>
-                {mode === 'home' && (
-                  <div className="vx-dashboard-pitch-context" role="status">
-                    <span>GW{selectedGw} · {isDashboardRecordedGw ? 'Recorded points (captain doubled)' : selectedGw >= nextEventId ? 'Model xPts · not a final score' : 'Historical player scores unavailable'}</span>
-                    <strong>11 STARTERS · 4 SUBSTITUTES</strong>
-                  </div>
-                )}
-                <div className="vx-soccer-pitch" ref={homePitchRef}>
+                <div className="vx-soccer-pitch" ref={homePitchRef} aria-label={`GW${selectedGw} squad`} title={isDashboardRecordedGw ? 'Recorded points, including captain multiplier' : selectedGw >= nextEventId ? 'Forecast points' : 'Historical player scores unavailable'}>
                   <div className="vx-pitch-top-boards">
                     <div className="vx-pitch-board">
                       <img src={BRAND_LION_SRC} alt="" width={20} height={20} />
@@ -1067,7 +1061,7 @@ export function CommandCenter({
 
                     <div className="vx-pitch-bench-wrap" aria-label="Substitutes bench">
                       <div className="vx-pitch-bench-head">
-                        <span>BENCH · SUBSTITUTES</span>
+                        <span>Bench</span>
                         <strong>
                           {mode === 'home' && selectedGw < nextEventId && !isDashboardRecordedGw
                             ? 'Bench: N/A'
@@ -2235,3 +2229,4 @@ export function CommandCenter({
     </div>
   );
 }
+

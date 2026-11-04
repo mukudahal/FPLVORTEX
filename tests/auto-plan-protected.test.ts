@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   autoPlan,
   replay,
+  topMoves,
   sanitize,
   TRANSFER_LAB_HORIZON,
   type PlanCtx,
@@ -32,6 +33,20 @@ function makeContext(): PlanCtx {
     freeNow: 2,
   };
 }
+
+test('Director advice and Auto Plan reject flagged targets even with inflated future xPts', () => {
+  for (const [status, chance] of [['i', 0], ['d', 75], ['s', null], ['u', 0], ['a', 50]] as const) {
+    const ctx = makeContext();
+    Object.assign(ctx.players.get(16)!, { status, chance, xp: ctx.gws.map(() => 100) });
+    const advice = topMoves(ctx, replay(ctx, {}, 1), 0, 10, 30);
+    assert.ok(advice.every(move => move.in !== 16), `${status}/${chance} must not be a suggested purchase`);
+    const result = autoPlan(ctx, {}, { horizon: 10, allowHits: true, fromIdx: 0, minGainFree: 0.1 });
+    assert.ok(Object.values(result.transfers).flat().every(move => move.in !== 16));
+    // A manager's explicit saved choice stays intact, including injured assets.
+    const saved = { 1: [{ out: 9, in: 16 }] };
+    assert.deepEqual(sanitize(ctx, saved), saved);
+  }
+});
 
 test('Auto Plan defaults to a supported 10-GW limit and never changes the saved manual path', () => {
   assert.equal(TRANSFER_LAB_HORIZON, 10);
@@ -74,3 +89,4 @@ test('Auto Plan protects existing transfers in the first GW and carries them int
   assert.ok(result.steps.every(step => step.gw > 1));
   assert.deepEqual(sanitize(ctx, result.transfers), result.transfers);
 });
+

@@ -1,4 +1,5 @@
 import { toRepoElement } from './analytics';
+import { isOfficiallyUnflagged } from './transferEligibility';
 import { makeFixtureForecasts, overallDifficulty, type FixtureForecast } from './fixtureForecast';
 import { toRepoFixtures, toRepoTeams } from './fixtures';
 import {
@@ -336,7 +337,7 @@ export function buildVortexPlannerCache(snapshot: Snapshot, players: readonly En
       const breakdown = computePlayerXPts(el, gw, repoFixtures, repoTeamsMap, completed, idx, priors);
       // Match the Solver and simulation forecast policy exactly: blanks override imported values.
       if (breakdown.fixtureCount === 0) return 0;
-      return typeof precomputed === 'number' && Number.isFinite(precomputed)
+      return isOfficiallyUnflagged(p) && typeof precomputed === 'number' && Number.isFinite(precomputed)
         ? Math.max(0, precomputed)
         : Math.max(0, breakdown.xPts);
     });
@@ -352,7 +353,7 @@ export function buildVortexPlannerCache(snapshot: Snapshot, players: readonly En
     const topPool: number[] = [];
     for (const posType of [1, 2, 3, 4] as const) {
       const topForPos = players
-        .filter((p) => positionToTypeNum(p.position) === posType)
+        .filter((p) => positionToTypeNum(p.position) === posType && isOfficiallyUnflagged(p))
         .sort((a, b) => (xpByPlayerGw.get(b.id)?.[idx] ?? 0) - (xpByPlayerGw.get(a.id)?.[idx] ?? 0))
         .slice(0, posType === 1 ? 2 : 5)
         .map((p) => p.id);
@@ -601,3 +602,4 @@ export function getNextFixturesWithVortexFdr(
   const avgFdr = ratedValues.length > 0 ? ratedValues.reduce((s, v) => s + v, 0) / ratedValues.length : null;
   return { items, avgFdr };
 }
+

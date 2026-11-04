@@ -2,6 +2,7 @@
 
 import { MAX_FREE_TRANSFERS, MAX_PLAYERS_PER_CLUB, TRANSFER_HIT_COST, nextFreeTransfers, pointsHit, projectedTotal, selectOptimalXI } from "./scoring";
 import { futureGwScore } from "./decay";
+import { isOfficiallyUnflagged } from "../transferEligibility";
 
 import type {
   PlanFixture,
@@ -429,7 +430,7 @@ export function autoPlan(
       const pool = new Map<number, number[]>();
       for (const t of [1, 2, 3, 4]) {
         const list = [...ctx.players.values()]
-          .filter(p => p.type === t && !state.squad.includes(p.id))
+          .filter(p => p.type === t && !state.squad.includes(p.id) && isOfficiallyUnflagged(p))
           .map(p => ({
             id: p.id,
             s: futureGwScore(p.xp.slice(idx, endIdx), opts.decay ?? 1),
@@ -561,7 +562,7 @@ export function topMoves(
     pool.set(
       t,
       [...ctx.players.values()]
-        .filter((p) => p.type === t && !state.squad.includes(p.id))
+        .filter((p) => p.type === t && !state.squad.includes(p.id) && isOfficiallyUnflagged(p))
         .map((p) => ({
           id: p.id,
           s: p.xp.slice(idx, idx + horizon).reduce((a, b) => a + b, 0),

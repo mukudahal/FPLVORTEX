@@ -334,7 +334,7 @@ export function enrichPlayers(snapshot: Snapshot, profile: RiskProfile = 'balanc
 
 export function captaincyRanking(players: EnrichedPlayer[], limit = 8): EnrichedPlayer[] {
   return [...players]
-    .filter((p) => p.availability >= 0.45)
+    .filter((p) => isOfficiallyUnflagged(p) && p.availability >= 0.45)
     .sort((a, b) => {
       const aCap = a.projection * (0.85 + 0.15 * a.confidence);
       const bCap = b.projection * (0.85 + 0.15 * b.confidence);
@@ -345,14 +345,14 @@ export function captaincyRanking(players: EnrichedPlayer[], limit = 8): Enriched
 
 export function differentialRanking(players: EnrichedPlayer[], maxOwnership = 12, limit = 8): EnrichedPlayer[] {
   return [...players]
-    .filter((p) => p.ownership > 0 && p.ownership <= maxOwnership && p.availability >= 0.55)
+    .filter((p) => isOfficiallyUnflagged(p) && p.ownership > 0 && p.ownership <= maxOwnership && p.availability >= 0.55)
     .sort((a, b) => b.leverage - a.leverage || b.projection - a.projection)
     .slice(0, limit);
 }
 
 export function valueRanking(players: EnrichedPlayer[], limit = 8): EnrichedPlayer[] {
   return [...players]
-    .filter((p) => p.availability >= 0.6 && p.projection >= 3.2)
+    .filter((p) => isOfficiallyUnflagged(p) && p.availability >= 0.6 && p.projection >= 3.2)
     .sort((a, b) => b.value - a.value || b.horizon5Projection - a.horizon5Projection)
     .slice(0, limit);
 }

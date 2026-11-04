@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { projectPlayer, searchPlayers } from '../src/lib/analytics.ts';
+import { captaincyRanking, differentialRanking, valueRanking, riskWatchlist, projectPlayer, searchPlayers } from '../src/lib/analytics.ts';
 import { buildProjectionContext } from '../src/lib/fixtures.ts';
 import { makeFixture, makeGameweek, makePlayer, makeTeam } from './helpers.ts';
 
@@ -17,6 +17,17 @@ function context() {
   );
   return buildProjectionContext(teams, fixtures, gameweeks, 9);
 }
+
+test('captain, differential and value recommendations require unflagged official availability', () => {
+  const healthy = makePlayer(1, { projection: 5, availability: 0.9, ownership: 8, value: 1, leverage: 1 });
+  for (const [status, chance] of [['i', 0], ['d', 75], ['s', null], ['u', 0], ['a', 50]] as const) {
+    const flagged = makePlayer(2, { status, chance, projection: 100, availability: 0.99, ownership: 8, value: 99, leverage: 99 });
+    for (const rank of [captaincyRanking, differentialRanking, valueRanking]) {
+      assert.deepEqual(rank([healthy, flagged]).map(player => player.id), [healthy.id]);
+    }
+    if (status !== 'a') assert.ok(riskWatchlist([flagged]).some(player => player.id === flagged.id));
+  }
+});
 
 test('projection rewards kind fixtures and discounts unavailable players', () => {
   const model = context();
@@ -52,3 +63,4 @@ test('differential profile lifts low-owned players and search finds by name or c
   assert.equal(searchPlayers(players, 'vor')[0]?.id, 7);
   assert.equal(searchPlayers(players, 'Vortex', 1)[0]?.name, 'Vortex');
 });
+

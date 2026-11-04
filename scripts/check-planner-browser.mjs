@@ -42,7 +42,8 @@ try {
   assert.equal(await dashboard.locator('.vx-pitch-score').count(), 15, 'Every player needs an explicit points or unavailable value');
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
-  assert.match(await dashboard.locator('.vx-dashboard-pitch-context').innerText(), /Recorded points|Model xPts|Historical player scores unavailable/);
+  assert.equal(await dashboard.locator('.vx-dashboard-pitch-context').count(), 0, 'Redundant squad teaching banner must stay removed');
+  assert.match(await dashboard.locator('.vx-soccer-pitch').getAttribute('title'), /Recorded points|Forecast points|Historical player scores unavailable/);
   const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
   assert.equal(entryResponse.status(), 200);
   const entryJson = await entryResponse.json();

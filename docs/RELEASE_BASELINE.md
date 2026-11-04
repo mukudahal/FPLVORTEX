@@ -1,7 +1,8 @@
 # Canonical FPL VORTEX release baseline
 
-Updated 2026-11-03. Canonical released source is `main` in `mukudahal/FPLVORTEX`.
-The single integration branch is `release/minimal-reliable-20261103`, originally based on `a42c04ef7e1d196450364026e1f989fed56be089` and reconciled with current main for release follow-ups. Release #73 merged at `f3072e71d98ab8346f3e79f3bc4dc2588497de5c`; validated official-data child `fba687bfb8bc233ca1a738f983b9817511b431b8` was verified live.
+Updated 2026-11-04. Canonical released source is `main` in `mukudahal/FPLVORTEX`.
+Verified release baseline: PR #82 / `4753de942968a0a829516e03d795df56d2329876`, confirmed live on Render deployment `dep-dblai849v7es73cthh1g` before this increment.
+Current integration branch: `release/compact-dashboard-safe-advice-20261104` (PR #83), based on that baseline. It preserves PR82's Solver safeguards, applies the same official availability rule to Plan advice and recommendation rankings, and removes redundant Dashboard/planning copy. This increment must pass final-head CI and production verification before it is considered released. The approved merge commit and final evidence belong to PR #83 and the existing Render deployment record; never infer deployment from branch state.
 The authoritative outstanding-work register is `docs/VORTEX_V2_OUTSTANDING.md`; older roadmaps are historical design context, not completion records.
 
 ## Runtime and ownership
@@ -31,3 +32,11 @@ Successful validated official inputs are atomically written to `VORTEX_RECOVERY_
 5. On a material regression, revert the release merge through a normal reviewed PR to restore the previous tested application code. Do not reset/delete plans, databases or current official recovery data. Verify the resulting Render deployment and routes. The pre-release main SHA above is the original code reference; subsequent data-only commits should be retained when feasible.
 
 Commit, CI, exact Render deployment and live verification evidence are maintained in the authoritative work register. Browser tests use the exact locked Playwright development dependency; do not run an unpinned npm install before the build, because that can change production dependencies and invalidate artifact matching.
+
+## PR #83 reproducible acceptance
+
+- `npm run typecheck`, `npm test` (225 tests), `npm run build`.
+- All five existing CI jobs at the final PR head, including actual browser worker, manual saves, mobile widths and 4K PNG downloads.
+- Review CI screenshots for Dashboard, Manual Plan and Solver. Keep real portraits/crests and stale/unavailable states.
+- After approved merge, confirm Render serves its exact merge commit; run `node scripts/check-planner-deployment.mjs` against that build and `node scripts/check-release-live.mjs` for current official retrieval/persistence, routes, assets and solver response.
+- Check production errors. If materially regressed, use existing Render redeploy controls to restore `4753de942968a0a829516e03d795df56d2329876`. No database/schema rollback required. Preserve local plans.
