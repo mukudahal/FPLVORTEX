@@ -15,8 +15,15 @@ try {
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' });
   await page.locator('.vortex-route-pills .vortex-route-pill__label').first().waitFor({ timeout: 90000 });
   const navLabels = await page.locator('.vortex-route-pills .vortex-route-pill__label').allTextContents();
-  assert.deepEqual(navLabels.slice(0, 2), ['DASHBOARD', 'PLANNER'], 'Dashboard first, Planner second');
+  assert.deepEqual(navLabels, ['DASHBOARD', 'PLANNER', 'PLAYERS', 'MORE'], 'Exactly three primary sections and a compact secondary menu');
   assert.ok(!navLabels.includes('REVIEW'), 'Review must not appear as a navigation tab');
+  await page.locator('.vortex-route-pills').getByRole('button', { name: 'MORE' }).click();
+  const extraNav = page.getByRole('navigation', { name: 'Additional tools' });
+  assert.deepEqual(await extraNav.locator('button span').allTextContents(), ['FIXTURES', 'LEAGUE', 'METHOD'], 'Original secondary routes remain accessible');
+  await extraNav.getByRole('button', { name: 'FIXTURES' }).click();
+  assert.equal(new URL(page.url()).hash, '#/fixtures', 'Secondary navigation still opens its original route');
+  await page.locator('.vortex-route-pills').getByRole('button', { name: 'DASHBOARD' }).click();
+  assert.equal(new URL(page.url()).hash, '#/command', 'Returning to Dashboard must preserve its existing route');
   await page.locator('.page--command .vx-hub-upper').waitFor();
   await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });
   await page.locator('.page--review .vx-hub-upper').waitFor({ timeout: 30000 });
