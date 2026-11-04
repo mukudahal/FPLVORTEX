@@ -12,8 +12,8 @@ import { runMonteCarlo, mixSeed, type McPath, type McPlayerGw } from './monteCar
 import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
 import { marginalFtOptionValue } from './marginalFtOption';
 import { expectedFixturePoints } from './playerModel';
-import { projectionFreshness } from '../projectionFreshness';
-import { isEligibleNewTransferTarget, isOfficiallyUnflagged } from '../transferEligibility';
+import { isEligibleNewTransferTarget } from '../transferEligibility';
+import { forecastMean, importedForecastPolicy } from '../forecastPolicy';
 import { validateSeasonChipPlan, validateSquad, type SeasonChipUse } from './seasonRules';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -43,6 +43,8 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   importedProjectionFileDate?: string | null;
   /** Freeze the import-age policy for reproducible snapshot replays. */
   forecastAsOf?: string;
+  /** Official completed-event count; a future GW alone does not add played matches. */
+  completedEvents?: number;
 }
 
 export interface StrategyWeek {
@@ -115,6 +117,8 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
   const manualPlan = input.manualPlan;
   if (manualPlan && manualPlan.startGw !== nextGw) throw new RangeError(`Saved plan starts in GW${manualPlan.startGw}, but current forecasts start in GW${nextGw}. Rebase or create a new plan before simulating.`);
   if (!Number.isInteger(nextGw) || nextGw < 1 || nextGw > 38) throw new RangeError('Choose an upcoming gameweek from 1 to 38.');
+  const completedEvents = input.completedEvents ?? nextGw - 1;
+  if (!Number.isInteger(completedEvents) || completedEvents < 0 || completedEvents > 38) throw new RangeError('Invalid completed-event count.');
   if (!Number.isInteger(input.bankTenths) || input.bankTenths < 0) throw new RangeError('Squad exceeds the available budget. Reset or undo a transfer.');
   if (!Number.isInteger(input.freeTransfersNow) || input.freeTransfersNow < 0 || input.freeTransfersNow > 5) throw new RangeError('Free transfers must be between 0 and 5.');
   if (!Number.isFinite(input.initialHitCost ?? 0) || (input.initialHitCost ?? 0) < 0) throw new RangeError('Invalid committed transfer hit.');
@@ -156,10 +160,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
   // the independently computed fixture model; undated synthetic test scenarios
   // remain supported when no imported file is identified.
   const forecastAsOf = input.forecastAsOf === undefined ? new Date() : new Date(input.forecastAsOf);
-  if (!Number.isFinite(forecastAsOf.valueOf())) throw new RangeError('Invalid forecast as-of time.');
-  const importedAge = input.importedProjectionFileDate === undefined
-    ? null : projectionFreshness(input.importedProjectionFileDate, forecastAsOf);
-  const allowImportedMeans = importedAge === null || importedAge.status === 'recent';
+  const { age: importedAge, allowed: allowImportedMeans } = importedForecastPolicy(input.importedProjectionFileDate, forecastAsOf);
   if (importedAge && importedAge.status !== 'recent') {
     warnings.push(importedAge.status === 'stale'
       ? `Imported xPts/xMins dated ${input.importedProjectionFileDate} (${importedAge.ageDays} days old) are excluded from transfer and chip recommendations. Using local fixture-based VORTEX estimates; these have not been historically calibrated.`
@@ -179,15 +180,14 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     for (const p of input.players) {
       const el = elements.get(p.id);
       if (!el) throw new RangeError('Player forecast inputs are incomplete. Refresh the data.');
-      const bd = computePlayerXPts(el, gw, input.repoFixtures, teams, Math.max(1, nextGw - 1), gw - nextGw, priors);
+      const bd = computePlayerXPts(el, gw, input.repoFixtures, teams, Math.max(1, completedEvents), gw - nextGw, priors);
       models.set(`${p.id}:${gw}`, bd);
       const imported = p.gwProjections?.[gw];
       // Fixture blanks override imported projections. Zero is a legitimate imported forecast.
       if (!Number.isFinite(bd.xPts)) throw new RangeError(`Non-finite GW${gw} forecast for player ${p.id}; refresh the data before optimizing.`);
       // An imported forecast may predate a new official injury/doubt/suspension.
       // Current FPL availability always wins; the local model already adjusts minutes.
-      values[p.id] = bd.fixtureCount === 0 ? 0 : allowImportedMeans && isOfficiallyUnflagged(p) && Number.isFinite(imported)
-        ? Math.max(0, imported!) : Math.max(0, bd.xPts);
+      values[p.id] = forecastMean(p, bd, imported, allowImportedMeans);
     }
     forecastByGw[gw] = values;
   }

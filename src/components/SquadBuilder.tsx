@@ -23,6 +23,7 @@ import { isEligibleNewTransferTarget } from '../lib/transferEligibility';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import { createSimulationExport, simulationCsv, downloadSimulation } from '../lib/simulationExport';
+import { importedForecastDate } from '../lib/forecastPolicy';
 import {
   buildVortexPlannerCache,
   buildPlanCtxFromCache,
@@ -220,9 +221,9 @@ export function SquadBuilder({
       nextGw: snapshot.meta.nextEventId, horizon: plannerHorizon, decay: 1 - plannerDecay / 100,
       repoFixtures: toRepoFixtures(snapshot.fixtures), repoTeams: toRepoTeams(snapshot.teams),
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
-      importedProjectionFileDate: (snapshot.meta.repoData?.benchmarkPlayers ?? 0) > 0
-        ? snapshot.meta.repoData?.projectionFileDate ?? null : undefined,
+      importedProjectionFileDate: importedForecastDate(snapshot.meta.repoData),
       forecastAsOf: snapshot.meta.generatedAt,
+      completedEvents: snapshot.gameweeks.filter(gw => gw.finished).length,
       lockedIds: lockedIds.filter(id => activeSquadIds.includes(id)),
       manualPlan: selectedPlan ?? undefined,
       chipsUsed: entry ? entry.chipsUsed : [], chipHistoryKnown: entry ? entry.chipsUsed !== undefined : true,

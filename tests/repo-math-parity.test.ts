@@ -53,6 +53,7 @@ import {
 // Import app's ported repoModel modules
 import { buildStrengths, projectMatch } from '../src/lib/repoModel/dashboardMath.ts';
 import { estimateMinutesDistribution } from '../src/lib/repoModel/minutes.ts';
+import { projectionFreshness } from '../src/lib/projectionFreshness.ts';
 import { mixSeed, runMonteCarlo } from '../src/lib/repoModel/monteCarlo.ts';
 import {
   nextFreeTransfers,
@@ -123,11 +124,15 @@ test('exact mathematical parity on 25 sample players against site/model/{xpts,mi
     // Verify adapter's modelBreakdown carries exact modelXPts & rounded components
     assert.equal(ep.modelBreakdown.modelXPts, origOut.xPts);
     assert.equal(ep.modelBreakdown.defcon, Math.round(origOut.defensivePts * 100) / 100);
-    // Imported forecasts never override a newly flagged injury or suspension.
-    if (ep.gwProjections?.[nextGw] !== undefined && ep.status === 'a' &&
-        (ep.chance == null || ep.chance === 100)) {
-      assert.equal(ep.projection, Math.round(ep.gwProjections[nextGw] * 100) / 100);
-    }
+    // Raw model parity stays exact. The adapter additionally enforces source age,
+    // a matched GW, official availability and blanks before using an imported mean.
+    const importsAllowed = !(snapshot.meta.repoData?.benchmarkPlayers) ||
+      projectionFreshness(snapshot.meta.repoData?.projectionFileDate,new Date(snapshot.meta.generatedAt)).status === 'recent';
+    const imported = ep.gwProjections?.[nextGw];
+    const useImport = importsAllowed && ep.status === 'a' && (ep.chance == null || ep.chance === 100) &&
+      typeof imported === 'number' && Number.isFinite(imported);
+    const expected = origOut.fixtureCount === 0 ? 0 : useImport ? Math.max(0,imported!) : Math.max(0,origOut.xPts);
+    assert.equal(ep.projection, Math.round(expected * 100) / 100);
   }
 });
 

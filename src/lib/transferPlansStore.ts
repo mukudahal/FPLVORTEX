@@ -1,5 +1,6 @@
 import { toRepoElement } from './analytics';
 import { isOfficiallyUnflagged } from './transferEligibility';
+import { forecastMean, importedForecastDate, importedForecastPolicy } from './forecastPolicy';
 import { makeFixtureForecasts, overallDifficulty, type FixtureForecast } from './fixtureForecast';
 import { toRepoFixtures, toRepoTeams } from './fixtures';
 import {
@@ -326,6 +327,7 @@ export function buildVortexPlannerCache(snapshot: Snapshot, players: readonly En
   const repoTeamsMap = new Map(toRepoTeams(snapshot.teams).map((t) => [t.id, t]));
   const priors = computePositionPriors(snapshot.players.map(toRepoElement));
   const completed = Math.max(1, snapshot.gameweeks.filter((gw) => gw.finished).length);
+  const imports = importedForecastPolicy(importedForecastDate(snapshot.meta.repoData), new Date(snapshot.meta.generatedAt));
 
   const xpByPlayerGw = new Map<number, number[]>();
   const playerTypeMap = new Map<number, 1 | 2 | 3 | 4>();
@@ -336,10 +338,7 @@ export function buildVortexPlannerCache(snapshot: Snapshot, players: readonly En
       const precomputed = p.gwProjections?.[gw];
       const breakdown = computePlayerXPts(el, gw, repoFixtures, repoTeamsMap, completed, idx, priors);
       // Match the Solver and simulation forecast policy exactly: blanks override imported values.
-      if (breakdown.fixtureCount === 0) return 0;
-      return isOfficiallyUnflagged(p) && typeof precomputed === 'number' && Number.isFinite(precomputed)
-        ? Math.max(0, precomputed)
-        : Math.max(0, breakdown.xPts);
+      return forecastMean(p, breakdown, precomputed, imports.allowed);
     });
     xpByPlayerGw.set(p.id, arr);
   }
