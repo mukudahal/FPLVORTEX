@@ -109,7 +109,11 @@ export function evaluateSquad(players: EnrichedPlayer[], _profile: RiskProfile =
 }
 
 export function optimizeSquad(players: EnrichedPlayer[], options: OptimizeOptions = {}): SquadResult {
-  const budget = options.budget ?? DEFAULT_BUDGET_TENTHS;
+  // Older callers use £m (100), while the solver uses exact £0.1m units
+  // (1000). A full 15-player FPL squad cannot legally have a £20m budget.
+  const rawBudget = options.budget ?? DEFAULT_BUDGET_TENTHS;
+  if (!Number.isFinite(rawBudget) || rawBudget <= 0) throw new RangeError('Invalid budget.');
+  const budget = rawBudget <= 200 ? Math.round(rawBudget * 10) : Math.round(rawBudget);
   const profile = options.profile ?? 'balanced';
   const lockedIds = new Set(options.lockedIds ?? []);
   const excludedIds = new Set(options.excludedIds ?? []);
