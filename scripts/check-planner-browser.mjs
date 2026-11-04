@@ -301,6 +301,25 @@ try {
   assert.equal(await page.getByText('Could not save on this device. Your draft is still open.',{exact:true}).count(),0);
   const originalSaved = JSON.parse(storedOnce)[0];
   assert.deepEqual(storedTwice.find(p=>p.id===originalSaved.id), originalSaved);
+  // Arbitrary saved selections retain their decisions and results across worker progress/state updates.
+  await page.getByRole('button', { name: 'Solver', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulation', exact: true }).click();
+  for (const saved of [originalSaved, secondSaved]) {
+    await page.getByRole('combobox',{name:'Active saved planning scenario'}).selectOption(saved.id);
+    await waitForSimulation();
+    const filePromise = page.waitForEvent('download');
+    await page.getByRole('button',{name:'Export simulation JSON',exact:true}).click();
+    const file = await filePromise;
+    const payload = JSON.parse(await readFile(await file.path(),'utf8'));
+    assert.equal(payload.selectedPlan.id,saved.id);
+    assert.equal(payload.result.sourcePlan.id,saved.id);
+    assert.deepEqual(payload.input.manualPlan.transfers,saved.transfers);
+    assert.match(payload.inputVersion,/^sha256:[0-9a-f]{64}$/);
+    assert.ok(payload.result.monteCarlo.paths.some(path=>path.id==='saved_manual'));
+    assert.ok(await page.getByText(/Versus saved plan:/).count()>0);
+  }
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('vortex:transferPlans:v1:template'))),storedTwice);
+  await page.getByRole('button',{name:'Plan',exact:true}).click();
   for (const width of [320,375,390,414,768,1280,1920]) {
     await page.setViewportSize({ width, height: 900 });
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth) <= width, `Manual Plan overflows at ${width}px`);
@@ -354,6 +373,21 @@ try {
   await page.getByRole('button', { name: 'Simulation', exact: true }).click();
   await waitForSimulation();
   assert.ok(await page.locator('.mc-range-row').count() >= 3, 'Expected hold, transfers and chip strategies');
+  const jsonDownload = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Export simulation JSON',exact:true}).click();
+  const firstSimulation = JSON.parse(await readFile(await (await jsonDownload).path(),'utf8'));
+  await page.getByRole('button',{name:'Run simulation',exact:true}).click();
+  await waitForSimulation();
+  const repeatDownload = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Export simulation JSON',exact:true}).click();
+  const repeatSimulation = JSON.parse(await readFile(await (await repeatDownload).path(),'utf8'));
+  assert.deepEqual(repeatSimulation.result.monteCarlo,firstSimulation.result.monteCarlo);
+  assert.equal(repeatSimulation.inputVersion,firstSimulation.inputVersion);
+  const simulationCsvDownload = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Export simulation CSV',exact:true}).click();
+  const actualCsv = await readFile(await (await simulationCsvDownload).path(),'utf8');
+  assert.ok(actualCsv.includes(firstSimulation.inputVersion));
+  assert.equal(actualCsv.split('\r\n').length,firstSimulation.result.monteCarlo.paths.length+2);
   assert.equal(await page.getByText('Recommended plan', { exact: true }).count(), 1);
   assert.ok(await page.getByText(/Versus best transfer plan \(chips saved\):/).count() >= 2);
   assert.ok(await page.getByText(/Win share sampling interval \(95%\):/).count() >= 2);
@@ -467,6 +501,19 @@ try {
   await solverPage.clock.resume();
   await solverPage.getByRole('button',{name:'Run Solver',exact:true}).click();
   await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
+  await solverPage.route('**/assets/planner.worker-*.js', route=>route.fulfill({status:200,contentType:'application/javascript',headers:{'cache-control':'no-store'},body:'self.onmessage = () => {};'}));
+  await solverPage.getByRole('button',{name:'Simulation',exact:true}).click();
+  await solverPage.getByRole('button',{name:'Stop simulation',exact:true}).waitFor();
+  assert.equal(await solverPage.getByRole('button',{name:'Export simulation JSON',exact:true}).isEnabled(),false);
+  await solverPage.getByRole('button',{name:'Stop simulation',exact:true}).click();
+  await solverPage.getByText('Stopped. Run again.',{exact:true}).waitFor();
+  await solverPage.getByRole('button',{name:'Run simulation',exact:true}).click();
+  await solverPage.clock.fastForward(91000);
+  await solverPage.getByText('Simulation timed out. Try fewer gameweeks or run again.',{exact:true}).waitFor();
+  await solverPage.unroute('**/assets/planner.worker-*.js');
+  await solverPage.clock.resume();
+  await solverPage.getByRole('button',{name:'Run simulation',exact:true}).click();
+  await solverPage.locator('.mc-paths-list .mc-range-row').first().waitFor({timeout:120000});
   await solverContext.close();
 
   // A fresh session with a blocked module-worker must recover into an explicit error state.

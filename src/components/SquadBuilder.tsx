@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
-  CircleDollarSign,
   Crown,
   Dices,
   Layers,
-  ShieldCheck,
   WandSparkles,
 } from 'lucide-react';
 import type {
@@ -17,13 +15,14 @@ import type {
 } from '../lib/types';
 import { toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
-import { classNames, formatPrice } from '../lib/format';
-import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
+import { classNames } from '../lib/format';
+import { evaluateSquad, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
 import { isEligibleNewTransferTarget } from '../lib/transferEligibility';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
+import { createSimulationExport, simulationCsv, downloadSimulation } from '../lib/simulationExport';
 import {
   buildVortexPlannerCache,
   buildPlanCtxFromCache,
@@ -39,7 +38,6 @@ import {
 import { TeamIdInput } from './TeamIdInput';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { PlayerAvatar } from './PlayerAvatar';
-import { StatCard } from './StatCard';
 import { replay, sanitize } from '../lib/repoModel/planEngine';
 import { createStrategyPlan } from '../lib/strategyPlan';
 import { ChipStrategyWorkspace } from './ChipStrategyWorkspace';
@@ -67,13 +65,6 @@ interface SquadBuilderProps {
 type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
 
 const DEFAULT_TEMPLATE_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
-
-const CHIP_META: Record<string, { label: string; badge: string; tone: string }> = {
-  wildcard: { label: 'Wildcard', badge: 'WC', tone: 'mint' },
-  freehit: { label: 'Free Hit', badge: 'FH', tone: 'violet' },
-  bboost: { label: 'Bench Boost', badge: 'BB', tone: 'blue' },
-  '3xc': { label: 'Triple Captain', badge: 'TC', tone: 'pink' },
-};
 
 export function SquadBuilder({
   snapshot,
@@ -106,6 +97,9 @@ export function SquadBuilder({
   const [resultInput, setResultInput] = useState<PlannerSimulationInput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [simulationStage, setSimulationStage] = useState('Planning paths');
+  const [simulationAttempt, setSimulationAttempt] = useState(0);
+  const [simulationCompletedAt, setSimulationCompletedAt] = useState<string | null>(null);
   const [exactResult, setExactResult] = useState<ExactMilpResponse | null>(null);
   const [exactComparison, setExactComparison] = useState<{
     request: ExactMilpRequest;
@@ -134,7 +128,8 @@ export function SquadBuilder({
   }, [storageScopeId]);
   const selectedPlan = savedPlans.find(plan => plan.id === selectedPlanId) ?? null;
   const selectedPlanIsCurrent = !selectedPlan || selectedPlan.startGw === snapshot.meta.nextEventId;
-  const lockedIds = selectedPlan ? scenarioLockedIds ?? selectedPlan.lockedPlayerIds ?? [] : adHocLockedIds;
+  const lockedIds = useMemo(() => selectedPlan ? scenarioLockedIds ?? selectedPlan.lockedPlayerIds ?? [] : adHocLockedIds,
+    [selectedPlan, scenarioLockedIds, adHocLockedIds]);
   const selectPlan = (id: string) => {
     setSelectedPlanId(id);
     setScenarioFreeTransfers(null);
@@ -227,6 +222,7 @@ export function SquadBuilder({
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
       importedProjectionFileDate: (snapshot.meta.repoData?.benchmarkPlayers ?? 0) > 0
         ? snapshot.meta.repoData?.projectionFileDate ?? null : undefined,
+      forecastAsOf: snapshot.meta.generatedAt,
       lockedIds: lockedIds.filter(id => activeSquadIds.includes(id)),
       manualPlan: selectedPlan ?? undefined,
       chipsUsed: entry ? entry.chipsUsed : [], chipHistoryKnown: entry ? entry.chipsUsed !== undefined : true,
@@ -259,6 +255,8 @@ export function SquadBuilder({
       return;
     }
     setSimulationPending(true);
+    setSimulationStage('Planning paths');
+    setSimulationCompletedAt(null);
 
     let worker: Worker | null = null;
     let cancelled = false;
@@ -266,12 +264,13 @@ export function SquadBuilder({
     try {
       worker = new Worker(new URL('../workers/planner.worker.ts', import.meta.url), { type: 'module' });
       plannerCancelRef.current = () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); };
-      worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string }>) => {
+      worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string; progress?: string }>) => {
         if (cancelled) return;
+        if (event.data.progress) { setSimulationStage(event.data.progress); return; }
         clearTimeout(timeout);
         setSimulationPending(false);
         setResultInput(input);
-        if (event.data.result) setReviewSim(event.data.result);
+        if (event.data.result) { setReviewSim(event.data.result); setSimulationCompletedAt(new Date().toISOString()); }
         else setSimulationError(event.data.error ?? 'Simulation failed. Refresh and try again.');
         worker?.terminate();
       };
@@ -286,7 +285,7 @@ export function SquadBuilder({
         cancelled = true;
         worker?.terminate();
         setSimulationPending(false);
-        setSimulationError('Solver timed out. Try fewer gameweeks or run again.');
+        setSimulationError(`${subTab === 'montecarlo' ? 'Simulation' : 'Solver'} timed out. Try fewer gameweeks or run again.`);
       }, 90_000);
       worker.postMessage(input);
     } catch {
@@ -294,7 +293,7 @@ export function SquadBuilder({
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
     return () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); };
-  }, [subTab, simulationInput, chipRequest, selectedPlanIsCurrent, selectedPlan, snapshot.meta.nextEventId, players.length, activeSquadIds.length, bankTenths]);
+  }, [subTab, simulationInput, chipRequest, selectedPlanIsCurrent, selectedPlan, snapshot.meta.nextEventId, players.length, activeSquadIds.length, bankTenths, simulationAttempt]);
 
   // Cancel and discard MILP output when a squad, projection, lock or GW changes.
   // No saved manager plan is ever changed by the exact-transfer comparison.
@@ -435,8 +434,18 @@ export function SquadBuilder({
     } catch (error) { setSolverSaveError(error instanceof Error ? error.message : 'Could not save the proposal.'); }
   };
 
-  const transfersUsedCount = selectedPlan ? 0 : activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
-  const hitPoints = selectedPlan ? 0 : Math.max(0, transfersUsedCount - freeTransfers) * 4;
+  const exportSimulation = async (format: 'csv' | 'json') => {
+    if (!reviewSim || !resultInput || !simulationCompletedAt || simulationPending) return;
+    try {
+      const document = await createSimulationExport(resultInput, reviewSim, {
+        completedAt: simulationCompletedAt, snapshotAt: snapshot.meta.generatedAt,
+        snapshotSource: snapshot.meta.source, snapshotStale: snapshot.meta.stale,
+      });
+      const filename = `fpl-vortex-simulation-gw${reviewSim.nextGw}-seed${document.seed}.${format}`;
+      downloadSimulation(format === 'csv' ? simulationCsv(document) : JSON.stringify(document, null, 2),
+        filename, format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json');
+    } catch (error) { onToast(error instanceof Error ? error.message : 'Export failed. Try again.', 'error'); }
+  };
 
   return (
     <div className={classNames('page page--optimizer', subTab === 'chips' && 'page--chip-strategy')}>
@@ -481,7 +490,7 @@ export function SquadBuilder({
       {subTab === 'montecarlo' && (
       <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
-          <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
+          <span className="panel__eyebrow">SCENARIO</span>
           <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Starting squad'}</h3>
         </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
         <div className="planner-control-row">
@@ -512,57 +521,24 @@ export function SquadBuilder({
           <label>Free transfers<select aria-label="Free transfers available" value={effectiveFreeTransfers} onChange={e => changeFreeTransfers(Number(e.target.value))}>
             {[0, 1, 2, 3, 4, 5].map(ft => <option key={ft} value={ft}>{ft} FT</option>)}
           </select></label>
-          <label>Planning horizon<select aria-label="Planning horizon" value={plannerHorizon} onChange={e => setPlannerHorizon(Number(e.target.value))}>
-            {[3, 5, 10].map(gw => <option key={gw} value={gw}>{gw} GW</option>)}
+          <label>Planning horizon<select aria-label="Planning horizon" value={Math.min(plannerHorizon,39-snapshot.meta.nextEventId)} onChange={e => setPlannerHorizon(Number(e.target.value))}>
+            {[...new Set([3, 5, 10].map(gw => Math.min(gw, 39 - snapshot.meta.nextEventId)))].map(gw => <option key={gw} value={gw}>{gw} GW</option>)}
           </select></label>
           <label>Decay / GW<select aria-label="Decay per gameweek" value={plannerDecay} onChange={e => setPlannerDecay(Number(e.target.value))}>
             {[0, 5, 10, 15, 20, 30].map(value => <option key={value} value={value}>{value}%</option>)}
           </select></label>
         </div>
-        
+        <div className="planner-control-row" role="group" aria-label="Simulation actions">
+          {simulationPending
+            ? <button type="button" className="button button--ghost" onClick={() => { plannerCancelRef.current?.(); setSimulationPending(false); setSimulationError('Stopped. Run again.'); }}>Stop simulation</button>
+            : <button type="button" className="button button--ghost" onClick={() => setSimulationAttempt(value => value + 1)}>Run simulation</button>}
+          <button type="button" className="button button--ghost" aria-label="Export simulation CSV" disabled={!reviewSim || simulationPending} onClick={() => void exportSimulation('csv')}>CSV</button>
+          <button type="button" className="button button--ghost" aria-label="Export simulation JSON" disabled={!reviewSim || simulationPending} onClick={() => void exportSimulation('json')}>JSON</button>
+        </div>
       </section>}
 
       {subTab === 'montecarlo' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
-        <div className="panel__header"><div><span className="panel__eyebrow">{simulationPending ? 'RUNNING SIMULATION' : 'SIMULATION UNAVAILABLE'}</span><h3>{simulationPending ? 'Comparing legal transfer and chip paths…' : simulationError}</h3></div></div>
-      </section>}
-
-      {subTab === 'montecarlo' && <section className="stat-grid stat-grid--optimizer">
-        <StatCard
-          label={`GW${snapshot.meta.nextEventId} XI Projection`}
-          value={`${(reviewSim?.strategy.weeks[0]?.netXPts ?? result.projectedPoints - hitPoints).toFixed(1)} pts`}
-          detail={`${result.formation} · ${hitPoints > 0 ? `−${hitPoints} hit applied` : `${freeTransfers} FT available`}`}
-          icon={<WandSparkles size={18} />}
-          tone="mint"
-        />
-        <StatCard
-          label="Squad Cost / Bank"
-          value={formatPrice(result.cost)}
-          detail={`Bank: ${bankTenths >= 0 ? formatPrice(bankTenths / 10) : `−${formatPrice(Math.abs(bankTenths) / 10)}`}`}
-          icon={<CircleDollarSign size={18} />}
-          tone={bankTenths >= 0 ? 'violet' : 'pink'}
-        />
-        <StatCard
-          label="Solver Recommendation"
-          value={reviewSim ? reviewSim.recommendedDecision : '—'}
-          detail={reviewSim ? reviewSim.winner.label : simulationError ? 'Check squad and budget' : 'Calculating transfer paths'}
-          icon={<Crown size={18} />}
-          tone="amber"
-        />
-        <StatCard
-          label="Chip Strategy Posture"
-          value={
-            reviewSim?.recommendedChipDecision.bestFutureChip
-              ? `${reviewSim.recommendedChipDecision.action} · ${CHIP_META[reviewSim.recommendedChipDecision.bestFutureChip]?.badge ?? ''} GW${reviewSim.recommendedChipDecision.bestFutureGw}`
-              : reviewSim ? 'HOLD CHIPS' : '—'
-          }
-          detail={
-            reviewSim
-              ? `Peak swing +${reviewSim.recommendedChipDecision.bestFutureGain.toFixed(1)} xPts · ${formationRisk(result)}`
-              : 'Evaluating half-season'
-          }
-          icon={<ShieldCheck size={18} />}
-          tone="blue"
-        />
+        <div className="panel__header"><div><h3>{simulationPending ? simulationStage + '…' : simulationError}</h3></div></div>
       </section>}
 
       <div className="manual-plan-host" hidden={subTab !== 'planner'}>
@@ -657,11 +633,10 @@ export function SquadBuilder({
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">
-                  MONTE CARLO SIMULATION · {reviewSim.monteCarlo.draws.toLocaleString()} PAIRED DRAWS
+                  MONTE CARLO · {reviewSim.monteCarlo.draws.toLocaleString()} PAIRED DRAWS
                 </span>
-                <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Strategy Outcome Distributions</h3>
+                <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Outcomes</h3>
               </div>
-              <span className="badge badge--mint">Auto-sub + VC + chip & hit replay</span>
             </div>
 
             <div className="mc-paths-list">
@@ -679,24 +654,24 @@ export function SquadBuilder({
                       <div>
                         <strong>{path.label}</strong>
                         <small>
-                          Floor P10: {path.p10.toFixed(1)} · Median P50: {path.median.toFixed(1)} · Ceiling P90: {path.p90.toFixed(1)} · σ {path.sd.toFixed(1)}
+                          P10 {path.p10.toFixed(1)} · P50 {path.median.toFixed(1)} · P90 {path.p90.toFixed(1)}
                         </small>
                       </div>
                       <div className="mc-range-row__badges">
                         {path.id === reviewSim.monteCarlo.recommendedPathId && <span className="badge badge--mint">Recommended plan</span>}
                         {path.probBeatsHold !== null && (
                           <span className={classNames('badge', path.probBeatsHold >= 0.5 ? 'badge--mint' : 'badge--violet')}>
-                            {(path.probBeatsHold * 100).toFixed(1)}% Beat unchanged squad
+                            Win vs hold {(path.probBeatsHold * 100).toFixed(1)}%
                           </span>
                         )}
                         <strong className="score-pill is-elite">Mean {path.mean.toFixed(1)} pts</strong>
                       </div>
                     </div>
                     <small>{path.deltaMean === null ? 'Unchanged-squad baseline' : `Net gain ${path.deltaMean >= 0 ? '+' : ''}${path.deltaMean.toFixed(1)} pts · paired 80% gain range ${path.deltaP10?.toFixed(1)} to ${path.deltaP90?.toFixed(1)} · ties ${((path.probDrawsHold ?? 0) * 100).toFixed(1)}%`}</small>
-                    {path.vsReference && <small>
-                      Versus best transfer plan (chips saved): {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
+                    {path.vsReference && <details><summary>Comparison</summary><small>
+                      {path.vsReference.referenceId === 'saved_manual' ? 'Versus saved plan:' : 'Versus best transfer plan (chips saved):'} {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
                       {' '}Win share sampling interval (95%): {(path.vsReference.winProbability95[0] * 100).toFixed(1)}–{(path.vsReference.winProbability95[1] * 100).toFixed(1)}%; model uncertainty is additional.
-                    </small>}
+                    </small></details>}
                     <div className="mc-range-track" aria-hidden="true">
                       <div className="mc-range-band" style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
                       <span className="mc-range-mean" style={{ left: `${meanPct}%` }} />
@@ -707,7 +682,7 @@ export function SquadBuilder({
             </div>
           </section>
 
-          <div className="method-grid">
+          <div className="method-grid" style={{ alignItems: 'start' }}>
             <section className="panel">
               <div className="panel__header">
                 <div>
@@ -764,6 +739,7 @@ export function SquadBuilder({
             </section>
 
             <details className="panel strategy-details"><summary>Simulation details</summary>
+              <p>Seed {reviewSim.monteCarlo.seed} · {reviewSim.monteCarlo.draws.toLocaleString()} draws</p>
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">SIMULATION ASSUMPTIONS</span>
