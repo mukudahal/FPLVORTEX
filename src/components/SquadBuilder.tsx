@@ -436,21 +436,15 @@ export function SquadBuilder({
 
   return (
     <div className={classNames('page page--optimizer', subTab === 'chips' && 'page--chip-strategy')}>
-      <div className="planner-section-picker" role="group" aria-label="Planner sections">
-        {([
-          { id: 'planner', label: 'Plan', icon: Layers },
-          { id: 'chips', label: 'Chip Strategy', icon: BarChart3 },
-          { id: 'montecarlo', label: 'Monte Carlo', icon: Dices },
-        ] as const).map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" className={classNames('subtab-btn', `planner-choice--${id}`, subTab === id && 'is-active')}
-            aria-expanded={subTab === id} aria-controls={subTab === id ? "planner-section-content" : undefined}
-            onClick={() => {
-              setSubTab(id);
-
-            }}>
-            <Icon size={16} aria-hidden="true" /><span>{label}</span>
-          </button>
-        ))}
+      <div className="planner-section-picker" role="group" aria-label="Planner workspaces">
+        <button type="button" className={classNames('subtab-btn', 'planner-choice--planner', subTab === 'planner' && 'is-active')}
+          aria-pressed={subTab === 'planner'} onClick={() => setSubTab('planner')}>
+          <Layers size={16} aria-hidden="true" /><span>Plan</span>
+        </button>
+        <button type="button" className={classNames('subtab-btn', 'planner-choice--chips', subTab !== 'planner' && 'is-active')}
+          aria-pressed={subTab !== 'planner'} onClick={() => setSubTab('chips')}>
+          <WandSparkles size={16} aria-hidden="true" /><span>Solver</span>
+        </button>
         {onLoadTeam && <form className="planner-team-link" aria-label="Load official FPL team for planning"
           aria-busy={entryLoading} noValidate onSubmit={(event) => {
             event.preventDefault();
@@ -468,6 +462,18 @@ export function SquadBuilder({
           {entryError && <span className="planner-team-link__error" role="alert">{entryError}</span>}
         </form>}
       </div>
+      {subTab !== 'planner' && (
+        <div className="planner-solver-modes" role="group" aria-label="Solver views">
+          <button type="button" className={subTab === 'chips' ? 'is-active' : ''}
+            aria-pressed={subTab === 'chips'} onClick={() => setSubTab('chips')}>
+            <BarChart3 size={15} aria-hidden="true" /><span>Recommendations</span>
+          </button>
+          <button type="button" className={subTab === 'montecarlo' ? 'is-active' : ''}
+            aria-pressed={subTab === 'montecarlo'} onClick={() => setSubTab('montecarlo')}>
+            <Dices size={15} aria-hidden="true" /><span>Simulation</span>
+          </button>
+        </div>
+      )}
       {subTab === 'montecarlo' && (
       <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
