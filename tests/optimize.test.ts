@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { optimizeSquad } from '../src/lib/optimize.ts';
+import { optimizeSquad, recommendTransfers } from '../src/lib/optimize.ts';
+import { isEligibleNewTransferTarget } from '../src/lib/transferEligibility.ts';
 import { syntheticPlayerPool } from './helpers.ts';
 
 test('optimizer returns a legal fifteen within budget and club limits', () => {
@@ -36,4 +37,37 @@ test('locked players are retained in the optimized squad', () => {
   });
   assert.ok(result.squad.some((player) => player.id === locked.id));
   assert.equal(result.squad.length, 15);
+});
+
+test('officially injured, doubtful and suspended players are never new automatic transfers', () => {
+  const players = syntheticPlayerPool();
+  const flagged = players.filter(p => p.position === 'MID')[12];
+  Object.assign(flagged, {
+    status: 'i', chance: 0, availability: 0.2,
+    projection: 100, horizon5Projection: 500,
+  });
+  assert.equal(isEligibleNewTransferTarget(flagged), false);
+  assert.equal(isEligibleNewTransferTarget({ ...flagged, status: 'd', chance: 75 }), false);
+  assert.equal(isEligibleNewTransferTarget({ ...flagged, status: 's', chance: null }), false);
+  assert.equal(isEligibleNewTransferTarget({ ...flagged, status: 'a', chance: null }), true);
+
+  const built = optimizeSquad(players, { budget: 1000 });
+  assert.ok(!built.squad.some(p => p.id === flagged.id), 'Unflagged alternatives must beat a flagged 100-point target');
+
+  const from = (position: 'GKP' | 'DEF' | 'MID' | 'FWD', start: number, count: number) =>
+    players.filter(p => p.position === position).slice(start, start + count);
+  const current = [
+    ...from('GKP', 0, 2), ...from('DEF', 2, 5),
+    ...from('MID', 7, 5), ...from('FWD', 0, 3),
+  ];
+  const transfers = recommendTransfers(current, players);
+  assert.ok(transfers.every(t => t.incoming.id !== flagged.id), 'Even the independent one-transfer solver must exclude flagged purchases');
+});
+
+test('no optimizer fallback may silently overspend or buy flagged players', () => {
+  const players = syntheticPlayerPool();
+  const goalkeeper = players.filter(p => p.position === 'GKP');
+  for (const player of goalkeeper.slice(1)) Object.assign(player, { status: 'u', chance: 0, availability: 0 });
+  assert.throws(() => optimizeSquad(players, { budget: 1000 }),
+    /No legal squad fits the budget/);
 });
