@@ -15,7 +15,7 @@ import type {
 } from '../lib/types';
 import { toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
-import { classNames, formatPrice } from '../lib/format';
+import { classNames } from '../lib/format';
 import { evaluateSquad, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
@@ -65,13 +65,6 @@ interface SquadBuilderProps {
 type OptimizerSubTab = 'planner' | 'chips' | 'montecarlo';
 
 const DEFAULT_TEMPLATE_SQUAD = [1, 31, 332, 173, 40, 154, 427, 124, 165, 411, 346, 623, 115, 112, 289];
-
-const CHIP_META: Record<string, { label: string; badge: string; tone: string }> = {
-  wildcard: { label: 'Wildcard', badge: 'WC', tone: 'mint' },
-  freehit: { label: 'Free Hit', badge: 'FH', tone: 'violet' },
-  bboost: { label: 'Bench Boost', badge: 'BB', tone: 'blue' },
-  '3xc': { label: 'Triple Captain', badge: 'TC', tone: 'pink' },
-};
 
 export function SquadBuilder({
   snapshot,
