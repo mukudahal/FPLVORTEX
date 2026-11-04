@@ -46,6 +46,10 @@ try {
   const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
   assert.equal(entryResponse.status(), 200);
   const entryJson = await entryResponse.json();
+  // The initial pitch may render from the latest snapshot before the asynchronous
+  // manager entry finishes. Wait for the verified team identity, not a timeout.
+  await dashboard.locator('.vx-squad-scorebox__team strong')
+    .filter({ hasText: entryJson.teamName }).waitFor({ timeout: 30000 });
   assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
   const provenance = entryJson.provenance?.kind;
   const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
