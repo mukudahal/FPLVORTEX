@@ -20,6 +20,7 @@ import {
   type SolverPlayerNode,
 } from './repoModel/fplReviewSimulator';
 import { RULES_2026_27 } from './repoModel/seasonRules';
+import { isEligibleNewTransferTarget } from './transferEligibility';
 
 export const POSITION_QUOTAS: Record<Position, number> = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
 export const DEFAULT_BUDGET_TENTHS = RULES_2026_27.maxBudgetTenths; // 1000 (£100.0m)
@@ -108,7 +109,11 @@ export function evaluateSquad(players: EnrichedPlayer[], _profile: RiskProfile =
 }
 
 export function optimizeSquad(players: EnrichedPlayer[], options: OptimizeOptions = {}): SquadResult {
-  const budget = options.budget ?? DEFAULT_BUDGET_TENTHS;
+  // Older callers use £m (100), while the solver uses exact £0.1m units
+  // (1000). A full 15-player FPL squad cannot legally have a £20m budget.
+  const rawBudget = options.budget ?? DEFAULT_BUDGET_TENTHS;
+  if (!Number.isFinite(rawBudget) || rawBudget <= 0) throw new RangeError('Invalid budget.');
+  const budget = rawBudget <= 200 ? Math.round(rawBudget * 10) : Math.round(rawBudget);
   const profile = options.profile ?? 'balanced';
   const lockedIds = new Set(options.lockedIds ?? []);
   const excludedIds = new Set(options.excludedIds ?? []);
@@ -127,8 +132,9 @@ export function optimizeSquad(players: EnrichedPlayer[], options: OptimizeOption
   }
 
   const candidateIds = players
-    .filter((p) => p.cost > 0 && (!excludedIds.has(p.id) || lockedIds.has(p.id)) && (p.availability >= 0.08 || lockedIds.has(p.id)))
-    .map((p) => p.id);
+    .filter(p => (!excludedIds.has(p.id) || lockedIds.has(p.id)) &&
+      (isEligibleNewTransferTarget(p) || lockedIds.has(p.id)))
+    .map(p => p.id);
 
   const solvedIds = solveFullSquadTS(candidateIds, byId, budget, gwXPts, horizonWeights, lockedIds);
   if (solvedIds && solvedIds.length === 15) {
@@ -140,19 +146,9 @@ export function optimizeSquad(players: EnrichedPlayer[], options: OptimizeOption
     }
   }
 
-  // Fallback if locked picks exceed budget: relax to cheapest valid completion
-  const relaxedIds = solveFullSquadTS(
-    players.filter((p) => p.cost > 0).map((p) => p.id),
-    byId,
-    Math.max(budget, 1050),
-    gwXPts,
-    horizonWeights,
-    lockedIds,
-  );
-  const fallbackPlayers = (relaxedIds ?? players.slice(0, 15).map((p) => p.id))
-    .map((id) => playerMap.get(id))
-    .filter((p): p is EnrichedPlayer => Boolean(p));
-  return evaluateSquad(fallbackPlayers, profile);
+  // Fail closed; never construct an illegal/overbudget squad or silently buy an
+  // injury-flagged player to fill a positional quota.
+  throw new RangeError('No legal squad fits the budget, player locks and currently unflagged transfer pool. Review your selections.');
 }
 
 export function recommendTransfers(
@@ -189,7 +185,7 @@ export function recommendTransfers(
     const maxBuy = bankTenths + (sellingPrices[outgoing.id] ?? outgoing.cost);
     const candidates = allPlayers
       .filter((cand) => {
-        if (cand.position !== outgoing.position || squadSet.has(cand.id)) return false;
+        if (cand.position !== outgoing.position || squadSet.has(cand.id) || !isEligibleNewTransferTarget(cand)) return false;
         if (cand.cost > maxBuy) return false;
         const clubAfter = (clubCounts.get(cand.teamId) ?? 0) - (cand.teamId === outgoing.teamId ? 1 : 0);
         return clubAfter < MAX_PLAYERS_PER_CLUB;
@@ -219,7 +215,7 @@ export function recommendTransfers(
   // Ensure exact solver's #1 single move is always surfaced first
   const exact1 = solveKTransfersExactTS(
     squadIds,
-    allPlayers.map((p) => p.id),
+    allPlayers.filter(p => squadSet.has(p.id) || isEligibleNewTransferTarget(p)).map(p => p.id),
     byId,
     sellingPrices,
     bankTenths,

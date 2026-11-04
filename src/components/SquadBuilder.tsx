@@ -21,6 +21,7 @@ import { classNames, formatPrice } from '../lib/format';
 import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
+import { isEligibleNewTransferTarget } from '../lib/transferEligibility';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
 import {
@@ -341,7 +342,10 @@ export function SquadBuilder({
       if (!reply.ok) throw new Error(data.error ?? 'The exact transfer service could not complete this comparison.');
       if (!Array.isArray(data.plans) || !Array.isArray(data.solver_attempts))
         throw new Error('The server returned an invalid MILP response.');
-      const paths = compareMilpPaths(payload, data);
+      const paths = compareMilpPaths(payload, data, id => {
+        const candidate = playerMap.get(id);
+        return Boolean(candidate && isEligibleNewTransferTarget(candidate));
+      });
       if (!controller.signal.aborted) {
         setExactResult(data);
         setExactComparison({ request: payload, paths, sourceSnapshot: snapshot, sourcePlanner: reviewSim });

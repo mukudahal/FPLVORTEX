@@ -33,6 +33,7 @@ import {
   type PositionPriors,
 } from './repoModel/xpts';
 import type { Fixture as RepoFixture, SlimElement, SlimTeam } from './repoModel/types';
+import { isOfficiallyUnflagged } from './transferEligibility';
 
 function positionToElementType(pos: Position): 1 | 2 | 3 | 4 {
   if (pos === 'GKP') return 1;
@@ -119,7 +120,7 @@ export function projectionReasons(
   team?: FplTeam,
 ): string[] {
   const reasons: string[] = [];
-  if (player.gwProjections && Object.keys(player.gwProjections).length > 0) {
+  if (isOfficiallyUnflagged(player) && player.gwProjections && Object.keys(player.gwProjections).length > 0) {
     const mins = player.repoExpectedMinutes ?? 0;
     reasons.push(`Repo projection ${projection.toFixed(2)} xPts (${Math.round(mins)} xMins)`);
   } else {
@@ -204,11 +205,14 @@ export function projectPlayer(
   const opta = computeOptaXP5Gw(player, allFixtures, nextGw, completedEvents, 5);
   const fiveGwEaseScore = computeFiveGwFixtureEaseSum(player.teamId, allFixtures, nextGw, 5);
 
-  const csvGwXpts =
-    player.gwProjections?.[nextGw] ??
-    (player.repoBenchmarkXpts !== null && player.repoBenchmarkXpts !== undefined
-      ? player.repoBenchmarkXpts
-      : null);
+  // A dated import may predate today's official FPL injury/suspension flag.
+  // For flagged players, prefer the live-status-adjusted mechanistic forecast.
+  const unflagged = isOfficiallyUnflagged(player);
+  const csvGwXpts = unflagged
+    ? (player.gwProjections?.[nextGw] ??
+      (player.repoBenchmarkXpts !== null && player.repoBenchmarkXpts !== undefined
+        ? player.repoBenchmarkXpts : null))
+    : null;
   const baseNextGwXPts = csvGwXpts !== null ? csvGwXpts : modelOut.xPts;
 
   const availability = clamp(minsDist.p60 + minsDist.pSub, 0, 1);
@@ -221,7 +225,7 @@ export function projectPlayer(
   );
 
   const sparkline: number[] = [];
-  if (player.gwProjections && Object.keys(player.gwProjections).length > 0) {
+  if (isOfficiallyUnflagged(player) && player.gwProjections && Object.keys(player.gwProjections).length > 0) {
     const sortedGws = Object.keys(player.gwProjections)
       .map(Number)
       .sort((a, b) => a - b);
@@ -240,7 +244,7 @@ export function projectPlayer(
   let horizon5Projection = 0;
   for (let offset = 0; offset < 5; offset += 1) {
     const gw = nextGw + offset;
-    if (player.gwProjections?.[gw] !== undefined) {
+    if (unflagged && player.gwProjections?.[gw] !== undefined) {
       horizon5Projection += player.gwProjections[gw];
     } else {
       horizon5Projection += computePlayerXPts(el, gw, repoFixtures, teamsMap, completedEvents, offset, priors).xPts;
@@ -252,7 +256,7 @@ export function projectPlayer(
   const fixtureDelta = round(clamp((3 - fixtureScore) * 0.11, -0.25, 0.25), 3);
   const momentum = round(Math.tanh((player.transfersInEvent - player.transfersOutEvent) / 50000), 3);
   const expectedMinutes =
-    player.repoExpectedMinutes !== null && player.repoExpectedMinutes !== undefined
+    unflagged && player.repoExpectedMinutes !== null && player.repoExpectedMinutes !== undefined
       ? player.repoExpectedMinutes
       : minsDist.expectedMinutes;
   const confidence = round(clamp(modelOut.confidence / 100, 0.08, 0.99), 3);
