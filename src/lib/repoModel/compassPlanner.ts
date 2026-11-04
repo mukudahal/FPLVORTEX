@@ -41,6 +41,8 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   dataNotice?: string;
   /** CSV filename date, not a verified provider timestamp. Undefined means no dated import is identified. */
   importedProjectionFileDate?: string | null;
+  /** Freeze the import-age policy for reproducible snapshot replays. */
+  forecastAsOf?: string;
 }
 
 export interface StrategyWeek {
@@ -107,7 +109,8 @@ interface Action {
   moves: Array<{ outId: number; inId: number }>;
 }
 
-export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimulationOutput {
+export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?: (stage: string) => void): PlannerSimulationOutput {
+  onProgress?.('Planning paths');
   const { nextGw } = input;
   const manualPlan = input.manualPlan;
   if (manualPlan && manualPlan.startGw !== nextGw) throw new RangeError(`Saved plan starts in GW${manualPlan.startGw}, but current forecasts start in GW${nextGw}. Rebase or create a new plan before simulating.`);
@@ -152,8 +155,10 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
   // A missing/invalid date for an explicitly identified import fails closed to
   // the independently computed fixture model; undated synthetic test scenarios
   // remain supported when no imported file is identified.
+  const forecastAsOf = input.forecastAsOf === undefined ? new Date() : new Date(input.forecastAsOf);
+  if (!Number.isFinite(forecastAsOf.valueOf())) throw new RangeError('Invalid forecast as-of time.');
   const importedAge = input.importedProjectionFileDate === undefined
-    ? null : projectionFreshness(input.importedProjectionFileDate);
+    ? null : projectionFreshness(input.importedProjectionFileDate, forecastAsOf);
   const allowImportedMeans = importedAge === null || importedAge.status === 'recent';
   if (importedAge && importedAge.status !== 'recent') {
     warnings.push(importedAge.status === 'stale'
@@ -638,6 +643,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput): PlannerSimu
     pathFor('chip_strategy', 'Joint transfer + chip strategy', best),
   ];
   const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
+  onProgress?.('Sampling outcomes');
   const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
   monteCarlo.assumptions.push(
     'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',

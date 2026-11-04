@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runPlannerSimulation, type PlannerSimulationInput } from '../src/lib/repoModel/compassPlanner.ts';
+import { createSimulationExport, simulationCsv, SIMULATION_EXPORT_VERSION } from '../src/lib/simulationExport.ts';
 import { makeFixture, makePlayer, makeTeam } from './helpers.ts';
 import { toRepoElement } from '../src/lib/analytics.ts';
 import { toRepoFixtures, toRepoTeams } from '../src/lib/fixtures.ts';
@@ -41,6 +42,29 @@ function savedPlan(): StoredTransferPlan {
     createdAt: '2026-10-30T00:00:00Z', updatedAt: '2026-10-30T00:00:00Z',
   };
 }
+
+test('simulation export identifies inputs, replays the selected saved plan and escapes CSV labels', async () => {
+  const input = { ...inputs(), forecastAsOf: '2026-11-04T00:00:00Z', importedProjectionFileDate: '2026-11-04', manualPlan: savedPlan() };
+  const original = JSON.stringify(input);
+  const stages: string[] = [];
+  const result = runPlannerSimulation(input, stage => stages.push(stage));
+  assert.deepEqual(stages, ['Planning paths','Sampling outcomes']);
+  const provenance = { completedAt: '2026-11-04T00:01:00Z', snapshotAt: input.forecastAsOf };
+  const data = await createSimulationExport(input, result, provenance);
+  assert.equal(data.modelVersion, SIMULATION_EXPORT_VERSION);
+  assert.match(data.inputVersion, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(data.selectedPlan?.id, input.manualPlan.id);
+  assert.equal(data.calibration, 'unverified');
+  assert.deepEqual(runPlannerSimulation(JSON.parse(JSON.stringify(data.input))).monteCarlo, result.monteCarlo);
+  assert.equal((await createSimulationExport(input, result, provenance)).inputVersion, data.inputVersion);
+  await assert.rejects(createSimulationExport({ ...input, draws: 300 }, result, provenance), /inputs changed/);
+  result.monteCarlo.paths[0].label = '=SUM(1,2)';
+  const csv = simulationCsv(data);
+  assert.ok(csv.includes('"\'=SUM(1,2)"'));
+  assert.equal(csv.split('\r\n').length, result.monteCarlo.paths.length + 2);
+  assert.equal(JSON.stringify(input), original, 'Exports and replays preserve all saved decisions');
+  assert.throws(() => runPlannerSimulation({ ...input, forecastAsOf: 'invalid' }), /as-of/);
+});
 
 test('selected plan locks, manual transfers, XI, captain and chip replay in solver and paired Monte Carlo', () => {
   const manualPlan = savedPlan();
@@ -84,3 +108,4 @@ test('saved selection is entry-scoped; sanitized player locks never include non-
   const sanitized = sanitizeStoredPlan({ ...savedPlan(), lockedPlayerIds: [1, 1, 999] });
   assert.deepEqual(sanitized?.lockedPlayerIds, [1]);
 });
+

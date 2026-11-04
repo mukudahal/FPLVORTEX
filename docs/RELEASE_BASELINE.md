@@ -1,8 +1,8 @@
 # Canonical FPL VORTEX release baseline
 
 Updated 2026-11-04. Canonical released source is `main` in `mukudahal/FPLVORTEX`.
-Verified release baseline: PR #82 / `4753de942968a0a829516e03d795df56d2329876`, confirmed live on Render deployment `dep-dblai849v7es73cthh1g` before this increment.
-Current integration branch: `release/compact-dashboard-safe-advice-20261104` (PR #83), based on that baseline. It preserves PR82's Solver safeguards, applies the same official availability rule to Plan advice and recommendation rankings, and removes redundant Dashboard/planning copy. This increment must pass final-head CI and production verification before it is considered released. The approved merge commit and final evidence belong to PR #83 and the existing Render deployment record; never infer deployment from branch state.
+Verified release baseline: `5fa8ec13e83a2e5941b0efa51ee50c16647b1d0c`, confirmed live on Render deployment `dep-dbld8rvb9u1s73bb3a80` before this increment. This contains PR83 and the scheduled official snapshot/prospective archive refresh.
+Current integration branch: `release/simulation-controls-evidence-20261104`, based on that baseline. This increment validates selected saved-plan simulations and adds cancellation/retry and replayable CSV/JSON exports. Final-head CI and exact production commit/data/browser verification remain release gates; the approved merge and final evidence belong to its release PR and existing Render deployment record.
 The authoritative outstanding-work register is `docs/VORTEX_V2_OUTSTANDING.md`; older roadmaps are historical design context, not completion records.
 
 ## Runtime and ownership
@@ -40,3 +40,7 @@ Commit, CI, exact Render deployment and live verification evidence are maintaine
 - Review CI screenshots for Dashboard, Manual Plan and Solver. Keep real portraits/crests and stale/unavailable states.
 - After approved merge, confirm Render serves its exact merge commit; run `node scripts/check-planner-deployment.mjs` against that build and `node scripts/check-release-live.mjs` for current official retrieval/persistence, routes, assets and solver response.
 - Check production errors. If materially regressed, use existing Render redeploy controls to restore `4753de942968a0a829516e03d795df56d2329876`. No database/schema rollback required. Preserve local plans.
+
+## Simulation replay contract
+
+`src/lib/simulationExport.ts` owns `vortex-paired-fixture-v1`: shared seeded fixture sampling, existing season scoring and explicit unverified calibration/dependence assumptions. Bump the contract when sampler/rules/replay semantics change. The exact input JSON is SHA-256 identified; `forecastAsOf` freezes the imported-forecast age policy at snapshot time. JSON includes full inputs/results and sampler parameters; CSV contains actual path summaries, probabilities, seed and input/model versions. Exported files never apply or overwrite a plan. The selected manual plan remains a paired reference alongside legal Solver alternatives. Worker progress reports actual phases, without invented percentages. Verify CSV/JSON downloads and round-trip replay alongside the existing mobile/worker/PNG gates.

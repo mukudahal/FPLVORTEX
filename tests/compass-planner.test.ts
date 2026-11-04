@@ -119,6 +119,26 @@ test('weekly hits reduce their own GW, cumulative delta and total exactly once',
   assert.equal(path.perGw[1].mean, result.paths[0].perGw[1].mean - 4);
 });
 
+test('paired draws reproduce exactly and survive path reordering or added comparisons', () => {
+  const lu = (id: number) => ({ starters: [id], bench: [], captainId: id, viceId: id });
+  const paths = [
+    { id: 'hold', label: 'Hold', hitCost: 0, lineupAt: () => lu(1) },
+    { id: 'same', label: 'Same lineup', hitCost: 0, lineupAt: () => lu(1) },
+    { id: 'other', label: 'Different lineup', hitCost: 0, lineupAt: () => lu(2) },
+  ];
+  const input = { gws: [18,19], draws: 500, seed: 12345, holdId: 'hold', recommendedId: 'other', paths,
+    playerAt: (id: number) => ({ mean: 5 + id, p60: .8, pSub: .1, fixtures: 1, csProb: .3, cardLoss: .1, team: 1, position: 4 }) };
+  const first = runMonteCarlo(input);
+  assert.deepEqual(runMonteCarlo(input), first);
+  const reordered = runMonteCarlo({ ...input, paths: [...paths].reverse() });
+  for (const path of first.paths) assert.deepEqual(reordered.paths.find(p => p.id === path.id), path);
+  const extended = runMonteCarlo({ ...input, paths: [...paths, { id: 'extra', label: 'Extra', hitCost: 4, lineupAt: () => lu(3) }] });
+  for (const path of first.paths) assert.deepEqual(extended.paths.find(p => p.id === path.id), path);
+  assert.equal(first.paths.find(p => p.id === 'same')!.probDrawsHold, 1);
+  assert.equal(first.paths.find(p => p.id === 'same')!.deltaMean, 0);
+  assert.notDeepEqual(runMonteCarlo({ ...input, seed: 999 }).paths, first.paths);
+});
+
 test('lineup solver maximizes the XI plus captain and keeps a legal formation', () => {
   const input = scenario(38, false);
   const nodes = new Map(input.players.map(p => [p.id, { id: p.id, type: ({ GKP: 1, DEF: 2, MID: 3, FWD: 4 } as const)[p.position], team: p.teamId, cost: p.cost, name: p.name }]));

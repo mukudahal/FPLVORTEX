@@ -24,6 +24,7 @@ import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpB
 import { isEligibleNewTransferTarget } from '../lib/transferEligibility';
 import { compareMilpPaths, createReviewedMilpPlan, type ComparedMilpPath, type ExactMilpRequest } from '../lib/milpPathComparison';
 import { MC_DRAWS } from '../lib/repoModel/monteCarlo';
+import { createSimulationExport, simulationCsv, downloadSimulation } from '../lib/simulationExport';
 import {
   buildVortexPlannerCache,
   buildPlanCtxFromCache,
@@ -106,6 +107,9 @@ export function SquadBuilder({
   const [resultInput, setResultInput] = useState<PlannerSimulationInput | null>(null);
   const [simulationPending, setSimulationPending] = useState(false);
   const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [simulationStage, setSimulationStage] = useState('Planning paths');
+  const [simulationAttempt, setSimulationAttempt] = useState(0);
+  const [simulationCompletedAt, setSimulationCompletedAt] = useState<string | null>(null);
   const [exactResult, setExactResult] = useState<ExactMilpResponse | null>(null);
   const [exactComparison, setExactComparison] = useState<{
     request: ExactMilpRequest;
@@ -134,7 +138,8 @@ export function SquadBuilder({
   }, [storageScopeId]);
   const selectedPlan = savedPlans.find(plan => plan.id === selectedPlanId) ?? null;
   const selectedPlanIsCurrent = !selectedPlan || selectedPlan.startGw === snapshot.meta.nextEventId;
-  const lockedIds = selectedPlan ? scenarioLockedIds ?? selectedPlan.lockedPlayerIds ?? [] : adHocLockedIds;
+  const lockedIds = useMemo(() => selectedPlan ? scenarioLockedIds ?? selectedPlan.lockedPlayerIds ?? [] : adHocLockedIds,
+    [selectedPlan, scenarioLockedIds, adHocLockedIds]);
   const selectPlan = (id: string) => {
     setSelectedPlanId(id);
     setScenarioFreeTransfers(null);
@@ -227,6 +232,7 @@ export function SquadBuilder({
       repoElements: snapshot.players.map(toRepoElement), draws: simulationDraws,
       importedProjectionFileDate: (snapshot.meta.repoData?.benchmarkPlayers ?? 0) > 0
         ? snapshot.meta.repoData?.projectionFileDate ?? null : undefined,
+      forecastAsOf: snapshot.meta.generatedAt,
       lockedIds: lockedIds.filter(id => activeSquadIds.includes(id)),
       manualPlan: selectedPlan ?? undefined,
       chipsUsed: entry ? entry.chipsUsed : [], chipHistoryKnown: entry ? entry.chipsUsed !== undefined : true,
@@ -259,6 +265,8 @@ export function SquadBuilder({
       return;
     }
     setSimulationPending(true);
+    setSimulationStage('Planning paths');
+    setSimulationCompletedAt(null);
 
     let worker: Worker | null = null;
     let cancelled = false;
@@ -266,12 +274,13 @@ export function SquadBuilder({
     try {
       worker = new Worker(new URL('../workers/planner.worker.ts', import.meta.url), { type: 'module' });
       plannerCancelRef.current = () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); };
-      worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string }>) => {
+      worker.onmessage = (event: MessageEvent<{ result?: PlannerSimulationOutput; error?: string; progress?: string }>) => {
         if (cancelled) return;
+        if (event.data.progress) { setSimulationStage(event.data.progress); return; }
         clearTimeout(timeout);
         setSimulationPending(false);
         setResultInput(input);
-        if (event.data.result) setReviewSim(event.data.result);
+        if (event.data.result) { setReviewSim(event.data.result); setSimulationCompletedAt(new Date().toISOString()); }
         else setSimulationError(event.data.error ?? 'Simulation failed. Refresh and try again.');
         worker?.terminate();
       };
@@ -286,7 +295,7 @@ export function SquadBuilder({
         cancelled = true;
         worker?.terminate();
         setSimulationPending(false);
-        setSimulationError('Solver timed out. Try fewer gameweeks or run again.');
+        setSimulationError(`${subTab === 'montecarlo' ? 'Simulation' : 'Solver'} timed out. Try fewer gameweeks or run again.`);
       }, 90_000);
       worker.postMessage(input);
     } catch {
@@ -294,7 +303,7 @@ export function SquadBuilder({
       setSimulationError('This browser could not start the simulation. Reload the page in a browser with Web Worker support.');
     }
     return () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); };
-  }, [subTab, simulationInput, chipRequest, selectedPlanIsCurrent, selectedPlan, snapshot.meta.nextEventId, players.length, activeSquadIds.length, bankTenths]);
+  }, [subTab, simulationInput, chipRequest, selectedPlanIsCurrent, selectedPlan, snapshot.meta.nextEventId, players.length, activeSquadIds.length, bankTenths, simulationAttempt]);
 
   // Cancel and discard MILP output when a squad, projection, lock or GW changes.
   // No saved manager plan is ever changed by the exact-transfer comparison.
@@ -438,6 +447,19 @@ export function SquadBuilder({
   const transfersUsedCount = selectedPlan ? 0 : activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
   const hitPoints = selectedPlan ? 0 : Math.max(0, transfersUsedCount - freeTransfers) * 4;
 
+  const exportSimulation = async (format: 'csv' | 'json') => {
+    if (!reviewSim || !resultInput || !simulationCompletedAt || simulationPending) return;
+    try {
+      const document = await createSimulationExport(resultInput, reviewSim, {
+        completedAt: simulationCompletedAt, snapshotAt: snapshot.meta.generatedAt,
+        snapshotSource: snapshot.meta.source, snapshotStale: snapshot.meta.stale,
+      });
+      const filename = `fpl-vortex-simulation-gw${reviewSim.nextGw}-seed${document.seed}.${format}`;
+      downloadSimulation(format === 'csv' ? simulationCsv(document) : JSON.stringify(document, null, 2),
+        filename, format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json');
+    } catch (error) { onToast(error instanceof Error ? error.message : 'Export failed. Try again.', 'error'); }
+  };
+
   return (
     <div className={classNames('page page--optimizer', subTab === 'chips' && 'page--chip-strategy')}>
       <div className="planner-section-picker" role="group" aria-label="Planner workspaces">
@@ -481,7 +503,7 @@ export function SquadBuilder({
       {subTab === 'montecarlo' && (
       <section className="panel" aria-label="Authoritative planning scenario" data-testid="active-saved-plan">
         <div className="panel__header"><div>
-          <span className="panel__eyebrow">SHARED 10-GW PLANNING STATE</span>
+          <span className="panel__eyebrow">SCENARIO</span>
           <h3>{selectedPlan ? `Active: ${selectedPlan.name}` : 'Starting squad'}</h3>
         </div><span className="badge badge--violet">{lockedIds.length} player locks</span></div>
         <div className="planner-control-row">
@@ -512,18 +534,24 @@ export function SquadBuilder({
           <label>Free transfers<select aria-label="Free transfers available" value={effectiveFreeTransfers} onChange={e => changeFreeTransfers(Number(e.target.value))}>
             {[0, 1, 2, 3, 4, 5].map(ft => <option key={ft} value={ft}>{ft} FT</option>)}
           </select></label>
-          <label>Planning horizon<select aria-label="Planning horizon" value={plannerHorizon} onChange={e => setPlannerHorizon(Number(e.target.value))}>
-            {[3, 5, 10].map(gw => <option key={gw} value={gw}>{gw} GW</option>)}
+          <label>Planning horizon<select aria-label="Planning horizon" value={Math.min(plannerHorizon,39-snapshot.meta.nextEventId)} onChange={e => setPlannerHorizon(Number(e.target.value))}>
+            {[...new Set([3, 5, 10].map(gw => Math.min(gw, 39 - snapshot.meta.nextEventId)))].map(gw => <option key={gw} value={gw}>{gw} GW</option>)}
           </select></label>
           <label>Decay / GW<select aria-label="Decay per gameweek" value={plannerDecay} onChange={e => setPlannerDecay(Number(e.target.value))}>
             {[0, 5, 10, 15, 20, 30].map(value => <option key={value} value={value}>{value}%</option>)}
           </select></label>
         </div>
-        
+        <div className="planner-control-row" role="group" aria-label="Simulation actions">
+          {simulationPending
+            ? <button type="button" className="button button--ghost" onClick={() => { plannerCancelRef.current?.(); setSimulationPending(false); setSimulationError('Stopped. Run again.'); }}>Stop simulation</button>
+            : <button type="button" className="button button--ghost" onClick={() => setSimulationAttempt(value => value + 1)}>Run simulation</button>}
+          <button type="button" className="button button--ghost" aria-label="Export simulation CSV" disabled={!reviewSim || simulationPending} onClick={() => void exportSimulation('csv')}>CSV</button>
+          <button type="button" className="button button--ghost" aria-label="Export simulation JSON" disabled={!reviewSim || simulationPending} onClick={() => void exportSimulation('json')}>JSON</button>
+        </div>
       </section>}
 
       {subTab === 'montecarlo' && (simulationPending || simulationError) && <section className="panel" role={simulationError ? 'alert' : 'status'} aria-live="polite" aria-busy={simulationPending}>
-        <div className="panel__header"><div><span className="panel__eyebrow">{simulationPending ? 'RUNNING SIMULATION' : 'SIMULATION UNAVAILABLE'}</span><h3>{simulationPending ? 'Comparing legal transfer and chip paths…' : simulationError}</h3></div></div>
+        <div className="panel__header"><div><h3>{simulationPending ? simulationStage + '…' : simulationError}</h3></div></div>
       </section>}
 
       {subTab === 'montecarlo' && <section className="stat-grid stat-grid--optimizer">
@@ -694,7 +722,7 @@ export function SquadBuilder({
                     </div>
                     <small>{path.deltaMean === null ? 'Unchanged-squad baseline' : `Net gain ${path.deltaMean >= 0 ? '+' : ''}${path.deltaMean.toFixed(1)} pts · paired 80% gain range ${path.deltaP10?.toFixed(1)} to ${path.deltaP90?.toFixed(1)} · ties ${((path.probDrawsHold ?? 0) * 100).toFixed(1)}%`}</small>
                     {path.vsReference && <small>
-                      Versus best transfer plan (chips saved): {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
+                      {path.vsReference.referenceId === 'saved_manual' ? 'Versus saved plan:' : 'Versus best transfer plan (chips saved):'} {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
                       {' '}Win share sampling interval (95%): {(path.vsReference.winProbability95[0] * 100).toFixed(1)}–{(path.vsReference.winProbability95[1] * 100).toFixed(1)}%; model uncertainty is additional.
                     </small>}
                     <div className="mc-range-track" aria-hidden="true">
@@ -764,6 +792,7 @@ export function SquadBuilder({
             </section>
 
             <details className="panel strategy-details"><summary>Simulation details</summary>
+              <p>Seed {reviewSim.monteCarlo.seed} · {reviewSim.monteCarlo.draws.toLocaleString()} draws</p>
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">SIMULATION ASSUMPTIONS</span>
