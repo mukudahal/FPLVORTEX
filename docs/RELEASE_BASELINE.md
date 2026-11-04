@@ -35,7 +35,7 @@ Commit, CI, exact Render deployment and live verification evidence are maintaine
 
 ## PR #83 reproducible acceptance
 
-- `npm run typecheck`, `npm test` (224 tests), `npm run build`.
+- `npm run typecheck`, `npm test` (225 tests), `npm run build`.
 - All five existing CI jobs at the final PR head, including actual browser worker, manual saves, mobile widths and 4K PNG downloads.
 - Review CI screenshots for Dashboard, Manual Plan and Solver. Keep real portraits/crests and stale/unavailable states.
 - After approved merge, confirm Render serves its exact merge commit; run `node scripts/check-planner-deployment.mjs` against that build and `node scripts/check-release-live.mjs` for current official retrieval/persistence, routes, assets and solver response.

@@ -42,6 +42,17 @@ async function loadPlannerSetup() {
   return { snapshot, players, fallbackSquadIds, cache, plan, ctx };
 }
 
+test('manual Plan cache cannot revive an injured owned player through imported future forecasts', async () => {
+  const { snapshot, players } = await loadPlannerSetup();
+  const candidate = players.find(player => player.status === 'a' && player.minutes > 0)!;
+  const inflated = Object.fromEntries(Array.from({ length: 29 }, (_, i) => [i + 10, 999]));
+  const flagged = { ...candidate, status: 'i', chance: 0, gwProjections: inflated };
+  const cache = buildVortexPlannerCache(snapshot, players.map(player => player.id === candidate.id ? flagged : player));
+  assert.ok(cache.xpByPlayerGw.get(candidate.id)!.every(value => value === 0), 'Official zero availability wins for every future GW, including owned players');
+  assert.ok(cache.benchmarkOptimalXpByGw.size > 0, 'Healthy benchmark remains usable');
+  assert.equal(flagged.gwProjections[10], 999, 'Forecast inputs are retained without mutation');
+});
+
 test('Fix 1: 10-slot plan store creates, updates, caps at 10 slots, deletes cleanly, and renders Transfer plans popup UI', async () => {
   const { snapshot, players, fallbackSquadIds } = await loadPlannerSetup();
   let slots: StoredTransferPlan[] = [];
