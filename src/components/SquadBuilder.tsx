@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
-  CircleDollarSign,
   Crown,
   Dices,
   Layers,
-  ShieldCheck,
   WandSparkles,
 } from 'lucide-react';
 import type {
@@ -18,7 +16,7 @@ import type {
 import { toRepoElement } from '../lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../lib/fixtures';
 import { classNames, formatPrice } from '../lib/format';
-import { evaluateSquad, formationRisk, optimizeSquad } from '../lib/optimize';
+import { evaluateSquad, optimizeSquad } from '../lib/optimize';
 import type { PlannerSimulationInput, PlannerSimulationOutput } from '../lib/repoModel/compassPlanner';
 import { buildExactMilpRequest, type ExactMilpResponse } from '../lib/exactMilpBridge';
 import { isEligibleNewTransferTarget } from '../lib/transferEligibility';
@@ -40,7 +38,6 @@ import {
 import { TeamIdInput } from './TeamIdInput';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { PlayerAvatar } from './PlayerAvatar';
-import { StatCard } from './StatCard';
 import { replay, sanitize } from '../lib/repoModel/planEngine';
 import { createStrategyPlan } from '../lib/strategyPlan';
 import { ChipStrategyWorkspace } from './ChipStrategyWorkspace';
@@ -444,9 +441,6 @@ export function SquadBuilder({
     } catch (error) { setSolverSaveError(error instanceof Error ? error.message : 'Could not save the proposal.'); }
   };
 
-  const transfersUsedCount = selectedPlan ? 0 : activeSquadIds.filter((id) => !baseEntrySquadIds.includes(id)).length;
-  const hitPoints = selectedPlan ? 0 : Math.max(0, transfersUsedCount - freeTransfers) * 4;
-
   const exportSimulation = async (format: 'csv' | 'json') => {
     if (!reviewSim || !resultInput || !simulationCompletedAt || simulationPending) return;
     try {
@@ -554,45 +548,6 @@ export function SquadBuilder({
         <div className="panel__header"><div><h3>{simulationPending ? simulationStage + '…' : simulationError}</h3></div></div>
       </section>}
 
-      {subTab === 'montecarlo' && <section className="stat-grid stat-grid--optimizer">
-        <StatCard
-          label={`GW${snapshot.meta.nextEventId} XI Projection`}
-          value={`${(reviewSim?.strategy.weeks[0]?.netXPts ?? result.projectedPoints - hitPoints).toFixed(1)} pts`}
-          detail={`${result.formation} · ${hitPoints > 0 ? `−${hitPoints} hit applied` : `${freeTransfers} FT available`}`}
-          icon={<WandSparkles size={18} />}
-          tone="mint"
-        />
-        <StatCard
-          label="Squad Cost / Bank"
-          value={formatPrice(result.cost)}
-          detail={`Bank: ${bankTenths >= 0 ? formatPrice(bankTenths / 10) : `−${formatPrice(Math.abs(bankTenths) / 10)}`}`}
-          icon={<CircleDollarSign size={18} />}
-          tone={bankTenths >= 0 ? 'violet' : 'pink'}
-        />
-        <StatCard
-          label="Solver Recommendation"
-          value={reviewSim ? reviewSim.recommendedDecision : '—'}
-          detail={reviewSim ? reviewSim.winner.label : simulationError ? 'Check squad and budget' : 'Calculating transfer paths'}
-          icon={<Crown size={18} />}
-          tone="amber"
-        />
-        <StatCard
-          label="Chip Strategy Posture"
-          value={
-            reviewSim?.recommendedChipDecision.bestFutureChip
-              ? `${reviewSim.recommendedChipDecision.action} · ${CHIP_META[reviewSim.recommendedChipDecision.bestFutureChip]?.badge ?? ''} GW${reviewSim.recommendedChipDecision.bestFutureGw}`
-              : reviewSim ? 'HOLD CHIPS' : '—'
-          }
-          detail={
-            reviewSim
-              ? `Peak swing +${reviewSim.recommendedChipDecision.bestFutureGain.toFixed(1)} xPts · ${formationRisk(result)}`
-              : 'Evaluating half-season'
-          }
-          icon={<ShieldCheck size={18} />}
-          tone="blue"
-        />
-      </section>}
-
       <div className="manual-plan-host" hidden={subTab !== 'planner'}>
         <TransferPlanModal embedded open onClose={() => {}} snapshot={snapshot} players={players}
           fallbackSquadIds={baseEntrySquadIds} entry={entry} defaultFreeTransfers={freeTransfers}
@@ -685,11 +640,10 @@ export function SquadBuilder({
             <div className="panel__header">
               <div>
                 <span className="panel__eyebrow">
-                  MONTE CARLO SIMULATION · {reviewSim.monteCarlo.draws.toLocaleString()} PAIRED DRAWS
+                  MONTE CARLO · {reviewSim.monteCarlo.draws.toLocaleString()} PAIRED DRAWS
                 </span>
-                <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Strategy Outcome Distributions</h3>
+                <h3>GW{reviewSim.monteCarlo.gws[0]}–GW{reviewSim.monteCarlo.gws.at(-1)} Outcomes</h3>
               </div>
-              <span className="badge badge--mint">Auto-sub + VC + chip & hit replay</span>
             </div>
 
             <div className="mc-paths-list">
@@ -707,24 +661,24 @@ export function SquadBuilder({
                       <div>
                         <strong>{path.label}</strong>
                         <small>
-                          Floor P10: {path.p10.toFixed(1)} · Median P50: {path.median.toFixed(1)} · Ceiling P90: {path.p90.toFixed(1)} · σ {path.sd.toFixed(1)}
+                          P10 {path.p10.toFixed(1)} · P50 {path.median.toFixed(1)} · P90 {path.p90.toFixed(1)}
                         </small>
                       </div>
                       <div className="mc-range-row__badges">
                         {path.id === reviewSim.monteCarlo.recommendedPathId && <span className="badge badge--mint">Recommended plan</span>}
                         {path.probBeatsHold !== null && (
                           <span className={classNames('badge', path.probBeatsHold >= 0.5 ? 'badge--mint' : 'badge--violet')}>
-                            {(path.probBeatsHold * 100).toFixed(1)}% Beat unchanged squad
+                            Win vs hold {(path.probBeatsHold * 100).toFixed(1)}%
                           </span>
                         )}
                         <strong className="score-pill is-elite">Mean {path.mean.toFixed(1)} pts</strong>
                       </div>
                     </div>
                     <small>{path.deltaMean === null ? 'Unchanged-squad baseline' : `Net gain ${path.deltaMean >= 0 ? '+' : ''}${path.deltaMean.toFixed(1)} pts · paired 80% gain range ${path.deltaP10?.toFixed(1)} to ${path.deltaP90?.toFixed(1)} · ties ${((path.probDrawsHold ?? 0) * 100).toFixed(1)}%`}</small>
-                    {path.vsReference && <small>
+                    {path.vsReference && <details><summary>Comparison</summary><small>
                       {path.vsReference.referenceId === 'saved_manual' ? 'Versus saved plan:' : 'Versus best transfer plan (chips saved):'} {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
                       {' '}Win share sampling interval (95%): {(path.vsReference.winProbability95[0] * 100).toFixed(1)}–{(path.vsReference.winProbability95[1] * 100).toFixed(1)}%; model uncertainty is additional.
-                    </small>}
+                    </small></details>}
                     <div className="mc-range-track" aria-hidden="true">
                       <div className="mc-range-band" style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
                       <span className="mc-range-mean" style={{ left: `${meanPct}%` }} />
@@ -735,7 +689,7 @@ export function SquadBuilder({
             </div>
           </section>
 
-          <div className="method-grid">
+          <div className="method-grid" style={{ alignItems: 'start' }}>
             <section className="panel">
               <div className="panel__header">
                 <div>
