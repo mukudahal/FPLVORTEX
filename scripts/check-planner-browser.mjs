@@ -403,6 +403,22 @@ try {
   assert.equal(await page.locator('.strategy-gw-strip button').count(), 10);
   assert.equal(await page.locator('.strategy-pitch .strategy-pitch-player').count(), 11);
   assert.equal(await page.locator('.strategy-bench > div').count(), 4);
+  assert.equal(await page.locator('.strategy-pitch .projection-card-points b').count(), 11);
+  assert.equal(await page.locator('.strategy-bench .projection-card-points b').count(), 4);
+  for (const value of await page.locator('.strategy-pitch .projection-card-points b').allTextContents())
+    assert.match(value, /^\d+\.\d{2}$/, 'Solver cards retain two-decimal model values');
+  assert.equal(await page.locator('.strategy-pitch .projection-card-photo .club-badge').count(), 11);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({width,height:950});
+    for (const card of await page.locator('.strategy-pitch .projection-card').all()) {
+      const points = card.locator('.projection-card-points b');
+      assert.ok(Number.parseFloat(await points.evaluate(el=>getComputedStyle(el).fontSize)) >= 16);
+      const rect=await card.boundingBox();
+      assert.ok(rect && rect.x >= -2 && rect.x+rect.width <= width+2, `Solver card clipped at ${width}px`);
+    }
+    await page.screenshot({path:`test-results/planner/solver-projections-${width}.png`,fullPage:true});
+  }
+  await page.setViewportSize({width:1440,height:1000});
   assert.equal(await page.getByRole('button', {name:'Automatic',exact:true}).getAttribute('aria-pressed'),'true');
   await page.getByRole('button', {name:'Manual chips',exact:true}).click();
   await page.getByRole('button',{name:'Run Solver',exact:true}).click();
@@ -417,6 +433,12 @@ try {
   await waitForSimulation();
   await page.getByRole('combobox', { name: 'Simulation draws' }).selectOption('10000');
   await page.getByText(/10,000 PAIRED DRAWS/).waitFor({ timeout: 120000 });
+  await page.getByRole('combobox',{name:'Simulation chart plan'}).waitFor();
+  await page.getByText('Exact weekly points',{exact:true}).click();
+  assert.ok(await page.locator('.simulation-chart tbody tr').count()>0);
+  for (const value of await page.locator('.simulation-chart tbody td').allTextContents())
+    assert.match(value,/^-?\d+\.\d{2}$/);
+  await page.getByText('Exact weekly points',{exact:true}).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/planner/simulation-mobile.png', fullPage: true });
   const bodyWidth = await page.evaluate(() => document.documentElement.scrollWidth);

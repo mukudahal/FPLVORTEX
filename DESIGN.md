@@ -1,5 +1,9 @@
 # FPL VORTEX design contract
 
+## Readable projections and simulation charts
+
+Solver pitch, bench and transfer cards share `PlayerProjectionCard.tsx`: official ID/code imagery, visible club badge, opponent(s), status and base solver xPts to two decimals. Captain multipliers remain separate labels. Mobile formation rows wrap instead of shrinking names and values. Cached headshots precede shirt fallbacks, which have explicit alternative text. `SimulationChart.tsx` owns weekly mean/P10–P90 charts, labelled axes and exact-value disclosure; it consumes completed simulation payloads without recomputing forecasts or adding quantiles. Existing runtime tokens remain authoritative.
+
 The current website is the visual reference. The owner explicitly requested that the planner improvements preserve the UI, graphics, branding, pitch, portraits, badges, typography and layout.
 
 ## Canonical owners

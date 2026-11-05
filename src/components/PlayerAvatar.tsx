@@ -41,10 +41,11 @@ export function PlayerAvatar({
   }, [code, teamCode, size]);
 
   const activeSrc = candidateIndex < candidates.length ? candidates[candidateIndex] : fallbackUri;
-  const altText = `${fullName || name} (${teamShort}) player portrait`;
+  const isFallback = candidateIndex >= candidates.length || /\/shirts\//.test(activeSrc);
+  const altText = `${fullName || name} (${teamShort}) ${isFallback ? 'shirt fallback; portrait unavailable' : 'player portrait'}`;
 
   return (
-    <span className={classNames('player-avatar', `player-avatar--${size}`, className)}>
+    <span className={classNames('player-avatar', `player-avatar--${size}`, className)} data-image-state={isFallback ? 'fallback' : 'portrait'} title={isFallback ? 'Player portrait unavailable' : undefined}>
       <img
         src={activeSrc}
         alt={altText}

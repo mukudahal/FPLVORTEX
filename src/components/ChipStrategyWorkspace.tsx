@@ -5,8 +5,7 @@ import type { PlannerSimulationOutput, StrategyWeek } from '../lib/repoModel/com
 import type { SeasonChipUse } from '../lib/repoModel/seasonRules';
 import type { StoredTransferPlan } from '../lib/transferPlansStore';
 import { classNames, formatPrice } from '../lib/format';
-import { PlayerAvatar } from './PlayerAvatar';
-import { ClubBadge } from './ClubBadge';
+import { PlayerProjectionCard } from './PlayerProjectionCard';
 import { InfoDisclosure } from './InfoDisclosure';
 
 const CHIPS = [
@@ -32,7 +31,6 @@ export function ChipStrategyWorkspace(props: Props) {
   const { snapshot, players, result, pending, error, mode, requestedChips, savedPlan } = props;
   const [selectedGw, setSelectedGw] = useState(snapshot.meta.nextEventId);
   const byId = new Map(players.map(player => [player.id, player]));
-  const teams = new Map(snapshot.teams.map(team => [team.id, team]));
   const gws = Array.from({ length: Math.min(props.horizon, 39 - snapshot.meta.nextEventId) }, (_, index) => snapshot.meta.nextEventId + index);
   const weeks = result?.strategy.weeks.filter(step => gws.includes(step.gw)) ?? [];
   const week = weeks.find(step => step.gw === selectedGw) ?? weeks[0];
@@ -45,16 +43,12 @@ export function ChipStrategyWorkspace(props: Props) {
   const total = weeks.reduce((sum, step) => sum + step.netXPts, 0);
   const totalHits = weeks.reduce((sum, step) => sum + step.hitCost, 0);
   const xp = (id: number) => week ? result?.forecastByGw[week.gw]?.[id] : byId.get(id)?.projection;
-  const fixtureLabel = (player: EnrichedPlayer) => snapshot.fixtures
-    .filter(fixture => fixture.event === displayGw && (fixture.teamH === player.teamId || fixture.teamA === player.teamId))
-    .map(fixture => `${teams.get(fixture.teamH === player.teamId ? fixture.teamA : fixture.teamH)?.shortName ?? '?'} (${fixture.teamH === player.teamId ? 'H' : 'A'})`).join(' · ') || 'Blank';
-  const portrait = (id: number, label?: string, priceTenths?: number) => {
+  const portrait = (id: number, _label?: string, priceTenths?: number) => {
     const player = byId.get(id);
     if (!player) return <span>Unavailable</span>;
-    return <button type="button" className="strategy-player" onClick={() => props.onInspectPlayer?.(player)} aria-label={`${label ? label + ' ' : ''}${player.name}`}>
-      <PlayerAvatar code={player.code} teamCode={player.team.code} name={player.name} fullName={player.fullName} teamShort={player.team.shortName} position={player.position} size="md" />
-      <span className="strategy-player-identity"><strong>{player.name}</strong><small><ClubBadge teamCode={player.team.code} teamName={player.team.name} shortName={player.team.shortName} size="sm" />{player.team.shortName} · {formatPrice(priceTenths === undefined ? player.price : priceTenths / 10)}</small><em>{fixtureLabel(player)}</em></span>
-    </button>;
+    return <PlayerProjectionCard player={player} snapshot={snapshot} gw={displayGw} points={xp(id)} priceTenths={priceTenths}
+      captainMultiplier={id === lineup?.captainId ? week?.chip === 'tc' ? 3 : 2 : 1}
+      vice={id === lineup?.viceId} onInspect={props.onInspectPlayer} />;
   };
   return <div className={classNames('strategy-workspace', 'strategy-workspace--quiet', !result && 'is-ready')}>
     <section className="panel strategy-setup" aria-label="Transfer solver settings">
@@ -92,13 +86,13 @@ export function ChipStrategyWorkspace(props: Props) {
       <div className="strategy-context"><div>{!snapshot.meta.stale && <span className="strategy-fresh" role="img" aria-label="Fresh snapshot" title={`Snapshot: ${snapshot.meta.generatedAt}`}><Check size={13} aria-hidden="true" /></span>}{props.template && <span className="strategy-state">Template</span>}{snapshot.meta.stale && <span className="strategy-state is-stale">Stale</span>}{!props.historyKnown && <span className="strategy-state">Chips unverified</span>}</div><InfoDisclosure label="About the solver"><p>xPts are forecasts. This search uses shortlisted players and fixed prices; a global optimum is not certified.</p><p>Automatic chooses available chip weeks. Manual chips uses your selections. Saved decisions remain fixed.</p><p>Snapshot: {snapshot.meta.generatedAt}.</p><a href="#/method">Methodology</a></InfoDisclosure></div>
     </section>
     <section className="panel strategy-results" aria-label={result ? 'Joint chip schedule' : 'Starting squad'} aria-busy={pending}>
-      <div className="strategy-summary"><div><small>{result ? `${weeks.length} GW` : `GW${displayGw}`} </small><h3>{result ? total.toFixed(1) : (props.startingSquad?.projectedPoints.toFixed(1) ?? '—')} <span>xPts</span></h3></div><div><strong>{formatPrice((week?.bankAfter ?? props.bankTenths ?? 0) / 10)} <span>bank</span></strong><small>{week ? `${week.ftBefore} → ${week.ftAfter}` : props.freeTransfers} FT{totalHits ? ` · −${totalHits} hits` : ''}</small>{result && <small className="strategy-gain">{total - result.strategy.holdPoints >= 0 ? '+' : ''}{(total - result.strategy.holdPoints).toFixed(1)} vs hold</small>}</div>{result && <span className="strategy-result-state" aria-label="Calculated"><Check size={13} aria-hidden="true" /></span>}</div>
-      {result && <div className="strategy-gw-strip" role="group" aria-label="Recommended gameweeks">{weeks.map(step => <button type="button" key={step.gw} aria-pressed={week?.gw === step.gw} onClick={() => setSelectedGw(step.gw)}><span>GW{step.gw}</span><strong>{step.netXPts.toFixed(1)}</strong><small>{chipBadge(step.chip) ?? (step.moves.length ? `${step.moves.length} move${step.moves.length > 1 ? 's' : ''}` : 'Roll')}{step.hitCost ? ` · −${step.hitCost}` : ''}</small></button>)}</div>}
+      <div className="strategy-summary"><div><small>{result ? `${weeks.length} GW` : `GW${displayGw}`} </small><h3>{result ? total.toFixed(2) : (props.startingSquad?.projectedPoints.toFixed(2) ?? '—')} <span>xPts{result ? ' · net' : ' · preview'}</span></h3></div><div><strong>{formatPrice((week?.bankAfter ?? props.bankTenths ?? 0) / 10)} <span>bank</span></strong><small>{week ? `${week.ftBefore} → ${week.ftAfter}` : props.freeTransfers} FT{totalHits ? ` · −${totalHits} hits` : ''}</small>{result && <small className="strategy-gain">{total - result.strategy.holdPoints >= 0 ? '+' : ''}{(total - result.strategy.holdPoints).toFixed(1)} vs hold</small>}</div>{result && <span className="strategy-result-state" aria-label="Calculated"><Check size={13} aria-hidden="true" /></span>}</div>
+      {result && <div className="strategy-gw-strip" role="group" aria-label="Recommended gameweeks">{weeks.map(step => <button type="button" key={step.gw} aria-pressed={week?.gw === step.gw} onClick={() => setSelectedGw(step.gw)}><span>GW{step.gw}</span><strong>{step.netXPts.toFixed(2)}</strong><small>{chipBadge(step.chip) ?? (step.moves.length ? `${step.moves.length} move${step.moves.length > 1 ? 's' : ''}` : 'Roll')}{step.hitCost ? ` · −${step.hitCost}` : ''}</small></button>)}</div>}
       <div className={classNames('strategy-main-grid', !result && 'is-preview')}>
-        {result && <div className="strategy-timeline" aria-label="Ten-gameweek transfer roadmap">{weeks.map(step => <button type="button" key={step.gw} className={classNames('strategy-step',week?.gw === step.gw && 'is-active')} onClick={() => setSelectedGw(step.gw)}><strong>GW{step.gw}</strong><span>{step.chip && <b>{chipBadge(step.chip)} · </b>}{step.moves.length ? step.moves.map(move => `${byId.get(move.outId)?.name ?? 'Unavailable'} → ${byId.get(move.inId)?.name ?? 'Unavailable'}`).join(' / ') : 'Roll'}<small>{step.ftBefore} → {step.ftAfter} FT · {formatPrice(step.bankAfter / 10)}{step.hitCost ? ` · −${step.hitCost}` : ''}</small></span><b>{step.netXPts.toFixed(1)}</b></button>)}</div>}
+        {result && <div className="strategy-timeline" aria-label="Ten-gameweek transfer roadmap">{weeks.map(step => <button type="button" key={step.gw} className={classNames('strategy-step',week?.gw === step.gw && 'is-active')} onClick={() => setSelectedGw(step.gw)}><strong>GW{step.gw}</strong><span>{step.chip && <b>{chipBadge(step.chip)} · </b>}{step.moves.length ? step.moves.map(move => `${byId.get(move.outId)?.name ?? 'Unavailable'} → ${byId.get(move.inId)?.name ?? 'Unavailable'}`).join(' / ') : 'Roll'}<small>{step.ftBefore} → {step.ftAfter} FT · {formatPrice(step.bankAfter / 10)}{step.hitCost ? ` · −${step.hitCost}` : ''}</small></span><b>{step.netXPts.toFixed(2)}</b></button>)}</div>}
         <section className="strategy-week" aria-label={week ? `GW${displayGw} recommendation` : 'Starting squad preview'}>
-          <div className="strategy-week-heading"><h3>GW{displayGw}{week ? ` · ${chipBadge(week.chip) ?? (week.moves.length ? 'Transfer' : 'Roll')}` : ''}</h3><strong>{week?.netXPts.toFixed(1) ?? props.startingSquad?.projectedPoints.toFixed(1)} xPts</strong></div>
-          {lineup && <><div className="strategy-pitch" aria-label={`GW${displayGw} recommended starting eleven`}><div className="strategy-pitch-markings" aria-hidden="true" /><div className="strategy-formation-grid">{(['GKP','DEF','MID','FWD'] as const).map(position => <div className="strategy-formation" key={position}>{lineup.starters.filter(id => byId.get(id)?.position === position).map(id => <div className="strategy-pitch-player" key={id}>{portrait(id)}<strong>{xp(id)?.toFixed(1) ?? '—'}{id === lineup.captainId ? ' · C' : id === lineup.viceId ? ' · V' : ''}</strong></div>)}</div>)}</div></div><div className="strategy-bench" aria-label="Recommended bench">{lineup.bench.map(id => <div key={id}>{portrait(id)}<small>{xp(id)?.toFixed(1) ?? '—'} xPts</small></div>)}</div></>}
+          <div className="strategy-week-heading"><h3>GW{displayGw}{week ? ` · ${chipBadge(week.chip) ?? (week.moves.length ? 'Transfer' : 'Roll')}` : ''}</h3><strong>{week?.netXPts.toFixed(2) ?? props.startingSquad?.projectedPoints.toFixed(2)} xPts</strong></div>
+          {lineup && <><div className="strategy-pitch" aria-label={`GW${displayGw} recommended starting eleven`}><div className="strategy-pitch-markings" aria-hidden="true" /><div className="strategy-formation-grid">{(['GKP','DEF','MID','FWD'] as const).map(position => <div className="strategy-formation" key={position}>{lineup.starters.filter(id => byId.get(id)?.position === position).map(id => <div className="strategy-pitch-player" key={id}>{portrait(id)}</div>)}</div>)}</div></div><div className="strategy-bench" aria-label="Recommended bench">{lineup.bench.map(id => <div key={id}>{portrait(id)}</div>)}</div></>}
           {week && <div className="strategy-moves">{week.moves.map(move => <div className="strategy-move" key={`${move.outId}-${move.inId}`}><div><small>OUT</small>{portrait(move.outId,'Sell',week.sellingPricesBefore[move.outId])}</div><ArrowRight size={16} aria-hidden="true" /><div><small>IN</small>{portrait(move.inId,'Buy')}</div></div>)}{!week.moves.length && <span className="strategy-roll">Roll · {week.ftAfter} FT</span>}</div>}
         </section>
       </div>
