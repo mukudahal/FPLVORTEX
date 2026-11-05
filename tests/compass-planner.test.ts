@@ -27,6 +27,19 @@ function scenario(nextGw = 18, extra = true): PlannerSimulationInput {
     repoFixtures: toRepoFixtures(fixtures), repoTeams: toRepoTeams(teams), repoElements: players.map(toRepoElement) };
 }
 
+test('displayed solver weeks reconcile to the same player forecasts, captain bonus, bench chip and hits', () => {
+  const result = runPlannerSimulation(scenario());
+  for (const week of result.strategy.weeks) {
+    const points = result.forecastByGw[week.gw];
+    const xi = week.lineup.starters.reduce((sum,id) => sum + points[id], 0);
+    const captain = points[week.lineup.captainId] * (week.chip === 'tc' ? 2 : 1);
+    const bench = week.chip === 'bb' ? week.lineup.bench.reduce((sum,id) => sum + points[id], 0) : 0;
+    assert.ok(Math.abs(week.netXPts - (xi + captain + bench - week.hitCost)) <= 0.011,
+      `GW${week.gw} net xPts must use the exact forecast payload shown on the player cards`);
+  }
+  assert.ok(Math.abs(result.strategy.expectedPoints - result.strategy.weeks.reduce((sum,week) => sum + week.netXPts,0)) <= 0.011);
+});
+
 test('zero FT charges a real hit; selling values, locks and budget constrain every path', () => {
   const input = scenario();
   const result = runPlannerSimulation({ ...input, chipsUsed: ['wildcard', 'freehit', 'bboost', '3xc'].map((name, index) => ({ name, event: 12 + index })) });

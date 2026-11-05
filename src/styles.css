@@ -11256,4 +11256,5 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
   .mc-range-row { padding:10px; }
   .mc-range-axis span:nth-child(2) { max-width:70%; text-align:center; }
   .simulation-chart { padding:8px; }
+  .simulation-chart svg text { font-size:18px; }
 }
