@@ -52,8 +52,8 @@ export function normalizeNumericCode(raw: unknown): number | null {
  * 1. Official PL current season 250x250 / 110x140 (`{code}.png`)
  * 2. Official PL legacy `p{code}.png` (250x250 / 110x140)
  * 3. Premier League S3 `500x500/{code}.png`
- * 4. Official FPL club shirt (`shirt_{teamCode}-220.png`)
- * 5. Server cache/proxy `/api/img/player/{code}` (serves local `public/player-images/players/{code}.png` or cached upstream)
+ * 4. Local portrait and server cache/proxy `/api/img/player/{code}`
+ * 5. Official FPL club shirt (`shirt_{teamCode}-220.png`) only after portraits fail
  */
 export function getPlayerPhotoCandidates(
   codeRaw: unknown,
@@ -75,17 +75,18 @@ export function getPlayerPhotoCandidates(
     );
   }
 
-  if (teamCode) {
-    urls.push(
-      `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-220.png`,
-      `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.png`,
-    );
-  }
-
   if (code) {
     urls.push(
       withBase(`player-images/players/${code}.png`),
       `/api/img/player/${code}${teamCode ? `?teamCode=${teamCode}` : ''}`,
+    );
+  }
+
+  // Exhaust identity-matched headshots before a shirt can count as a success.
+  if (teamCode) {
+    urls.push(
+      `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-220.png`,
+      `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.png`,
     );
   }
 

@@ -39,6 +39,7 @@ import {
 import { TeamIdInput } from './TeamIdInput';
 import type { RecentTeamEntry } from '../lib/recentTeamIds';
 import { PlayerAvatar } from './PlayerAvatar';
+import { SimulationChart } from './SimulationChart';
 import { replay, sanitize } from '../lib/repoModel/planEngine';
 import { createStrategyPlan } from '../lib/strategyPlan';
 import { ChipStrategyWorkspace } from './ChipStrategyWorkspace';
@@ -640,6 +641,7 @@ export function SquadBuilder({
               </div>
             </div>
 
+            <SimulationChart simulation={reviewSim.monteCarlo} />
             <div className="mc-paths-list">
               {reviewSim.monteCarlo.paths.map((path) => {
                 const maxP90 = Math.max(...reviewSim.monteCarlo.paths.map((p) => p.p90), 1);
@@ -662,7 +664,7 @@ export function SquadBuilder({
                         {path.id === reviewSim.monteCarlo.recommendedPathId && <span className="badge badge--mint">Recommended plan</span>}
                         {path.probBeatsHold !== null && (
                           <span className={classNames('badge', path.probBeatsHold >= 0.5 ? 'badge--mint' : 'badge--violet')}>
-                            Win vs hold {(path.probBeatsHold * 100).toFixed(1)}%
+                            Beats hold {(path.probBeatsHold * 100).toFixed(1)}%
                           </span>
                         )}
                         <strong className="score-pill is-elite">Mean {path.mean.toFixed(1)} pts</strong>
@@ -673,10 +675,11 @@ export function SquadBuilder({
                       {path.vsReference.referenceId === 'saved_manual' ? 'Versus saved plan:' : 'Versus best transfer plan (chips saved):'} {path.vsReference.deltaMean >= 0 ? '+' : ''}{path.vsReference.deltaMean.toFixed(1)} pts · {(path.vsReference.probWin * 100).toFixed(1)}% beat · {(path.vsReference.probTie * 100).toFixed(1)}% tie · {(path.vsReference.probLoss * 100).toFixed(1)}% lose · 80% gain range {path.vsReference.deltaP10.toFixed(1)} to {path.vsReference.deltaP90.toFixed(1)} pts.
                       {' '}Win share sampling interval (95%): {(path.vsReference.winProbability95[0] * 100).toFixed(1)}–{(path.vsReference.winProbability95[1] * 100).toFixed(1)}%; model uncertainty is additional.
                     </small></details>}
-                    <div className="mc-range-track" aria-hidden="true">
+                    <div className="mc-range-track" role="img" aria-label={`P10 ${path.p10.toFixed(2)}, mean ${path.mean.toFixed(2)}, P90 ${path.p90.toFixed(2)} points`}>
                       <div className="mc-range-band" style={{ left: `${leftPct}%`, width: `${widthPct}%` }} />
                       <span className="mc-range-mean" style={{ left: `${meanPct}%` }} />
                     </div>
+                    <div className="mc-range-axis" aria-hidden="true"><span>{(minP10 - 10).toFixed(0)}</span><span>Points · band P10–P90 · marker mean</span><span>{(minP10 - 10 + span).toFixed(0)}</span></div>
                   </div>
                 );
               })}
