@@ -1070,6 +1070,8 @@ export function TransferPlanModal({
                       >
                         <div className="vx-tp-saved-card__title-row">
                           <h3>{plan.name}</h3>
+                          {plan.sourceProvenance === 'manager-entered-unverified' &&
+                            <span className="badge" role="note">MANAGER-ENTERED · UNVERIFIED</span>}
                           <span className="badge badge--mint">GW{plan.startGw}+</span>
                         </div>
                         <div className="vx-tp-saved-card__stats">
@@ -1180,6 +1182,8 @@ export function TransferPlanModal({
                   title="Rename transfer plan"
                 >
                   <strong>{activePlan.name}</strong>
+                  {activePlan.sourceProvenance === 'manager-entered-unverified' &&
+                    <span className="badge" role="note">MANAGER-ENTERED · UNVERIFIED</span>}
                   <Pencil size={14} />
                 </button>
               )}
