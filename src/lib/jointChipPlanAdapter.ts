@@ -31,8 +31,9 @@ export function createReviewedJointChipPlan(params:{
   id:string;
   name:string;
   createdAt:string;
+  sourceProvenance?:'manager-entered-unverified'|'authenticated-current-team';
 }):StoredTransferPlan {
-  const {request,path,id,name,createdAt}=params;
+  const {request,path,id,name,createdAt,sourceProvenance}=params;
   if(!id.trim()||!name.trim()||!Number.isFinite(Date.parse(createdAt)))
     throw new RangeError('New plan requires a valid identity, title and timestamp.');
   const byPosition=new Map(request.players.map(p=>[p.player_id,p.position]));
@@ -68,6 +69,6 @@ export function createReviewedJointChipPlan(params:{
     baseFreeTransfers:request.current_team.free_transfers,
     sellingPrices:saleValues,transfers,lineups,captains,chips,
     lockedPlayerIds:[...request.settings.locked_players],
-    createdAt,updatedAt:createdAt,
+    createdAt,updatedAt:createdAt,sourceProvenance,
   };
 }
