@@ -191,7 +191,9 @@ export function sanitizeStoredPlan(raw: unknown): StoredTransferPlan | null {
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : nowIso,
     sourceProvenance: obj.sourceProvenance === 'manager-entered-unverified' ||
       obj.sourceProvenance === 'authenticated-current-team'
-      ? obj.sourceProvenance : undefined,
+      ? obj.sourceProvenance
+      : (obj.id as string).startsWith('manual-joint-')
+        ? 'manager-entered-unverified' : undefined,
   };
 }
 
