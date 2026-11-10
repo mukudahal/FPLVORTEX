@@ -606,6 +606,7 @@ export function SquadBuilder({
         id:'manual-joint-'+crypto.randomUUID(),
         name:`MANAGER-ENTERED (UNVERIFIED) GW${comparison.input.solver.settings.start_gw}+`,
         createdAt:nowIso,
+        sourceProvenance:'manager-entered-unverified',
       });
       const previous=readStoredTransferPlans(window.localStorage,storageScopeId);
       const upsert=upsertTransferPlan(previous,proposal);
