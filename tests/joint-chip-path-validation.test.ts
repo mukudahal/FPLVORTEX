@@ -6,6 +6,7 @@ import {
 import type { ExactMilpResponse } from '../src/lib/exactMilpBridge.ts';
 import type { VerifiedChipInventory } from '../src/lib/verifiedChipInventory.ts';
 import { createReviewedJointChipPlan } from '../src/lib/jointChipPlanAdapter.ts';
+import { sanitizeStoredPlan, upsertTransferPlan } from '../src/lib/transferPlansStore.ts';
 import { replay, type PlanCtx } from '../src/lib/repoModel/planEngine.ts';
 import type { PlanPlayer } from '../src/lib/repoModel/planTypes.ts';
 
@@ -166,4 +167,38 @@ test('client verifier refuses to disguise time-limited HOLD fallback as a joint 
   };
   assert.throws(()=>verifyJointChipPaths(request,response,verified),
     /fallback cannot claim WC\/FH\/transfer optimization/);
+});
+
+
+test('manager-entered joint proposal provenance survives saved-plan serialization and rename',()=>{
+  const {request,verified,response}=fixture();
+  const [path]=verifyJointChipPaths(request,response,verified);
+  const source=createReviewedJointChipPlan({
+    request,path,id:'manual-joint-456',name:'Manager-input scenario',
+    createdAt:'2026-11-01T17:00:00.000Z',
+    sourceProvenance:'manager-entered-unverified',
+  });
+  assert.equal(source.sourceProvenance,'manager-entered-unverified');
+  const stored=sanitizeStoredPlan(JSON.parse(JSON.stringify({...source,name:'Renamed by manager'})));
+  assert.ok(stored);
+  assert.equal(stored.name,'Renamed by manager');
+  assert.equal(stored.sourceProvenance,'manager-entered-unverified');
+  const legacy=sanitizeStoredPlan({...source,sourceProvenance:undefined});
+  assert.equal(legacy?.sourceProvenance,undefined,
+    'Old local plans must not be upgraded to account-authenticated provenance.');
+  const unknown=sanitizeStoredPlan({...source,sourceProvenance:'authenticated-by-name-only'});
+  assert.equal(unknown?.sourceProvenance,undefined,
+    'Unsupported provenance labels must never be trusted.');
+  const initial=createReviewedJointChipPlan({
+    request,path,id:'saved-original',name:'Original immutable scenario',
+    createdAt:'2026-11-01T16:00:00.000Z',
+  });
+  const existing=JSON.stringify(initial);
+  const next=upsertTransferPlan([initial],source);
+  if(!next.ok)throw Error(next.error);
+  assert.equal(next.plans.length,2);
+  assert.equal(JSON.stringify(initial),existing,
+    'Save-NEW must not mutate an existing scenario.');
+  assert.equal(next.plans[0].id,'saved-original');
+  assert.equal(next.plans[1].sourceProvenance,'manager-entered-unverified');
 });
