@@ -35,6 +35,8 @@ export interface StoredTransferPlan {
   lockedPlayerIds?: number[];
   createdAt: string;
   updatedAt: string;
+  /** Immutable input provenance: manager-entered evidence is never authenticated. */
+  sourceProvenance?: 'manager-entered-unverified' | 'authenticated-current-team';
 }
 
 export interface VortexPlannerCache {
@@ -187,6 +189,9 @@ export function sanitizeStoredPlan(raw: unknown): StoredTransferPlan | null {
     lockedPlayerIds: isIntArray(obj.lockedPlayerIds) ? [...new Set(obj.lockedPlayerIds)].filter(id => (obj.baseSquad as number[]).includes(id)) : [],
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : nowIso,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : nowIso,
+    sourceProvenance: obj.sourceProvenance === 'manager-entered-unverified' ||
+      obj.sourceProvenance === 'authenticated-current-team'
+      ? obj.sourceProvenance : undefined,
   };
 }
 
