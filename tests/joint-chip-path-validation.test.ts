@@ -184,11 +184,11 @@ test('manager-entered joint proposal provenance survives saved-plan serializatio
   assert.equal(stored.name,'Renamed by manager');
   assert.equal(stored.sourceProvenance,'manager-entered-unverified');
   const legacy=sanitizeStoredPlan({...source,sourceProvenance:undefined});
-  assert.equal(legacy?.sourceProvenance,undefined,
-    'Old local plans must not be upgraded to account-authenticated provenance.');
-  const unknown=sanitizeStoredPlan({...source,sourceProvenance:'authenticated-by-name-only'});
+  assert.equal(legacy?.sourceProvenance,'manager-entered-unverified',
+    'Older manual-joint plans retain their unverified badge after renaming.');
+  const unknown=sanitizeStoredPlan({...source,id:'unrelated-plan',sourceProvenance:'authenticated-by-name-only'});
   assert.equal(unknown?.sourceProvenance,undefined,
-    'Unsupported provenance labels must never be trusted.');
+    'Unsupported provenance labels never authenticate unrelated plans.');
   const initial=createReviewedJointChipPlan({
     request,path,id:'saved-original',name:'Original immutable scenario',
     createdAt:'2026-11-01T16:00:00.000Z',
