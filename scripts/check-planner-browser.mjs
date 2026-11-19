@@ -472,11 +472,18 @@ try {
   await solverPage.getByRole('button',{name:'Stop',exact:true}).waitFor();
   await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
   await solverPage.getByRole('button',{name:'Manual chips',exact:true}).click();
-  await solverPage.getByRole('combobox',{name:'Triple Captain gameweek',exact:true}).selectOption('19');
+  // The live planning horizon can span both chip sets or start after GW19.
+  const latestTripleCaptain = solverPage.getByRole('combobox', {
+    name: /^Triple Captain gameweek(?: half [12])?$/,
+  }).last();
+  const chipGw = await latestTripleCaptain.locator('option[value]:not([value=""])').last().getAttribute('value');
+  assert.match(chipGw ?? '', /^(?:[1-9]|[12][0-9]|3[0-8])$/, 'Template must offer a legal Triple Captain week');
+  await latestTripleCaptain.selectOption(chipGw);
   await solverPage.getByRole('button',{name:'Run Solver',exact:true}).click();
   await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
-  await solverPage.locator('.strategy-gw-strip button').last().click();
-  await solverPage.getByRole('heading',{name:'GW19 · TC',exact:true}).waitFor();
+  await solverPage.getByRole('group', { name: 'Recommended gameweeks' })
+    .getByRole('button').filter({ has: solverPage.getByText(`GW${chipGw}`, { exact: true }) }).click();
+  await solverPage.getByRole('heading',{name:`GW${chipGw} · TC`,exact:true}).waitFor();
   const quietCopy=await solverPage.locator('body').innerText();
   for(const text of ['All chips spent','Saved transfers and chips stay fixed','Model forecast ·','Transfer recommendations stay on']) assert.ok(!quietCopy.includes(text),`Unexpected explanatory text: ${text}`);
   await solverPage.getByLabel('About the solver',{exact:true}).click();
@@ -490,7 +497,7 @@ try {
   const originalSolverPlans=JSON.parse(beforeSolverSave??'[]');
   assert.equal(afterSolverSave.length,originalSolverPlans.length+1);
   assert.deepEqual(afterSolverSave.slice(0,originalSolverPlans.length),originalSolverPlans);
-  assert.equal(afterSolverSave.at(-1).chips['19'],'tc');
+  assert.equal(afterSolverSave.at(-1).chips[chipGw],'tc');
   assert.equal(await solverPage.getByRole('alert').count(),0);
   for(const width of [320,390,768,1280,1920]){
     await solverPage.setViewportSize({width,height:900});
