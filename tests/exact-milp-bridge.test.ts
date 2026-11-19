@@ -73,9 +73,13 @@ test('exact shortlist preserves whole-horizon and cheap options and covers both 
     const scores = id <= 18 ? [1, 1] : id === 29 ? [11, 0] : id === 30 ? [0, 12] : [8, 8];
     for (const [i, gw] of input.planner.gws.entries()) input.planner.forecastByGw[gw][id] = scores[i];
   }
-  const shortlist = buildExactMilpRequest(input).players.map(player => player.player_id);
+  const standard = buildExactMilpRequest(input).players.map(player => player.player_id);
+  assert.ok(!standard.includes(29) && !standard.includes(30), 'standard ranking uses the existing shortlist');
+  const wider = { ...input, includeFixtureWindows: true };
+  const shortlist = buildExactMilpRequest(wider).players.map(player => player.player_id);
+  assert.ok(standard.every(id => shortlist.includes(id)));
   for (const id of [...input.squadIds, 17, 18, 19, 29, 30]) assert.ok(shortlist.includes(id), String(id));
   assert.ok(shortlist.length <= 60);
-  const shuffled = buildExactMilpRequest({ ...input, players: [...input.players].reverse() });
+  const shuffled = buildExactMilpRequest({ ...wider, players: [...input.players].reverse() });
   assert.deepEqual(shuffled.players.map(player => player.player_id), shortlist);
 });

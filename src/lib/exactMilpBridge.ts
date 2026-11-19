@@ -53,6 +53,7 @@ export function buildExactMilpRequest(options: {
   sellingPrices: Record<number, number>;
   lockedIds: number[];
   decay: number;
+  includeFixtureWindows?: boolean;
 }) {
   const { snapshot, players, planner, squadIds, bankTenths, freeTransfers, sellingPrices, lockedIds, decay } = options;
   const gws = planner.gws;
@@ -84,12 +85,14 @@ export function buildExactMilpRequest(options: {
   const ids = new Set(squadIds);
   for (const pos of ['GKP', 'DEF', 'MID', 'FWD'] as const) {
     const choices = players.filter(p => p.position === pos && isEligibleNewTransferTarget(p)).map(player => {
-      let early = 0, late = 0;
+      let early = 0, late = 0, total = 0;
       for (const [i, value] of allGwValues(player.id).entries()) {
-        if (i < split) early += weights[i] * value;
-        else late += weights[i] * value;
+        const weighted = weights[i] * value;
+        total += weighted;
+        if (i < split) early += weighted;
+        else late += weighted;
       }
-      return { player, early, late, total: early + late };
+      return { player, early, late, total };
     });
     type RankKey = 'early' | 'late' | 'total';
     const rankBy = (key: RankKey) => (a: typeof choices[number], b: typeof choices[number]) =>
@@ -99,7 +102,7 @@ export function buildExactMilpRequest(options: {
     choices.slice(0, quotas[pos]).forEach(({ player }) => ids.add(player.id));
     choices.sort((a, b) => a.player.cost - b.player.cost || rankByTotal(a, b));
     choices.slice(0, 2).forEach(({ player }) => ids.add(player.id));
-    if (gws.length > 1) {
+    if (options.includeFixtureWindows && gws.length > 1) {
       const phases: RankKey[] = pos === 'GKP' ? ['early'] : ['early', 'late'];
       for (const phase of phases) {
         const candidate = choices.sort(rankBy(phase))

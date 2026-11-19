@@ -113,6 +113,7 @@ export function SquadBuilder({
   const [reviewExactRank, setReviewExactRank] = useState<number | null>(null);
   const [exactError, setExactError] = useState<string | null>(null);
   const [exactPending, setExactPending] = useState(false);
+  const [includeFixtureWindows, setIncludeFixtureWindows] = useState(false);
   const exactAbortRef = useRef<AbortController | null>(null);
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [scenarioLockedIds, setScenarioLockedIds] = useState<number[] | null>(null);
@@ -308,7 +309,7 @@ export function SquadBuilder({
     setSelectedExactRank(1);
     setReviewExactRank(null);
     setExactError(null);
-  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry]);
+  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry, includeFixtureWindows]);
 
   const runExactTransferComparison = async () => {
     let controller: AbortController | null = null;
@@ -322,6 +323,7 @@ export function SquadBuilder({
         snapshot, players, planner: reviewSim,
         squadIds: activeSquadIds, bankTenths, freeTransfers, lockedIds,
         decay: 1 - plannerDecay / 100,
+        includeFixtureWindows,
         sellingPrices: Object.fromEntries(activeSquadIds.map(id => {
           const entryPick = entry?.picks.find(p => p.element === id);
           return [id, Math.round((entryPick?.sellingPrice ?? playerMap.get(id)?.price ?? 0) * 10)];
@@ -572,6 +574,15 @@ export function SquadBuilder({
               <h3>Exact-formulation transfer comparison — no chips</h3>
             </div><span className="badge badge--violet">Separate read-only result</span></div>
             <p>Compare transfer paths with holding your current squad, using the same forecasts as the VORTEX Planner. The solver searches up to 10 Gameweeks with fixed prices and no chips. It reports whether HiGHS proved the best result within the shortlist.</p>
+            <div className="planner-control-row">
+              <label>Candidate pool<select value={includeFixtureWindows ? 'windows' : 'standard'}
+                disabled={exactPending}
+                onChange={event => setIncludeFixtureWindows(event.target.value === 'windows')}>
+                <option value="standard">Standard</option>
+                <option value="windows">Wider fixture windows</option>
+              </select></label>
+            </div>
+            {includeFixtureWindows && <p>Wider search adds up to seven candidates for early and late fixture runs. It may return fewer paths within the same time limit.</p>}
             <button type="button" onClick={() => { void runExactTransferComparison(); }}
               disabled={exactPending || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
               aria-busy={exactPending}>{exactPending ? 'Solving bounded MILP…' : 'Run exact no-chip transfer comparison'}</button>
