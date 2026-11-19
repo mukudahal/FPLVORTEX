@@ -8,7 +8,7 @@ import {
   projectedGoalsColor,
   projectedGoalsFillStyle,
 } from '../lib/fixtureForecast';
-import { marketCoverage, fixtureQuoteNotice } from '../lib/marketCoverage';
+import { bookmakerQuoteFreshness, fixtureQuoteNotice, hasComplete1x2, marketCoverage } from '../lib/marketCoverage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -239,8 +239,11 @@ export function CommandCenter({
     initialVideos?.length ? initialVideos.slice(0, 30) : SEED_VORTEX_VIDEOS,
   );
   const [videoStatus, setVideoStatus] = useState(videoSourceNotice(null));
-  // Default to the Review Gameweek (`entry.currentEvent`) when a team is loaded, or nextEventId before linking!
-  const [selectedGw, setSelectedGw] = useState<number>(hasLinkedTeam ? reviewEventId : nextEventId);
+  const [selectedReviewGw, setSelectedReviewGw] = useState(hasLinkedTeam ? reviewEventId : nextEventId);
+  const [dashboardView, setDashboardView] = useState<'results' | 'projection'>(hasLinkedTeam ? 'results' : 'projection');
+  const currentEventId = snapshot.meta.currentEventId;
+  const selectedGw = mode === 'review' ? selectedReviewGw
+    : dashboardView === 'results' ? currentEventId : nextEventId;
   const [squadView, setSquadView] = useState<'pitch' | 'table'>('pitch');
   const [teamInput, setTeamInput] = useState(teamId);
   const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
@@ -268,7 +271,8 @@ export function CommandCenter({
   // Whenever an FPL ID finishes loading, jump cleanly to its Review Gameweek so the user sees their Review GW immediately
   useEffect(() => {
     if (entry?.currentEvent) {
-      setSelectedGw(entry.currentEvent);
+      setSelectedReviewGw(entry.currentEvent);
+      setDashboardView('results');
     }
   }, [entry?.id, entry?.currentEvent]);
 
@@ -398,14 +402,28 @@ export function CommandCenter({
 
   // Bookmaker-implied forecasts where priced; otherwise explicitly labelled VORTEX estimates.
   const gwMarketCoverage = useMemo(() => marketCoverage(snapshot.fixtures, selectedGw, 1), [snapshot.fixtures, selectedGw]);
-  const gwMatchesAndClubs = useMemo(() => {
+  const teamStrengths = useMemo(() => {
     const repoTeams = toRepoTeams(snapshot.teams);
     const repoElements = snapshot.players.map(toRepoElement);
     const repoFixtures = toRepoFixtures(snapshot.fixtures);
     const strengths = buildStrengths(repoTeams, repoElements, repoFixtures);
     applyHistoricalStrengths(strengths, snapshot.teams, snapshot.historicalTeamModel?.strengths);
-    const fallbackStrength = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
+    return strengths;
+  }, [snapshot.fixtures, snapshot.historicalTeamModel?.strengths, snapshot.players, snapshot.teams]);
+  const modelForFixture = useMemo(() => {
+    const fallback = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
+    return (fixture: Snapshot['fixtures'][number]) => projectMatch(
+      teamStrengths.get(fixture.teamH) ?? fallback,
+      teamStrengths.get(fixture.teamA) ?? fallback,
+    );
+  }, [teamStrengths]);
+  const nextMarketRows = useMemo(() => mode === 'home'
+    ? snapshot.fixtures.filter(fixture => fixture.event === nextEventId)
+      .sort((a, b) => (a.kickoffTime ?? '9999').localeCompare(b.kickoffTime ?? '9999'))
+      .map(fixture => ({ fixture, model: modelForFixture(fixture) }))
+    : [], [mode, modelForFixture, nextEventId, snapshot.fixtures]);
 
+  const gwMatchesAndClubs = useMemo(() => {
     let availableOddsCount = 0;
     const bookmakersUsed = new Set<string>();
 
@@ -422,10 +440,7 @@ export function CommandCenter({
         const activeMarket = oddsSourceMode === 'auto' ? fx.marketOdds ?? null : null;
         const proj = activeMarket
           ? forecastFromGoalRates(activeMarket.homeXg, activeMarket.awayXg)
-          : projectMatch(
-            strengths.get(fx.teamH) ?? fallbackStrength,
-            strengths.get(fx.teamA) ?? fallbackStrength,
-          );
+          : modelForFixture(fx);
         return {
           fixture: fx,
           homeTeam,
@@ -450,6 +465,7 @@ export function CommandCenter({
         code: number;
         oppLabel: string;
         goals: number;
+        scored: number | null;
         cs: number;
         win: number;
       }
@@ -465,6 +481,8 @@ export function CommandCenter({
           code: m.homeTeam.code,
           oppLabel: prevH ? `${prevH.oppLabel}, ${m.awayTeam.shortName} (H)` : `${m.awayTeam.shortName} (H)`,
           goals: (prevH?.goals ?? 0) + m.homeXg,
+          scored: m.fixture.finished && m.fixture.teamHScore != null
+            ? (prevH?.scored ?? 0) + m.fixture.teamHScore : prevH?.scored ?? null,
           cs: prevH ? Math.max(prevH.cs, m.homeCs) : m.homeCs,
           win: prevH ? Math.max(prevH.win, m.homeWin) : m.homeWin,
         });
@@ -477,6 +495,8 @@ export function CommandCenter({
           code: m.awayTeam.code,
           oppLabel: prevA ? `${prevA.oppLabel}, ${m.homeTeam.shortName} (A)` : `${m.homeTeam.shortName} (A)`,
           goals: (prevA?.goals ?? 0) + m.awayXg,
+          scored: m.fixture.finished && m.fixture.teamAScore != null
+            ? (prevA?.scored ?? 0) + m.fixture.teamAScore : prevA?.scored ?? null,
           cs: prevA ? Math.max(prevA.cs, m.awayCs) : m.awayCs,
           win: prevA ? Math.max(prevA.win, m.awayWin) : m.awayWin,
         });
@@ -492,6 +512,7 @@ export function CommandCenter({
           code: t.code,
           oppLabel: 'BLANK',
           goals: 0,
+          scored: null,
           cs: 0,
           win: 0,
         });
@@ -504,7 +525,7 @@ export function CommandCenter({
       availableOddsCount,
       bookmakerLabel: [...bookmakersUsed].slice(0, 2).join(' · ') || snapshot.meta.oddsMeta?.provider || 'Market Odds',
     };
-  }, [oddsSourceMode, selectedGw, snapshot.fixtures, snapshot.meta.oddsMeta?.provider, snapshot.players, snapshot.teams, teamMap]);
+  }, [modelForFixture, oddsSourceMode, selectedGw, snapshot.fixtures, snapshot.meta.oddsMeta?.provider, teamMap]);
 
   const groupedMatches = useMemo(() => {
     const groups: Array<{ dateLabel: string; items: typeof gwMatchesAndClubs.matches }> = [];
@@ -894,6 +915,122 @@ export function CommandCenter({
             return tables;
           };
 
+  const showRecordedGoals = mode === 'home' && dashboardView === 'results' && projMetric === 'goals';
+  const clubProjectionsCard = (
+    <article className="panel vx-card vx-card--goals">
+      <header className="vx-card__header vx-card__header--wrap">
+        <div className="vx-card__title-icon">
+          <Shield size={16} className="vx-icon-mint" />
+          <h3>
+            GW {selectedGw}{' '}
+            {projMetric === 'goals' ? (mode === 'review' ? 'Review Goals' : 'Projected Goals') : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
+          </h3>
+        </div>
+        <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2), color: projectedGoalsColor(club.goals) }, { text: `${Math.round(club.cs * 100)}%`, color: cleanSheetColor(club.cs) }, { text: `${Math.round(club.win * 100)}%`, color: difficultyColor(1 + 4 * (1 - club.win)) }]) }]} />
+        <div className="vx-seg-pills" role="group" aria-label="Club projection metric">
+          <button
+            type="button"
+            className={classNames(projMetric === 'goals' && 'is-active')}
+            onClick={() => setProjMetric('goals')}
+          >
+            Goals
+          </button>
+          <button
+            type="button"
+            className={classNames(projMetric === 'cs' && 'is-active')}
+            onClick={() => setProjMetric('cs')}
+          >
+            CS%
+          </button>
+          <button
+            type="button"
+            className={classNames(projMetric === 'win' && 'is-active')}
+            onClick={() => setProjMetric('win')}
+          >
+            Win%
+          </button>
+        </div>
+        {mode === 'home' && gwMatchesAndClubs.availableOddsCount > 0 && (
+          <select className="vx-mini-select" aria-label="Forecast source" value={oddsSourceMode}
+            onChange={event => setOddsSourceMode(event.currentTarget.value === 'model' ? 'model' : 'auto')}>
+            <option value="auto">Bookmaker when available</option>
+            <option value="model">VORTEX estimates</option>
+          </select>
+        )}
+      </header>
+
+      <div className="vx-card__scroll vx-club-bars" tabIndex={mode === 'home' ? 0 : undefined}>
+        {sortedClubs.map((club, index) => {
+          const val = club[projMetric];
+          const pctWidth = Math.max(4, (val / maxClubVal) * 100);
+          const fillStyle =
+            projMetric === 'goals'
+              ? projectedGoalsFillStyle(club.goals)
+              : projMetric === 'cs'
+                ? cleanSheetFillStyle(club.cs)
+                : difficultyFillStyle(1 + 4 * (1 - club.win));
+          return (
+            <div key={club.teamId} className="vx-club-bar-row">
+              <span className="vx-row-idx">{index + 1}.</span>
+              <ClubBadge teamCode={club.code} shortName={club.shortName} teamName={club.name} size="sm" />
+              <strong className="vx-club-short">{club.shortName}</strong>
+              <small className="vx-club-opp">{club.oppLabel}</small>
+              <div className="vx-bar-track" aria-hidden="true">
+                <span className="vx-bar-fill" style={{ width: `${pctWidth}%`, background: fillStyle.background }} />
+              </div>
+              {showRecordedGoals && club.scored !== null ? (
+                <div className="vx-club-score">
+                  <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>{val.toFixed(2)}</strong>
+                  <small className="vx-club-scored">{club.scored} scored</small>
+                </div>
+              ) : (
+                <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>
+                  {projMetric === 'goals' ? val.toFixed(2) : `${Math.round(val * 100)}%`}
+                </strong>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {mode === 'review' && (
+        <footer className="vx-card__footer vx-card__footer--spread">
+          <span className="vx-odds-source-badge">
+            <span
+              className={classNames(
+                'vx-odds-dot',
+                gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
+              )}
+            />
+            {gwMatchesAndClubs.availableOddsCount > 0
+              ? oddsSourceMode === 'auto'
+                ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
+                : 'VORTEX model (market quotes paused)'
+              : 'VORTEX model · no matched bookmaker odds'}
+          </span>
+          {gwMatchesAndClubs.availableOddsCount > 0 && (
+            <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
+              <button
+                type="button"
+                className={classNames(oddsSourceMode === 'auto' && 'is-active')}
+                onClick={() => setOddsSourceMode('auto')}
+              >
+                Market Odds
+              </button>
+              <button
+                type="button"
+                className={classNames(oddsSourceMode === 'model' && 'is-active')}
+                onClick={() => setOddsSourceMode('model')}
+              >
+                Model
+              </button>
+            </div>
+          )}
+        </footer>
+      )}
+    </article>
+  );
+
   return (
     <div className={classNames('page page--command', mode === 'review' && 'page--review')}>
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
@@ -908,7 +1045,7 @@ export function CommandCenter({
               <button
                 type="button"
                 className={classNames(selectedGw === reviewEventId && 'is-active')}
-                onClick={() => setSelectedGw(reviewEventId)}
+                onClick={() => setSelectedReviewGw(reviewEventId)}
               >
                 Review GW {reviewEventId}
               </button>
@@ -920,7 +1057,7 @@ export function CommandCenter({
           <button
             type="button"
             className="icon-button vx-gw-stepper__btn"
-            onClick={() => setSelectedGw((gw) => Math.max(1, gw - 1))}
+            onClick={() => setSelectedReviewGw((gw) => Math.max(1, gw - 1))}
             disabled={selectedGw <= 1}
             aria-label="Previous gameweek"
           >
@@ -929,7 +1066,7 @@ export function CommandCenter({
           <label className="vx-gw-stepper__select-wrap">
             <select
               value={selectedGw}
-              onChange={(e) => setSelectedGw(Number(e.target.value))}
+              onChange={(e) => setSelectedReviewGw(Number(e.target.value))}
               aria-label="Select review gameweek"
             >
               {snapshot.gameweeks.map((gw) => (
@@ -944,7 +1081,7 @@ export function CommandCenter({
           <button
             type="button"
             className="icon-button vx-gw-stepper__btn"
-            onClick={() => setSelectedGw((gw) => Math.min(38, gw + 1))}
+            onClick={() => setSelectedReviewGw((gw) => Math.min(38, gw + 1))}
             disabled={selectedGw >= 38}
             aria-label="Next gameweek"
           >
@@ -1172,22 +1309,79 @@ export function CommandCenter({
         {/* Right rail: current GW results + date-grouped next GW kickoffs. */}
         <div className="vx-fixture-rail">
         <article className="panel vx-card vx-card--fixtures">
-          <header className="vx-card__header">
-            <div>
-              <h3>GW {selectedGw} {finishedMatchesCount > 0 ? "Results" : "Fixtures"}</h3>
-              <small className="vx-card__sub">
-                {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
-                  ? `Market quotes: 1X2 ${gwMarketCoverage.complete1x2}/${gwMarketCoverage.totalFixtures} · O/U ${gwMarketCoverage.completeTotals}/${gwMarketCoverage.totalFixtures} · remaining VORTEX model`
-                  : finishedMatchesCount > 0
-                    ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
-                    : 'VORTEX model · no verified bookmaker prices'}
-              </small>
-              <span className="vx-fixture-zone">Match dates / kickoff: {viewerZoneLabel} · local</span>
-            </div>
-            <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
-              All matches <ArrowRight size={14} />
-            </button>
-          </header>
+          {mode === 'home' ? (
+            <header className="vx-card__header">
+              <div className="vx-seg-pills" role="group" aria-label="Dashboard Gameweek">
+                <button type="button" className={classNames(dashboardView === 'results' && 'is-active')}
+                  aria-pressed={dashboardView === 'results'} onClick={() => { setDashboardView('results'); setProjMetric('goals'); }}>
+                  GW {currentEventId} Results
+                </button>
+                <button type="button" className={classNames(dashboardView === 'projection' && 'is-active')}
+                  aria-pressed={dashboardView === 'projection'} onClick={() => { setDashboardView('projection'); setProjMetric('goals'); }}>
+                  GW {nextEventId} Projection
+                </button>
+              </div>
+            </header>
+          ) : (
+            <header className="vx-card__header">
+              <div>
+                <h3>GW {selectedGw} {finishedMatchesCount > 0 ? "Results" : "Fixtures"}</h3>
+                <small className="vx-card__sub">
+                  {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
+                    ? `Market quotes: 1X2 ${gwMarketCoverage.complete1x2}/${gwMarketCoverage.totalFixtures} · O/U ${gwMarketCoverage.completeTotals}/${gwMarketCoverage.totalFixtures} · remaining VORTEX model`
+                    : finishedMatchesCount > 0
+                      ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
+                      : 'VORTEX model · no verified bookmaker prices'}
+                </small>
+                <span className="vx-fixture-zone">Match dates / kickoff: {viewerZoneLabel} · local</span>
+              </div>
+              <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
+                All matches <ArrowRight size={14} />
+              </button>
+            </header>
+          )}
+
+          {mode === 'home' && (
+            <section className="vx-next-market" aria-labelledby="vx-next-market-title">
+              <div className="vx-card__header">
+                <h3 id="vx-next-market-title">Model Market Odds</h3>
+                <span>GW {nextEventId}</span>
+              </div>
+              {nextMarketRows.length ? (
+                <div className="table-scroll vx-next-market__scroll" tabIndex={0} aria-label="Upcoming fixture odds">
+                  <table>
+                    <thead>
+                      <tr><th scope="col">Fixture</th><th scope="col">Model xG</th><th scope="col">Market 1X2 <small>H / D / A</small></th></tr>
+                    </thead>
+                    <tbody>
+                      {nextMarketRows.map(({ fixture, model }) => {
+                        const quote = fixture.marketOdds;
+                        const freshness = bookmakerQuoteFreshness(quote);
+                        return (
+                          <tr key={fixture.id}>
+                            <th scope="row">
+                              {teamMap.get(fixture.teamH)?.shortName ?? 'Home'} – {teamMap.get(fixture.teamA)?.shortName ?? 'Away'}
+                            </th>
+                            <td className="mono-num">{model.homeXg.toFixed(2)} – {model.awayXg.toFixed(2)}</td>
+                            <td className="mono-num">
+                              {quote && hasComplete1x2(quote) ? (
+                                <>
+                                  {quote.oddsHome.toFixed(2)} / {quote.oddsDraw.toFixed(2)} / {quote.oddsAway.toFixed(2)}
+                                  <small>{quote.bookmaker}{freshness === 'stale' ? ' · Stale' : freshness === 'unknown' ? ' · Quote time unknown' : ''}</small>
+                                </>
+                              ) : 'Unavailable'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p>No fixtures scheduled for GW {nextEventId}.</p>}
+            </section>
+          )}
+
+          {mode === 'home' && clubProjectionsCard}
 
           <div className="vx-card__scroll vx-fixture-columns">
             {fixtureColumns.map((column, index) => (
@@ -1285,6 +1479,13 @@ export function CommandCenter({
               </div>
             ))}
           </div>
+          {mode === 'home' && (
+            <footer>
+              <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
+                All matches <ArrowRight size={14} />
+              </button>
+            </footer>
+          )}
         </article>
 
         {false && (
@@ -1340,103 +1541,7 @@ export function CommandCenter({
         )}
         </div>
 
-        {/* COLUMN 3: GW PROJECTED GOALS / CS% / WIN% CARD */}
-        <article className="panel vx-card vx-card--goals">
-          <header className="vx-card__header vx-card__header--wrap">
-            <div className="vx-card__title-icon">
-              <Shield size={16} className="vx-icon-mint" />
-              <h3>
-                GW {selectedGw}{' '}
-                {projMetric === 'goals' ? (mode === 'review' ? 'Review Goals' : 'Projected Goals') : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
-              </h3>
-            </div>
-            <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2), color: projectedGoalsColor(club.goals) }, { text: `${Math.round(club.cs * 100)}%`, color: cleanSheetColor(club.cs) }, { text: `${Math.round(club.win * 100)}%`, color: difficultyColor(1 + 4 * (1 - club.win)) }]) }]} />
-            <div className="vx-seg-pills" role="group" aria-label="Club projection metric">
-              <button
-                type="button"
-                className={classNames(projMetric === 'goals' && 'is-active')}
-                onClick={() => setProjMetric('goals')}
-              >
-                Goals
-              </button>
-              <button
-                type="button"
-                className={classNames(projMetric === 'cs' && 'is-active')}
-                onClick={() => setProjMetric('cs')}
-              >
-                CS%
-              </button>
-              <button
-                type="button"
-                className={classNames(projMetric === 'win' && 'is-active')}
-                onClick={() => setProjMetric('win')}
-              >
-                Win%
-              </button>
-            </div>
-          </header>
-
-          <div className="vx-card__scroll vx-club-bars">
-            {sortedClubs.map((club, index) => {
-              const val = club[projMetric];
-              const pctWidth = Math.max(4, (val / maxClubVal) * 100);
-              const fillStyle =
-                projMetric === 'goals'
-                  ? projectedGoalsFillStyle(club.goals)
-                  : projMetric === 'cs'
-                    ? cleanSheetFillStyle(club.cs)
-                    : difficultyFillStyle(1 + 4 * (1 - club.win));
-              return (
-                <div key={club.teamId} className="vx-club-bar-row">
-                  <span className="vx-row-idx">{index + 1}.</span>
-                  <ClubBadge teamCode={club.code} shortName={club.shortName} teamName={club.name} size="sm" />
-                  <strong className="vx-club-short">{club.shortName}</strong>
-                  <small className="vx-club-opp">{club.oppLabel}</small>
-                  <div className="vx-bar-track" aria-hidden="true">
-                    <span className="vx-bar-fill" style={{ width: `${pctWidth}%`, background: fillStyle.background }} />
-                  </div>
-                  <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>
-                    {projMetric === 'goals' ? val.toFixed(2) : `${Math.round(val * 100)}%`}
-                  </strong>
-                </div>
-              );
-            })}
-          </div>
-
-          <footer className="vx-card__footer vx-card__footer--spread">
-            <span className="vx-odds-source-badge">
-              <span
-                className={classNames(
-                  'vx-odds-dot',
-                  gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
-                )}
-              />
-              {gwMatchesAndClubs.availableOddsCount > 0
-                ? oddsSourceMode === 'auto'
-                  ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
-                  : 'VORTEX model (market quotes paused)'
-                : 'VORTEX model · no matched bookmaker odds'}
-            </span>
-            {gwMatchesAndClubs.availableOddsCount > 0 && (
-              <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
-                <button
-                  type="button"
-                  className={classNames(oddsSourceMode === 'auto' && 'is-active')}
-                  onClick={() => setOddsSourceMode('auto')}
-                >
-                  Market Odds
-                </button>
-                <button
-                  type="button"
-                  className={classNames(oddsSourceMode === 'model' && 'is-active')}
-                  onClick={() => setOddsSourceMode('model')}
-                >
-                  Model
-                </button>
-              </div>
-            )}
-          </footer>
-        </article>
+        {mode === 'review' && clubProjectionsCard}
       </section>
 
       {mode === 'review' && (

@@ -208,10 +208,30 @@ test('parses Football-Data CSV, The Odds API v4, and ESPN EPL odds and renders L
     }),
   );
 
-  assert.match(html, /Market quotes:/);
+  assert.doesNotMatch(html, /Market quotes:|Match dates \/ kickoff:/);
+  assert.match(html, new RegExp(`aria-pressed="false">GW ${enrichedSnapshot.meta.currentEventId} Results</button>`));
+  assert.match(html, new RegExp(`aria-pressed="true">GW ${nextGw} Projection</button>`));
   assert.match(html, /Implied Goals · Pinnacle/);
-  assert.match(html, /Market quotes: 1X2/);
   assert.match(html, /VORTEX projected xG/);
+  const goalsCard = html.match(/<article class="panel vx-card vx-card--goals"[\s\S]*?<\/article>/)?.[0];
+  assert.ok(goalsCard);
+  assert.doesNotMatch(goalsCard, /<footer|Market quotes \(|>Market Odds<|>Model</);
+  assert.match(goalsCard, /aria-label="Forecast source"/);
+  assert.match(goalsCard, /<option value="auto" selected="">Bookmaker when available<\/option>/);
+  assert.match(goalsCard, /<option value="model">VORTEX estimates<\/option>/);
+  const oddsSection = html.match(/<section class="vx-next-market"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(oddsSection);
+  assert.match(oddsSection, /Model Market Odds/);
+  assert.match(oddsSection, new RegExp(`>GW ${nextGw}<`));
+  assert.match(oddsSection, /Model xG/);
+  assert.match(oddsSection, /Market 1X2/);
+  const expectedQuote = matched.get(fx0.id)!;
+  const marketPrices = [expectedQuote.oddsHome, expectedQuote.oddsDraw, expectedQuote.oddsAway]
+    .map(odd => odd.toFixed(2)).join(' / ');
+  assert.ok(oddsSection.includes(marketPrices));
+  assert.match(oddsSection, /Quote time unknown/);
+  assert.match(oddsSection, /Unavailable/);
+  assert.equal((oddsSection.match(/scope="row"/g) ?? []).length, gwFixtures.length);
   assert.match(html, /Bookmaker quote timestamp unknown/);
 
 });
