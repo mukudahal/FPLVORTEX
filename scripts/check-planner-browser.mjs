@@ -95,6 +95,20 @@ try {
   await assertGoalOpponents(dashboardMeta.nextEventId);
   assert.equal(await dashboardGoals.locator('.vx-club-scored').count(), 0);
   console.log('Projected Goals passed: placement, both Gameweeks, opponents and recorded goals.');
+  assert.equal(await dashboardGoals.locator('footer').count(), 0);
+  for (const text of ['Market Odds', 'Model']) {
+    assert.equal(await dashboardGoals.getByRole('button', { name: text, exact: true }).count(), 0);
+  }
+  const hasDashboardQuotes = dashboardFixtures.some(f => f.event === dashboardMeta.nextEventId && f.marketOdds);
+  const forecastSource = dashboardGoals.getByRole('combobox', { name: 'Forecast source' });
+  assert.equal(await forecastSource.count(), hasDashboardQuotes ? 1 : 0);
+  if (hasDashboardQuotes) {
+    await forecastSource.selectOption('model');
+    assert.equal(await forecastSource.inputValue(), 'model');
+    assert.equal(await modelMarketOdds.innerText(), initialModelMarket);
+    await forecastSource.selectOption('auto');
+  }
+  console.log('Projection footer cleanup passed: no duplicate odds labels.');
   assert.equal(await modelMarketOdds.innerText(), initialModelMarket);
   console.log('Model Market Odds passed: next Gameweek and both sources stay visible when switching views.');
   assert.doesNotMatch(await page.locator('.vx-card--fixtures > header').innerText(), /Market quotes:|Match dates/);

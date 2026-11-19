@@ -950,6 +950,13 @@ export function CommandCenter({
             Win%
           </button>
         </div>
+        {mode === 'home' && gwMatchesAndClubs.availableOddsCount > 0 && (
+          <select className="vx-mini-select" aria-label="Forecast source" value={oddsSourceMode}
+            onChange={event => setOddsSourceMode(event.currentTarget.value === 'model' ? 'model' : 'auto')}>
+            <option value="auto">Bookmaker when available</option>
+            <option value="model">VORTEX estimates</option>
+          </select>
+        )}
       </header>
 
       <div className="vx-card__scroll vx-club-bars" tabIndex={mode === 'home' ? 0 : undefined}>
@@ -986,39 +993,41 @@ export function CommandCenter({
         })}
       </div>
 
-      <footer className="vx-card__footer vx-card__footer--spread">
-        <span className="vx-odds-source-badge">
-          <span
-            className={classNames(
-              'vx-odds-dot',
-              gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
-            )}
-          />
-          {gwMatchesAndClubs.availableOddsCount > 0
-            ? oddsSourceMode === 'auto'
-              ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
-              : 'VORTEX model (market quotes paused)'
-            : 'VORTEX model · no matched bookmaker odds'}
-        </span>
-        {gwMatchesAndClubs.availableOddsCount > 0 && (
-          <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
-            <button
-              type="button"
-              className={classNames(oddsSourceMode === 'auto' && 'is-active')}
-              onClick={() => setOddsSourceMode('auto')}
-            >
-              Market Odds
-            </button>
-            <button
-              type="button"
-              className={classNames(oddsSourceMode === 'model' && 'is-active')}
-              onClick={() => setOddsSourceMode('model')}
-            >
-              Model
-            </button>
-          </div>
-        )}
-      </footer>
+      {mode === 'review' && (
+        <footer className="vx-card__footer vx-card__footer--spread">
+          <span className="vx-odds-source-badge">
+            <span
+              className={classNames(
+                'vx-odds-dot',
+                gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
+              )}
+            />
+            {gwMatchesAndClubs.availableOddsCount > 0
+              ? oddsSourceMode === 'auto'
+                ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
+                : 'VORTEX model (market quotes paused)'
+              : 'VORTEX model · no matched bookmaker odds'}
+          </span>
+          {gwMatchesAndClubs.availableOddsCount > 0 && (
+            <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
+              <button
+                type="button"
+                className={classNames(oddsSourceMode === 'auto' && 'is-active')}
+                onClick={() => setOddsSourceMode('auto')}
+              >
+                Market Odds
+              </button>
+              <button
+                type="button"
+                className={classNames(oddsSourceMode === 'model' && 'is-active')}
+                onClick={() => setOddsSourceMode('model')}
+              >
+                Model
+              </button>
+            </div>
+          )}
+        </footer>
+      )}
     </article>
   );
 
