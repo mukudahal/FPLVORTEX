@@ -465,6 +465,7 @@ export function CommandCenter({
         code: number;
         oppLabel: string;
         goals: number;
+        scored: number | null;
         cs: number;
         win: number;
       }
@@ -480,6 +481,8 @@ export function CommandCenter({
           code: m.homeTeam.code,
           oppLabel: prevH ? `${prevH.oppLabel}, ${m.awayTeam.shortName} (H)` : `${m.awayTeam.shortName} (H)`,
           goals: (prevH?.goals ?? 0) + m.homeXg,
+          scored: m.fixture.finished && m.fixture.teamHScore != null
+            ? (prevH?.scored ?? 0) + m.fixture.teamHScore : prevH?.scored ?? null,
           cs: prevH ? Math.max(prevH.cs, m.homeCs) : m.homeCs,
           win: prevH ? Math.max(prevH.win, m.homeWin) : m.homeWin,
         });
@@ -492,6 +495,8 @@ export function CommandCenter({
           code: m.awayTeam.code,
           oppLabel: prevA ? `${prevA.oppLabel}, ${m.homeTeam.shortName} (A)` : `${m.homeTeam.shortName} (A)`,
           goals: (prevA?.goals ?? 0) + m.awayXg,
+          scored: m.fixture.finished && m.fixture.teamAScore != null
+            ? (prevA?.scored ?? 0) + m.fixture.teamAScore : prevA?.scored ?? null,
           cs: prevA ? Math.max(prevA.cs, m.awayCs) : m.awayCs,
           win: prevA ? Math.max(prevA.win, m.awayWin) : m.awayWin,
         });
@@ -507,6 +512,7 @@ export function CommandCenter({
           code: t.code,
           oppLabel: 'BLANK',
           goals: 0,
+          scored: null,
           cs: 0,
           win: 0,
         });
@@ -909,6 +915,113 @@ export function CommandCenter({
             return tables;
           };
 
+  const showRecordedGoals = mode === 'home' && dashboardView === 'results' && projMetric === 'goals';
+  const clubProjectionsCard = (
+    <article className="panel vx-card vx-card--goals">
+      <header className="vx-card__header vx-card__header--wrap">
+        <div className="vx-card__title-icon">
+          <Shield size={16} className="vx-icon-mint" />
+          <h3>
+            GW {selectedGw}{' '}
+            {projMetric === 'goals' ? (mode === 'review' ? 'Review Goals' : 'Projected Goals') : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
+          </h3>
+        </div>
+        <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2), color: projectedGoalsColor(club.goals) }, { text: `${Math.round(club.cs * 100)}%`, color: cleanSheetColor(club.cs) }, { text: `${Math.round(club.win * 100)}%`, color: difficultyColor(1 + 4 * (1 - club.win)) }]) }]} />
+        <div className="vx-seg-pills" role="group" aria-label="Club projection metric">
+          <button
+            type="button"
+            className={classNames(projMetric === 'goals' && 'is-active')}
+            onClick={() => setProjMetric('goals')}
+          >
+            Goals
+          </button>
+          <button
+            type="button"
+            className={classNames(projMetric === 'cs' && 'is-active')}
+            onClick={() => setProjMetric('cs')}
+          >
+            CS%
+          </button>
+          <button
+            type="button"
+            className={classNames(projMetric === 'win' && 'is-active')}
+            onClick={() => setProjMetric('win')}
+          >
+            Win%
+          </button>
+        </div>
+      </header>
+
+      <div className="vx-card__scroll vx-club-bars" tabIndex={mode === 'home' ? 0 : undefined}>
+        {sortedClubs.map((club, index) => {
+          const val = club[projMetric];
+          const pctWidth = Math.max(4, (val / maxClubVal) * 100);
+          const fillStyle =
+            projMetric === 'goals'
+              ? projectedGoalsFillStyle(club.goals)
+              : projMetric === 'cs'
+                ? cleanSheetFillStyle(club.cs)
+                : difficultyFillStyle(1 + 4 * (1 - club.win));
+          return (
+            <div key={club.teamId} className="vx-club-bar-row">
+              <span className="vx-row-idx">{index + 1}.</span>
+              <ClubBadge teamCode={club.code} shortName={club.shortName} teamName={club.name} size="sm" />
+              <strong className="vx-club-short">{club.shortName}</strong>
+              <small className="vx-club-opp">{club.oppLabel}</small>
+              <div className="vx-bar-track" aria-hidden="true">
+                <span className="vx-bar-fill" style={{ width: `${pctWidth}%`, background: fillStyle.background }} />
+              </div>
+              {showRecordedGoals && club.scored !== null ? (
+                <div className="vx-club-score">
+                  <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>{val.toFixed(2)}</strong>
+                  <small className="vx-club-scored">{club.scored} scored</small>
+                </div>
+              ) : (
+                <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>
+                  {projMetric === 'goals' ? val.toFixed(2) : `${Math.round(val * 100)}%`}
+                </strong>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <footer className="vx-card__footer vx-card__footer--spread">
+        <span className="vx-odds-source-badge">
+          <span
+            className={classNames(
+              'vx-odds-dot',
+              gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
+            )}
+          />
+          {gwMatchesAndClubs.availableOddsCount > 0
+            ? oddsSourceMode === 'auto'
+              ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
+              : 'VORTEX model (market quotes paused)'
+            : 'VORTEX model · no matched bookmaker odds'}
+        </span>
+        {gwMatchesAndClubs.availableOddsCount > 0 && (
+          <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
+            <button
+              type="button"
+              className={classNames(oddsSourceMode === 'auto' && 'is-active')}
+              onClick={() => setOddsSourceMode('auto')}
+            >
+              Market Odds
+            </button>
+            <button
+              type="button"
+              className={classNames(oddsSourceMode === 'model' && 'is-active')}
+              onClick={() => setOddsSourceMode('model')}
+            >
+              Model
+            </button>
+          </div>
+        )}
+      </footer>
+    </article>
+  );
+
   return (
     <div className={classNames('page page--command', mode === 'review' && 'page--review')}>
       {/* ==================== 1. COMPACT HALF-PAGE VORTEX HERO + TOP FPL TEAM ID BAR ==================== */}
@@ -1191,11 +1304,11 @@ export function CommandCenter({
             <header className="vx-card__header">
               <div className="vx-seg-pills" role="group" aria-label="Dashboard Gameweek">
                 <button type="button" className={classNames(dashboardView === 'results' && 'is-active')}
-                  aria-pressed={dashboardView === 'results'} onClick={() => setDashboardView('results')}>
+                  aria-pressed={dashboardView === 'results'} onClick={() => { setDashboardView('results'); setProjMetric('goals'); }}>
                   GW {currentEventId} Results
                 </button>
                 <button type="button" className={classNames(dashboardView === 'projection' && 'is-active')}
-                  aria-pressed={dashboardView === 'projection'} onClick={() => setDashboardView('projection')}>
+                  aria-pressed={dashboardView === 'projection'} onClick={() => { setDashboardView('projection'); setProjMetric('goals'); }}>
                   GW {nextEventId} Projection
                 </button>
               </div>
@@ -1258,6 +1371,8 @@ export function CommandCenter({
               ) : <p>No fixtures scheduled for GW {nextEventId}.</p>}
             </section>
           )}
+
+          {mode === 'home' && clubProjectionsCard}
 
           <div className="vx-card__scroll vx-fixture-columns">
             {fixtureColumns.map((column, index) => (
@@ -1417,103 +1532,7 @@ export function CommandCenter({
         )}
         </div>
 
-        {/* COLUMN 3: GW PROJECTED GOALS / CS% / WIN% CARD */}
-        <article className="panel vx-card vx-card--goals">
-          <header className="vx-card__header vx-card__header--wrap">
-            <div className="vx-card__title-icon">
-              <Shield size={16} className="vx-icon-mint" />
-              <h3>
-                GW {selectedGw}{' '}
-                {projMetric === 'goals' ? (mode === 'review' ? 'Review Goals' : 'Projected Goals') : projMetric === 'cs' ? 'Clean Sheet %' : 'Win %'}
-              </h3>
-            </div>
-            <SaveTableButton filename={`fpl-vortex-projections-gw${selectedGw}.png`} onError={message => onToast(message, 'error')} getTables={() => [{ title: `GW${selectedGw} CLUB PROJECTIONS · ${oddsSourceMode === 'model' ? 'MODEL' : 'MARKET WHEN AVAILABLE / MODEL FALLBACK'}`, headers: ['CLUB', 'OPPONENT', 'GOALS', 'CS %', 'WIN %'], widths: [170, 190, 100, 100, 100], rows: sortedClubs.map(club => [{ text: club.name }, { text: club.oppLabel }, { text: club.goals.toFixed(2), color: projectedGoalsColor(club.goals) }, { text: `${Math.round(club.cs * 100)}%`, color: cleanSheetColor(club.cs) }, { text: `${Math.round(club.win * 100)}%`, color: difficultyColor(1 + 4 * (1 - club.win)) }]) }]} />
-            <div className="vx-seg-pills" role="group" aria-label="Club projection metric">
-              <button
-                type="button"
-                className={classNames(projMetric === 'goals' && 'is-active')}
-                onClick={() => setProjMetric('goals')}
-              >
-                Goals
-              </button>
-              <button
-                type="button"
-                className={classNames(projMetric === 'cs' && 'is-active')}
-                onClick={() => setProjMetric('cs')}
-              >
-                CS%
-              </button>
-              <button
-                type="button"
-                className={classNames(projMetric === 'win' && 'is-active')}
-                onClick={() => setProjMetric('win')}
-              >
-                Win%
-              </button>
-            </div>
-          </header>
-
-          <div className="vx-card__scroll vx-club-bars">
-            {sortedClubs.map((club, index) => {
-              const val = club[projMetric];
-              const pctWidth = Math.max(4, (val / maxClubVal) * 100);
-              const fillStyle =
-                projMetric === 'goals'
-                  ? projectedGoalsFillStyle(club.goals)
-                  : projMetric === 'cs'
-                    ? cleanSheetFillStyle(club.cs)
-                    : difficultyFillStyle(1 + 4 * (1 - club.win));
-              return (
-                <div key={club.teamId} className="vx-club-bar-row">
-                  <span className="vx-row-idx">{index + 1}.</span>
-                  <ClubBadge teamCode={club.code} shortName={club.shortName} teamName={club.name} size="sm" />
-                  <strong className="vx-club-short">{club.shortName}</strong>
-                  <small className="vx-club-opp">{club.oppLabel}</small>
-                  <div className="vx-bar-track" aria-hidden="true">
-                    <span className="vx-bar-fill" style={{ width: `${pctWidth}%`, background: fillStyle.background }} />
-                  </div>
-                  <strong className="vx-club-val mono-num vx-club-val--filled" style={fillStyle}>
-                    {projMetric === 'goals' ? val.toFixed(2) : `${Math.round(val * 100)}%`}
-                  </strong>
-                </div>
-              );
-            })}
-          </div>
-
-          <footer className="vx-card__footer vx-card__footer--spread">
-            <span className="vx-odds-source-badge">
-              <span
-                className={classNames(
-                  'vx-odds-dot',
-                  gwMarketCoverage.completeMarketData && oddsSourceMode === 'auto' && 'is-live',
-                )}
-              />
-              {gwMatchesAndClubs.availableOddsCount > 0
-                ? oddsSourceMode === 'auto'
-                  ? `Market quotes (${gwMatchesAndClubs.bookmakerLabel}); missing fixtures use VORTEX`
-                  : 'VORTEX model (market quotes paused)'
-                : 'VORTEX model · no matched bookmaker odds'}
-            </span>
-            {gwMatchesAndClubs.availableOddsCount > 0 && (
-              <div className="vx-seg-pills vx-seg-pills--xs" role="group" aria-label="Projection source">
-                <button
-                  type="button"
-                  className={classNames(oddsSourceMode === 'auto' && 'is-active')}
-                  onClick={() => setOddsSourceMode('auto')}
-                >
-                  Market Odds
-                </button>
-                <button
-                  type="button"
-                  className={classNames(oddsSourceMode === 'model' && 'is-active')}
-                  onClick={() => setOddsSourceMode('model')}
-                >
-                  Model
-                </button>
-              </div>
-            )}
-          </footer>
-        </article>
+        {mode === 'review' && clubProjectionsCard}
       </section>
 
       {mode === 'review' && (

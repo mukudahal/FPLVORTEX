@@ -2896,6 +2896,15 @@ kbd { font-family: var(--font); font-size: 9px; font-weight: 800; color: var(--t
 .vx-next-market th[scope="row"] { white-space: nowrap; }
 .vx-next-market small { display: block; }
 .vx-next-market p { margin: 0; color: var(--text-secondary); }
+.page--command:not(.page--review) .vx-card--fixtures > .vx-card--goals { margin-bottom: 10px; }
+.page--command:not(.page--review) .vx-card--fixtures > .vx-card--goals .vx-club-bars {
+  max-height: 18rem;
+  overflow: auto;
+}
+.page--command .vx-club-bars:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.vx-club-score { display: grid; justify-items: center; gap: 2px; }
+.vx-club-scored { color: var(--text-secondary); white-space: nowrap; font-size: 10px; }
+
 .vx-fixture-group {
   display: flex;
   flex-direction: column;
@@ -8247,15 +8256,14 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 @media (min-width: 1280px) {
   .page--command:not(.page--review) .vx-hub-upper {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(8px, .72vw, 12px);
     align-items: start;
   }
   .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch {grid-column:1;grid-row:1;min-width:0;}
   .page--command:not(.page--review) .vx-hub-upper > .vx-fixture-rail {grid-column:2;grid-row:1;min-width:0;}
-  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals {grid-column:3;grid-row:1;min-width:0;}
   .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch,
-  .page--command:not(.page--review) .vx-hub-upper > .vx-card--goals,
+  .page--command:not(.page--review) .vx-card--fixtures > .vx-card--goals,
   .page--command:not(.page--review) .vx-fixture-rail > .vx-card {
     padding: 6px;
     min-width: 0;
@@ -10421,10 +10429,8 @@ button.forecast-tile:focus-visible { outline: 2px solid #6cebd3; outline-offset:
 
 
 
-/* Dashboard pitch appearance only. Preserve the original three-column hub:
-   pitch LEFT, fixtures CENTRE, and projected goals RIGHT on desktop.
-   Shared responsive grid rules continue to control tablet/mobile layout.
-   Review bookmarks and the Planner remain untouched. */
+/* Dashboard pitch appearance. The desktop pitch sits to the left of the data rail.
+   Shared responsive grid rules control tablet and mobile layout. */
 .page--command:not(.page--review) .vx-hub-upper > .vx-card--pitch {
   min-width: 0;
   padding: clamp(6px, 1vw, 12px);

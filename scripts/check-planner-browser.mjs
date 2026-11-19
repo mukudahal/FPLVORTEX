@@ -48,17 +48,53 @@ try {
   await modelMarketOdds.getByRole('columnheader', { name: 'Model xG', exact: true }).waitFor();
   await modelMarketOdds.getByRole('columnheader', { name: /Market 1X2/ }).waitFor();
   const initialModelMarket = await modelMarketOdds.innerText();
+  const dashboardGoals = page.locator('.page--command:not(.page--review) .vx-card--goals');
+  assert.equal(await dashboardGoals.evaluate((card, odds) =>
+    odds.nextElementSibling === card, await modelMarketOdds.elementHandle()), true);
+  const assertGoalOpponents = async gameweek => {
+    const expected = new Map(dashboardTeams.map(team => [team.shortName, []]));
+    for (const f of dashboardFixtures.filter(fixture => fixture.event === gameweek)) {
+      expected.get(clubNames.get(f.teamH)).push(`${clubNames.get(f.teamA)} (H)`);
+      expected.get(clubNames.get(f.teamA)).push(`${clubNames.get(f.teamH)} (A)`);
+    }
+    const rows = await dashboardGoals.locator('.vx-club-bar-row').evaluateAll(items => items.map(row => [
+      row.querySelector('.vx-club-short').textContent,
+      row.querySelector('.vx-club-opp').textContent,
+    ]));
+    assert.equal(rows.length, expected.size);
+    for (const [club, opponents] of rows) {
+      const values = expected.get(club);
+      assert.deepEqual(opponents.split(', ').sort(), values.length ? values.sort() : ['BLANK']);
+    }
+  };
   await dashboardResults.click();
   assert.equal(await dashboardResults.getAttribute('aria-pressed'), 'true');
   assert.equal(await dashboardProjection.getAttribute('aria-pressed'), 'false');
   await page.getByRole('heading', { name: `GW ${dashboardMeta.currentEventId} Projected Goals`, exact: true }).waitFor();
   await assertDashboardFixtures(dashboardMeta.currentEventId);
+  await assertGoalOpponents(dashboardMeta.currentEventId);
+  const recordedGoals = new Map();
+  for (const f of dashboardFixtures.filter(fixture => fixture.event === dashboardMeta.currentEventId && fixture.finished)) {
+    for (const [team, score] of [[f.teamH, f.teamHScore], [f.teamA, f.teamAScore]]) {
+      if (score != null) recordedGoals.set(clubNames.get(team), (recordedGoals.get(clubNames.get(team)) ?? 0) + score);
+    }
+  }
+  const displayedGoals = await dashboardGoals.locator('.vx-club-bar-row').evaluateAll(rows =>
+    rows.flatMap(row => {
+      const goalScore = row.querySelector('.vx-club-scored');
+      return goalScore ? [[row.querySelector('.vx-club-short').textContent, goalScore.textContent]] : [];
+    }));
+  assert.deepEqual(new Map(displayedGoals), new Map([...recordedGoals].map(([club, goals]) => [club, `${goals} scored`])));
+  await dashboardGoals.getByRole('button', { name: 'CS%', exact: true }).click();
   assert.equal(await modelMarketOdds.innerText(), initialModelMarket);
   await dashboardProjection.click();
   assert.equal(await dashboardProjection.getAttribute('aria-pressed'), 'true');
   assert.equal(await dashboardResults.getAttribute('aria-pressed'), 'false');
   await page.getByRole('heading', { name: `GW ${dashboardMeta.nextEventId} Projected Goals`, exact: true }).waitFor();
   await assertDashboardFixtures(dashboardMeta.nextEventId);
+  await assertGoalOpponents(dashboardMeta.nextEventId);
+  assert.equal(await dashboardGoals.locator('.vx-club-scored').count(), 0);
+  console.log('Projected Goals passed: placement, both Gameweeks, opponents and recorded goals.');
   assert.equal(await modelMarketOdds.innerText(), initialModelMarket);
   console.log('Model Market Odds passed: next Gameweek and both sources stay visible when switching views.');
   assert.doesNotMatch(await page.locator('.vx-card--fixtures > header').innerText(), /Market quotes:|Match dates/);
@@ -108,19 +144,21 @@ try {
       assert.ok(pitchCard && fixturesCard && goalsCard, 'Dashboard must include pitch, GW fixtures, and projected goals');
       assert.ok(pitchCard.x + pitchCard.width <= fixturesCard.x + 2,
         'Desktop Dashboard pitch must stay LEFT of the fixtures panel');
-      assert.ok(fixturesCard.x + fixturesCard.width <= goalsCard.x + 2,
-        'GW fixtures must stay LEFT of projected goals, both RIGHT of pitch');
-      assert.ok(Math.abs(pitchCard.y - fixturesCard.y) < 8 && Math.abs(fixturesCard.y - goalsCard.y) < 8,
-        'Desktop pitch and both data panels must remain side by side in the SAME ROW');
+      assert.ok(Math.abs(pitchCard.y - fixturesCard.y) < 8,
+        'Desktop pitch and data rail must align at the top');
     }
-    if (width === 390) {
+    if (width === 320 || width === 390 || width === 1440) {
       const pitchCard = await dashboard.locator('.vx-card--pitch').boundingBox();
       const fixturesCard = await dashboard.locator('.vx-fixture-rail').boundingBox();
+      const oddsCard = await dashboard.getByRole('region', { name: 'Model Market Odds' }).boundingBox();
       const goalsCard = await dashboard.locator('.vx-card--goals').boundingBox();
-      assert.ok(pitchCard && fixturesCard && goalsCard);
-      assert.ok(fixturesCard.y >= pitchCard.y + pitchCard.height - 2 &&
-        goalsCard.y >= fixturesCard.y + fixturesCard.height - 2,
-        'On mobile, dashboard panels must stack without overlapping');
+      assert.ok(pitchCard && fixturesCard && oddsCard && goalsCard);
+      assert.ok(goalsCard.y >= oddsCard.y + oddsCard.height - 2 &&
+        goalsCard.x >= fixturesCard.x - 2 &&
+        goalsCard.x + goalsCard.width <= fixturesCard.x + fixturesCard.width + 2,
+        'Projected Goals must sit below Model Market Odds inside the data rail');
+      if (width < 1440) assert.ok(fixturesCard.y >= pitchCard.y + pitchCard.height - 2,
+        'Pitch and data rail must stack on mobile');
     }
     if (width === 390 || width === 1440) {
       await page.screenshot({ path: `test-results/planner/dashboard-pitch-${width}.png`, fullPage: true });
