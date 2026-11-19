@@ -239,8 +239,11 @@ export function CommandCenter({
     initialVideos?.length ? initialVideos.slice(0, 30) : SEED_VORTEX_VIDEOS,
   );
   const [videoStatus, setVideoStatus] = useState(videoSourceNotice(null));
-  // Default to the Review Gameweek (`entry.currentEvent`) when a team is loaded, or nextEventId before linking!
-  const [selectedGw, setSelectedGw] = useState<number>(hasLinkedTeam ? reviewEventId : nextEventId);
+  const [selectedReviewGw, setSelectedReviewGw] = useState(hasLinkedTeam ? reviewEventId : nextEventId);
+  const [dashboardView, setDashboardView] = useState<'results' | 'projection'>(hasLinkedTeam ? 'results' : 'projection');
+  const currentEventId = snapshot.meta.currentEventId;
+  const selectedGw = mode === 'review' ? selectedReviewGw
+    : dashboardView === 'results' ? currentEventId : nextEventId;
   const [squadView, setSquadView] = useState<'pitch' | 'table'>('pitch');
   const [teamInput, setTeamInput] = useState(teamId);
   const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
@@ -268,7 +271,8 @@ export function CommandCenter({
   // Whenever an FPL ID finishes loading, jump cleanly to its Review Gameweek so the user sees their Review GW immediately
   useEffect(() => {
     if (entry?.currentEvent) {
-      setSelectedGw(entry.currentEvent);
+      setSelectedReviewGw(entry.currentEvent);
+      setDashboardView('results');
     }
   }, [entry?.id, entry?.currentEvent]);
 
@@ -908,7 +912,7 @@ export function CommandCenter({
               <button
                 type="button"
                 className={classNames(selectedGw === reviewEventId && 'is-active')}
-                onClick={() => setSelectedGw(reviewEventId)}
+                onClick={() => setSelectedReviewGw(reviewEventId)}
               >
                 Review GW {reviewEventId}
               </button>
@@ -920,7 +924,7 @@ export function CommandCenter({
           <button
             type="button"
             className="icon-button vx-gw-stepper__btn"
-            onClick={() => setSelectedGw((gw) => Math.max(1, gw - 1))}
+            onClick={() => setSelectedReviewGw((gw) => Math.max(1, gw - 1))}
             disabled={selectedGw <= 1}
             aria-label="Previous gameweek"
           >
@@ -929,7 +933,7 @@ export function CommandCenter({
           <label className="vx-gw-stepper__select-wrap">
             <select
               value={selectedGw}
-              onChange={(e) => setSelectedGw(Number(e.target.value))}
+              onChange={(e) => setSelectedReviewGw(Number(e.target.value))}
               aria-label="Select review gameweek"
             >
               {snapshot.gameweeks.map((gw) => (
@@ -944,7 +948,7 @@ export function CommandCenter({
           <button
             type="button"
             className="icon-button vx-gw-stepper__btn"
-            onClick={() => setSelectedGw((gw) => Math.min(38, gw + 1))}
+            onClick={() => setSelectedReviewGw((gw) => Math.min(38, gw + 1))}
             disabled={selectedGw >= 38}
             aria-label="Next gameweek"
           >
@@ -1172,22 +1176,37 @@ export function CommandCenter({
         {/* Right rail: current GW results + date-grouped next GW kickoffs. */}
         <div className="vx-fixture-rail">
         <article className="panel vx-card vx-card--fixtures">
-          <header className="vx-card__header">
-            <div>
-              <h3>GW {selectedGw} {finishedMatchesCount > 0 ? "Results" : "Fixtures"}</h3>
-              <small className="vx-card__sub">
-                {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
-                  ? `Market quotes: 1X2 ${gwMarketCoverage.complete1x2}/${gwMarketCoverage.totalFixtures} · O/U ${gwMarketCoverage.completeTotals}/${gwMarketCoverage.totalFixtures} · remaining VORTEX model`
-                  : finishedMatchesCount > 0
-                    ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
-                    : 'VORTEX model · no verified bookmaker prices'}
-              </small>
-              <span className="vx-fixture-zone">Match dates / kickoff: {viewerZoneLabel} · local</span>
-            </div>
-            <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
-              All matches <ArrowRight size={14} />
-            </button>
-          </header>
+          {mode === 'home' ? (
+            <header className="vx-card__header">
+              <div className="vx-seg-pills" role="group" aria-label="Dashboard Gameweek">
+                <button type="button" className={classNames(dashboardView === 'results' && 'is-active')}
+                  aria-pressed={dashboardView === 'results'} onClick={() => setDashboardView('results')}>
+                  GW {currentEventId} Results
+                </button>
+                <button type="button" className={classNames(dashboardView === 'projection' && 'is-active')}
+                  aria-pressed={dashboardView === 'projection'} onClick={() => setDashboardView('projection')}>
+                  GW {nextEventId} Projection
+                </button>
+              </div>
+            </header>
+          ) : (
+            <header className="vx-card__header">
+              <div>
+                <h3>GW {selectedGw} {finishedMatchesCount > 0 ? "Results" : "Fixtures"}</h3>
+                <small className="vx-card__sub">
+                  {gwMatchesAndClubs.availableOddsCount > 0 && oddsSourceMode === 'auto'
+                    ? `Market quotes: 1X2 ${gwMarketCoverage.complete1x2}/${gwMarketCoverage.totalFixtures} · O/U ${gwMarketCoverage.completeTotals}/${gwMarketCoverage.totalFixtures} · remaining VORTEX model`
+                    : finishedMatchesCount > 0
+                      ? `${finishedMatchesCount} of ${gwMatchesAndClubs.matches.length} played · Poisson Model`
+                      : 'VORTEX model · no verified bookmaker prices'}
+                </small>
+                <span className="vx-fixture-zone">Match dates / kickoff: {viewerZoneLabel} · local</span>
+              </div>
+              <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
+                All matches <ArrowRight size={14} />
+              </button>
+            </header>
+          )}
 
           <div className="vx-card__scroll vx-fixture-columns">
             {fixtureColumns.map((column, index) => (
@@ -1285,6 +1304,13 @@ export function CommandCenter({
               </div>
             ))}
           </div>
+          {mode === 'home' && (
+            <footer>
+              <button type="button" className="vx-inline-link" onClick={() => onNavigate('fixtures')}>
+                All matches <ArrowRight size={14} />
+              </button>
+            </footer>
+          )}
         </article>
 
         {false && (

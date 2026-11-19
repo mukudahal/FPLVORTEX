@@ -25,6 +25,33 @@ try {
   await page.locator('.vortex-route-pills').getByRole('button', { name: 'DASHBOARD' }).click();
   assert.equal(new URL(page.url()).hash, '#/command', 'Returning to Dashboard must preserve its existing route');
   await page.locator('.page--command .vx-hub-upper').waitFor();
+  const dashboardSnapshotResponse = await page.request.get(base + '/api/vortex/snapshot');
+  assert.ok(dashboardSnapshotResponse.ok());
+  const { meta: dashboardMeta, teams: dashboardTeams, fixtures: dashboardFixtures } = await dashboardSnapshotResponse.json();
+  const clubNames = new Map(dashboardTeams.map(team => [team.id, team.shortName]));
+  const assertDashboardFixtures = async gameweek => {
+    const expected = dashboardFixtures.filter(fixture => fixture.event === gameweek)
+      .map(fixture => `${clubNames.get(fixture.teamH)}:${clubNames.get(fixture.teamA)}`).sort();
+    const actual = await page.locator('.vx-card--fixtures .vx-match-row').evaluateAll(rows =>
+      rows.map(row => Array.from(row.querySelectorAll('.vx-match-team strong'), team => team.textContent.trim()).join(':')).sort());
+    assert.deepEqual(actual, expected, `Dashboard fixtures must match GW${gameweek}`);
+  };
+  const dashboardGwControls = page.getByRole('group', { name: 'Dashboard Gameweek' });
+  assert.equal(await dashboardGwControls.getByRole('button').count(), 2);
+  const dashboardResults = dashboardGwControls.getByRole('button', { name: `GW ${dashboardMeta.currentEventId} Results`, exact: true });
+  const dashboardProjection = dashboardGwControls.getByRole('button', { name: `GW ${dashboardMeta.nextEventId} Projection`, exact: true });
+  await dashboardResults.click();
+  assert.equal(await dashboardResults.getAttribute('aria-pressed'), 'true');
+  assert.equal(await dashboardProjection.getAttribute('aria-pressed'), 'false');
+  await page.getByRole('heading', { name: `GW ${dashboardMeta.currentEventId} Projected Goals`, exact: true }).waitFor();
+  await assertDashboardFixtures(dashboardMeta.currentEventId);
+  await dashboardProjection.click();
+  assert.equal(await dashboardProjection.getAttribute('aria-pressed'), 'true');
+  assert.equal(await dashboardResults.getAttribute('aria-pressed'), 'false');
+  await page.getByRole('heading', { name: `GW ${dashboardMeta.nextEventId} Projected Goals`, exact: true }).waitFor();
+  await assertDashboardFixtures(dashboardMeta.nextEventId);
+  assert.doesNotMatch(await page.locator('.vx-card--fixtures > header').innerText(), /Market quotes:|Match dates/);
+  console.log('Dashboard Gameweek controls passed: dynamic labels and both selections.');
   await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });
   await page.locator('.page--review .vx-hub-upper').waitFor({ timeout: 30000 });
 
