@@ -8,7 +8,7 @@ import {
   projectedGoalsColor,
   projectedGoalsFillStyle,
 } from '../lib/fixtureForecast';
-import { marketCoverage, fixtureQuoteNotice } from '../lib/marketCoverage';
+import { bookmakerQuoteFreshness, fixtureQuoteNotice, hasComplete1x2, marketCoverage } from '../lib/marketCoverage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -402,14 +402,28 @@ export function CommandCenter({
 
   // Bookmaker-implied forecasts where priced; otherwise explicitly labelled VORTEX estimates.
   const gwMarketCoverage = useMemo(() => marketCoverage(snapshot.fixtures, selectedGw, 1), [snapshot.fixtures, selectedGw]);
-  const gwMatchesAndClubs = useMemo(() => {
+  const teamStrengths = useMemo(() => {
     const repoTeams = toRepoTeams(snapshot.teams);
     const repoElements = snapshot.players.map(toRepoElement);
     const repoFixtures = toRepoFixtures(snapshot.fixtures);
     const strengths = buildStrengths(repoTeams, repoElements, repoFixtures);
     applyHistoricalStrengths(strengths, snapshot.teams, snapshot.historicalTeamModel?.strengths);
-    const fallbackStrength = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
+    return strengths;
+  }, [snapshot.fixtures, snapshot.historicalTeamModel?.strengths, snapshot.players, snapshot.teams]);
+  const modelForFixture = useMemo(() => {
+    const fallback = { atkH: 1, atkA: 1, defWeakH: 1, defWeakA: 1 };
+    return (fixture: Snapshot['fixtures'][number]) => projectMatch(
+      teamStrengths.get(fixture.teamH) ?? fallback,
+      teamStrengths.get(fixture.teamA) ?? fallback,
+    );
+  }, [teamStrengths]);
+  const nextMarketRows = useMemo(() => mode === 'home'
+    ? snapshot.fixtures.filter(fixture => fixture.event === nextEventId)
+      .sort((a, b) => (a.kickoffTime ?? '9999').localeCompare(b.kickoffTime ?? '9999'))
+      .map(fixture => ({ fixture, model: modelForFixture(fixture) }))
+    : [], [mode, modelForFixture, nextEventId, snapshot.fixtures]);
 
+  const gwMatchesAndClubs = useMemo(() => {
     let availableOddsCount = 0;
     const bookmakersUsed = new Set<string>();
 
@@ -426,10 +440,7 @@ export function CommandCenter({
         const activeMarket = oddsSourceMode === 'auto' ? fx.marketOdds ?? null : null;
         const proj = activeMarket
           ? forecastFromGoalRates(activeMarket.homeXg, activeMarket.awayXg)
-          : projectMatch(
-            strengths.get(fx.teamH) ?? fallbackStrength,
-            strengths.get(fx.teamA) ?? fallbackStrength,
-          );
+          : modelForFixture(fx);
         return {
           fixture: fx,
           homeTeam,
@@ -508,7 +519,7 @@ export function CommandCenter({
       availableOddsCount,
       bookmakerLabel: [...bookmakersUsed].slice(0, 2).join(' · ') || snapshot.meta.oddsMeta?.provider || 'Market Odds',
     };
-  }, [oddsSourceMode, selectedGw, snapshot.fixtures, snapshot.meta.oddsMeta?.provider, snapshot.players, snapshot.teams, teamMap]);
+  }, [modelForFixture, oddsSourceMode, selectedGw, snapshot.fixtures, snapshot.meta.oddsMeta?.provider, teamMap]);
 
   const groupedMatches = useMemo(() => {
     const groups: Array<{ dateLabel: string; items: typeof gwMatchesAndClubs.matches }> = [];
@@ -1206,6 +1217,46 @@ export function CommandCenter({
                 All matches <ArrowRight size={14} />
               </button>
             </header>
+          )}
+
+          {mode === 'home' && (
+            <section className="vx-next-market" aria-labelledby="vx-next-market-title">
+              <div className="vx-card__header">
+                <h3 id="vx-next-market-title">Model Market Odds</h3>
+                <span>GW {nextEventId}</span>
+              </div>
+              {nextMarketRows.length ? (
+                <div className="table-scroll vx-next-market__scroll" tabIndex={0} aria-label="Upcoming fixture odds">
+                  <table>
+                    <thead>
+                      <tr><th scope="col">Fixture</th><th scope="col">Model xG</th><th scope="col">Market 1X2 <small>H / D / A</small></th></tr>
+                    </thead>
+                    <tbody>
+                      {nextMarketRows.map(({ fixture, model }) => {
+                        const quote = fixture.marketOdds;
+                        const freshness = bookmakerQuoteFreshness(quote);
+                        return (
+                          <tr key={fixture.id}>
+                            <th scope="row">
+                              {teamMap.get(fixture.teamH)?.shortName ?? 'Home'} – {teamMap.get(fixture.teamA)?.shortName ?? 'Away'}
+                            </th>
+                            <td className="mono-num">{model.homeXg.toFixed(2)} – {model.awayXg.toFixed(2)}</td>
+                            <td className="mono-num">
+                              {quote && hasComplete1x2(quote) ? (
+                                <>
+                                  {quote.oddsHome.toFixed(2)} / {quote.oddsDraw.toFixed(2)} / {quote.oddsAway.toFixed(2)}
+                                  <small>{quote.bookmaker}{freshness === 'stale' ? ' · Stale' : freshness === 'unknown' ? ' · Quote time unknown' : ''}</small>
+                                </>
+                              ) : 'Unavailable'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p>No fixtures scheduled for GW {nextEventId}.</p>}
+            </section>
           )}
 
           <div className="vx-card__scroll vx-fixture-columns">

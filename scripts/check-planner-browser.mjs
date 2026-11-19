@@ -40,16 +40,27 @@ try {
   assert.equal(await dashboardGwControls.getByRole('button').count(), 2);
   const dashboardResults = dashboardGwControls.getByRole('button', { name: `GW ${dashboardMeta.currentEventId} Results`, exact: true });
   const dashboardProjection = dashboardGwControls.getByRole('button', { name: `GW ${dashboardMeta.nextEventId} Projection`, exact: true });
+  const modelMarketOdds = page.getByRole('region', { name: 'Model Market Odds', exact: true });
+  await modelMarketOdds.waitFor();
+  assert.equal(await dashboardGwControls.evaluate((controls, section) =>
+    controls.closest('header').nextElementSibling === section, await modelMarketOdds.elementHandle()), true);
+  await modelMarketOdds.getByText(`GW ${dashboardMeta.nextEventId}`, { exact: true }).waitFor();
+  await modelMarketOdds.getByRole('columnheader', { name: 'Model xG', exact: true }).waitFor();
+  await modelMarketOdds.getByRole('columnheader', { name: /Market 1X2/ }).waitFor();
+  const initialModelMarket = await modelMarketOdds.innerText();
   await dashboardResults.click();
   assert.equal(await dashboardResults.getAttribute('aria-pressed'), 'true');
   assert.equal(await dashboardProjection.getAttribute('aria-pressed'), 'false');
   await page.getByRole('heading', { name: `GW ${dashboardMeta.currentEventId} Projected Goals`, exact: true }).waitFor();
   await assertDashboardFixtures(dashboardMeta.currentEventId);
+  assert.equal(await modelMarketOdds.innerText(), initialModelMarket);
   await dashboardProjection.click();
   assert.equal(await dashboardProjection.getAttribute('aria-pressed'), 'true');
   assert.equal(await dashboardResults.getAttribute('aria-pressed'), 'false');
   await page.getByRole('heading', { name: `GW ${dashboardMeta.nextEventId} Projected Goals`, exact: true }).waitFor();
   await assertDashboardFixtures(dashboardMeta.nextEventId);
+  assert.equal(await modelMarketOdds.innerText(), initialModelMarket);
+  console.log('Model Market Odds passed: next Gameweek and both sources stay visible when switching views.');
   assert.doesNotMatch(await page.locator('.vx-card--fixtures > header').innerText(), /Market quotes:|Match dates/);
   console.log('Dashboard Gameweek controls passed: dynamic labels and both selections.');
   await page.goto(base + '/#/review', { waitUntil: 'domcontentloaded' });

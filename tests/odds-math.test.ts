@@ -213,6 +213,19 @@ test('parses Football-Data CSV, The Odds API v4, and ESPN EPL odds and renders L
   assert.match(html, new RegExp(`aria-pressed="true">GW ${nextGw} Projection</button>`));
   assert.match(html, /Implied Goals · Pinnacle/);
   assert.match(html, /VORTEX projected xG/);
+  const oddsSection = html.match(/<section class="vx-next-market"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(oddsSection);
+  assert.match(oddsSection, /Model Market Odds/);
+  assert.match(oddsSection, new RegExp(`>GW ${nextGw}<`));
+  assert.match(oddsSection, /Model xG/);
+  assert.match(oddsSection, /Market 1X2/);
+  const expectedQuote = matched.get(fx0.id)!;
+  const marketPrices = [expectedQuote.oddsHome, expectedQuote.oddsDraw, expectedQuote.oddsAway]
+    .map(odd => odd.toFixed(2)).join(' / ');
+  assert.ok(oddsSection.includes(marketPrices));
+  assert.match(oddsSection, /Quote time unknown/);
+  assert.match(oddsSection, /Unavailable/);
+  assert.equal((oddsSection.match(/scope="row"/g) ?? []).length, gwFixtures.length);
   assert.match(html, /Bookmaker quote timestamp unknown/);
 
 });
