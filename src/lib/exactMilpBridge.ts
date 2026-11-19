@@ -53,6 +53,7 @@ export function buildExactMilpRequest(options: {
   sellingPrices: Record<number, number>;
   lockedIds: number[];
   decay: number;
+  includeFixtureWindows?: boolean;
 }) {
   const { snapshot, players, planner, squadIds, bankTenths, freeTransfers, sellingPrices, lockedIds, decay } = options;
   const gws = planner.gws;
@@ -77,17 +78,38 @@ export function buildExactMilpRequest(options: {
       throw new RangeError(`GW${gw} has missing or invalid xPts for player ${id}.`);
     return value;
   });
-  // Shortlist and preserve the complete owned squad. The MILP is exact only
-  // conditional on this candidate set; no proprietary data or hidden xPts.
-  const ranked = (p: EnrichedPlayer) => allGwValues(p.id)
-    .reduce((sum, value, i) => sum + Math.pow(decay, i) * value, 0);
+  // Retain the whole-horizon leaders and cheapest cover. Reserve up to
+  // seven additional places for fixture runs that those rankings miss.
+  const weights = gws.map((_, i) => Math.pow(decay, i));
+  const split = Math.ceil(gws.length / 2);
   const ids = new Set(squadIds);
   for (const pos of ['GKP', 'DEF', 'MID', 'FWD'] as const) {
-    const choices = players.filter(p => p.position === pos && isEligibleNewTransferTarget(p));
-    choices.sort((a,b) => ranked(b) - ranked(a) || a.cost - b.cost || a.id - b.id);
-    choices.slice(0, quotas[pos]).forEach(p => ids.add(p.id));
-    choices.sort((a,b) => a.cost - b.cost || ranked(b) - ranked(a) || a.id - b.id);
-    choices.slice(0, 2).forEach(p => ids.add(p.id));
+    const choices = players.filter(p => p.position === pos && isEligibleNewTransferTarget(p)).map(player => {
+      let early = 0, late = 0, total = 0;
+      for (const [i, value] of allGwValues(player.id).entries()) {
+        const weighted = weights[i] * value;
+        total += weighted;
+        if (i < split) early += weighted;
+        else late += weighted;
+      }
+      return { player, early, late, total };
+    });
+    type RankKey = 'early' | 'late' | 'total';
+    const rankBy = (key: RankKey) => (a: typeof choices[number], b: typeof choices[number]) =>
+      b[key] - a[key] || a.player.cost - b.player.cost || a.player.id - b.player.id;
+    const rankByTotal = rankBy('total');
+    choices.sort(rankByTotal);
+    choices.slice(0, quotas[pos]).forEach(({ player }) => ids.add(player.id));
+    choices.sort((a, b) => a.player.cost - b.player.cost || rankByTotal(a, b));
+    choices.slice(0, 2).forEach(({ player }) => ids.add(player.id));
+    if (options.includeFixtureWindows && gws.length > 1) {
+      const phases: RankKey[] = pos === 'GKP' ? ['early'] : ['early', 'late'];
+      for (const phase of phases) {
+        const candidate = choices.sort(rankBy(phase))
+          .find(({ player }) => !ids.has(player.id));
+        if (candidate) ids.add(candidate.player.id);
+      }
+    }
   }
   if (ids.size > 60) throw new RangeError('Candidate pool exceeds the supported 60-player limit.');
   const fixturesByTeamGw = new Set<string>();

@@ -113,6 +113,7 @@ export function SquadBuilder({
   const [reviewExactRank, setReviewExactRank] = useState<number | null>(null);
   const [exactError, setExactError] = useState<string | null>(null);
   const [exactPending, setExactPending] = useState(false);
+  const [includeFixtureWindows, setIncludeFixtureWindows] = useState(false);
   const exactAbortRef = useRef<AbortController | null>(null);
   const [freeTransfers, setFreeTransfers] = useState<number>(entry?.freeTransfers ?? 2);
   const [scenarioLockedIds, setScenarioLockedIds] = useState<number[] | null>(null);
@@ -308,7 +309,7 @@ export function SquadBuilder({
     setSelectedExactRank(1);
     setReviewExactRank(null);
     setExactError(null);
-  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry]);
+  }, [reviewSim, selectedPlanId, plannerHorizon, plannerDecay, activeSquadIds.join(','), lockedIds.join(','), bankTenths, freeTransfers, plannedMoves, snapshot, players, entry, includeFixtureWindows]);
 
   const runExactTransferComparison = async () => {
     let controller: AbortController | null = null;
@@ -322,6 +323,7 @@ export function SquadBuilder({
         snapshot, players, planner: reviewSim,
         squadIds: activeSquadIds, bankTenths, freeTransfers, lockedIds,
         decay: 1 - plannerDecay / 100,
+        includeFixtureWindows,
         sellingPrices: Object.fromEntries(activeSquadIds.map(id => {
           const entryPick = entry?.picks.find(p => p.element === id);
           return [id, Math.round((entryPick?.sellingPrice ?? playerMap.get(id)?.price ?? 0) * 10)];
@@ -568,10 +570,19 @@ export function SquadBuilder({
         {reviewSim && !selectedPlan && plannedMoves === 0 && <details className="panel strategy-details strategy-exact"><summary>Exact comparison</summary>
           <section className="panel" aria-label="Exact no-chip 10-Gameweek transfer solver">
             <div className="panel__header"><div>
-              <span className="panel__eyebrow">P0-A06 · SCIPY / HIGHS MILP</span>
+              <span className="panel__eyebrow">Solver</span>
               <h3>Exact-formulation transfer comparison — no chips</h3>
             </div><span className="badge badge--violet">Separate read-only result</span></div>
-            <p>Runs a bounded 1–10 GW mixed-integer transfer model on a declared candidate shortlist, using the identical GW xPts supplied to the chip-aware VORTEX Planner. The mathematical formulation is exact, but an optimum is certified only if HiGHS proves it. This model does not support chips or future price changes. Original player sales use their verified selling value once; if bought back later, their new cost basis is the current market price.</p>
+            <p>Compare transfer paths with holding your current squad, using the same forecasts as the VORTEX Planner. The solver searches up to 10 Gameweeks with fixed prices and no chips. It reports whether HiGHS proved the best result within the shortlist.</p>
+            <div className="planner-control-row">
+              <label>Candidate pool<select value={includeFixtureWindows ? 'windows' : 'standard'}
+                disabled={exactPending}
+                onChange={event => setIncludeFixtureWindows(event.target.value === 'windows')}>
+                <option value="standard">Standard</option>
+                <option value="windows">Wider fixture windows</option>
+              </select></label>
+            </div>
+            {includeFixtureWindows && <p>Wider search adds up to seven candidates for early and late fixture runs. It may return fewer paths within the same time limit.</p>}
             <button type="button" onClick={() => { void runExactTransferComparison(); }}
               disabled={exactPending || snapshot.meta.stale || Boolean(selectedPlan) || plannedMoves > 0}
               aria-busy={exactPending}>{exactPending ? 'Solving bounded MILP…' : 'Run exact no-chip transfer comparison'}</button>
@@ -580,7 +591,7 @@ export function SquadBuilder({
             {plannedMoves > 0 && !selectedPlan && <p role="status">Reset unsaved manual transfers to use this independent starting-squad comparison.</p>}
             {exactError && <p role="alert">{exactError}</p>}
             {exactResult && exactComparison && (exactComparison.paths.length ? <div role="group" aria-label="Verified MILP transfer-path comparison">
-              <p><strong>{exactComparison.paths.length} distinct feasible transfer {exactComparison.paths.length === 1 ? 'path' : 'paths'} returned</strong> (up to 3 requested within one 10-second shared solver budget). Alternatives may be unavailable when the limit is reached. Only the submitted candidate shortlist and no-chip assumptions are optimized.</p>
+              <p><strong>{exactComparison.paths.length} distinct feasible transfer {exactComparison.paths.length === 1 ? 'path' : 'paths'} returned</strong> (up to 3 requested within one 10-second shared solver budget). Alternatives may be unavailable when the limit is reached. {exactComparison.request.players.length} shortlisted players, including your current squad.</p>
               <p>Choose a path to inspect its full transfer ledger. All forecasts and gains are model estimates, not guaranteed FPL points. Mathematical optimality is certified only when the corresponding HiGHS certificate says so.</p>
               <div className="chip-cards-grid" role="group" aria-label="Alternative transfer paths">
                 {exactComparison.paths.map(path => <article key={path.rank} className="panel chip-sim-card">
@@ -590,6 +601,8 @@ export function SquadBuilder({
                   </div>
                   <p><strong>{path.plan.raw_expected_points_after_hits.toFixed(2)} xPts</strong> after hits · {path.plan.evaluation_score.toFixed(2)} discounted objective</p>
                   <p>{path.rank === 1 ? 'Highest found objective' : `${path.deltaObjective.toFixed(2)} discounted points vs Path A`} · {path.deltaRawPoints >= 0 ? '+' : ''}{path.deltaRawPoints.toFixed(2)} undiscounted xPts vs Path A</p>
+                  <p><strong>{path.deltaVsHold >= 0 ? '+' : '−'}{Math.abs(path.deltaVsHold).toFixed(2)} xPts vs Hold</strong>
+                    {' · '}Hold projects {path.holdRawPoints.toFixed(2)} xPts with a fresh XI and captain each week.</p>
                   <p>{path.totalTransfers} transfers · −{path.totalHits} hit points · Final £{path.lastBank.toFixed(1)}m bank · {path.lastFreeTransfers} FT</p>
                   <small>HiGHS gap: {path.plan.solver.mip_gap === null ? 'N/A' : (path.plan.solver.mip_gap * 100).toFixed(2) + '%'} · {path.plan.gameweeks.length} GWs · Shared runtime {exactResult.runtime_seconds.toFixed(2)}s</small>
                   <button type="button" aria-pressed={selectedExactRank === path.rank}

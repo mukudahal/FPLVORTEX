@@ -64,3 +64,22 @@ test('exact no-chip MILP fail-closes on stale, missing or unsafe scenario proven
   } }), /missing or invalid xPts/);
   assert.throws(() => buildExactMilpRequest({ ...sampleInput, squadIds: sampleInput.squadIds.slice(0, 14) }), /starting squad/);
 });
+
+test('exact shortlist preserves whole-horizon and cheap options and covers both fixture windows', () => {
+  const input = sample();
+  for (let id = 17; id <= 30; id++) {
+    const cost = id <= 18 ? 40 : 60;
+    input.players.push(makePlayer(id, { position: 'MID', teamId: 8, cost }));
+    const scores = id <= 18 ? [1, 1] : id === 29 ? [11, 0] : id === 30 ? [0, 12] : [8, 8];
+    for (const [i, gw] of input.planner.gws.entries()) input.planner.forecastByGw[gw][id] = scores[i];
+  }
+  const standard = buildExactMilpRequest(input).players.map(player => player.player_id);
+  assert.ok(!standard.includes(29) && !standard.includes(30), 'standard ranking uses the existing shortlist');
+  const wider = { ...input, includeFixtureWindows: true };
+  const shortlist = buildExactMilpRequest(wider).players.map(player => player.player_id);
+  assert.ok(standard.every(id => shortlist.includes(id)));
+  for (const id of [...input.squadIds, 17, 18, 19, 29, 30]) assert.ok(shortlist.includes(id), String(id));
+  assert.ok(shortlist.length <= 60);
+  const shuffled = buildExactMilpRequest({ ...wider, players: [...input.players].reverse() });
+  assert.deepEqual(shuffled.players.map(player => player.player_id), shortlist);
+});

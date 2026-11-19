@@ -77,6 +77,9 @@ test('ranks distinct full-horizon transfer paths by discounted objective with tr
   assert.equal(compared[0].plan.gameweeks[0].transfers_in[0], 16);
   assert.equal(compared[0].totalTransfers, 1);
   assert.equal(compared[0].totalHits, 0);
+  assert.equal(compared[0].holdRawPoints, 94);
+  assert.equal(compared[0].deltaVsHold, 4);
+  assert.equal(compared[1].deltaVsHold, 0);
   assert.equal(compared[0].lastBank, .5);
   assert.equal(compared[0].lastFreeTransfers, 2);
   assert.equal(compared[1].lastBank, 1);
@@ -229,4 +232,12 @@ test('rejects a mathematically valid purchase when current official FPL flags th
   const heldOnly = { ...response, plans: [response.plans[0]], solver_attempts: [response.solver_attempts[0]] };
   assert.equal(compareMilpPaths(request, heldOnly, id => id !== 16).length, 1,
     'Existing squad may still be held without acquiring the flagged player');
+});
+
+test('hold reselects the legal XI and captain for each gameweek independently of returned paths', () => {
+  const { request, response } = fixture();
+  request.players.find(player => player.player_id === 12)!.xpts_by_gw[38] = 10;
+  const [bestPath] = compareMilpPaths(request, response);
+  assert.equal(bestPath.holdRawPoints, 106, 'the GW38 bench player starts and captains for hold');
+  assert.equal(bestPath.deltaVsHold, -8);
 });
