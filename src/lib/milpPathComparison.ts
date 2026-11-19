@@ -7,6 +7,7 @@
 import type { StoredTransferPlan } from './transferPlansStore';
 import type { ExactMilpResponse } from './exactMilpBridge';
 import { buildExactMilpRequest } from './exactMilpBridge';
+import { selectOptimalXI } from './repoModel/scoring';
 
 export type ExactMilpRequest = ReturnType<typeof buildExactMilpRequest>;
 export type ExactMilpPlan = ExactMilpResponse['plans'][number];
@@ -26,6 +27,10 @@ export interface ComparedMilpPath {
   }>;
   /** xPts after hits (undiscounted) compared to the highest solver objective path. */
   deltaRawPoints: number;
+  /** Forecast points for the unchanged squad, with a legal XI and captain each week. */
+  holdRawPoints: number;
+  /** Undiscounted points after hits minus the unchanged-squad forecast. */
+  deltaVsHold: number;
   /** Discounted, hit-adjusted objective delta; not a confidence interval. */
   deltaObjective: number;
 }
@@ -154,6 +159,13 @@ export function compareMilpPaths(
   }
   ranked.sort((a, b) => b.plan.evaluation_score - a.plan.evaluation_score);
   const lead = ranked[0]?.plan;
+  if (!lead) return [];
+  const positions = { GK: 1, DEF: 2, MID: 3, FWD: 4 } as const;
+  const holdRawPoints = lead.gameweeks.reduce((total, { gw }) => total + selectOptimalXI(
+    first.squad_player_ids,
+    id => positions[byId.get(id)!.position],
+    id => byId.get(id)!.xpts_by_gw[gw],
+  ).total, 0);
   return ranked.map((row, rank) => ({
     rank: rank + 1,
     plan: row.plan,
@@ -162,8 +174,10 @@ export function compareMilpPaths(
     lastBank: row.endBank,
     lastFreeTransfers: row.endFT,
     weekFinances: row.weekFinances,
-    deltaRawPoints: Math.round((row.plan.raw_expected_points_after_hits - (lead?.raw_expected_points_after_hits ?? 0)) * 100) / 100,
-    deltaObjective: Math.round((row.plan.evaluation_score - (lead?.evaluation_score ?? 0)) * 100) / 100,
+    holdRawPoints,
+    deltaVsHold: Math.round((row.plan.raw_expected_points_after_hits - holdRawPoints) * 100) / 100,
+    deltaRawPoints: Math.round((row.plan.raw_expected_points_after_hits - lead.raw_expected_points_after_hits) * 100) / 100,
+    deltaObjective: Math.round((row.plan.evaluation_score - lead.evaluation_score) * 100) / 100,
   }));
 }
 
