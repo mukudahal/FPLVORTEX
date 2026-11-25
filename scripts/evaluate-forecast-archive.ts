@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { compareFrozenForecasts } from '../src/lib/repoModel/forecastBenchmark';
 import type { Snapshot } from '../src/lib/types';
 
+type MinutesLaw = { expectedMinutes: number; p60: number; pStart: number };
 type Forecast = {
   schemaVersion: number;
   source: string;
@@ -17,7 +18,7 @@ type Forecast = {
   computedAt: string;
   retrievedAt: string;
   snapshot: Snapshot;
-  predictions: { playerId: number; gameweeks: { gw: number; points: number | null; expectedMinutes: number | null }[] }[];
+  predictions: { playerId: number; gameweeks: { gw: number; points: number | null; expectedMinutes: number | null; minutesEvidence?: { fixtureId:number; clubMatches:number; baseline:MinutesLaw; clubAdjusted:MinutesLaw } | null }[] }[];
 };
 type Outcome = {
   schemaVersion: number;
@@ -27,7 +28,7 @@ type Outcome = {
   modelVersion: string;
   inputId: string;
   observedAt: string;
-  outcomes: { playerId: number; points: number }[];
+  outcomes: { playerId: number; points: number; minutes?: number | null; starts?: number | null }[];
 };
 type ScoredRow = { prediction: number; actual: number };
 type BlendRow = { model: number; reference: number; actual: number };
@@ -153,11 +154,14 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
   const blended: typeof predictions = [];
   const outcomes: Parameters<typeof compareFrozenForecasts>[2][number][] = [];
   const minutes: ScoredRow[] = [], minutesReference: ScoredRow[] = [];
+  const frozenMinutes: ScoredRow[] = [], clubMinutes: ScoredRow[] = [], frozen60: ScoredRow[] = [], club60: ScoredRow[] = [], frozenStart: ScoredRow[] = [], clubStart: ScoredRow[] = [];
+  const minutesWeeks = new Set<string>();
   const minutesByPosition = new Map<string, ScoredRow[]>();
   const weeks = [];
   const priorSettlements: { observedAt: number; errors: number[]; season: string; blendRows: BlendRow[] }[] = [];
   for (const { f, o, file } of [...selected.values()].sort((a, b) => Date.parse(a.f.deadlineAt) - Date.parse(b.f.deadlineAt))) {
     const points = new Map(o.outcomes.map(r => [r.playerId, r.points]));
+    const officialRows = new Map(o.outcomes.map(r => [r.playerId,r]));
     const forecasts = new Map(f.predictions.map(r => [r.playerId, r.gameweeks.find(g => g.gw === f.targetGw)]));
     const finished = new Map<number, { total_points: number; minutes: number }>();
     if (officialMinutesDir) {
@@ -177,6 +181,24 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
     for (const player of f.snapshot.players) {
       const actual = points.get(player.id);
       const forecast = forecasts.get(player.id);
+      const evidence=forecast?.minutesEvidence;
+      const observed=officialRows.get(player.id);
+      const validLaw=(m:MinutesLaw)=>Number.isFinite(m.expectedMinutes)&&m.expectedMinutes>=0&&m.expectedMinutes<=90&&
+        [m.p60,m.pStart].every(p=>Number.isFinite(p)&&p>=0&&p<=1);
+      const fx=f.snapshot.fixtures.filter(fx=>fx.event===f.targetGw&&[fx.teamA,fx.teamH].includes(player.teamId));
+      if(evidence&&observed&&fx.length===1&&fx[0].id===evidence.fixtureId&&
+        validLaw(evidence.baseline)&&validLaw(evidence.clubAdjusted)&&typeof observed.minutes==='number'&&
+        Number.isInteger(observed.minutes)&&observed.minutes>=0&&observed.minutes<=90){
+        minutesWeeks.add(f.season+':'+f.targetGw);
+        frozenMinutes.push({prediction:evidence.baseline.expectedMinutes,actual:observed.minutes});
+        clubMinutes.push({prediction:evidence.clubAdjusted.expectedMinutes,actual:observed.minutes});
+        frozen60.push({prediction:evidence.baseline.p60,actual:Number(observed.minutes>=60)});
+        club60.push({prediction:evidence.clubAdjusted.p60,actual:Number(observed.minutes>=60)});
+        if(observed.starts===0||observed.starts===1){
+          frozenStart.push({prediction:evidence.baseline.pStart,actual:observed.starts});
+          clubStart.push({prediction:evidence.clubAdjusted.pStart,actual:observed.starts});
+        }
+      }
       if (forecast?.points == null || actual === undefined || !Number.isFinite(player.epNext)) { missingPointsRows++; continue; }
       const identity = { season: f.season, gw: f.targetGw, playerId: player.id, issuedAt: f.computedAt, deadlineAt: f.deadlineAt };
       predictions.push({ ...identity, modelVersion, xPts: forecast.points });
@@ -219,10 +241,19 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       seasonAverage: summarizeForecastErrors(minutesReference, 15),
       byPosition: Object.fromEntries([...minutesByPosition].map(([position, rows]) => [position, summarizeForecastErrors(rows, 15)])),
     },
+    prospectiveMinutesResearch:{
+      gameweeks:minutesWeeks.size, verdict:minutesWeeks.size<8?'insufficient_data':'research_only',
+      baseline:summarizeForecastErrors(frozenMinutes,15),clubAdjusted:summarizeForecastErrors(clubMinutes,15),
+      baselineP60Brier:frozen60.length?mean(frozen60.map(r=>(r.prediction-r.actual)**2)):null,
+      clubP60Brier:club60.length?mean(club60.map(r=>(r.prediction-r.actual)**2)):null,
+      baselineStartBrier:frozenStart.length?mean(frozenStart.map(r=>(r.prediction-r.actual)**2)):null,
+      clubStartBrier:clubStart.length?mean(clubStart.map(r=>(r.prediction-r.actual)**2)):null,
+      singleFixtureOnly:true,productionPromotion:false,
+    },
     limitations: [
       'One latest eligible archive per model and target deadline. Horizons beyond the archived target are not evaluated.',
       'Official epNext is the frozen normalized FPL field; older raw availability and fallback to epThis cannot be reconstructed.',
-      'The archive stores expected minutes and expected points. It has no frozen start/60-minute probabilities, simulated distributions or manager recommendations to settle.',
+      'Legacy archives store expected minutes and points only; new archives optionally freeze single-fixture minutes laws and settled counts. No simulated distribution or manager recommendation settlement is inferred.',
       'Minutes are optional late official observations matched to archived points before use. A matching points total does not rule out settlement revisions.',
       'Bias correction and convex blending are research-only, using only same-season archives whose official settlement was observed before issuance. The hybrid uses normalized FPL epNext and is not an independent VORTEX forecast.',
       'The existing minimum gameweek rule is a necessary evidence threshold. Forecast and decision improvements require further independent test periods.',

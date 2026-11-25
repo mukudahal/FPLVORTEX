@@ -36,12 +36,12 @@ test('settled matching refuses future, wrong-season and incomplete outcomes; pre
  const event=s.gameweeks.find(g=>g.id===s.meta.nextEventId)!;
  event.deadlineTime=new Date(now.getTime()+60000).toISOString();
  const a=createForecastArchive(s,'test-fixture-v1',now);
- const payload={elements:s.players.map((p,i)=>({id:p.id,stats:{total_points:i===0?-2:0}}))};
+ const payload={elements:s.players.map((p,i)=>({id:p.id,stats:{total_points:i===0?-2:0,...(i===0?{minutes:90,starts:1}:{})}}))};
  assert.throws(()=>matchSettledOutcomes(a,s,payload));
  event.finished=true;event.dataChecked=true;
  const observed=new Date(now.getTime()+120000).toISOString();
  const result=matchSettledOutcomes(a,s,payload,observed);
- assert.equal(result.inputId,a.inputId);assert.equal(result.outcomes[0].points,-2);
+ assert.equal(result.inputId,a.inputId);assert.equal(result.outcomes[0].points,-2);assert.equal(result.outcomes[0].minutes,90);assert.equal(result.outcomes[0].starts,1);assert.equal(result.outcomes[1].minutes,null);
  assert.throws(()=>matchSettledOutcomes(a,s,{elements:payload.elements.slice(1)},observed),/incomplete/);
  const wrong={...s,meta:{...s.meta,season:'2025/26'}};
  assert.throws(()=>matchSettledOutcomes(a,wrong,payload,observed));

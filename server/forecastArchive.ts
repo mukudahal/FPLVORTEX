@@ -4,6 +4,8 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type { Snapshot } from '../src/lib/types.ts';
 import { buildPlayerForecastContext, playerGameweekPoints, playerGameweekExpectedMinutes } from '../src/lib/playerTableForecast.ts';
+import { toRepoElement } from '../src/lib/analytics';
+import { estimateMinutesDistribution } from '../src/lib/repoModel/minutes';
 import { assertFreshSnapshot } from './snapshotValidation.ts';
 
 const hash = (text:string) => createHash('sha256').update(text).digest('hex');
@@ -25,9 +27,19 @@ export function createForecastArchive(snapshot:Snapshot, modelVersion:string, no
   const inputId=hash(JSON.stringify(snapshot));
   const ctx=buildPlayerForecastContext(snapshot);
   const gws=snapshot.gameweeks.filter(g=>g.id>=next!.id&&g.id<next!.id+10&&Date.parse(g.deadlineTime)>now.getTime()).map(g=>g.id);
-  const predictions=snapshot.players.map(p=>({playerId:p.id,gameweeks:gws.map(gw=>({
-    gw, points:playerGameweekPoints(ctx,p,gw), expectedMinutes:playerGameweekExpectedMinutes(ctx,p,gw),
-  }))}));
+  const clubs=new Map(snapshot.teams.map(t=>[t.id,t]));
+  const predictions=snapshot.players.map(p=>({playerId:p.id,gameweeks:gws.map(gw=>{
+    const points=playerGameweekPoints(ctx,p,gw), expectedMinutes=playerGameweekExpectedMinutes(ctx,p,gw);
+    const matches=snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===p.teamId||f.teamA===p.teamId));
+    const clubMatches=clubs.get(p.teamId)?.played;
+    // Research comparator only; freeze the existing model and a club-exposure
+    // correction on single-fixture weeks. Neither replaces the production forecast.
+    const elem=toRepoElement(p);
+    const minutesEvidence=expectedMinutes!==null&&matches.length===1&&typeof clubMatches==='number'&&Number.isInteger(clubMatches)&&clubMatches>0
+      ? {fixtureId:matches[0].id,clubMatches,baseline:estimateMinutesDistribution(elem,ctx.completedEvents,gw-next!.id),
+          clubAdjusted:estimateMinutesDistribution(elem,clubMatches,gw-next!.id)} : null;
+    return {gw,points,expectedMinutes,minutesEvidence};
+  })}));
   return {schemaVersion:1,source:'prospective-only' as const,computedAt:now.toISOString(),retrievedAt:snapshot.meta.generatedAt,
     inputId,modelVersion,season:snapshot.meta.season,targetGw:next!.id,deadlineAt:next!.deadlineTime,
     calibration:'unverified' as const,missingValue:'null; unavailable forecast or no scheduled fixture',snapshot,predictions};
@@ -63,13 +75,14 @@ export function matchSettledOutcomes(archive:ReturnType<typeof createForecastArc
   if(snapshot.meta.season!==archive.season||!event?.finished||!event.dataChecked||Date.parse(observedAt)<Date.parse(archive.deadlineAt))throw Error('Outcome gameweek is not settled');
   const elements=(payload as {elements?:unknown[]}|null)?.elements;
   if(!Array.isArray(elements))throw Error('Official settled elements unavailable');
-  const scores=new Map<number,number>();
+  const scores=new Map<number,{points:number;minutes:number|null;starts:number|null}>();
   for(const item of elements){
-    const row=item as {id?:number;stats?:{total_points?:number}};
+    const row=item as {id?:number;stats?:{total_points?:number;minutes?:number;starts?:number}};
     if(!Number.isSafeInteger(row?.id)||!row.id||scores.has(row.id)||!Number.isFinite(row.stats?.total_points))throw Error('Invalid/duplicate official outcome');
-    scores.set(row.id,row.stats!.total_points!);
+    const validCount=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=0?v:null;
+    scores.set(row.id,{points:row.stats!.total_points!,minutes:validCount(row.stats?.minutes),starts:validCount(row.stats?.starts)});
   }
   if(archive.predictions.some(p=>!scores.has(p.playerId)))throw Error('Official outcomes incomplete for archived players');
   return {schemaVersion:1,source:'official-fpl-event-live',observedAt,season:archive.season,targetGw:archive.targetGw,inputId:archive.inputId,modelVersion:archive.modelVersion,
-    outcomes:archive.predictions.map(p=>({playerId:p.playerId,points:scores.get(p.playerId)})),calibration:'not-evaluated'};
+    outcomes:archive.predictions.map(p=>({playerId:p.playerId,...scores.get(p.playerId)!})),calibration:'not-evaluated'};
 }
