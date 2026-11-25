@@ -30,6 +30,20 @@ type Outcome = {
   outcomes: { playerId: number; points: number }[];
 };
 type ScoredRow = { prediction: number; actual: number };
+type BlendRow = { model: number; reference: number; actual: number };
+
+/** Research only: constrained least-squares fit of w*VORTEX + (1-w)*reference.
+ * An unidentified weight is null, not an invented estimate. */
+export function fitConvexBlend(rows: readonly BlendRow[]): number | null {
+  let numerator = 0, denominator = 0;
+  for (const { model, reference, actual } of rows) {
+    if (![model, reference, actual].every(Number.isFinite)) throw new RangeError('Non-finite blend training row');
+    const delta = model - reference;
+    numerator += delta * (actual - reference);
+    denominator += delta ** 2;
+  }
+  return denominator > 0 ? Math.max(0, Math.min(1, numerator / denominator)) : null;
+}
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const readCompressed = async <T>(path: string): Promise<T> => JSON.parse(gunzipSync(await readFile(path)).toString('utf8')) as T;
@@ -136,11 +150,12 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
   const predictions: Parameters<typeof compareFrozenForecasts>[0][number][] = [];
   const official: typeof predictions = [];
   const candidate: typeof predictions = [];
+  const blended: typeof predictions = [];
   const outcomes: Parameters<typeof compareFrozenForecasts>[2][number][] = [];
   const minutes: ScoredRow[] = [], minutesReference: ScoredRow[] = [];
   const minutesByPosition = new Map<string, ScoredRow[]>();
   const weeks = [];
-  const priorSettlements: { observedAt: number; errors: number[] }[] = [];
+  const priorSettlements: { observedAt: number; errors: number[]; season: string; blendRows: BlendRow[] }[] = [];
   for (const { f, o, file } of [...selected.values()].sort((a, b) => Date.parse(a.f.deadlineAt) - Date.parse(b.f.deadlineAt))) {
     const points = new Map(o.outcomes.map(r => [r.playerId, r.points]));
     const forecasts = new Map(f.predictions.map(r => [r.playerId, r.gameweeks.find(g => g.gw === f.targetGw)]));
@@ -151,7 +166,11 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       };
       for (const row of payload.elements) finished.set(row.id, row.stats);
     }
-    const previousErrors = priorSettlements.filter(previous => previous.observedAt <= Date.parse(f.computedAt)).flatMap(previous => previous.errors);
+    const eligiblePrior = priorSettlements.filter(previous => previous.season === f.season && previous.observedAt <= Date.parse(f.computedAt));
+    const previousErrors = eligiblePrior.flatMap(previous => previous.errors);
+    const trainingRows = eligiblePrior.flatMap(previous => previous.blendRows);
+    const blendWeight = fitConvexBlend(trainingRows);
+    const blendRows: BlendRow[] = [];
     const adjustment = previousErrors.length ? -mean(previousErrors) : null;
     const weekErrors: number[] = [];
     let minutesOutcomeMismatches = 0, minuteRows = 0, missingPointsRows = 0;
@@ -165,6 +184,8 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       outcomes.push({ season: f.season, gw: f.targetGw, playerId: player.id, points: actual });
       if (adjustment !== null) candidate.push({ ...identity, modelVersion: 'research-prior-mean-error', xPts: forecast.points + adjustment });
       weekErrors.push(forecast.points - actual);
+      blendRows.push({ model: forecast.points, reference: player.epNext, actual });
+      if (blendWeight !== null) blended.push({ ...identity, modelVersion: 'research-convex-fpl-blend', xPts: blendWeight * forecast.points + (1 - blendWeight) * player.epNext });
       const settled = finished.get(player.id);
       if (settled && settled.total_points !== actual) { minutesOutcomeMismatches++; continue; }
       if (forecast.expectedMinutes == null || !settled || !Number.isFinite(settled.minutes)) continue;
@@ -179,8 +200,8 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       minutesByPosition.set(player.position, positionRows);
       minuteRows++;
     }
-    weeks.push({ season: f.season, gw: f.targetGw, file, inputId: f.inputId, deadlineAt: f.deadlineAt, computedAt: f.computedAt, retrievedAt: f.retrievedAt, observedAt: o.observedAt, pointRows: weekErrors.length, missingPointsRows, minuteRows, minutesOutcomeMismatches });
-    priorSettlements.push({ observedAt: Date.parse(o.observedAt), errors: weekErrors });
+    weeks.push({ season: f.season, gw: f.targetGw, file, inputId: f.inputId, deadlineAt: f.deadlineAt, computedAt: f.computedAt, retrievedAt: f.retrievedAt, observedAt: o.observedAt, pointRows: weekErrors.length, missingPointsRows, minuteRows, minutesOutcomeMismatches, researchBlend: { vortexWeight: blendWeight, trainingRows: trainingRows.length, trainingGameweeks: eligiblePrior.length } });
+    priorSettlements.push({ observedAt: Date.parse(o.observedAt), errors: weekErrors, season: f.season, blendRows });
   }
   const pairedRows = (forecasts: typeof predictions) => forecasts.map((row, i) => ({ prediction: row.xPts, actual: outcomes[i].points }));
   return {
@@ -190,6 +211,8 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       vortex: summarizeForecastErrors(pairedRows(predictions), 1),
       officialEpNext: summarizeForecastErrors(pairedRows(official), 1),
       experimentalBiasCorrection: compareFrozenForecasts(candidate, predictions, outcomes, { cutoffMinutes }),
+      experimentalOfficialBlend: compareFrozenForecasts(blended, predictions, outcomes, { cutoffMinutes }),
+      experimentalOfficialBlendVsOfficial: compareFrozenForecasts(blended, official, outcomes, { cutoffMinutes }),
     },
     expectedMinutes: {
       vortex: summarizeForecastErrors(minutes, 15),
@@ -201,7 +224,7 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       'Official epNext is the frozen normalized FPL field; older raw availability and fallback to epThis cannot be reconstructed.',
       'The archive stores expected minutes and expected points. It has no frozen start/60-minute probabilities, simulated distributions or manager recommendations to settle.',
       'Minutes are optional late official observations matched to archived points before use. A matching points total does not rule out settlement revisions.',
-      'Bias correction is research-only and uses only previous archives whose official settlement was observed before issuance.',
+      'Bias correction and convex blending are research-only, using only same-season archives whose official settlement was observed before issuance. The hybrid uses normalized FPL epNext and is not an independent VORTEX forecast.',
       'The existing minimum gameweek rule is a necessary evidence threshold. Forecast and decision improvements require further independent test periods.',
     ],
   };

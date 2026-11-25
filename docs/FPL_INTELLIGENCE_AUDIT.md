@@ -57,3 +57,7 @@ Supply a third argument with a local directory of audited official event-live re
 ## Rollback
 
 The changes are isolated in the feature branch. To roll back the follow-up code, revert that commit on the feature branch. Main, deployment, cron schedules, saved plans and historical archives require no rollback. GitHub Actions artifacts remain dependent on the account storage quota. Do not delete historical runs or artifacts without the owner's explicit approval.
+
+## Walk-forward convex blend experiment (2026-11-26 NPT)
+
+Research-only hybrid, not a replacement for the independent VORTEX model. A constrained least-squares weight w minimizes squared errors of w * VORTEX + (1-w) * archived normalized FPL epNext on previously settled same-season data only. The first deadline has no fitted forecast; no future outcomes are used. The actual repository archive replay uses GW10 (494 rows, computed 2026-11-06 00:26 UTC, settled 2026-11-09) to fit w=0.909759330872167, and GW11 (499 rows, computed 2026-11-21 02:35 UTC, settled 2026-11-24) as a chronological test. On the identical held-out rows, VORTEX MAE/RMSE = 1.588998/2.549117, official proxy = 1.615431/2.755374, hybrid = 1.573258/2.540865. A single held-out GW is insufficient for promotion; the eight-GW evidence gate remains, and FPL Review projections were not available. The existing evaluator now emits the weight and prior training counts per deadline plus paired hybrid comparisons. No forecast coefficients, schedules, optimizer, live renderer, or production deployment changed.

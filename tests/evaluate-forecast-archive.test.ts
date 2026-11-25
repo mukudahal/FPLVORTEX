@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
-import { archivePairIssue, evaluateForecastArchive, summarizeForecastErrors } from '../scripts/evaluate-forecast-archive';
+import { archivePairIssue, evaluateForecastArchive, summarizeForecastErrors, fitConvexBlend } from '../scripts/evaluate-forecast-archive';
 
 const version = 'typescript-mechanistic-061b8b630d45fe3e';
 const root = 'data/forecast-archive';
@@ -31,4 +31,24 @@ test('computes point error bands and ranks with tied forecasts', () => {
   assert.equal(stats?.bias, 0);
   assert.ok(Math.abs((stats?.spearman ?? 0) - Math.sqrt(3)/2) < 1e-10);
   assert.deepEqual(stats?.calibration[0],{lower:1,upperExclusive:2,n:2,predicted:1,actual:0.5});
+});
+
+
+test('convex blend estimates only a constrained identifiable weight', () => {
+  assert.equal(fitConvexBlend([]), null);
+  assert.equal(fitConvexBlend([{model:2, reference:2, actual:3}]), null);
+  assert.equal(fitConvexBlend([{model:4, reference:0, actual:1}]), 0.25);
+  assert.equal(fitConvexBlend([{model:4, reference:0, actual:8}]), 1);
+  assert.equal(fitConvexBlend([{model:4, reference:0, actual:-1}]), 0);
+  assert.throws(() => fitConvexBlend([{model:NaN, reference:0, actual:1}]), /Non-finite/);
+});
+
+test('research hybrid holds out the first deadline and never promotes a small sample', async () => {
+  const report = await evaluateForecastArchive(root, version);
+  assert.equal(report.selected[0].researchBlend.vortexWeight, null);
+  assert.equal(report.selected[0].researchBlend.trainingRows, 0);
+  const result = report.expectedPoints.experimentalOfficialBlend;
+  assert.ok(result.sampleSize >= 499);
+  assert.ok(result.gameweeks < report.expectedPoints.paired.gameweeks);
+  if (result.gameweeks < 8) assert.equal(result.verdict, 'insufficient_data');
 });
