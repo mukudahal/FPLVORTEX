@@ -1,0 +1,40 @@
+name: My Team - five gameweek plan
+on:
+  workflow_dispatch:
+    inputs:
+      entry_id:
+        description: Public FPL entry ID
+        required: true
+        default: '145784'
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: manual-my-team-plan
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: node --import tsx --test tests/my-team-plan.test.ts
+      - name: Generate read-only text plan
+        env:
+          ENTRY_ID: ${{ inputs.entry_id }}
+        run: node --import tsx scripts/export-my-team-plan.ts "$ENTRY_ID" reports/my-team
+      - name: Publish text summary
+        run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: my-team-five-gw-plan
+          path: |
+            reports/my-team/plan.md
+            reports/my-team/plan.json
+          if-no-files-found: error
