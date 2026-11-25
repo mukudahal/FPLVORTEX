@@ -36,6 +36,14 @@ try {
   await page.getByRole('button', { name: 'ENTER', exact: true }).click();
   await page.locator('.page--command:not(.page--review) .vx-soccer-pitch').waitFor({ timeout: 30000 });
   const dashboard = page.locator('.page--command:not(.page--review)');
+  const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
+  assert.equal(entryResponse.status(), 200);
+  const entryJson = await entryResponse.json();
+  // The fallback pitch can render before the manager request completes.
+  // Wait for the same manager identity before checking the squad and armbands.
+  await dashboard.locator('.vx-squad-scorebox__team strong')
+    .and(dashboard.getByText(entryJson.teamName, { exact: true })).waitFor({ timeout: 30000 });
+  assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
   assert.equal(await dashboard.locator('.vx-pitch-formation .vx-pitch-player--dashboard').count(), 11, 'Dashboard must render 11 actual starting slots');
   assert.equal(await dashboard.locator('.vx-pitch-bench .vx-pitch-player--dashboard').count(), 4, 'Dashboard must render four substitute slots');
   assert.equal(await dashboard.locator('.vx-pitch-portrait img').count(), 15, 'Each squad card needs a portrait or existing fallback');
@@ -44,14 +52,6 @@ try {
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
   assert.equal(await dashboard.locator('.vx-dashboard-pitch-context').count(), 0, 'Redundant squad teaching banner must stay removed');
   assert.match(await dashboard.locator('.vx-soccer-pitch').getAttribute('title'), /Recorded points|Forecast points|Historical player scores unavailable/);
-  const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
-  assert.equal(entryResponse.status(), 200);
-  const entryJson = await entryResponse.json();
-  // The initial pitch may render from the latest snapshot before the asynchronous
-  // manager entry finishes. Wait for the verified team identity, not a timeout.
-  await dashboard.locator('.vx-squad-scorebox__team strong')
-    .filter({ hasText: entryJson.teamName }).waitFor({ timeout: 30000 });
-  assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
   const provenance = entryJson.provenance?.kind;
   const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
   const badge = await badgeLocator.count() ? await badgeLocator.textContent() : null;

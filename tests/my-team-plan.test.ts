@@ -50,3 +50,21 @@ test('fails closed on stale or unverified inputs and missing selling prices',()=
   assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,provenance:undefined},now),/official entry/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,picks:entry.picks.map(p=>({...p,sellingPrice:undefined}))},now),/selling prices/);
 });
+test('refuses a temporary public Free Hit squad unless the restored state is provided',()=>{
+  const {snapshot,entry,now}=scenario();
+  const freeHitEntry={...entry,activeChip:'freehit'};
+  assert.throws(()=>buildFiveWeekPlan(snapshot,freeHitEntry,now),/temporary Free Hit/);
+  const confirmed={squad:entry.picks.map(p=>p.element),bankTenths:5,freeTransfers:2,
+    sellingPrices:Object.fromEntries(entry.picks.map(p=>[p.element,50]))};
+  const report=buildFiveWeekPlan(snapshot,freeHitEntry,now,confirmed);
+  assert.equal(report.stateBasis,'manager-confirmed state');
+  assert.equal(report.chipHistoryKnown,false);
+});
+
+test('rejects impossible effective sale prices, stale entry state and unsupported seasons',()=>{
+  const {snapshot,entry,now}=scenario();
+  const invalidPrices=entry.picks.map((p,i)=>i===0?{...p,sellingPrice:5.1}:p);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,picks:invalidPrices},now),/exceeds current market price/);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,generatedAt:'2026-07-31T00:00:00Z'},now),/Verified entry is stale/);
+  assert.throws(()=>buildFiveWeekPlan({...snapshot,meta:{...snapshot.meta,season:'2027/28'}},entry,now),/No verified scoring/);
+});

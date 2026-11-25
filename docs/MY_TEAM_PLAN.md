@@ -61,3 +61,18 @@ costs are not included, so the report compares only prospective decisions.
 - Recompute every deadline rather than committing five weeks' transfers in
   advance. First fix availability, then optimize starting XI, maintain banked
   FTs, preserve chip flexibility for fixture swings, and check price changes.
+
+A manual export requests a refreshed deployment snapshot. When that response
+is unavailable or fails the existing source-age checks, the exporter attempts
+official bootstrap and fixtures directly through the repository's normal
+validator. The source URL and SHA-256 of the normalized snapshot are recorded.
+The manager entry must still be current and officially verified. A temporary
+public Free Hit squad requires a confirmed restored state. Unsupported seasons
+require a verified season rules update before planning.
+
+The optional `VORTEX_RECOMMENDATION_ARCHIVE` environment variable points to a
+private persistent directory for an immutable gzip copy of the JSON report.
+Store it outside public static directories and avoid committing reports that
+contain manager-supplied squad state. Settlement of personal recommendations
+is not automated. The separate archive evaluator measures frozen player
+forecasts and reports small-sample limitations.
