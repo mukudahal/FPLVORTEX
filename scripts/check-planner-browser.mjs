@@ -33,10 +33,13 @@ try {
   // Check provenance instead of assuming either source; never save a Transfer Lab plan.
   await page.goto(base + '/#/command', { waitUntil: 'domcontentloaded' });
   await page.locator('#fpl-review-team-id').fill('999999');
+  const entryResponsePromise = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/vortex/entry/999999' &&
+    new URL(response.url()).searchParams.get('refresh') === '1', { timeout: 30000 });
   await page.getByRole('button', { name: 'ENTER', exact: true }).click();
   await page.locator('.page--command:not(.page--review) .vx-soccer-pitch').waitFor({ timeout: 30000 });
   const dashboard = page.locator('.page--command:not(.page--review)');
-  const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
+  const entryResponse = await entryResponsePromise;
   assert.equal(entryResponse.status(), 200);
   const entryJson = await entryResponse.json();
   // The fallback pitch can render before the manager request completes.
@@ -50,8 +53,20 @@ try {
   assert.equal(await dashboard.locator('.vx-pitch-score').count(), 15, 'Every player needs an explicit points or unavailable value');
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
+  const pitchTitle = await dashboard.locator('.vx-soccer-pitch').getAttribute('title');
+  if (pitchTitle?.startsWith('Recorded points')) {
+    for (const [flag, armband] of [['isCaptain','is-cap'], ['isViceCaptain','is-vice']]) {
+      const pick = entryJson.picks.find(row => row[flag]);
+      assert.ok(pick, 'Official recorded lineup must include the selected ' + flag);
+      const player = entryJson.players.find(row => row.id === pick.element);
+      assert.ok(player, 'Official armband player must be present in the squad feed');
+      const card = dashboard.locator('.vx-pitch-player--dashboard').filter({ has: page.locator('.vx-pitch-armband.' + armband) });
+      assert.ok((await card.getAttribute('aria-label'))?.startsWith(player.fullName + ','));
+      assert.equal(await card.locator('.vx-pitch-score').evaluate(score => score.firstChild?.textContent), String(player.eventPoints * Math.max(1, pick.multiplier)));
+    }
+  }
   assert.equal(await dashboard.locator('.vx-dashboard-pitch-context').count(), 0, 'Redundant squad teaching banner must stay removed');
-  assert.match(await dashboard.locator('.vx-soccer-pitch').getAttribute('title'), /Recorded points|Forecast points|Historical player scores unavailable/);
+  assert.match(pitchTitle, /Recorded points|Forecast points|Historical player scores unavailable/);
   const provenance = entryJson.provenance?.kind;
   const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
   const badge = await badgeLocator.count() ? await badgeLocator.textContent() : null;

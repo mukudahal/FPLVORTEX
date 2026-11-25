@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dashboardPitchPoints } from '../src/lib/dashboardPitchPoints.ts';
+import { dashboardPitchMultiplier, dashboardPitchPoints } from '../src/lib/dashboardPitchPoints.ts';
 
 const base = {
   selectedGw: 10, entryGw: 10, currentGw: 10, nextGw: 11,
@@ -26,4 +26,11 @@ test('historical nonmatching GW, missing event points and unavailable forecasts 
   assert.deepEqual(dashboardPitchPoints({ ...base, selectedGw: 11, projectedPoints: null }), unavailable);
   assert.deepEqual(dashboardPitchPoints({ ...base, selectedGw: 11, projectedPoints: Number.NaN }), unavailable);
   assert.deepEqual(dashboardPitchPoints({ ...base, selectedGw: -1 }), unavailable);
+});
+
+test('uses the official vice or triple-captain multiplier after autosubs and keeps raw bench points', () => {
+  assert.equal(dashboardPitchMultiplier(true, 0, true), 1);
+  assert.equal(dashboardPitchMultiplier(true, 2, false), 2);
+  assert.equal(dashboardPitchMultiplier(true, 3, false), 3);
+  assert.equal(dashboardPitchMultiplier(false, 0, true), 2);
 });
