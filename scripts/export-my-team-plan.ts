@@ -104,7 +104,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     const p = byId.get(id)!;
     const matches = snapshot.fixtures.filter(f => f.event === gw && (f.teamH === p.teamId || f.teamA === p.teamId));
     const m = estimateMinutesDistribution(elem.get(id)!, teams.get(p.teamId)?.played ?? 0, gw-next);
-    return { id, name:p.name, club:teams.get(p.teamId)?.shortName, position:p.position,
+    return { id, name:p.name, code:p.code, teamCode:teams.get(p.teamId)?.code ?? null, club:teams.get(p.teamId)?.shortName, position:p.position,
       priceTenths:p.cost, xG:elem.get(id)!.expected_goals, xA:elem.get(id)!.expected_assists, xPts:result.forecastByGw[gw][id],
       localExpectedMinutes:round(m.expectedMinutes * matches.length), form:p.form, ownership:p.ownership,
       status:p.status, chance:p.chance, news:p.news, netTransfers:p.transfersInEvent-p.transfersOutEvent,

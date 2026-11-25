@@ -2,8 +2,7 @@
 
 The canonical root app already contains a multi-week, chip-aware beam search in
 `src/lib/repoModel/compassPlanner.ts`. This export reuses it instead of creating
-another forecasting engine or changing the running website. It emits Markdown
-and JSON only. No image modules, posting, FPL account writes, or deployment.
+another forecasting engine or changing the running website. It emits Markdown and JSON. The optional manual graphics renderer consumes the same report and does not recompute forecasts. No posting, FPL account writes, or deployment.
 
 ## Run manually
 From the root with Node 22:
@@ -76,3 +75,14 @@ Store it outside public static directories and avoid committing reports that
 contain manager-supplied squad state. Settlement of personal recommendations
 is not automated. The separate archive evaluator measures frozen player
 forecasts and reports small-sample limitations.
+
+## Reference-style graphical outputs
+
+After generating plan.json, install Chromium and run:
+
+```sh
+npx playwright install --with-deps chromium
+node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
+```
+
+For every available GW, separate 1920×1080 pitch and 15-player analysis PNG/HTML files are named FPL_VORTEX_GWxx_pitch and FPL_VORTEX_GWxx_analysis. The official FPL player code and club code are persisted in the same frozen plan. The renderer requests only official Premier League PNG endpoints; no shirt is represented as a player portrait. Missing images are visibly labeled and fail the publication-ready gate. image-provenance.json records actual image sources. The graphic design follows the user's angular cyan/blue reference, with original lion asset and social footer; no schedules, dashboard renderer or existing publication workflows are changed. No automatic publication.

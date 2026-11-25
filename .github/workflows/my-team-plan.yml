@@ -29,6 +29,9 @@ jobs:
         env:
           ENTRY_ID: ${{ inputs.entry_id }}
         run: node --import tsx scripts/export-my-team-plan.ts "$ENTRY_ID" reports/my-team
+      - run: npx playwright install --with-deps chromium
+      - name: Render separate reference-style pitch and player analysis boards
+        run: node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
       - name: Publish text summary
         run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -37,4 +40,5 @@ jobs:
           path: |
             reports/my-team/plan.md
             reports/my-team/plan.json
+            reports/my-team/graphics/
           if-no-files-found: error
