@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { enrichPlayers, toRepoElement } from '../src/lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../src/lib/fixtures';
 import { runPlannerSimulation } from '../src/lib/repoModel/compassPlanner';
@@ -126,4 +127,4 @@ async function main() {
   await writeFile(join(output,'plan.md'),markdown);
   process.stdout.write(markdown);
 }
-if(process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) main().catch(err=>{console.error(err instanceof Error?err.message:String(err));process.exitCode=1;});
+if(process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(err=>{console.error(err instanceof Error?err.message:String(err));process.exitCode=1;});
