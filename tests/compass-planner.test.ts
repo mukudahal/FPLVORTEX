@@ -515,3 +515,12 @@ test('paired captaincy risk credits the vice only when the captain never appeare
   assert.equal(pair(14, 1).mean, 2);
   assert.equal(pair(14, 1).pViceActive, 0);
 });
+
+test('personal opening transfer margin can roll a hit while preserving the reoptimised future',()=>{
+  const input={...scenario(38),chipHistoryKnown:false};
+  const guarded=runPlannerSimulation({...input,openingTransferGuard:{freeMoveNetGain:99,hitNetGain:99}});
+  assert.equal(guarded.strategy.openingTransferDecision?.rolled,true);
+  assert.equal(guarded.strategy.openingTransferDecision?.immediateHit,4);
+  assert.equal(guarded.strategy.weeks[0].moves.length,0);
+  assert.ok((guarded.options.find(o=>o.id==='transfer1')?.horizonXPts??0)>guarded.strategy.expectedPoints);
+});

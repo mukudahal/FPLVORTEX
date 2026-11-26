@@ -148,3 +148,48 @@ A projected improvement versus holding measures the manager's alternatives.
 It does not estimate the cutline for top 10,000 or whether the next arrow is
 green. Ranking probabilities need contemporaneous field ownership,
 captaincy, scores and calibrated outcome distributions.
+
+## Rank context, team news and horizons
+
+Optional `VORTEX_PLAN_CONTEXT=/private/context.json` supplies evidence while
+keeping normal public-manager reconciliation. The default horizon is five
+weeks. Set `horizon` from one to eight to optimise a different window. The
+report includes one-, two- and full-window totals from the chosen sequence.
+
+```json
+{
+  "horizon": 8,
+  "cohort": {
+    "season": "2026/27", "gameweek": 11, "observedAt": "2026-11-25T12:00:00Z",
+    "source": "https://example.com/gw11", "sampleSize": 1000,
+    "cutoffPoints": 800,
+    "players": [{ "id": 123, "ownership": 90, "effectiveOwnership": 170 }]
+  },
+  "teamNews": [{
+    "playerId": 456, "throughGw": 13, "chance": 0, "status": "u",
+    "observedAt": "2026-11-26T08:00:00Z", "source": "https://example.com/club-news"
+  }]
+}
+```
+
+All values above are examples. Supply independently acquired cohort data from
+the latest completed GW using official player IDs. A partial cohort gives
+partial starter coverage. Supply `cutoffPoints` only if you verified the
+actual rank-10,000 points cutoff. Reported gaps align to the manager's
+settled score for the same GW. The report never substitutes global ownership
+for cohort ownership. Historical effective ownership is used to describe
+exposure and identify differential candidates. It does not forecast rival
+lineups, future cohorts, points prices or overall ranks.
+
+Team-news records are time-limited, sourced manager inputs. The planner
+reverts to official inputs after the last specified GW. Forecasts and
+transfer availability both use the override while it applies. An automatic
+goalkeeper replacement requires supported evidence that the primary misses
+at least the next two gameweeks, plus the regular-start and coverage checks.
+
+The personal planner rolls if a proposed opening move gains under 1.5 net
+expected points over rolling and reoptimising. An opening hit requires a
+4.5-point net edge on the same comparison, after the hit is already deducted.
+These are manager decision thresholds. Chip plays and manual commitments
+retain their own rules. Recommendations reflect the current fixture dates
+and chip eligibility. Rerun after team news and each deadline.

@@ -13,6 +13,7 @@ import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers';
 import { getSnapshotFreshness } from '../src/lib/snapshotFreshness';
 import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seasonRules';
 import { managerFixtureRisk, personalFixtureOpportunities } from './personal-fixture-context';
+import { parsePersonalContext } from './personal-plan-context';
 import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
 import { verifyPublicEntry } from './verify-personal-state';
 import { auditPlanSources } from './plan-source-audit';
@@ -71,7 +72,7 @@ function validateChipHistory(history: unknown, next: number) {
   if (errors.length) throw new Error('Invalid chip history. ' + errors.join(' '));
 }
 
-export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = new Date(), confirmedState?: { squad: number[]; bankTenths: number; freeTransfers: number; sellingPrices: Record<number, number>; chipsUsed?: EntryData['chipsUsed'] }) {
+export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = new Date(), confirmedState?: { squad: number[]; bankTenths: number; freeTransfers: number; sellingPrices: Record<number, number>; chipsUsed?: EntryData['chipsUsed'] }, evidence?: unknown) {
   const now = asOf.getTime();
   assertPlanningSnapshot(snapshot, asOf);
   if (entry.provenance?.kind !== 'official' || !entry.provenance.requestedIdVerified || !['live','cache'].includes(entry.source)) throw new Error('Verified official entry required; no archived or demo team.');
@@ -108,17 +109,30 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const halfStart = next <= RULES_2026_27.chipHalfBoundary ? 1 : RULES_2026_27.chipHalfBoundary+1;
   const spentThisHalf = new Set(chipsUsed?.filter(c=>c.event>=halfStart && c.event<next).map(c=>mapOfficialChipToPlanningChip(c.name)));
   const horizonOnly = chipsUsed===undefined || RULES_2026_27.chips.every(c=>spentThisHalf.has(c));
-  const goalkeeperPolicy = personalGoalkeeperPolicy(snapshot, players, ids);
+  const completedGw = Math.max(0, ...snapshot.gameweeks.filter(g=>g.finished && g.dataChecked).map(g=>g.id));
+  const context = parsePersonalContext(evidence, snapshot.meta.season, completedGw, next, asOf, new Set(byId.keys()));
+  const newsByPlayer = new Map(context.teamNews.map(item=>[item.playerId,item]));
+  const reportAvailability = (id: number, gw: number) => {
+    const news = newsByPlayer.get(id);
+    const p = byId.get(id)!;
+    return news && gw<=news.throughGw ? news : {status:p.status,chance:p.chance};
+  };
+  const cohortPlayers = new Map(context.cohort?.players.map(p=>[p.id,p]));
+  const goalkeeperPolicy = personalGoalkeeperPolicy(
+    snapshot, players.map(p=>({...p,...reportAvailability(p.id,next)})), ids,
+    new Set(context.teamNews.filter(n=>n.chance===0 && n.throughGw>next).map(n=>n.playerId)),
+  );
   const result = runPlannerSimulation({
     players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
-    nextGw:next, horizon:5, draws:1000, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
+    nextGw:next, horizon:context.horizon, draws:1000, availabilityOverrides:context.teamNews,
+    openingTransferGuard: {freeMoveNetGain:1.5,hitNetGain:4.5}, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
     importedProjectionFileDate:snapshot.meta.repoData?.projectionFileDate ?? null,
     forecastAsOf:asOf.toISOString(), startedEvent:entry.startedEvent,
   });
   const weeks = result.strategy.weeks.filter(w => result.gws.includes(w.gw));
-  if (weeks.length !== Math.min(5,RULES_2026_27.gameweeks+1-next) || weeks.some((w,i) => w.gw !== next+i)) throw new Error('Planner did not produce the complete rolling horizon.');
+  if (weeks.length !== Math.min(context.horizon,RULES_2026_27.gameweeks+1-next) || weeks.some((w,i) => w.gw !== next+i)) throw new Error('Planner did not produce the complete rolling horizon.');
   let lastDeadline = now;
   for (const gw of result.gws) {
     const events = snapshot.gameweeks.filter(g => g.id === gw);
@@ -135,13 +149,15 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const describe = (id: number, gw: number) => {
     const p = byId.get(id)!;
     const matches = snapshot.fixtures.filter(f => f.event === gw && (f.teamH === p.teamId || f.teamA === p.teamId));
-    const m = estimateMinutesDistribution(elem.get(id)!, Math.max(1, completedEvents), gw-next);
+    const availability = reportAvailability(id,gw);
+    const m = estimateMinutesDistribution({...elem.get(id)!,status:availability.status,chance_of_playing_next_round:availability.chance},
+      Math.max(1, completedEvents), gw-next);
     return { id, name:p.name, code:p.code, teamCode:teams.get(p.teamId)?.code ?? null, club:teams.get(p.teamId)?.shortName, position:p.position,
       priceTenths:p.cost, xG:p.xG, xA:p.xA, ownership:p.ownership, threat:p.threat, defensiveContributions:p.defensiveContribution,
       penaltyOrder:p.penaltiesOrder, newsAdded:p.newsAdded ?? null, perFixtureStartProbability: m.pStart, perFixture60Probability: m.p60,
       teamCleanSheetByFixture:(teamForecasts.get(p.teamId+':'+gw) ?? []).map(f => ({fixtureId:f.fixture.id,probability:f.cleanSheet})), xPts:result.forecastByGw[gw][id],
       localExpectedMinutes:round(m.expectedMinutes * matches.length), form:p.form,
-      status:p.status, chance:p.chance, news:p.news, netTransfers:p.transfersInEvent-p.transfersOutEvent,
+      status:availability.status, chance:availability.chance, news:p.news, netTransfers:p.transfersInEvent-p.transfersOutEvent,
       observedPriceChangeTenths:p.costChangeEvent ?? null, xGI:p.xGI,
       fixtures:matches.map(f => {
         const home = f.teamH === p.teamId;
@@ -160,12 +176,17 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     const noChip = solveLineupTS(w.squad,nodes,result.forecastByGw[w.gw]);
     const candidates = (result.monteCarlo.captainsByGw?.[w.gw] ?? []).map(r => ({
       ...r, name:name(r.id), ownership:byId.get(r.id)!.ownership, xPts:result.forecastByGw[w.gw][r.id],
+      cohortOwnership:cohortPlayers.get(r.id)?.ownership ?? null,
+      cohortEO:cohortPlayers.get(r.id)?.effectiveOwnership ?? null,
     }));
     const risk = (c: typeof candidates[number]) => c.withVice ?? c;
     const safest = [...candidates].sort((a,b)=>risk(a).pBlank-risk(b).pBlank ||
       risk(b).p10-risk(a).p10 || risk(b).mean-risk(a).mean)[0];
     // Among players less owned than the preferred captain, rank by paired haul frequency.
-    const differential = candidates.filter(c=>c.ownership < byId.get(w.lineup.captainId)!.ownership)
+    const differential = candidates.filter(c=>c.id!==w.lineup.captainId &&
+      describe(c.id,w.gw).perFixtureStartProbability>=.75 &&
+      (context.cohort ? c.cohortOwnership !== null && c.cohortOwnership<=15 :
+        c.ownership < byId.get(w.lineup.captainId)!.ownership))
       .sort((a,b)=>risk(b).pHaul-risk(a).pHaul || risk(b).mean-risk(a).mean || a.id-b.id)[0];
     const captaincy = {highestXPts:w.lineup.captainId, balanced:w.lineup.captainId, conservative:safest?.id ?? null,
       differential:differential?.id ?? null, vice:w.lineup.viceId, candidates};
@@ -188,12 +209,35 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
       fixedHoldLineup, fixedHoldXPts:fixed.totalXPts, gainVsFixedHold:round(w.netXPts-fixed.totalXPts),
       captaincy, xPts:w.netXPts, holdThisWeekXPts:hold.totalXPts, deltaVsHoldThisWeek:round(w.netXPts-hold.totalXPts)};
   });
+  const horizonSummary = [...new Set([1, Math.min(2, rows.length), rows.length])].map(count=>{
+    const segment=rows.slice(0,count);
+    return {weeks:count,throughGw:segment.at(-1)!.gw,hits:segment.reduce((s,w)=>s+w.hitCost,0),
+      expectedPoints:round(segment.reduce((s,w)=>s+w.xPts,0)),
+      fixedHoldXPts:round(segment.reduce((s,w)=>s+w.fixedHoldXPts,0)),freeTransfersAfter:segment.at(-1)!.ftAfter};
+  });
+  const firstWeek = rows[0];
+  const startingExposure = firstWeek.starters.flatMap(p=>{
+    const observed=cohortPlayers.get(p.id);
+    if (!observed) return [];
+    const multiplier=p.id===firstWeek.captain.id?(firstWeek.chip==='tc'?3:2):1;
+    return [{id:p.id,name:p.name,multiplier,ownership:observed.ownership,effectiveOwnership:observed.effectiveOwnership,
+      exposurePoints:round(100*multiplier-observed.effectiveOwnership)}];
+  });
+  const cohort = context.cohort && {
+    ...context.cohort,
+    pointsOutsideCutoff: context.cohort.cutoffPoints===undefined || entry.history.event!==completedGw ? null :
+      Math.max(0,context.cohort.cutoffPoints-entry.history.totalPoints),
+    coveredStarters:startingExposure.length,
+    templateStarters:startingExposure.filter(p=>p.ownership>=50).length,
+    openingXIExposure:startingExposure,
+  };
   const holdTotal=round(rows.reduce((sum,w)=>sum+w.fixedHoldXPts,0));
   const total=round(rows.reduce((sum,w)=>sum+w.xPts,0));
   return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     stateBasis:confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
-    goalkeeperPolicy, fixtureOpportunities,
+    goalkeeperPolicy, fixtureOpportunities, horizonSummary, cohort, teamNews:context.teamNews,
+    openingTransferDecision:result.strategy.openingTransferDecision,
     goalkeeperComparison: [...new Set([goalkeeperPolicy.primary.id, ...goalkeeperPolicy.transfers.incomingIds])].map(id => {
       const weeks = result.gws.map(gw => describe(id, gw));
       return { id, name:name(id), priceTenths:byId.get(id)!.cost,
@@ -300,6 +344,9 @@ export function renderText(r: Report): string {
   for (const w of r.weeks) lines.push('| '+[w.gw,w.transfers.map(t=>t.out.name+' → '+t.incoming.name).join(', ')||'Roll',w.hitCost,num(w.xPts),num(w.gainVsFixedHold),num(w.deltaVsHoldThisWeek)].join(' | ')+' |');
   lines.push('', 'Search horizon GW'+r.searchGameweeks.join(', GW')+'.', '', 'The opening-XV gains add up to the five-week comparison. Rolling from a later week retains earlier decisions. Free-transfer option value is part of search ranking only.',
     '', '### Opening alternatives', '');
+  const opening=r.openingTransferDecision;
+  if (opening) lines.push('', 'Opening transfer decision — '+(opening.rolled?'ROLL':'TRANSFER')+
+    '. Moving projects '+num(opening.gain)+' net points over rolling and reoptimising. Minimum margin '+num(opening.minimumGain)+'.', '');
   for (const option of r.openingAlternatives) lines.push('- '+option.label+' · '+(option.feasible===false?'unavailable':num(option.horizonXPts))+' projected horizon points · '+option.hitCost+' opening hit points. '+option.why);
   const keeper = r.goalkeeperPolicy;
   lines.push('', '### Goalkeeper decision', '', keeper.reason,
@@ -327,6 +374,10 @@ export function renderText(r: Report): string {
   if (r.chipTiming) lines.push('', 'Joint continuation with the chip now '+num(r.chipTiming.playNowXPts)+' xPts, deferred '+num(r.chipTiming.deferXPts)+' xPts, over the search horizon. Preferred timing '+r.chipTiming.preferred+'.');
   lines.push('', 'No-chip transfer path — '+r.noChipTransferAlternative.map(w=>'GW'+w.gw+' '+(w.transfers.map(t=>t.sell+' → '+t.buy).join(', ')||'roll')+' ('+num(w.xPts)+' xPts)').join(' · '),
     '', '## 3. Team news and risk', '', 'Official player flags were retrieved with the snapshot at '+r.snapshotAt+'. Per-fixture starts and 60-minute estimates use the same minutes inputs as the planner. Press-conference coverage and price-change probabilities are unavailable in this run.', '');
+  for (const item of r.teamNews) lines.push('- Confirmed input for player '+item.playerId+' through GW'+item.throughGw+
+    ' · '+item.chance+'% availability · observed '+item.observedAt+' · '+item.source);
+  lines.push('', ...r.horizonSummary.map(h=>'Through GW'+h.throughGw+' ('+h.weeks+' weeks): '+num(h.expectedPoints)+
+    ' net xPts, '+num(h.fixedHoldXPts)+' fixed hold xPts, '+h.hits+' hits, '+h.freeTransfersAfter+' free transfers after.'), '');
   const owned=r.weeks[0].currentSquad;
   const flags=owned.filter(p=>p.status!=='a' || (p.chance!=null && p.chance<100) || p.news);
   if (!flags.length) lines.push('The official feed lists no injury or suspension news for the opening squad.');
@@ -336,14 +387,23 @@ export function renderText(r: Report): string {
     '| Player | xG | xA | xGI | Threat | Def. contributions | Form | xMin | P(start) per fixture | Team CS | Fixture |',
     '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|');
   for (const p of owned) lines.push('| '+[p.name,num(p.xG),num(p.xA),num(p.xGI),p.threat,p.defensiveContributions,p.form,p.localExpectedMinutes,percent(p.perFixtureStartProbability),p.teamCleanSheetByFixture.map(f=>percent(f.probability)).join(' / ')||'—',fixture(p)].join(' | ')+' |');
-  lines.push('', '## 5. Captaincy recommendation', '', 'Balanced and highest-xPts choices use the projected XI. The conservative and differential alternatives use paired simulations with the vice-captain fallback. Promoting the planned vice swaps the armbands. Unmultiplied outcome ranges and probabilities refer to the armband holder who scores. The differential is chosen from starters with lower ownership. Ownership is global. Future rival captains are unknown.', '',
+  lines.push('', '## 5. Captaincy recommendation', '', 'Balanced and highest-xPts choices use the projected XI. The conservative and differential alternatives use paired simulations with the vice-captain fallback. Promoting the planned vice swaps the armbands. Unmultiplied outcome ranges and probabilities refer to the armband holder who scores. Differentials need a 75% modelled start chance. With a supplied cohort, differential captain options have at most 15% observed cohort ownership. Otherwise the comparison uses global ownership. Observed ownership does not predict future captains.', '',
     '| GW | Recommended | Vice | Conservative | Differential | xPts | P10–P90 | P(≤2) | P(≥9) | Vice takes over |', '|---:|---|---|---|---|---:|---|---:|---:|---:|');
   for (const w of r.weeks) {
     const find=(id:number|null)=>w.captaincy.candidates.find(c=>c.id===id);
     const c=find(w.captain.id)?.withVice;
     lines.push('| '+[w.gw,w.captain.name,w.vice.name,find(w.captaincy.conservative)?.name??'unavailable',find(w.captaincy.differential)?.name??'none',num(w.captain.xPts),c?c.p10+'–'+c.p90:'unavailable',percent(c?.pBlank),percent(c?.pHaul),percent(c?.pViceActive)].join(' | ')+' |');
   }
-  lines.push('', '## 6. Mini-league intelligence', '');
+  lines.push('', '## 6. Overall rank and mini-league intelligence', '');
+  if (r.cohort) {
+    lines.push('Top-10k observation from GW'+r.cohort.gameweek+', sample '+r.cohort.sampleSize+
+      ', observed '+r.cohort.observedAt+'. Gap to the supplied cutline '+(r.cohort.pointsOutsideCutoff??'unavailable')+' points.', '',
+      'Exposure compares the planned opening XI against past observed effective ownership. The cohort covered '+
+      r.cohort.coveredStarters+' of 11 starters. Template starters with at least 50% cohort ownership: '+r.cohort.templateStarters+'.', '',
+      '| Starter | Cohort ownership | Observed EO | Planned multiplier minus EO |','|---|---:|---:|---:|');
+    for (const row of r.cohort.openingXIExposure) lines.push('| '+[row.name,row.ownership+'%',row.effectiveOwnership+'%',row.exposurePoints+' pp'].join(' | ')+' |');
+    lines.push('', 'Source: '+r.cohort.source,'');
+  } else lines.push('Top-10k cutline and cohort exposure are unavailable without a dated cohort input.','');
   for (const l of r.miniLeagues??[]) {
     lines.push('### '+(l.name??'League '+l.id), '', 'Rank '+(l.rank??'unavailable')+' · points '+(l.points??'unavailable')+' · leader '+(l.leaderPoints??'unavailable')+' · observation '+(l.observedAt??'unavailable')+'.');
     if (l.rival) {
@@ -386,6 +446,8 @@ export function renderText(r: Report): string {
 
 async function main() {
   const [id='145784', output='reports/my-team', stateFile] = process.argv.slice(2);
+  const contextFile=process.env.VORTEX_PLAN_CONTEXT;
+  const evidence:unknown=contextFile ? JSON.parse(await readFile(contextFile,'utf8')) : undefined;
   if(!/^[1-9]\d{0,11}$/.test(id)) throw new Error('Invalid entry ID.');
   const base=(process.env.VORTEX_UPSTREAM_BASE ?? 'https://fplvortex.onrender.com').replace(/\/$/,'');
   const entrySourceUrl = base+'/api/vortex/entry/'+id+'?refresh=1';
@@ -398,8 +460,9 @@ async function main() {
     catch { /* Source exports may not contain Git metadata. */ }
   }
   const verified=state ? null : await verifyPublicEntry(snapshot,entry);
+  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence);
   const report: Report = {
-    ...buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state),
+    ...planned,
     publicStateEvidence:verified?.publicStateEvidence,
     provenance: {
       revision,
@@ -407,7 +470,7 @@ async function main() {
       snapshotId: createHash('sha256').update(JSON.stringify(snapshot)).digest('hex'),
       snapshotSource: sourceUrl,
       forecastInputs: {localModel:'VORTEX mechanistic', importedFileDate:snapshot.meta.repoData?.projectionFileDate ?? null,
-        importedPlayerWeeks:0,localPlayerWeeks:snapshot.players.length*Math.min(5,39-snapshot.meta.nextEventId),independentExternalModelsVerified:0},
+        importedPlayerWeeks:0,localPlayerWeeks:snapshot.players.length*planned.horizon.length,independentExternalModelsVerified:0},
       entryAt: entry.provenance?.sourceCapturedAt ?? entry.generatedAt,
       entrySourceUrl,
     },

@@ -158,14 +158,15 @@ test('personal goalkeeper policy holds a regular doubtful starter and considers 
   assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,undefined);
   assert.ok(doubtful.weeks.every(w=>w.transfers.every(t=>t.out.position!=='GKP')));
   first.chance=0; first.status='i';
-  const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners);
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
+  const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners,new Set([first.id]));
   assert.equal(unavailable.transfers.replaceableId,first.id);
   assert.deepEqual(unavailable.transfers.incomingIds,[regular.id]);
-  const emergency=buildFiveWeekPlan(snapshot,entry,now);
+  const emergency=buildFiveWeekPlan(snapshot,entry,now,undefined,{teamNews:[{playerId:first.id,throughGw:16,status:'u',chance:0,observedAt:now.toISOString(),source:'https://example.test/team-news'}]});
   assert.ok(emergency.weeks.every(w=>w.transfers.filter(t=>t.out.position==='GKP')
     .every(t=>t.out.id===first.id && t.incoming.id===regular.id)));
   reserve.starts=4; reserve.minutes=360; reserve.status='a'; reserve.chance=100;
-  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners,new Set([first.id])).transfers.replaceableId,undefined);
 });
 
 test('fixture watchlist flags the designated opponents and keeps numeric forecasts', async () => {
@@ -181,4 +182,22 @@ test('fixture watchlist flags the designated opponents and keeps numeric forecas
   assert.equal(managerFixtureRisk(undefined),null);
   assert.ok(plan.goalkeeperComparison[0].weeks.every(w=>Number.isFinite(w.xPts)));
   assert.deepEqual(personalFixtureOpportunities([],20),{gw:20,attack:[],cleanSheet:[]});
+});
+
+test('validated context extends the horizon, reports observed EO, and applies team news only through its stated gameweek', () => {
+  const { snapshot,entry,now }=scenario();
+  const settled=snapshot.gameweeks.find(g=>g.id===14)!;
+  settled.dataChecked=true;
+  const source='https://example.test/gw14';
+  const raw={horizon:8,cohort:{season:snapshot.meta.season,gameweek:14,observedAt:now.toISOString(),source,
+    sampleSize:200,cutoffPoints:550,players:[{id:1,ownership:90,effectiveOwnership:180}]},
+    teamNews:[{playerId:1,throughGw:15,status:'u',chance:0,observedAt:now.toISOString(),source}]};
+  const plan=buildFiveWeekPlan(snapshot,entry,now,undefined,raw);
+  assert.equal(plan.horizon.length,8);
+  assert.deepEqual(plan.horizonSummary.map(row=>row.weeks),[1,2,8]);
+  assert.equal(plan.cohort?.pointsOutsideCutoff,50);
+  assert.equal(plan.weeks[0].currentSquad.find(p=>p.id===1)?.xPts,0);
+  assert.ok((plan.weeks[1].currentSquad.find(p=>p.id===1)?.xPts??0)>0);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,cohort:{...raw.cohort,gameweek:13}}),/latest completed/);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,teamNews:[{...raw.teamNews[0],throughGw:14}]}),/applicable gameweek/);
 });
