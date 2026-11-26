@@ -26,6 +26,8 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   maxNormalMoves?: 2 | 3;
   localForecastsOnly?: boolean;
   lockedIds?: number[];
+  /** Optional personal rules for normal goalkeeper transfers. Chip rebuilds retain their own rules. */
+  goalkeeperTransfers?: { replaceableId?: number; incomingIds: readonly number[] };
   /** Explicit what-if schedule; never written into the saved manual plan. */
   requestedChips?: SeasonChipUse[];
   chipPolicy?: 'auto' | 'manual';
@@ -237,6 +239,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     pools.set(gw, [...pool]);
   }
 
+  const goalkeeperTransfers = input.goalkeeperTransfers;
   const actionCache = new Map<string, Action[]>();
   const actionsAt = (state: SearchState, gw: number): Action[] => {
     const key = `${gw}:${state.ft}:${state.bank}:${[...state.squad].sort((a, b) => a - b).map(id => id + '=' + state.sell[id]).join(',')}`;
@@ -248,9 +251,11 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     for (const outId of state.squad) {
       if (locked.has(outId)) continue;
       const out = byId.get(outId)!;
-      for (const inId of pools.get(gw) ?? []) {
+      if (out.type === 1 && goalkeeperTransfers && outId !== goalkeeperTransfers.replaceableId) continue;
+      const candidates = out.type === 1 && goalkeeperTransfers ? goalkeeperTransfers.incomingIds : pools.get(gw) ?? [];
+      for (const inId of candidates) {
         const inc = byId.get(inId)!;
-        if (current.has(inId) || inc.type !== out.type || !isEligibleNewTransferTarget(playerMap.get(inId)!)) continue;
+        if (!inc || current.has(inId) || inc.type !== out.type || !isEligibleNewTransferTarget(playerMap.get(inId)!)) continue;
         const gain = [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * ((forecastByGw[gw + o]?.[inId] ?? 0) - (forecastByGw[gw + o]?.[outId] ?? 0)), 0);
         swaps.push({ outId, inId, delta: state.sell[outId] - inc.cost, gain });
       }

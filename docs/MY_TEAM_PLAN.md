@@ -103,3 +103,21 @@ node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json rep
 ```
 
 For every available GW, separate 1920×1080 pitch and 15-player analysis PNG/HTML files are named FPL_VORTEX_GWxx_pitch and FPL_VORTEX_GWxx_analysis. The official FPL player code and club code are persisted in the same frozen plan. The renderer requests only official Premier League PNG endpoints; no shirt is represented as a player portrait. Missing images are visibly labeled and fail the publication-ready gate. image-provenance.json records actual image sources. The graphic design follows the user's angular cyan/blue reference, with original lion asset and social footer; no schedules, dashboard renderer or existing publication workflows are changed. No automatic publication.
+
+## Goalkeeper transfers
+
+Normal personal-plan transfers preserve both goalkeeper slots by default. An
+injury flag with some chance of playing calls for a team-news check. The plan
+considers replacing the primary when official availability rules him out and
+the reserve does not have a regular available starting role. Candidates must
+have started at least 80% of at least five completed matches for their club
+and clear the existing availability eligibility checks. Five matches and
+80% are conservative decision rules. They are not estimates of future start
+probability. Club exposure uses completed fixtures. Review a new signing or
+a recent first-choice change with a shorter history before acting.
+
+The rule keeps a replacement through the remaining transfer forecast.
+The reserve remains available for lineup selection. This policy applies
+to normal personal-plan transfers. Existing chip rebuilds retain their own
+rules. The planner reports the underlying points forecasts separately from
+the constraint. Injured-player recovery is not imputed from club news.

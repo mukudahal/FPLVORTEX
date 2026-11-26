@@ -138,3 +138,32 @@ test('a temporary Free Hit buy cannot overwrite the permanent selling basis',asy
   assert.throws(()=>reconcilePublicFinances(snapshot,1,current,first,history,
     [{...ledger[0],event:4}]),/upcoming transfers/);
 });
+
+test('personal goalkeeper policy holds a regular doubtful starter and considers durable replacements only if he is out', async () => {
+  const { personalGoalkeeperPolicy } = await import('../scripts/personal-goalkeeper-policy');
+  const { snapshot, entry, now } = scenario();
+  const [first, reserve] = snapshot.players;
+  const played = Array.from({length:5}, (_, i)=>makeFixture(900+i,i+1,first.teamId,reserve.teamId));
+  const incomingClub = 9;
+  for (let i=0;i<5;i++) played.push(makeFixture(950+i,i+1,incomingClub,10));
+  snapshot.fixtures.push(...played.map(f=>({...f,finished:true})));
+  first.starts=5; first.minutes=450; first.chance=50; first.status='d';
+  reserve.starts=0; reserve.minutes=0;
+  const regular=makePlayer(98,{position:'GKP',teamId:incomingClub,starts:5,minutes:450,cost:45,status:'a',chance:100});
+  const cover=makePlayer(99,{position:'GKP',teamId:incomingClub,starts:1,minutes:90,cost:40,status:'a',chance:100});
+  snapshot.players.push(regular,cover);
+  const owners=entry.picks.map(p=>p.element);
+  const doubtful=buildFiveWeekPlan(snapshot,entry,now);
+  assert.equal(doubtful.goalkeeperPolicy.awaitingNews,true);
+  assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,undefined);
+  assert.ok(doubtful.weeks.every(w=>w.transfers.every(t=>t.out.position!=='GKP')));
+  first.chance=0; first.status='i';
+  const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners);
+  assert.equal(unavailable.transfers.replaceableId,first.id);
+  assert.deepEqual(unavailable.transfers.incomingIds,[regular.id]);
+  const emergency=buildFiveWeekPlan(snapshot,entry,now);
+  assert.ok(emergency.weeks.every(w=>w.transfers.filter(t=>t.out.position==='GKP')
+    .every(t=>t.out.id===first.id && t.incoming.id===regular.id)));
+  reserve.starts=4; reserve.minutes=360; reserve.status='a'; reserve.chance=100;
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
+});

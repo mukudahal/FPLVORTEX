@@ -12,6 +12,7 @@ import { makeFixtureForecasts } from '../src/lib/fixtureForecast';
 import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers';
 import { getSnapshotFreshness } from '../src/lib/snapshotFreshness';
 import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seasonRules';
+import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
 import { verifyPublicEntry } from './verify-personal-state';
 import { auditPlanSources } from './plan-source-audit';
 import { fetchOfficialSnapshot } from '../server/officialSnapshot';
@@ -106,8 +107,9 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const halfStart = next <= RULES_2026_27.chipHalfBoundary ? 1 : RULES_2026_27.chipHalfBoundary+1;
   const spentThisHalf = new Set(chipsUsed?.filter(c=>c.event>=halfStart && c.event<next).map(c=>mapOfficialChipToPlanningChip(c.name)));
   const horizonOnly = chipsUsed===undefined || RULES_2026_27.chips.every(c=>spentThisHalf.has(c));
+  const goalkeeperPolicy = personalGoalkeeperPolicy(snapshot, players, ids);
   const result = runPlannerSimulation({
-    players, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
+    players, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
     nextGw:next, horizon:5, draws:1000, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
@@ -181,6 +183,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     stateBasis:confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
+    goalkeeperPolicy,
     chipHistoryKnown:chipsUsed!==undefined, totalXPts:total, noTransferNoChipXPts:holdTotal, gainVsHold:round(total-holdTotal),
     latestGameweek:{...entry.history, previousOverallRank:entry.previousOverallRank},
     openingState:{squad:ids,bankTenths:bank,freeTransfers:ft,sellingPrices,chipsUsed:chipsUsed??null},
@@ -281,7 +284,11 @@ export function renderText(r: Report): string {
   lines.push('', 'Search horizon GW'+r.searchGameweeks.join(', GW')+'.', '', 'The opening-XV gains add up to the five-week comparison. Rolling from a later week retains earlier decisions. Free-transfer option value is part of search ranking only.',
     '', '### Opening alternatives', '');
   for (const option of r.openingAlternatives) lines.push('- '+option.label+' · '+(option.feasible===false?'unavailable':num(option.horizonXPts))+' projected horizon points · '+option.hitCost+' opening hit points. '+option.why);
-  lines.push('', '### Chip timing and long-term strategy', '');
+  const keeper = r.goalkeeperPolicy;
+  lines.push('', '### Goalkeeper decision', '', keeper.reason,
+    '', keeper.primary.name+' has '+keeper.primary.starts+' starts across '+keeper.primary.clubMatches+' completed fixtures for his current club. '+
+    'Normal transfers leave '+keeper.reserve.name+' in the reserve slot. A replacement needs at least 80% observed starts across five or more club fixtures.',
+    '', '### Chip timing and long-term strategy', '');
   for (const c of r.chipOptions) lines.push('- '+c.chip+' · '+(r.chipHistoryKnown?(c.available?'available':'unavailable'):'inventory unknown')+' · '+c.verdict);
   if (r.chipTiming) lines.push('', 'Joint continuation with the chip now '+num(r.chipTiming.playNowXPts)+' xPts, deferred '+num(r.chipTiming.deferXPts)+' xPts, over the search horizon. Preferred timing '+r.chipTiming.preferred+'.');
   lines.push('', 'No-chip transfer path — '+r.noChipTransferAlternative.map(w=>'GW'+w.gw+' '+(w.transfers.map(t=>t.sell+' → '+t.buy).join(', ')||'roll')+' ('+num(w.xPts)+' xPts)').join(' · '),
