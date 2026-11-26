@@ -33,7 +33,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: node --import tsx --test tests/my-team-plan.test.ts
-      - name: Restore previous rank checkpoints
+      - name: Restore rank checkpoints and prior weekly plans
         uses: actions/cache/restore@v4
         continue-on-error: true
         with:
@@ -45,12 +45,13 @@ jobs:
           PLAN_HORIZON: ${{ inputs.horizon }}
           TARGET_GAMEWEEK: ${{ inputs.target_gameweek }}
           COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
+          VORTEX_RECOMMENDATION_ARCHIVE: ${{ runner.temp }}/vortex-rank/recommendations
           VORTEX_RANK_CHECKPOINTS: ${{ runner.temp }}/vortex-rank/checkpoints.json
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
         run: |
           node --input-type=module <<'JS'
           import { writeFileSync } from 'node:fs';
-          const context = { rankGoal: { rank: 10000, gameweek: Number(process.env.TARGET_GAMEWEEK) } };
+          const context = { simulationDraws: 10000, rankGoal: { rank: 10000, gameweek: Number(process.env.TARGET_GAMEWEEK) } };
           if (process.env.PLAN_HORIZON !== 'auto') context.horizon = Number(process.env.PLAN_HORIZON);
           if (process.env.COMPLETED_TRANSFERS.trim()) context.completedTransfers = JSON.parse(process.env.COMPLETED_TRANSFERS);
           writeFileSync(process.env.VORTEX_PLAN_CONTEXT, JSON.stringify(context), { mode: 0o600 });
@@ -58,7 +59,7 @@ jobs:
           node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
       - name: Publish plan in the run summary
         run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Retain settled rank checkpoints
+      - name: Retain checkpoints and weekly evidence
         uses: actions/cache/save@v4
         continue-on-error: true
         with:

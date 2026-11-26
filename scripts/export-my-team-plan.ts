@@ -15,6 +15,9 @@ import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seas
 import { managerFixtureRisk, personalFixtureOpportunities } from './personal-fixture-context';
 import { parsePersonalContext } from './personal-plan-context';
 import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
+import { fetchCoreGameweekAudit } from './personal-core-audit';
+import { reviewLatestSettledPlan } from './personal-weekly-evidence';
+import type { OfficialPoints } from './settle-my-team-plan';
 import { applyCompletedFreeTransfers } from './personal-completed-transfers';
 import { fetchOfficialRankCutoff, rankTargetAssessment, type RankCheckpoint } from './personal-rank-target';
 import { personalMarketWatch, type MarketFeed } from './personal-market-watch';
@@ -135,7 +138,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const planningHorizon = activeTarget ? Math.min(context.horizon,activeTarget.gameweek-next+1) : context.horizon;
   const result = runPlannerSimulation({
     players, captaincyViceFallback:true, goalkeeperTransfers:{...goalkeeperPolicy.transfers,priorityCover:goalkeeperPolicy.coverageRisk}, localForecastsOnly:true, maxNormalMoves:3, horizonOnly:horizonOnly || !!activeTarget, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
-    nextGw:next, horizon:planningHorizon, decay:activeTarget ? 1 : undefined, draws:1000, availabilityOverrides:activeTeamNews,
+    nextGw:next, horizon:planningHorizon, decay:activeTarget ? 1 : undefined, draws:context.simulationDraws ?? 1000, availabilityOverrides:activeTeamNews,
     openingTransferGuard: {freeMoveNetGain:1.5,hitNetGain:4.5}, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
@@ -363,12 +366,15 @@ async function readMiniLeagues(base: string, entry: EntryData, openingSquad: rea
 
 export type Report = ReturnType<typeof buildFiveWeekPlan> & {
   history?: {gw:number;points:number;hitCost:number;overallRank:number|null}[];
+  weeklyEvidence?: Awaited<ReturnType<typeof reviewLatestSettledPlan>>;
+  coreAudit?: Awaited<ReturnType<typeof fetchCoreGameweekAudit>>;
   rankTarget?: ReturnType<typeof rankTargetAssessment> & { source: string | null; managerRank: number | null };
   publicStateEvidence?: Awaited<ReturnType<typeof verifyPublicEntry>>['publicStateEvidence'];
   miniLeagues?: Awaited<ReturnType<typeof readMiniLeagues>>;
   provenance?: {
     revision: string | null;
     modelVersion: string;
+    simulationVersion?: string;
     snapshotId: string;
     snapshotSource: string;
     entryAt: string;
@@ -487,6 +493,13 @@ export function renderText(r: Report): string {
       ' points ('+num(goal.cutoffPaceAtEqualPoints)+' per GW) and leave you level on points. The one-point-clear threshold is '+num(goal.maxCutoffGainAtOnePointClear)+'.', '');
     else if (!goal.completed && !goal.coversTarget) lines.push('This plan reaches GW'+goal.through+'; a full forecast through the target is outside this run’s horizon.', '');
     if (goal.planGainVsHold !== null) lines.push('Projected gain over holding your current squad through GW'+goal.through+' · '+num(goal.planGainVsHold)+' pts.', '');
+    const simulated = r.simulation.paths.find(p=>p.id===r.simulation.recommendedPathId);
+    if (goal.coversTarget && goal.signedGap !== null && simulated && r.simulation.gws.at(-1)===goal.gameweek) {
+      const gap = goal.signedGap;
+      lines.push('Simulated break-even cutoff growth at P10, median and P90 of your score · '+
+        [simulated.p10,simulated.median,simulated.p90].map(points=>num(points-gap)).join(' / ')+
+        ' pts. These are conditional thresholds for the field across '+r.simulation.draws.toLocaleString('en-GB')+' draws.', '');
+    }
     if (goal.changeSincePrevious) {
       const c=goal.changeSincePrevious;
       lines.push('Observed GW'+c.fromGameweek+' to GW'+c.toGameweek+' · your gain '+c.managerGain+' pts · cutoff gain '+c.cutoffGain+
@@ -548,6 +561,24 @@ export function renderText(r: Report): string {
   const path=r.simulation.paths.find(p=>p.id===r.simulation.recommendedPathId);
   if (path) lines.push('', 'Paired simulation, '+r.simulation.draws+' draws, seed '+r.simulation.seed+'. Mean '+num(path.mean)+', median '+num(path.median)+', SD '+num(path.sd)+', P10 / P25 / P75 / P90 '+[path.p10,path.p25,path.p75,path.p90].join(' / ')+'.',
     '', 'Against hold, simulated win '+percent(path.probBeatsHoldRaw)+', tie '+percent(path.probDrawsHold)+', loss '+percent(path.probLosesHold)+'. Mean positive gain '+num(path.expectedUpsideVsHold)+' and mean downside '+num(path.expectedDownsideVsHold)+' points across all draws.');
+  if (path?.openingVsHold) {
+    const open = path.openingVsHold;
+    lines.push('', 'Opening GW'+open.gw+' paired gain versus hold · '+num(open.mean)+' pts mean · '+num(open.p10)+' to '+num(open.p90)+' pts P10–P90 · '+
+      'win '+percent(open.probWin)+', tie '+percent(open.probTie)+', loss '+percent(open.probLoss)+'.');
+  }
+  const review = r.weeklyEvidence;
+  if (review) {
+    lines.push('', '### Settled forecast review', '', 'Latest settled GW '+(review.latestSettledGw??'unavailable')+' · '+review.status+'.', '',
+      'Same-version sample · '+review.gameweeks.length+' distinct GWs · MAE '+num(review.mae)+' · RMSE '+num(review.rmse)+
+      ' · bias '+num(review.bias)+' · strict win Brier '+num(review.brier,3)+' ('+review.pairedProbabilitySamples+' informative gameweeks).', '');
+    if (review.latest) lines.push('Latest reviewed GW'+review.latest.gw+' · projected '+num(review.latest.projected)+
+      ' · realised plan '+review.latest.net+' · realised gain vs hold '+review.latest.gain+' · your actual net '+review.latest.managerNet+'.', '');
+  }
+  const core = r.coreAudit;
+  if (core) lines.push('', 'FPL Core GW'+core.gameweek+' outcome cross-check · '+core.matchedPlayers+'/'+core.officialPlayers+' official player IDs · '+
+    Object.entries(core.counts).map(([name,result])=>name+' '+result.matches+'/'+result.compared).join(' · ')+'. Source '+core.source+'.', '');
+  else if (r.coreAudit===null) lines.push('', 'FPL Core cross-check unavailable for this run.', '');
+  if (r.weeklyEvidence) lines.push('The Opta-style calculation in VORTEX is a local heuristic. A licensed Opta data feed was not supplied.', '');
   lines.push('', 'Confidence remains uncalibrated. Settle the dated recommendation after official finalisation to compare advice, hold and actual decisions. Future outcomes are pending.',
     '', r.strategySearch, '', ...[...new Set([...r.warnings,...r.assumptions])].map(w=>'- '+w));
   return lines.join('\n')+'\n';
@@ -585,12 +616,16 @@ async function main() {
   const verifiedEntry = verified?.entry ?? entry;
   const opening = context.completedTransfers ? applyCompletedFreeTransfers(snapshot,verifiedEntry,context.completedTransfers) : state;
   const planned=buildFiveWeekPlan(snapshot,verifiedEntry,new Date(),opening,evidence,marketFeed);
+  const modelVersion = await productionModelVersion();
+  const simulationVersion = createHash('sha256').update(modelVersion)
+    .update((await Promise.all(['src/lib/repoModel/monteCarlo.ts','src/lib/repoModel/compassPlanner.ts',
+      'scripts/personal-goalkeeper-policy.ts'].map(path=>readFile(path,'utf8')))).join('\n')).digest('hex').slice(0,16);
   const report: Report = {
     ...planned,
     publicStateEvidence:verified?.publicStateEvidence,
     provenance: {
       revision,
-      modelVersion: await productionModelVersion(),
+      modelVersion, simulationVersion,
       snapshotId: createHash('sha256').update(JSON.stringify(snapshot)).digest('hex'),
       snapshotSource: sourceUrl,
       forecastInputs: {localModel:'VORTEX mechanistic', importedFileDate:snapshot.meta.repoData?.projectionFileDate ?? null,
@@ -616,6 +651,12 @@ async function main() {
       managerRank:checkpoint ? verifiedEntry.history.overallRank : null,
     };
   }
+  const archiveRoot = process.env.VORTEX_RECOMMENDATION_ARCHIVE ?? join(output,'accountability');
+  const settledPoints = settled ? await get<OfficialPoints>(fplBase+'/event/'+settled.id+'/live/',10_000).catch(()=>null) : null;
+  const evidenceReview = Promise.all([
+    reviewLatestSettledPlan(archiveRoot,snapshot,entry.id,simulationVersion,settledPoints),
+    settled && settledPoints ? fetchCoreGameweekAudit(snapshot.meta.season,settled.id,settledPoints) : null,
+  ]);
   const [leagues,history] = await Promise.all([
     readMiniLeagues(base, entry, report.openingState.squad),
     verified?.history ?? get<{current:{event:number;points:number;event_transfers_cost:number;overall_rank:number|null}[]}>(fplBase+'/entry/'+id+'/history/',15_000).catch(()=>null),
@@ -624,9 +665,9 @@ async function main() {
   if (Array.isArray(history?.current)) report.history=history.current.filter(h=>h.event<=entry.currentEvent).map(h=>({
     gw:h.event,points:h.points,hitCost:h.event_transfers_cost,overallRank:h.overall_rank,
   }));
+  [report.weeklyEvidence,report.coreAudit] = await evidenceReview;
   const deadline = Date.parse(report.weeks[0].deadline ?? '');
   if (!Number.isFinite(deadline) || Date.now() >= deadline) throw new Error('The opening deadline passed during planning. Refresh and rerun.');
-  const archiveRoot = process.env.VORTEX_RECOMMENDATION_ARCHIVE ?? join(output,'accountability');
   {
     await writeImmutableArchive(join(archiveRoot,'inputs',report.provenance!.snapshotId+'.json.gz'),snapshot);
     const filename = report.computedAt.replaceAll(':','-')+'-'+report.provenance!.snapshotId.slice(0,12)+'.json.gz';
@@ -646,7 +687,7 @@ async function main() {
   const meta = {entryId:report.entryId,season:report.season,currentGameweek:report.currentGameweek,horizon:report.horizon,
     computedAt:report.computedAt,snapshotAt:report.snapshotAt,provenance:report.provenance,assumptions:report.assumptions,warnings:report.warnings};
   const detailFiles = {
-    'rank-context':{rankTarget:report.rankTarget??null,cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
+    'rank-context':{weeklyEvidence:report.weeklyEvidence,coreAudit:report.coreAudit,rankTarget:report.rankTarget??null,cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
     'data-source-audit':await auditPlanSources(snapshot,report),
     'transfer-alternatives':{marketWatch:report.marketWatch,opening:report.openingAlternatives.filter(o=>o.feasible!==false),noChip:report.noChipTransferAlternative,holdXPts:report.noTransferNoChipXPts},
     'captaincy-alternatives':report.weeks.map(w=>({gw:w.gw,...w.captaincy})),

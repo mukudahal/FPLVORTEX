@@ -293,3 +293,42 @@ test('completed free transfers consume the bank and allowance once and reject a 
   assert.throws(()=>applyCompletedFreeTransfers(snapshot,entry,{...input,gameweek:14}),/next official gameweek/);
   assert.throws(()=>applyCompletedFreeTransfers(snapshot,entry,{...input,moves:[...input.moves,...input.moves]}),/reconcile/);
 });
+
+test('10,000 paired draws preserve the legal plan and expose opening-week probabilities', () => {
+  const {snapshot,entry,now}=scenario(38);
+  const ordinary=buildFiveWeekPlan(snapshot,entry,now);
+  const detailed=buildFiveWeekPlan(snapshot,entry,now,undefined,{simulationDraws:10000});
+  assert.equal(detailed.simulation.draws,10000);
+  assert.equal(detailed.totalXPts,ordinary.totalXPts);
+  assert.deepEqual(detailed.weeks[0].transfers,ordinary.weeks[0].transfers);
+  const path=detailed.simulation.paths.find(p=>p.id===detailed.simulation.recommendedPathId)!;
+  assert.equal(path.openingVsHold?.gw,38);
+  assert.ok(Math.abs(path.openingVsHold!.probWin+path.openingVsHold!.probTie+path.openingVsHold!.probLoss-1)<1e-9);
+});
+
+test('settled review counts one result per gameweek and scores only observed forecast probabilities', async () => {
+  const {summariseSettledReviews}=await import('../scripts/personal-weekly-evidence');
+  const first={season:'2026/27',entryId:145784,gw:10,issuedAt:'2026-11-03T09:00:00Z',modelVersion:'fixture',
+    projected:60,net:50,gain:-2,managerNet:52,predictedWin:0.6,follow:true};
+  const rerun={...first,issuedAt:'2026-11-03T10:00:00Z',projected:55};
+  const report=summariseSettledReviews([rerun,first,{...first,gw:11,projected:52,net:52,predictedWin:null}]);
+  assert.deepEqual(report.gameweeks,[10,11]);
+  assert.equal(report.mae,2.5);
+  assert.equal(report.pairedProbabilitySamples,1);
+  assert.equal(report.brier,0.36);
+  assert.equal(report.calibrated,false);
+});
+
+test('FPL Core cross-check leaves missing stats out and exposes mismatches', async () => {
+  const {compareCoreGameweek}=await import('../scripts/personal-core-audit');
+  const csv='id,gw,total_points,minutes,expected_goals,expected_assists\n1,11,3,90,,0.12\n2,11,2,25,0.2,0\n';
+  const data={elements:[
+    {id:1,stats:{total_points:3,minutes:90,played:true,expected_goals:0.3,expected_assists:0.12}},
+    {id:2,stats:{total_points:1,minutes:25,played:true,expected_goals:'0.2',expected_assists:'0.0'}},
+  ]};
+  const audit=compareCoreGameweek(csv,data,11);
+  assert.equal(audit.matchedPlayers,2);
+  assert.deepEqual(audit.counts.total_points,{compared:2,matches:1});
+  assert.deepEqual(audit.counts.expected_goals,{compared:1,matches:1});
+  assert.throws(()=>compareCoreGameweek(csv,data,12),/Unexpected/);
+});

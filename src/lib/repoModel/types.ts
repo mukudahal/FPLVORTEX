@@ -460,6 +460,7 @@ export interface McPathSummary {
   perGw: McBand[];
   /** Cumulative gain over holding by gameweek, including hit costs. */
   cumDelta: McBand[] | null;
+  openingVsHold?: McBand & { probWin: number; probTie: number; probLoss: number };
   /** Optional comparison using the same draws as the named reference plan. */
   vsReference?: McPairedComparison;
 }

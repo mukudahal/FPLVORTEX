@@ -12,11 +12,11 @@ import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers';
 import type { Snapshot } from '../src/lib/types';
 import type { Report } from './export-my-team-plan';
 
-type OfficialPoints = {elements:{id:number; stats:{total_points:number; minutes:number; played:boolean}}[]};
-type PublicPicks = { active_chip:string|null; entry_history:{event:number;points:number;event_transfers_cost:number;overall_rank:number|null};
+export type OfficialPoints = {elements:{id:number; stats:{total_points:number; minutes:number; played:boolean}}[]};
+export type PublicPicks = { active_chip:string|null; entry_history:{event:number;points:number;event_transfers_cost:number;overall_rank:number|null};
   picks:{element:number;position:number;is_captain:boolean;is_vice_captain:boolean}[];
   automatic_subs:{element_in:number;element_out:number}[] };
-type Transfer = {event:number;element_in:number;element_out:number;time:string};
+export type Transfer = {event:number;element_in:number;element_out:number;time:string};
 
 export function settleWeek(report:Report, gw:number, snapshot:Snapshot, live:OfficialPoints, picks:PublicPicks,
   transfers:Transfer[], observedAt:string) {
@@ -60,12 +60,13 @@ export function settleWeek(report:Report, gw:number, snapshot:Snapshot, live:Off
   if (actualChip===undefined || realCaptain===undefined || realVice===undefined) throw new Error('Unrecognised official chip or armbands.');
   const capId=outcome.played(advised.captainId)?advised.captainId:outcome.played(advised.viceId)?advised.viceId:null;
   const capExtra=capId===null?0:outcome.pts(capId);
+  const completed = report.completedTransfers?.gameweek===gw ? report.completedTransfers.moves : [];
   const actualHit=picks.entry_history.event_transfers_cost;
   const execution={squad:sameIds(initialOrder,week.finalSquad.map(p=>p.id)),xi:sameIds(initialOrder.slice(0,11),advised.starters),
     captain:realCaptain===advised.captainId,vice:realVice===advised.viceId,chip:week.chip===actualChip,
     benchOrder:initialOrder.slice(11).filter(id=>positions.get(id)!==1).join(',')===advised.bench.filter(id=>positions.get(id)!==1).join(','),
-    buys:sameIds(actualTransfers.map(t=>t.element_in),week.transfers.map(t=>t.incoming.id)),
-    sales:sameIds(actualTransfers.map(t=>t.element_out),week.transfers.map(t=>t.out.id)),hit:actualHit===week.hitCost};
+    buys:sameIds(actualTransfers.map(t=>t.element_in),[...completed.map(t=>t.inId),...week.transfers.map(t=>t.incoming.id)]),
+    sales:sameIds(actualTransfers.map(t=>t.element_out),[...completed.map(t=>t.outId),...week.transfers.map(t=>t.out.id)]),hit:actualHit===week.hitCost};
   return {gw,observedAt,entryId:report.entryId,season:report.season,computedAt:report.computedAt,snapshotAt:report.snapshotAt,
     inputId:report.provenance.snapshotId,modelVersion:report.provenance.modelVersion,revision:report.provenance.revision,
     expectedPoints:week.xPts,realisedAdviceNet:advisedNet,realisedFixedHold:held,realisedGain:advisedNet-held,

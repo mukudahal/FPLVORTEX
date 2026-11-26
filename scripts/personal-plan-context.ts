@@ -3,6 +3,7 @@ import type { CompletedMoves } from './personal-completed-transfers';
 
 export interface PersonalPlanContext {
   horizon: number;
+  simulationDraws?: number;
   rankGoal?: RankGoal;
   completedTransfers?: CompletedMoves;
   cohort?: {
@@ -42,6 +43,10 @@ export function parsePersonalContext(raw: unknown, season: string, previousGw: n
   }
   const horizon = value.horizon ?? (rankGoal && rankGoal.gameweek >= nextGw ? Math.min(8,rankGoal.gameweek-nextGw+1) : 5);
   if (!Number.isInteger(horizon) || horizon < 1 || horizon > 8) throw new Error('Planning horizon must be between 1 and 8.');
+  if (value.simulationDraws !== undefined &&
+      (!Number.isInteger(value.simulationDraws) || value.simulationDraws < 100 || value.simulationDraws > 30000)) {
+    throw new Error('Simulation draws must be between 100 and 30,000.');
+  }
   const cohort = value.cohort;
   if (cohort !== undefined && (!cohort || cohort.season !== season || cohort.gameweek !== previousGw ||
     !Number.isInteger(cohort.sampleSize) || cohort.sampleSize < 1 || cohort.sampleSize > 10_000 ||
@@ -61,5 +66,5 @@ export function parsePersonalContext(raw: unknown, season: string, previousGw: n
       n.status !== (n.chance === 0 ? 'u' : n.chance === 100 ? 'a' : 'd'))) {
     throw new Error('Team news must be sourced within 72 hours, agree with its availability percentage and declare its last applicable gameweek.');
   }
-  return { horizon, cohort, teamNews, rankGoal, completedTransfers };
+  return { horizon, cohort, teamNews, rankGoal, completedTransfers, simulationDraws:value.simulationDraws };
 }

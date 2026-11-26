@@ -53,6 +53,28 @@ cache is available. The CLI can keep the same history with
 still depend on the official tie-break. The planner has no validated
 future-cutline model and does not give a probability of achieving the rank.
 
+### Simulation and settled review
+
+The weekly workflow uses 10,000 paired draws across the same legal paths. For
+CLI use, set `simulationDraws` in the context to change the computation cost.
+The report shows the opening-week and full-window risk versus holding. Its
+rank section shows the field break-even under the P10, median and P90 points
+scenarios. The underlying transfer search still ranks net expected points.
+
+On the next run, the workflow can settle the latest saved pre-deadline
+recommendation for the completed opening gameweek and compute its realised
+gain over the frozen hold XI. Weekly reviews use one result per gameweek, track
+points errors and the Brier score for informative win predictions, and keep
+different simulation versions separate. The first run may have no matching
+archive. Historical scores validate only a forecast that actually existed
+before the deadline. The review does not recalibrate the simulator automatically.
+
+FPL Core is checked against official settled points, minutes, xG and xA using
+the matching season and gameweek. The dataset includes republished FPL fields
+and is not an independent forecast. VORTEX's Opta-style code is an internal
+calculation; a licensed Opta feed would require separate access and a timed,
+held-out evaluation before influencing transfers.
+
 For dated cohort information, team-news overrides or a different entry, use
 the CLI and context file described below. Render PNGs separately using the CLI.
 The workflow does not send files to Drive.
