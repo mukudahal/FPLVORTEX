@@ -34,7 +34,8 @@ test('exports five consecutive legal weeks, ordered bench and points reconciliat
     assert.notEqual(w.captain.id,w.vice.id);
     assert.ok(w.bankAfter>=0);
     assert.equal(w.chip,null);
-    assert.ok(Math.abs(w.xPts-(w.starters.reduce((s,p)=>s+p.xPts,0)+w.captain.xPts-w.hitCost))<0.02);
+    assert.ok(w.expectedBenchPoints>0);
+    assert.ok(Math.abs(w.xPts-(w.expectedStarterPoints+w.expectedCaptainBonus+w.expectedBenchPoints-w.hitCost))<0.02);
   }
   const text=renderText(report);
   assert.equal((text.match(/^## GW\d+/gm)??[]).length,5);

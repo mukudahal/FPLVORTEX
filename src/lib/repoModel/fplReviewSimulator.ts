@@ -34,6 +34,7 @@ export interface LineupSolution {
   captainId: number;
   viceId: number;
   xiXPts: number;
+  autosubXPts?: number;
   captainXPts: number;
   benchXPts: number;
   totalXPts: number;

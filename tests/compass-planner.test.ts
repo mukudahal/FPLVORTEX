@@ -27,15 +27,17 @@ function scenario(nextGw = 18, extra = true): PlannerSimulationInput {
     repoFixtures: toRepoFixtures(fixtures), repoTeams: toRepoTeams(teams), repoElements: players.map(toRepoElement) };
 }
 
-test('displayed solver weeks reconcile to the same player forecasts, captain bonus, bench chip and hits', () => {
+test('displayed solver weeks reconcile player forecasts, captain fallback, bench points and hits', () => {
   const result = runPlannerSimulation(scenario());
   for (const week of result.strategy.weeks) {
     const points = result.forecastByGw[week.gw];
     const xi = week.lineup.starters.reduce((sum,id) => sum + points[id], 0);
-    const captain = points[week.lineup.captainId] * (week.chip === 'tc' ? 2 : 1);
-    const bench = week.chip === 'bb' ? week.lineup.bench.reduce((sum,id) => sum + points[id], 0) : 0;
-    assert.ok(Math.abs(week.netXPts - (xi + captain + bench - week.hitCost)) <= 0.011,
-      `GW${week.gw} net xPts must use the exact forecast payload shown on the player cards`);
+    const captain = week.lineup.captainXPts;
+    const bench = week.chip === 'bb' ? week.lineup.bench.reduce((sum,id) => sum + points[id], 0) : week.lineup.autosubXPts!;
+    assert.ok(Math.abs(week.lineup.xiXPts - xi) <= 0.011);
+    assert.ok(captain >= points[week.lineup.captainId] * (week.chip === 'tc' ? 2 : 1));
+    assert.ok(Math.abs(week.netXPts - (xi + captain + bench - week.hitCost)) <= 0.016,
+      `GW${week.gw} net xPts must reconcile the player forecasts, expected lineup bonuses and transfer hits`);
   }
   assert.ok(Math.abs(result.strategy.expectedPoints - result.strategy.weeks.reduce((sum,week) => sum + week.netXPts,0)) <= 0.011);
 });

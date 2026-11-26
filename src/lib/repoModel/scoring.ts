@@ -17,6 +17,30 @@ export const MAX_PLAYERS_PER_CLUB = 3;
 
 export type PlanningChip = "wc" | "fh" | "bb" | "tc";
 
+/** Return a bit mask of the ordered outfield substitutes admitted by the formation. */
+export function outfieldAutoSubs(
+  starterCounts: readonly number[],
+  missingPositions: readonly number[],
+  benchPositions: readonly number[],
+  availableBench: number,
+): number {
+  const counts = [...starterCounts];
+  const missing = [...missingPositions];
+  let used = 0;
+  for (let slot = 0; slot < benchPositions.length && missing.length; slot++) {
+    if (!(availableBench & (1 << slot))) continue;
+    const incoming = benchPositions[slot];
+    const index = missing.findIndex(outgoing =>
+      outgoing === incoming || counts[outgoing] > FORMATION_LIMITS[outgoing][0]);
+    if (index === -1) continue;
+    counts[missing[index]]--;
+    counts[incoming]++;
+    missing.splice(index, 1);
+    used |= 1 << slot;
+  }
+  return used;
+}
+
 const finitePoints = (value: number): number => Number.isFinite(value) ? value : 0;
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 

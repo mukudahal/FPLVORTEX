@@ -7,7 +7,6 @@ import { enrichPlayers, toRepoElement } from '../src/lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../src/lib/fixtures';
 import { runPlannerSimulation } from '../src/lib/repoModel/compassPlanner';
 import { estimateMinutesDistribution } from '../src/lib/repoModel/minutes';
-import { positionToType, solveLineupTS } from '../src/lib/repoModel/fplReviewSimulator';
 import { makeFixtureForecasts } from '../src/lib/fixtureForecast';
 import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers';
 import { getSnapshotFreshness } from '../src/lib/snapshotFreshness';
@@ -103,7 +102,6 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const fixtures = toRepoFixtures(snapshot.fixtures);
   const elements = snapshot.players.map(toRepoElement);
   const elem = new Map(elements.map(p => [p.id,p]));
-  const nodes = new Map(players.map(p => [p.id,{id:p.id,type:positionToType(p.position),team:p.teamId,cost:p.cost,name:p.name}]));
   const chipsUsed = confirmedState ? confirmedState.chipsUsed : entry.chipsUsed;
   const completedEvents = snapshot.gameweeks.filter(g => g.finished).length;
   const halfStart = next <= RULES_2026_27.chipHalfBoundary ? 1 : RULES_2026_27.chipHalfBoundary+1;
@@ -170,10 +168,8 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   let permanent = [...ids], permanentBank = bank;
   const rows = weeks.map(w => {
     const before = [...permanent], beforeBank = permanentBank;
-    const hold = solveLineupTS(before,nodes,result.forecastByGw[w.gw]);
-    const fixed = solveLineupTS(ids,nodes,result.forecastByGw[w.gw]);
+    const {rollThisWeek:hold, fixedHold:fixed, sameSquadNoChip:noChip} = result.lineupBaselinesByGw[w.gw];
     const fixedHoldLineup = { starters:fixed.starters, bench:fixed.bench, captainId:fixed.captainId, viceId:fixed.viceId };
-    const noChip = solveLineupTS(w.squad,nodes,result.forecastByGw[w.gw]);
     const candidates = (result.monteCarlo.captainsByGw?.[w.gw] ?? []).map(r => ({
       ...r, name:name(r.id), ownership:byId.get(r.id)!.ownership, xPts:result.forecastByGw[w.gw][r.id],
       cohortOwnership:cohortPlayers.get(r.id)?.ownership ?? null,
@@ -190,7 +186,6 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
       .sort((a,b)=>risk(b).pHaul-risk(a).pHaul || risk(b).mean-risk(a).mean || a.id-b.id)[0];
     const captaincy = {highestXPts:w.lineup.captainId, balanced:w.lineup.captainId, conservative:safest?.id ?? null,
       differential:differential?.id ?? null, vice:w.lineup.viceId, candidates};
-    const bench = [...w.lineup.bench].sort((a,b) => Number(byId.get(b)!.position==='GKP')-Number(byId.get(a)!.position==='GKP') || result.forecastByGw[w.gw][b]-result.forecastByGw[w.gw][a]);
     const transfers = w.moves.map(move => {
       const out = describe(move.outId,w.gw), incoming = describe(move.inId,w.gw);
       const remaining = result.gws.filter(g => g>=w.gw);
@@ -201,13 +196,15 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     return {gw:w.gw, deadline:snapshot.gameweeks.find(g=>g.id===w.gw)?.deadlineTime,
       currentSquad:before.map(id=>describe(id,w.gw)), bankBefore:beforeBank, transfers,
       finalSquad:w.squad.map(id=>describe(id,w.gw)), permanentSquadAfter:permanent.map(name), permanentBankAfter:permanentBank,
-      starters:w.lineup.starters.map(id=>describe(id,w.gw)), bench:bench.map(id=>describe(id,w.gw)),
+      starters:w.lineup.starters.map(id=>describe(id,w.gw)), bench:w.lineup.bench.map(id=>describe(id,w.gw)),
       formation:w.lineup.formation, captain:describe(w.lineup.captainId,w.gw), vice:describe(w.lineup.viceId,w.gw),
       chip:w.chip ?? null, chipLabel:w.chip?chipNames[w.chip]:'Hold',
       chipGainVsSameSquad:w.chip==='bb'||w.chip==='tc'?round(w.lineup.totalXPts-noChip.totalXPts):null,
       ftBefore:w.ftBefore, ftAfter:w.ftAfter, bankAfter:w.bankAfter, hitCost:w.hitCost,
       fixedHoldLineup, fixedHoldXPts:fixed.totalXPts, gainVsFixedHold:round(w.netXPts-fixed.totalXPts),
-      captaincy, xPts:w.netXPts, holdThisWeekXPts:hold.totalXPts, deltaVsHoldThisWeek:round(w.netXPts-hold.totalXPts)};
+      captaincy, expectedStarterPoints:w.lineup.xiXPts, expectedCaptainBonus:w.lineup.captainXPts,
+      expectedBenchPoints:w.chip==='bb' ? w.lineup.benchXPts : (w.lineup.autosubXPts ?? 0),
+      xPts:w.netXPts, holdThisWeekXPts:hold.totalXPts, deltaVsHoldThisWeek:round(w.netXPts-hold.totalXPts)};
   });
   const horizonSummary = [...new Set([1, Math.min(2, rows.length), rows.length])].map(count=>{
     const segment=rows.slice(0,count);
@@ -344,7 +341,7 @@ export function renderText(r: Report): string {
   const fixture = (p: PlayerRow) => p.fixtures.map(f => f.opponent+' '+(f.home?'H':'A')+' (FDR '+f.fdr+(f.managerRisk ? ', hard opponent' : '')+')').join(' / ') || 'Blank';
   const lines = ['# FPL VORTEX '+r.horizon.length+'-gameweek plan', '', r.teamName+' · entry '+r.entryId+' · '+r.season+' · GW'+r.horizon.join(', GW'),
     '', 'Generated '+r.computedAt+' UTC. Snapshot '+r.snapshotAt+'.', '', 'Squad basis — '+r.stateBasis+'.',
-    '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points.', '',
+    '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points. Expected points include legal automatic substitutions and vice-captain fallback.', '',
     '## 1. Performance audit', '', 'Latest published total '+r.currentPoints+' points, overall rank '+r.currentRank+'.'];
   if (r.history?.length) {
     lines.push('', '| GW | Points before hits | Hits | Overall rank | Rank movement |', '|---:|---:|---:|---:|---|');

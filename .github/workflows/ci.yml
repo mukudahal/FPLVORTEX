@@ -60,11 +60,16 @@ jobs:
           node -e "const s=require('./public/data/fpl-snapshot.json'); if(!s.players?.length||!s.fixtures?.length) process.exit(1); console.log('Snapshot OK:',s.players.length,'players');"
 
       - name: Upload build artifact
+        id: build_artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: fpl-vortex-dist
           path: dist/
           retention-days: 7
+      - name: Report missing build artifact
+        if: steps.build_artifact.outcome == 'failure'
+        run: echo 'The build passed, but GitHub could not store the optional preview bundle. See the upload log.' >> "$GITHUB_STEP_SUMMARY"
 
   python-solver:
     name: Python transfer solver
@@ -128,12 +133,18 @@ jobs:
         env:
           PLANNER_BASE_URL: https://fplvortex.onrender.com
         run: node scripts/check-planner-browser.mjs
-      - uses: actions/upload-artifact@v4
+      - name: Upload browser evidence
+        id: browser_artifact
         if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: planner-browser-evidence
           path: test-results/planner/
           retention-days: 7
+      - name: Report missing browser evidence
+        if: always() && steps.browser_artifact.outcome == 'failure'
+        run: echo 'GitHub could not store the optional browser files. See the browser test steps for results and the upload log for details.' >> "$GITHUB_STEP_SUMMARY"
 
 
   next-app-parity:
