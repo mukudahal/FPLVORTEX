@@ -231,3 +231,65 @@ test('market watch ranks gross transfers and shows only fresh, matched next-upda
   assert.deepEqual(stale.predictedRises,[]);
   assert.equal(stale.mostTransferredIn.length,3);
 });
+
+test('rank goal sizes the rolling plan to the target and removes weekly discounting', () => {
+  const {snapshot,entry,now}=scenario(15);
+  const goal={rank:10000,gameweek:17};
+  const plan=buildFiveWeekPlan(snapshot,entry,now,undefined,{rankGoal:goal});
+  assert.deepEqual(plan.horizon,[15,16,17]);
+  assert.ok(plan.assumptions.some(text=>text.includes('100% weekly decay')));
+  assert.deepEqual(buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1,rankGoal:goal}).horizon,[15]);
+  assert.deepEqual(buildFiveWeekPlan(snapshot,entry,now,undefined,{rankGoal:{...goal,gameweek:28}}).horizon,[15,16,17,18,19,20,21,22]);
+});
+
+test('official rank cutoff uses the exact ordinal and rejects stale or misaligned standings', async () => {
+  const {fetchOfficialRankCutoff}=await import('../scripts/personal-rank-target');
+  const date=new Date('2026-11-26T21:58:00Z'), deadline='2026-11-21T11:00:00Z';
+  const feed={league:{id:314},last_updated_data:'2026-11-26T21:57:00Z',standings:{
+    page:200,results:[{rank_sort:9999,rank:9980,total:769},{rank_sort:10000,rank:9980,total:769}]}};
+  const cutoff=await fetchOfficialRankCutoff(10000,deadline,date,'https://example.test',async url=>{
+    assert.match(url,/page_standings=200&phase=1$/);
+    return feed;
+  });
+  assert.equal(cutoff?.points,769);
+  assert.equal(cutoff?.rank,9980);
+  assert.equal(await fetchOfficialRankCutoff(10000,deadline,date,'https://example.test',async()=>({
+    ...feed,last_updated_data:'2026-11-20T15:00:00Z',
+  })),null);
+  assert.equal(await fetchOfficialRankCutoff(10000,deadline,date,'https://example.test',async()=>({
+    ...feed,standings:{...feed.standings,results:[{rank_sort:9999,rank:9980,total:769}]},
+  })),null);
+});
+
+test('rank assessment distinguishes the real gap, hold gain, and field break-even', async () => {
+  const {rankTargetAssessment}=await import('../scripts/personal-rank-target');
+  const goal={rank:10000,gameweek:19};
+  const checkpoint={entryId:145784,rank:10000,season:'2026/27',gameweek:11,managerPoints:712,cutoffPoints:769,observedAt:'2026-11-26T21:52:18Z'};
+  const older={...checkpoint,gameweek:10,managerPoints:676,cutoffPoints:729,observedAt:'2026-11-18T21:52:18Z'};
+  const weeks=Array.from({length:8},(_,i)=>({gw:12+i,xPts:i===7?62.03:60,fixedHoldXPts:i===7?57.45:57}));
+  const score=rankTargetAssessment(goal,weeks,checkpoint,[older,{...older,gameweek:12}]);
+  assert.equal(score.signedGap,57);
+  assert.equal(score.weeklyGainToMatchCutoff,7.13);
+  assert.equal(score.weeklyGainToClearCutoff,7.25);
+  assert.equal(score.planGainVsHold,25.58);
+  assert.equal(score.maxCutoffGainAtEqualPoints,425.03);
+  assert.equal(score.maxCutoffGainAtOnePointClear,424.03);
+  assert.equal(score.probabilityOfTarget,null);
+  assert.deepEqual(score.changeSincePrevious,{fromGameweek:10,toGameweek:11,managerGain:36,cutoffGain:40,gapClosed:-4});
+  assert.equal(rankTargetAssessment(goal,weeks.slice(0,4),checkpoint).maxCutoffGainAtEqualPoints,null);
+  assert.equal(rankTargetAssessment(goal,weeks,null).weeklyGainToMatchCutoff,null);
+});
+
+test('completed free transfers consume the bank and allowance once and reject a stale or duplicate move', async () => {
+  const {applyCompletedFreeTransfers}=await import('../scripts/personal-completed-transfers');
+  const {snapshot,entry}=scenario();
+  snapshot.players.push(makePlayer(99,{position:'DEF',teamId:10,cost:53}));
+  const input={gameweek:15,moves:[{outId:3,inId:99,sellTenths:50,buyTenths:53}]};
+  const state=applyCompletedFreeTransfers(snapshot,entry,input);
+  assert.equal(state.bankTenths,2);
+  assert.equal(state.freeTransfers,1);
+  assert.equal(state.sellingPrices[99],53);
+  assert.ok(!state.squad.includes(3));
+  assert.throws(()=>applyCompletedFreeTransfers(snapshot,entry,{...input,gameweek:14}),/next official gameweek/);
+  assert.throws(()=>applyCompletedFreeTransfers(snapshot,entry,{...input,moves:[...input.moves,...input.moves]}),/reconcile/);
+});
