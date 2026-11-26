@@ -19,10 +19,11 @@ described below into `context_json`. The workflow's horizon selection takes
 precedence over any horizon in that JSON. Keep credentials and private account
 state out of workflow inputs.
 
-Read the Markdown in the run summary and download both report formats and
-optional graphics from the `my-team-plan` artifact after a successful upload.
-An artifact quota error can leave the summary available while blocking the
-download. This workflow has only workflow_dispatch. The existing
+Read the saved Markdown in the run summary. The default run uses no artifact
+storage. Enable `upload_zip` to download Markdown and JSON in the
+`my-team-plan` artifact. Selecting `render_graphics` also requests the ZIP.
+GitHub Actions storage is required for a ZIP. If an upload fails, the text
+summary is still available. This workflow has only workflow_dispatch. The existing
 snapshot refresh, tests and other workflows are intentionally untouched.
 
 The CLI GETs the existing deployment's normalized snapshot and official-backed

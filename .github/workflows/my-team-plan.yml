@@ -16,7 +16,11 @@ on:
         description: Optional dated cohort and team-news context as JSON (no secrets)
         type: string
       render_graphics:
-        description: Generate separate graphics from the verified report
+        description: Generate graphics and upload them in the ZIP
+        default: false
+        type: boolean
+      upload_zip:
+        description: Upload the Markdown and JSON ZIP (requires available Actions storage)
         default: false
         type: boolean
 permissions:
@@ -56,14 +60,16 @@ jobs:
           }), { mode: 0o600 });
           JS
           node --import tsx scripts/export-my-team-plan.ts "$ENTRY_ID" reports/my-team
+      - name: Publish text summary
+        run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
       - if: inputs.render_graphics
         run: npx playwright install --with-deps chromium
       - name: Render separate reference-style pitch and player analysis boards
         if: inputs.render_graphics
         run: node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
-      - name: Publish text summary
-        run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - name: Upload requested report ZIP
+        if: inputs.upload_zip || inputs.render_graphics
+        uses: actions/upload-artifact@v4
         with:
           name: my-team-plan
           path: |
