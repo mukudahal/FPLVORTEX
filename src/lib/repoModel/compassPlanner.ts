@@ -30,7 +30,7 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   availabilityOverrides?: ReadonlyArray<{ playerId: number; throughGw: number; status: 'a' | 'd' | 'u'; chance: number }>;
   lockedIds?: number[];
   /** Optional personal rules for normal goalkeeper transfers. Chip rebuilds retain their own rules. */
-  goalkeeperTransfers?: { replaceableId?: number; incomingIds: readonly number[] };
+  goalkeeperTransfers?: { replaceableId?: number; incomingIds: readonly number[]; priorityCover?: boolean };
   /** Explicit what-if schedule; never written into the saved manual plan. */
   requestedChips?: SeasonChipUse[];
   chipPolicy?: 'auto' | 'manual';
@@ -616,7 +616,13 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     if (rolling.weeks.length === best.weeks.length && !rolling.weeks[0]?.moves.length) {
       const movingXPts = total(best), rollingXPts = total(rolling);
       const immediateHit = best.weeks[0].hitCost;
-      const minimumGain = immediateHit > 0 ? guard.hitNetGain : guard.freeMoveNetGain;
+      // When an uncovered keeper may miss out, compare a free coverage move
+      // against rolling without the normal marginal-transfer buffer. The move
+      // still has to improve this GW and the full horizon.
+      const repairsCoverage = goalkeeperTransfers?.priorityCover && immediateHit === 0 &&
+        best.weeks[0].moves.some(move => move.outId === goalkeeperTransfers.replaceableId) &&
+        best.weeks[0].netXPts > rolling.weeks[0].netXPts;
+      const minimumGain = immediateHit > 0 ? guard.hitNetGain : repairsCoverage ? 0.01 : guard.freeMoveNetGain;
       const gain = r2(movingXPts - rollingXPts);
       const rolled = gain < minimumGain;
       openingTransferDecision = { rolled, gain, minimumGain, immediateHit, rollingXPts, movingXPts, comparedGameweeks: gws.length };

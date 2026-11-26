@@ -139,7 +139,7 @@ test('a temporary Free Hit buy cannot overwrite the permanent selling basis',asy
     [{...ledger[0],event:4}]),/upcoming transfers/);
 });
 
-test('personal goalkeeper policy holds a regular doubtful starter and considers durable replacements only if he is out', async () => {
+test('personal goalkeeper policy evaluates reserve cover for a doubtful starter and replaces the primary on verified multiweek absence', async () => {
   const { personalGoalkeeperPolicy } = await import('../scripts/personal-goalkeeper-policy');
   const { snapshot, entry, now } = scenario();
   const [first, reserve] = snapshot.players;
@@ -155,10 +155,12 @@ test('personal goalkeeper policy holds a regular doubtful starter and considers 
   const owners=entry.picks.map(p=>p.element);
   const doubtful=buildFiveWeekPlan(snapshot,entry,now);
   assert.equal(doubtful.goalkeeperPolicy.awaitingNews,true);
-  assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,undefined);
-  assert.ok(doubtful.weeks.every(w=>w.transfers.every(t=>t.out.position!=='GKP')));
+  assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,reserve.id);
+  assert.equal(doubtful.goalkeeperPolicy.coverageRisk,true);
+  assert.ok(doubtful.weeks.every(w=>w.transfers.filter(t=>t.out.position==='GKP')
+    .every(t=>t.out.id===reserve.id && t.incoming.id===regular.id)));
   first.chance=0; first.status='i';
-  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,reserve.id);
   const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners,new Set([first.id]));
   assert.equal(unavailable.transfers.replaceableId,first.id);
   assert.deepEqual(unavailable.transfers.incomingIds,[regular.id]);
@@ -203,4 +205,130 @@ test('validated context extends the horizon, reports observed EO, and applies te
   assert.ok((plan.weeks[1].currentSquad.find(p=>p.id===1)?.xPts??0)>0);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,cohort:{...raw.cohort,gameweek:13}}),/latest completed/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,teamNews:[{...raw.teamNews[0],throughGw:14}]}),/applicable gameweek/);
+});
+
+test('market watch ranks gross transfers and shows only fresh, matched next-update rises', async () => {
+  const { personalMarketWatch } = await import('../scripts/personal-market-watch');
+  const now = new Date('2026-11-26T21:30:00Z');
+  const players = [
+    { ...makePlayer(1), transfersInEvent: 50, transfersOutEvent: 40 },
+    { ...makePlayer(2), transfersInEvent: 40, transfersOutEvent: 1 },
+    { ...makePlayer(3), transfersInEvent: 20, transfersOutEvent: 0 },
+  ];
+  const feed = {
+    game_config: { settings: { price_change_deadlines: ['2026-11-27T00:00:00Z'] }, status: { price_change_last_updated: '2026-11-26T21:05:00Z' } },
+    elements: players.map(p => ({ id: p.id, code: p.code, team: p.teamId, now_cost: p.cost,
+      price_change_calibrating: p.id === 2, can_transact: true,
+      price_change_locked_until: p.id === 3 ? '2026-11-27T02:00:00Z' : null,
+      price_change_projections: [{ offset: 1, projected_percent: '220', likelihood: 5 }, { offset: 0, projected_percent: '102.3', likelihood: 4 }],
+    })),
+  };
+  const fresh = personalMarketWatch(players, feed, now, ()=>'WATCH');
+  assert.deepEqual(fresh.mostTransferredIn.map(p=>p.id), [1,2,3]);
+  assert.deepEqual(fresh.predictedRises.map(p=>[p.id,p.projectedThresholdPercent]), [[1,102.3]]);
+  const stale = personalMarketWatch(players, feed, new Date('2026-11-26T22:00:00Z'), ()=>'WATCH');
+  assert.equal(stale.priceFeed,null);
+  assert.deepEqual(stale.predictedRises,[]);
+  assert.equal(stale.mostTransferredIn.length,3);
+});
+
+test('rank goal sizes the rolling plan to the target and removes weekly discounting', () => {
+  const {snapshot,entry,now}=scenario(15);
+  const goal={rank:10000,gameweek:17};
+  const plan=buildFiveWeekPlan(snapshot,entry,now,undefined,{rankGoal:goal});
+  assert.deepEqual(plan.horizon,[15,16,17]);
+  assert.ok(plan.assumptions.some(text=>text.includes('100% weekly decay')));
+  assert.deepEqual(buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1,rankGoal:goal}).horizon,[15]);
+  assert.deepEqual(buildFiveWeekPlan(snapshot,entry,now,undefined,{rankGoal:{...goal,gameweek:28}}).horizon,[15,16,17,18,19,20,21,22]);
+});
+
+test('official rank cutoff uses the exact ordinal and rejects stale or misaligned standings', async () => {
+  const {fetchOfficialRankCutoff}=await import('../scripts/personal-rank-target');
+  const date=new Date('2026-11-26T21:58:00Z'), deadline='2026-11-21T11:00:00Z';
+  const feed={league:{id:314},last_updated_data:'2026-11-26T21:57:00Z',standings:{
+    page:200,results:[{rank_sort:9999,rank:9980,total:769},{rank_sort:10000,rank:9980,total:769}]}};
+  const cutoff=await fetchOfficialRankCutoff(10000,deadline,date,'https://example.test',async url=>{
+    assert.match(url,/page_standings=200&phase=1$/);
+    return feed;
+  });
+  assert.equal(cutoff?.points,769);
+  assert.equal(cutoff?.rank,9980);
+  assert.equal(await fetchOfficialRankCutoff(10000,deadline,date,'https://example.test',async()=>({
+    ...feed,last_updated_data:'2026-11-20T15:00:00Z',
+  })),null);
+  assert.equal(await fetchOfficialRankCutoff(10000,deadline,date,'https://example.test',async()=>({
+    ...feed,standings:{...feed.standings,results:[{rank_sort:9999,rank:9980,total:769}]},
+  })),null);
+});
+
+test('rank assessment distinguishes the real gap, hold gain, and field break-even', async () => {
+  const {rankTargetAssessment}=await import('../scripts/personal-rank-target');
+  const goal={rank:10000,gameweek:19};
+  const checkpoint={entryId:145784,rank:10000,season:'2026/27',gameweek:11,managerPoints:712,cutoffPoints:769,observedAt:'2026-11-26T21:52:18Z'};
+  const older={...checkpoint,gameweek:10,managerPoints:676,cutoffPoints:729,observedAt:'2026-11-18T21:52:18Z'};
+  const weeks=Array.from({length:8},(_,i)=>({gw:12+i,xPts:i===7?62.03:60,fixedHoldXPts:i===7?57.45:57}));
+  const score=rankTargetAssessment(goal,weeks,checkpoint,[older,{...older,gameweek:12}]);
+  assert.equal(score.signedGap,57);
+  assert.equal(score.weeklyGainToMatchCutoff,7.13);
+  assert.equal(score.weeklyGainToClearCutoff,7.25);
+  assert.equal(score.planGainVsHold,25.58);
+  assert.equal(score.maxCutoffGainAtEqualPoints,425.03);
+  assert.equal(score.maxCutoffGainAtOnePointClear,424.03);
+  assert.equal(score.probabilityOfTarget,null);
+  assert.deepEqual(score.changeSincePrevious,{fromGameweek:10,toGameweek:11,managerGain:36,cutoffGain:40,gapClosed:-4});
+  assert.equal(rankTargetAssessment(goal,weeks.slice(0,4),checkpoint).maxCutoffGainAtEqualPoints,null);
+  assert.equal(rankTargetAssessment(goal,weeks,null).weeklyGainToMatchCutoff,null);
+});
+
+test('completed free transfers consume the bank and allowance once and reject a stale or duplicate move', async () => {
+  const {applyCompletedFreeTransfers}=await import('../scripts/personal-completed-transfers');
+  const {snapshot,entry}=scenario();
+  snapshot.players.push(makePlayer(99,{position:'DEF',teamId:10,cost:53}));
+  const input={gameweek:15,moves:[{outId:3,inId:99,sellTenths:50,buyTenths:53}]};
+  const state=applyCompletedFreeTransfers(snapshot,entry,input);
+  assert.equal(state.bankTenths,2);
+  assert.equal(state.freeTransfers,1);
+  assert.equal(state.sellingPrices[99],53);
+  assert.ok(!state.squad.includes(3));
+  assert.throws(()=>applyCompletedFreeTransfers(snapshot,entry,{...input,gameweek:14}),/next official gameweek/);
+  assert.throws(()=>applyCompletedFreeTransfers(snapshot,entry,{...input,moves:[...input.moves,...input.moves]}),/reconcile/);
+});
+
+test('10,000 paired draws preserve the legal plan and expose opening-week probabilities', () => {
+  const {snapshot,entry,now}=scenario(38);
+  const ordinary=buildFiveWeekPlan(snapshot,entry,now);
+  const detailed=buildFiveWeekPlan(snapshot,entry,now,undefined,{simulationDraws:10000});
+  assert.equal(detailed.simulation.draws,10000);
+  assert.equal(detailed.totalXPts,ordinary.totalXPts);
+  assert.deepEqual(detailed.weeks[0].transfers,ordinary.weeks[0].transfers);
+  const path=detailed.simulation.paths.find(p=>p.id===detailed.simulation.recommendedPathId)!;
+  assert.equal(path.openingVsHold?.gw,38);
+  assert.ok(Math.abs(path.openingVsHold!.probWin+path.openingVsHold!.probTie+path.openingVsHold!.probLoss-1)<1e-9);
+});
+
+test('settled review counts one result per gameweek and scores only observed forecast probabilities', async () => {
+  const {summariseSettledReviews}=await import('../scripts/personal-weekly-evidence');
+  const first={season:'2026/27',entryId:145784,gw:10,issuedAt:'2026-11-03T09:00:00Z',modelVersion:'fixture',
+    projected:60,net:50,gain:-2,managerNet:52,predictedWin:0.6,follow:true};
+  const rerun={...first,issuedAt:'2026-11-03T10:00:00Z',projected:55};
+  const report=summariseSettledReviews([rerun,first,{...first,gw:11,projected:52,net:52,predictedWin:null}]);
+  assert.deepEqual(report.gameweeks,[10,11]);
+  assert.equal(report.mae,2.5);
+  assert.equal(report.pairedProbabilitySamples,1);
+  assert.equal(report.brier,0.36);
+  assert.equal(report.calibrated,false);
+});
+
+test('FPL Core cross-check leaves missing stats out and exposes mismatches', async () => {
+  const {compareCoreGameweek}=await import('../scripts/personal-core-audit');
+  const csv='id,gw,total_points,minutes,expected_goals,expected_assists\n1,11,3,90,,0.12\n2,11,2,25,0.2,0\n';
+  const data={elements:[
+    {id:1,stats:{total_points:3,minutes:90,played:true,expected_goals:0.3,expected_assists:0.12}},
+    {id:2,stats:{total_points:1,minutes:25,played:true,expected_goals:'0.2',expected_assists:'0.0'}},
+  ]};
+  const audit=compareCoreGameweek(csv,data,11);
+  assert.equal(audit.matchedPlayers,2);
+  assert.deepEqual(audit.counts.total_points,{compared:2,matches:1});
+  assert.deepEqual(audit.counts.expected_goals,{compared:1,matches:1});
+  assert.throws(()=>compareCoreGameweek(csv,data,12),/Unexpected/);
 });

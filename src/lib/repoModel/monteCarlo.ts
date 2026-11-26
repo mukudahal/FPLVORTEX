@@ -416,6 +416,7 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
     let expectedDownsideVsHold: number | null = null;
     let expectedUpsideVsHold: number | null = null;
     let cumDelta: McBand[] | null = null;
+    let openingVsHold: McPathSummary['openingVsHold'];
 
     if (path.id !== opts.holdId && hold && holdSeries) {
       const delta = new Float64Array(draws);
@@ -441,7 +442,16 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       const running = new Float64Array(draws).fill((paths.find(candidate => candidate.id === opts.holdId)?.hitCost ?? 0) - path.hitCost);
       cumDelta = gws.map((gw, j) => {
         for (let i = 0; i < draws; i++) running[i] += mine[j][i] - holdSeries[j][i];
-        return band(gw, running);
+        const interval = band(gw, running);
+        if (j === 0) {
+          let wins = 0, ties = 0;
+          for (const delta of running) {
+            if (delta > 1e-9) wins++;
+            else if (Math.abs(delta) <= 1e-9) ties++;
+          }
+          openingVsHold = { ...interval, probWin:wins/draws, probTie:ties/draws, probLoss:(draws-wins-ties)/draws };
+        }
+        return interval;
       });
     }
 
@@ -489,6 +499,7 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       probDrawsHold, probLosesHold, expectedDownsideVsHold, expectedUpsideVsHold,
       perGw: gws.map((gw, j) => band(gw, (perGw.get(path.id) as Float64Array[])[j])),
       cumDelta,
+      ...(openingVsHold ? { openingVsHold } : {}),
       ...(vsReference ? { vsReference } : {}),
     };
   });

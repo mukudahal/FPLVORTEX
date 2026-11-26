@@ -1,5 +1,11 @@
+import type { RankGoal } from './personal-rank-target';
+import type { CompletedMoves } from './personal-completed-transfers';
+
 export interface PersonalPlanContext {
   horizon: number;
+  simulationDraws?: number;
+  rankGoal?: RankGoal;
+  completedTransfers?: CompletedMoves;
   cohort?: {
     season: string; gameweek: number; observedAt: string; source: string; sampleSize: number;
     cutoffPoints?: number; meanPoints?: number;
@@ -25,8 +31,22 @@ export function parsePersonalContext(raw: unknown, season: string, previousGw: n
   function within(n: unknown, max: number): n is number {
     return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= max;
   }
-  const horizon = value.horizon ?? 5;
+  const rankGoal = value.rankGoal;
+  if (rankGoal !== undefined && (!rankGoal || !Number.isInteger(rankGoal.rank) || rankGoal.rank < 1 ||
+      !Number.isInteger(rankGoal.gameweek) || rankGoal.gameweek < 1 || rankGoal.gameweek > 38)) {
+    throw new Error('Rank goal needs a positive overall rank and a target gameweek from 1 to 38.');
+  }
+  const completedTransfers = value.completedTransfers;
+  if (completedTransfers !== undefined && (!completedTransfers || completedTransfers.gameweek !== nextGw ||
+      !Array.isArray(completedTransfers.moves) || !completedTransfers.moves.length)) {
+    throw new Error('Completed transfers must identify the current upcoming gameweek and list the moves.');
+  }
+  const horizon = value.horizon ?? (rankGoal && rankGoal.gameweek >= nextGw ? Math.min(8,rankGoal.gameweek-nextGw+1) : 5);
   if (!Number.isInteger(horizon) || horizon < 1 || horizon > 8) throw new Error('Planning horizon must be between 1 and 8.');
+  if (value.simulationDraws !== undefined &&
+      (!Number.isInteger(value.simulationDraws) || value.simulationDraws < 100 || value.simulationDraws > 30000)) {
+    throw new Error('Simulation draws must be between 100 and 30,000.');
+  }
   const cohort = value.cohort;
   if (cohort !== undefined && (!cohort || cohort.season !== season || cohort.gameweek !== previousGw ||
     !Number.isInteger(cohort.sampleSize) || cohort.sampleSize < 1 || cohort.sampleSize > 10_000 ||
@@ -46,5 +66,5 @@ export function parsePersonalContext(raw: unknown, season: string, previousGw: n
       n.status !== (n.chance === 0 ? 'u' : n.chance === 100 ? 'a' : 'd'))) {
     throw new Error('Team news must be sourced within 72 hours, agree with its availability percentage and declare its last applicable gameweek.');
   }
-  return { horizon, cohort, teamNews };
+  return { horizon, cohort, teamNews, rankGoal, completedTransfers, simulationDraws:value.simulationDraws };
 }

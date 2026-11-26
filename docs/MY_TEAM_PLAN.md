@@ -12,12 +12,68 @@ npm ci
 node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
 ```
 
-In Actions, open **My Team Planner** and choose the number of upcoming
-gameweeks (one to eight, five by default). The workflow uses entry 145784.
-It detects the first unpassed deadline from verified official FPL data and
-ends at GW38 if fewer weeks remain. Press **Run workflow** on `main` and
-read the completed run's **Summary**. The workflow saves the Markdown summary
-without GitHub Actions artifact storage.
+In Actions, open **My Team Planner**, choose the target gameweek, and keep
+**horizon** on **auto** to plan through that target, up to eight upcoming
+gameweeks. You can select a shorter horizon. The workflow uses entry 145784,
+finds the next official deadline, and shows its results in the run **Summary**.
+The workflow does not depend on a downloadable artifact.
+
+### Run after a completed transfer
+
+The public entry may still show the last deadline's squad. Use the optional
+**completed_transfers** input for normal free transfers you already confirmed
+for the upcoming gameweek. Supply this shape with the actual player IDs, sale
+and purchase values, and upcoming gameweek:
+
+```json
+{"gameweek":15,"moves":[{"outId":123,"inId":456,"sellTenths":47,"buyTenths":51}]}
+```
+
+A completed move updates the opening squad, the bank, the selling basis and
+the remaining free-transfer allowance. The same move will not be recommended
+again. Only include movements that the public ledger has yet to reflect.
+Leave the input blank when there are no unpublished moves. For previously
+committed hits or unpublished chip commitments, this input alone does not
+reconstruct a complete current state.
+
+### Top-10k review
+
+The planner fetches the exact cutline from the official global standings after
+the current gameweek has settled. It reports the observed points gap, required
+weekly catch-up pace, projected gain versus holding the current squad, and
+what the cutline could score for projected points to match or clear it. The
+last calculation requires a forecast through the entire target. The transfer
+search weights net expected points equally inside the goal horizon and keeps
+the existing budget, hit, lineup and chip constraints.
+
+When a prior settled checkpoint is available, the summary compares real
+manager and cutoff gains. GitHub Actions retains recent checkpoints where
+cache is available. The CLI can keep the same history with
+`VORTEX_RANK_CHECKPOINTS=/path/to/private/checkpoints.json`. A points tie may
+still depend on the official tie-break. The planner has no validated
+future-cutline model and does not give a probability of achieving the rank.
+
+### Simulation and settled review
+
+The weekly workflow uses 10,000 paired draws across the same legal paths. For
+CLI use, set `simulationDraws` in the context to change the computation cost.
+The report shows the opening-week and full-window risk versus holding. Its
+rank section shows the field break-even under the P10, median and P90 points
+scenarios. The underlying transfer search still ranks net expected points.
+
+On the next run, the workflow can settle the latest saved pre-deadline
+recommendation for the completed opening gameweek and compute its realised
+gain over the frozen hold XI. Weekly reviews use one result per gameweek, track
+points errors and the Brier score for informative win predictions, and keep
+different simulation versions separate. The first run may have no matching
+archive. Historical scores validate only a forecast that actually existed
+before the deadline. The review does not recalibrate the simulator automatically.
+
+FPL Core is checked against official settled points, minutes, xG and xA using
+the matching season and gameweek. The dataset includes republished FPL fields
+and is not an independent forecast. VORTEX's Opta-style code is an internal
+calculation; a licensed Opta feed would require separate access and a timed,
+held-out evaluation before influencing transfers.
 
 For dated cohort information, team-news overrides or a different entry, use
 the CLI and context file described below. Render PNGs separately using the CLI.
