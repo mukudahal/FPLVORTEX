@@ -58,8 +58,8 @@ costs are not included, so the report compares only prospective decisions.
 - Chip candidates, expiry and selected timing (BB, TC, FH and WC). Unknown chip
   history disables chip advice. Free Hit squad/bank restore after its week.
 - Future prices are fixed. No proprietary Opta or FPL Review feed is assumed.
-  No invented future price predictions, blanks/doubles, rank predictions, or
-  press conference confirmation. The current published schedule and model
+  The official next-reset price signal is a watchlist. The planner does not
+  assume future fixtures, ranks or press-conference confirmations. The current published schedule and model
   estimates are conditional; rerun when injuries or fixtures change.
 - The personal report tests shortlisted batches of up to three normal transfers.
   Its bounded beam may recommend a hit when the discounted objective prefers it. This is not an optimality certificate or guarantee.
@@ -99,7 +99,18 @@ Weekly settlement and 1/3/5-week cumulative results are written separately
 from the original recommendation. Run the command again as subsequent weeks
 finish. Generate graphics separately with the command below.
 
-## Reference-style graphical outputs
+## Two-image graphical summary
+
+Render one opening XI and bench graphic and one transfer roadmap covering
+the entire selected horizon. The graphics use the VORTEX logo and the navy,
+purple and mint press-conference palette, with a green pitch. Player portraits
+use official player codes, with the official club shirt as first fallback.
+
+```sh
+node --import tsx scripts/render-personal-plan-summary.ts reports/my-team/plan.json reports/my-team/graphics
+```
+
+## Per-gameweek graphical outputs
 
 After generating plan.json, install Chromium and run:
 
@@ -189,9 +200,16 @@ lineups, future cohorts, points prices or overall ranks.
 
 Team-news records are time-limited, sourced manager inputs. The planner
 reverts to official inputs after the last specified GW. Forecasts and
-transfer availability both use the override while it applies. An automatic
-goalkeeper replacement requires supported evidence that the primary misses
-at least the next two gameweeks, plus the regular-start and coverage checks.
+transfer availability both use the override while it applies. If the goalkeeper
+is doubtful and lacks established cover, the report shows a conditional plan
+with him ruled out for the opening week only. A confirmed absence without
+usable cover unlocks regular starter candidates for comparison against rolling.
+
+Each CLI run refreshes availability and market information from official FPL
+bootstrap data for the same upcoming deadline. The report ranks gross
+gameweek transfers in and separately lists unlocked, calibrated players with
+next-reset price progress at 100% or above. Price progress is not a probability.
+An unavailable or mismatched feed does not generate price estimates.
 
 The personal planner rolls if a proposed opening move gains under 1.5 net
 expected points over rolling and reoptimising. An opening hit requires a

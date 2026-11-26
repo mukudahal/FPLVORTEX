@@ -8,7 +8,6 @@ type Keeper = Pick<Player, 'id' | 'name' | 'teamId' | 'position' | 'starts' | 'm
 /** A manager preference for normal transfers, separate from forecast arithmetic. */
 export function personalGoalkeeperPolicy(
   snapshot: Pick<Snapshot, 'fixtures'>, players: readonly Keeper[], owned: readonly number[],
-  confirmedMultiweekAbsences: ReadonlySet<number> = new Set(),
 ) {
   const played = new Map<number, number>();
   for (const f of snapshot.fixtures) {
@@ -30,18 +29,16 @@ export function personalGoalkeeperPolicy(
     (primary.status === 'i' && primary.chance === null);
   const usableCover = reserve.regularStarter && reserve.status === 'a' && (reserve.chance === 100 || reserve.chance === null);
   const awaitingNews = !unavailable && (['d', 'i'].includes(primary.status) || (primary.chance !== null && primary.chance < 100));
-  const replaceableId = unavailable && !usableCover && confirmedMultiweekAbsences.has(primary.id) ? primary.id : undefined;
+  const replaceableId = unavailable && !usableCover ? primary.id : undefined;
   const reason = unavailable
     ? usableCover
       ? 'The primary goalkeeper is currently out. The incumbent reserve has a regular starting role, so preserve the transfer.'
-      : confirmedMultiweekAbsences.has(primary.id)
-        ? 'A sourced multiweek absence and no established available cover justify considering a replacement.'
-        : 'The primary goalkeeper is currently out. Confirm a multiweek absence before spending a transfer on the position.'
+      : 'The primary goalkeeper is currently out and has no established available cover. Compare a regular starter replacement against rolling; do not force a move.'
     : awaitingNews
-      ? 'The primary goalkeeper is doubtful. Keep him in the transfer plan and reassess after team news. The forecast keeps the official flag.'
+      ? 'The primary goalkeeper is doubtful. The plan is provisional until team news. Compare a replacement if he is ruled out and cover is unavailable.'
       : 'Keep the incumbent goalkeeper pairing through normal transfers. Reassess after a change in availability or role.';
   return {
-    primary, reserve, reason, awaitingNews,
+    primary, reserve, reason, awaitingNews, usableCover,
     transfers: {
       replaceableId,
       incomingIds: keepers.filter(p => p.regularStarter && !owned.includes(p.id)).map(p => p.id),
