@@ -1,4 +1,4 @@
-# Manual five-gameweek My Team plan
+# Manual My Team plan
 
 The canonical root app already contains a multi-week, chip-aware beam search in
 `src/lib/repoModel/compassPlanner.ts`. This export reuses it instead of creating
@@ -12,19 +12,16 @@ npm ci
 node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
 ```
 
-Or, after merging to the default branch, Actions → **My Team - five gameweek
-plan** → **Run workflow**, enter the entry ID and choose the horizon (five
-by default). To include dated cohort data or team news, paste the JSON object
-described below into `context_json`. The workflow's horizon selection takes
-precedence over any horizon in that JSON. Keep credentials and private account
-state out of workflow inputs.
+In Actions, open **My Team Planner** and choose the number of upcoming
+gameweeks (one to eight, five by default). The workflow uses entry 145784.
+It detects the first unpassed deadline from verified official FPL data and
+ends at GW38 if fewer weeks remain. Press **Run workflow** on `main` and
+read the completed run's **Summary**. The workflow saves the Markdown summary
+without GitHub Actions artifact storage.
 
-Read the saved Markdown in the run summary. The default run uses no artifact
-storage. Enable `upload_zip` to download Markdown and JSON in the
-`my-team-plan` artifact. Selecting `render_graphics` also requests the ZIP.
-GitHub Actions storage is required for a ZIP. If an upload fails, the text
-summary is still available. This workflow has only workflow_dispatch. The existing
-snapshot refresh, tests and other workflows are intentionally untouched.
+For dated cohort information, team-news overrides or a different entry, use
+the CLI and context file described below. Render PNGs separately using the CLI.
+The workflow does not send files to Drive.
 
 The CLI GETs the existing deployment's normalized snapshot and official-backed
 entry, rejecting stale snapshots, passed/inconsistent deadlines and non-official
@@ -100,8 +97,7 @@ node --import tsx scripts/settle-my-team-plan.ts path/to/recommendation.json.gz 
 
 Weekly settlement and 1/3/5-week cumulative results are written separately
 from the original recommendation. Run the command again as subsequent weeks
-finish. The default workflow remains manual and text-only. Enable
-`render_graphics` explicitly to run the separate renderer.
+finish. Generate graphics separately with the command below.
 
 ## Reference-style graphical outputs
 

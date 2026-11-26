@@ -31,7 +31,7 @@
 
 ## Manual personal five-gameweek plan
 
-Run `node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team` after `npm ci`, or use the manual-only **My Team - five gameweek plan** Actions workflow. Outputs are Markdown and JSON only. See [manual planning instructions](docs/MY_TEAM_PLAN.md).
+Run `node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team` after `npm ci`, or use the manual-only **My Team Planner** Actions workflow. Select the number of upcoming gameweeks and read the plan in the run summary. See [manual planning instructions](docs/MY_TEAM_PLAN.md).
 
 ## Local & Private Preview Quick Start
 
