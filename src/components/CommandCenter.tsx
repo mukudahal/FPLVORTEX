@@ -39,7 +39,7 @@ import { BRAND_LION_SRC } from '../lib/baseUrl';
 import { SaveTableButton } from './SaveTableButton';
 import type { PngTable } from '../lib/tablePng';
 import { downloadPitchPng } from '../lib/pitchPng';
-import { dashboardPitchPoints } from '../lib/dashboardPitchPoints';
+import { dashboardPitchMultiplier, dashboardPitchPoints } from '../lib/dashboardPitchPoints';
 import { fetchVideos } from '../lib/api';
 import { videoSourceNotice } from '../lib/videoProvenance';
 import {
@@ -323,6 +323,9 @@ export function CommandCenter({
 
   const isReviewMode = hasLinkedTeam && selectedGw <= reviewEventId;
   const isDashboardRecordedGw = Boolean(entry && entry.currentEvent === selectedGw && snapshot.meta.currentEventId === selectedGw);
+  const selectedPicks = useMemo(() => new Map(
+    entry?.currentEvent === selectedGw ? entry.picks.map(pick => [pick.element, pick]) : [],
+  ), [entry, selectedGw]);
 
   const pitchLineup = useMemo(() => {
     const validSquad = squadIds.filter((id) => playerMap.has(id));
@@ -776,16 +779,18 @@ export function CommandCenter({
     const fx = getPitchFixture(p.teamId);
     const tone = fdrPillTone(fx.difficulty, fx.isBlank);
     const xp = playerGwXp.get(p.id) ?? p.projection;
-    const isCap = !isBench && p.id === pitchLineup.captainId;
-    const isVice = !isBench && p.id === pitchLineup.viceId;
+    const showArmband = !isBench || selectedPicks.has(p.id);
+    const isCap = showArmband && p.id === pitchLineup.captainId;
+    const isVice = showArmband && p.id === pitchLineup.viceId;
+    const multiplier = dashboardPitchMultiplier(isDashboardRecordedGw, selectedPicks.get(p.id)?.multiplier, isCap);
     const hasFlag = p.status !== 'a' || (p.chance !== null && p.chance < 100);
     const injuryInfo = hasFlag ? parsePlayerInjuryDetails(p, fx.label) : null;
     const showReviewPts = isReviewMode && selectedGw <= snapshot.meta.currentEventId;
-    const starterPts = p.eventPoints * (isCap ? 2 : 1);
+    const starterPts = p.eventPoints * multiplier;
     const dashboardPoints = dashboardPitchPoints({
       selectedGw, entryGw: entry?.currentEvent ?? null,
       currentGw: snapshot.meta.currentEventId, nextGw: snapshot.meta.nextEventId,
-      eventPoints: p.eventPoints, projectedPoints: xp, multiplier: isCap ? 2 : 1,
+      eventPoints: p.eventPoints, projectedPoints: xp, multiplier,
     });
     const benchOrderPrefix = benchSlotIdx === 0 ? 'GKP' : `${benchSlotIdx}. ${p.position}`;
     const benchTopText = showReviewPts

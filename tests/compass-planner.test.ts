@@ -471,3 +471,59 @@ test('official FPL flags override imported xPts and prevent a flagged purchase a
   assert.ok(injured.strategy.weeks.every(week => week.moves.every(move => move.inId !== 16)));
   assert.ok(injured.strategy.weeks.every(week => week.squad.length === 15));
 });
+
+test('a partial or unrecognised upstream chip history cannot advertise unused chips',()=>{
+  assert.equal(normalizeChipHistory({chips:[{name:'3xc',event:3},{name:'unrecognised',event:4}]}),undefined);
+});
+
+test('optional three-transfer batches respect distinct IDs, pooled budget and chip-free hits',()=>{
+  const input=scenario(38,false);
+  input.chipHistoryKnown=false; input.freeTransfersNow=3;
+  const extraIds=[16,17,18];
+  const positions=['DEF','MID','FWD'] as const;
+  for (const [i,id] of extraIds.entries()) {
+    const p=makePlayer(id,{position:positions[i],teamId:i+7,cost:45,gwProjections:{38:25+i}});
+    input.players.push(p);input.repoElements.push(toRepoElement(p));
+  }
+  const result=runPlannerSimulation({...input,maxNormalMoves:3,horizonOnly:true});
+  const option=result.options.find(o=>o.id==='transfer3');
+  assert.equal(option?.feasible,true);
+  assert.equal(option?.transfers.length,3);
+  assert.equal(option?.hitCost,0);
+  assert.equal(new Set(option?.transfers.map(t=>t.outId)).size,3);
+  assert.equal(new Set(option?.transfers.map(t=>t.inId)).size,3);
+  assert.ok(result.strategy.weeks[0].bankAfter>=0);
+});
+
+test('paired captaincy risk credits the vice only when the captain never appeared', () => {
+  const lineup = { starters: [1, 2], bench: [], captainId: 1, viceId: 2 };
+  const result = runMonteCarlo({
+    gws: [12, 13, 14], draws: 100, seed: 17, holdId: 'hold', recommendedId: 'hold',
+    captaincyViceFallback: true,
+    paths: [{ id: 'hold', label: 'Hold', hitCost: 0, lineupAt: () => lineup }],
+    playerAt: (id, gw) => {
+      if (gw === 13 || (gw === 12 && id === 1)) return null;
+      return { mean: 2, p60: 1, pSub: 0, fixtures: 1, csProb: 0, cardLoss: 0, team: 1, position: 4 };
+    },
+  });
+  const pair = (gw: number, id: number) => result.captainsByGw![gw].find(c => c.id === id)!.withVice!;
+  assert.deepEqual(pair(12, 1), { viceId: 2, mean: 2, p10: 2, p90: 2, pBlank: 1, pHaul: 0, pViceActive: 1 });
+  assert.equal(pair(12, 2).viceId, 1);
+  assert.equal(pair(12, 2).pViceActive, 0);
+  assert.equal(pair(13, 1).mean, 0);
+  assert.equal(pair(13, 1).pViceActive, 0);
+  assert.equal(pair(14, 1).mean, 2);
+  assert.equal(pair(14, 1).pViceActive, 0);
+});
+
+test('personal opening transfer margin can roll a hit while preserving the reoptimised future',()=>{
+  const input={...scenario(38),chipHistoryKnown:false};
+  const guarded=runPlannerSimulation({...input,openingTransferGuard:{freeMoveNetGain:99,hitNetGain:99}});
+  assert.equal(guarded.strategy.openingTransferDecision?.rolled,true);
+  assert.equal(guarded.strategy.openingTransferDecision?.immediateHit,4);
+  assert.equal(guarded.strategy.weeks[0].moves.length,0);
+  const paired=guarded.monteCarlo.paths.find(p=>p.id==='opening_move')?.vsReference;
+  assert.equal(paired?.referenceId,'opening_roll');
+  assert.ok(Math.abs((paired?.probWin??0)+(paired?.probTie??0)+(paired?.probLoss??0)-1)<1e-12);
+  assert.ok((guarded.options.find(o=>o.id==='transfer1')?.horizonXPts??0)>guarded.strategy.expectedPoints);
+});

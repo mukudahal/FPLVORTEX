@@ -33,25 +33,40 @@ try {
   // Check provenance instead of assuming either source; never save a Transfer Lab plan.
   await page.goto(base + '/#/command', { waitUntil: 'domcontentloaded' });
   await page.locator('#fpl-review-team-id').fill('999999');
+  const entryResponsePromise = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/vortex/entry/999999' &&
+    new URL(response.url()).searchParams.get('refresh') === '1', { timeout: 30000 });
   await page.getByRole('button', { name: 'ENTER', exact: true }).click();
   await page.locator('.page--command:not(.page--review) .vx-soccer-pitch').waitFor({ timeout: 30000 });
   const dashboard = page.locator('.page--command:not(.page--review)');
+  const entryResponse = await entryResponsePromise;
+  assert.equal(entryResponse.status(), 200);
+  const entryJson = await entryResponse.json();
+  // The fallback pitch can render before the manager request completes.
+  // Wait for the same manager identity before checking the squad and armbands.
+  await dashboard.locator('.vx-squad-scorebox__team strong')
+    .and(dashboard.getByText(entryJson.teamName, { exact: true })).waitFor({ timeout: 30000 });
+  assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
   assert.equal(await dashboard.locator('.vx-pitch-formation .vx-pitch-player--dashboard').count(), 11, 'Dashboard must render 11 actual starting slots');
   assert.equal(await dashboard.locator('.vx-pitch-bench .vx-pitch-player--dashboard').count(), 4, 'Dashboard must render four substitute slots');
   assert.equal(await dashboard.locator('.vx-pitch-portrait img').count(), 15, 'Each squad card needs a portrait or existing fallback');
   assert.equal(await dashboard.locator('.vx-pitch-score').count(), 15, 'Every player needs an explicit points or unavailable value');
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-cap').count(), 1);
   assert.equal(await dashboard.locator('.vx-pitch-armband.is-vice').count(), 1);
+  const pitchTitle = await dashboard.locator('.vx-soccer-pitch').getAttribute('title');
+  if (pitchTitle?.startsWith('Recorded points')) {
+    for (const [flag, armband] of [['isCaptain','is-cap'], ['isViceCaptain','is-vice']]) {
+      const pick = entryJson.picks.find(row => row[flag]);
+      assert.ok(pick, 'Official recorded lineup must include the selected ' + flag);
+      const player = entryJson.players.find(row => row.id === pick.element);
+      assert.ok(player, 'Official armband player must be present in the squad feed');
+      const card = dashboard.locator('.vx-pitch-player--dashboard').filter({ has: page.locator('.vx-pitch-armband.' + armband) });
+      assert.ok((await card.getAttribute('aria-label'))?.startsWith(player.fullName + ','));
+      assert.equal(await card.locator('.vx-pitch-score').evaluate(score => score.firstChild?.textContent), String(player.eventPoints * Math.max(1, pick.multiplier)));
+    }
+  }
   assert.equal(await dashboard.locator('.vx-dashboard-pitch-context').count(), 0, 'Redundant squad teaching banner must stay removed');
-  assert.match(await dashboard.locator('.vx-soccer-pitch').getAttribute('title'), /Recorded points|Forecast points|Historical player scores unavailable/);
-  const entryResponse = await page.request.get(base + '/api/vortex/entry/999999');
-  assert.equal(entryResponse.status(), 200);
-  const entryJson = await entryResponse.json();
-  // The initial pitch may render from the latest snapshot before the asynchronous
-  // manager entry finishes. Wait for the verified team identity, not a timeout.
-  await dashboard.locator('.vx-squad-scorebox__team strong')
-    .filter({ hasText: entryJson.teamName }).waitFor({ timeout: 30000 });
-  assert.equal((await dashboard.locator('.vx-squad-scorebox__team strong').textContent())?.trim(), entryJson.teamName);
+  assert.match(pitchTitle, /Recorded points|Forecast points|Historical player scores unavailable/);
   const provenance = entryJson.provenance?.kind;
   const badgeLocator = dashboard.locator('.vx-squad-scorebox__team small');
   const badge = await badgeLocator.count() ? await badgeLocator.textContent() : null;
@@ -472,11 +487,17 @@ try {
   await solverPage.getByRole('button',{name:'Stop',exact:true}).waitFor();
   await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
   await solverPage.getByRole('button',{name:'Manual chips',exact:true}).click();
-  await solverPage.getByRole('combobox',{name:'Triple Captain gameweek',exact:true}).selectOption('19');
+  // A horizon that crosses the chip reset has two independently labelled inventories.
+  const tripleCaptain = solverPage.locator('.strategy-chip-inventory').first()
+    .getByRole('combobox',{name:/^Triple Captain gameweek(?: half [12])?$/});
+  await tripleCaptain.waitFor();
+  const chipGw = await tripleCaptain.locator('option').last().getAttribute('value');
+  assert.match(chipGw, /^\d+$/, 'The active chip inventory must offer a playable gameweek');
+  await tripleCaptain.selectOption(chipGw);
   await solverPage.getByRole('button',{name:'Run Solver',exact:true}).click();
   await solverPage.getByRole('region',{name:'Joint chip schedule'}).waitFor({timeout:120000});
-  await solverPage.locator('.strategy-gw-strip button').last().click();
-  await solverPage.getByRole('heading',{name:'GW19 · TC',exact:true}).waitFor();
+  await solverPage.getByRole('group',{name:'Recommended gameweeks'}).getByText(`GW${chipGw}`,{exact:true}).click();
+  await solverPage.getByRole('heading',{name:`GW${chipGw} · TC`,exact:true}).waitFor();
   const quietCopy=await solverPage.locator('body').innerText();
   for(const text of ['All chips spent','Saved transfers and chips stay fixed','Model forecast ·','Transfer recommendations stay on']) assert.ok(!quietCopy.includes(text),`Unexpected explanatory text: ${text}`);
   await solverPage.getByLabel('About the solver',{exact:true}).click();
@@ -490,7 +511,7 @@ try {
   const originalSolverPlans=JSON.parse(beforeSolverSave??'[]');
   assert.equal(afterSolverSave.length,originalSolverPlans.length+1);
   assert.deepEqual(afterSolverSave.slice(0,originalSolverPlans.length),originalSolverPlans);
-  assert.equal(afterSolverSave.at(-1).chips['19'],'tc');
+  assert.equal(afterSolverSave.at(-1).chips[chipGw],'tc');
   assert.equal(await solverPage.getByRole('alert').count(),0);
   for(const width of [320,390,768,1280,1920]){
     await solverPage.setViewportSize({width,height:900});

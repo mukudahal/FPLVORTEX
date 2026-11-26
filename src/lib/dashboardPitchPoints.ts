@@ -35,3 +35,9 @@ export function dashboardPitchPoints(input: DashboardPitchPointsInput): Dashboar
   }
   return unavailable;
 }
+
+/** Bench cards retain their individual points. Multipliers follow the settled official picks. */
+export function dashboardPitchMultiplier(recorded: boolean, officialMultiplier: number | undefined, forecastCaptain: boolean): number {
+  if (recorded) return officialMultiplier === 2 || officialMultiplier === 3 ? officialMultiplier : 1;
+  return forecastCaptain ? 2 : 1;
+}
