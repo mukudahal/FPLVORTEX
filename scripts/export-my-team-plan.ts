@@ -110,7 +110,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const horizonOnly = chipsUsed===undefined || RULES_2026_27.chips.every(c=>spentThisHalf.has(c));
   const goalkeeperPolicy = personalGoalkeeperPolicy(snapshot, players, ids);
   const result = runPlannerSimulation({
-    players, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
+    players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
     nextGw:next, horizon:5, draws:1000, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
@@ -161,10 +161,12 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     const candidates = (result.monteCarlo.captainsByGw?.[w.gw] ?? []).map(r => ({
       ...r, name:name(r.id), ownership:byId.get(r.id)!.ownership, xPts:result.forecastByGw[w.gw][r.id],
     }));
-    const safest = [...candidates].sort((a,b)=>a.pBlank-b.pBlank || b.p10-a.p10 || b.xPts-a.xPts)[0];
+    const risk = (c: typeof candidates[number]) => c.withVice ?? c;
+    const safest = [...candidates].sort((a,b)=>risk(a).pBlank-risk(b).pBlank ||
+      risk(b).p10-risk(a).p10 || risk(b).mean-risk(a).mean)[0];
     // Among players less owned than the preferred captain, rank by paired haul frequency.
     const differential = candidates.filter(c=>c.ownership < byId.get(w.lineup.captainId)!.ownership)
-      .sort((a,b)=>b.pHaul-a.pHaul || b.xPts-a.xPts || a.id-b.id)[0];
+      .sort((a,b)=>risk(b).pHaul-risk(a).pHaul || risk(b).mean-risk(a).mean || a.id-b.id)[0];
     const captaincy = {highestXPts:w.lineup.captainId, balanced:w.lineup.captainId, conservative:safest?.id ?? null,
       differential:differential?.id ?? null, vice:w.lineup.viceId, candidates};
     const bench = [...w.lineup.bench].sort((a,b) => Number(byId.get(b)!.position==='GKP')-Number(byId.get(a)!.position==='GKP') || result.forecastByGw[w.gw][b]-result.forecastByGw[w.gw][a]);
@@ -334,12 +336,12 @@ export function renderText(r: Report): string {
     '| Player | xG | xA | xGI | Threat | Def. contributions | Form | xMin | P(start) per fixture | Team CS | Fixture |',
     '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|');
   for (const p of owned) lines.push('| '+[p.name,num(p.xG),num(p.xA),num(p.xGI),p.threat,p.defensiveContributions,p.form,p.localExpectedMinutes,percent(p.perFixtureStartProbability),p.teamCleanSheetByFixture.map(f=>percent(f.probability)).join(' / ')||'—',fixture(p)].join(' | ')+' |');
-  lines.push('', '## 5. Captaincy recommendation', '', 'Balanced and highest-xPts choices use the projected XI. The conservative choice has the lowest simulated blank risk. The differential has the highest simulated haul chance among starters with lower ownership than the selected captain. Ownership is global. Future rival captains are unknown.', '',
-    '| GW | Recommended | Vice | Conservative | Differential | xPts | P10–P90 | P(≤2) | P(≥9) |', '|---:|---|---|---|---|---:|---|---:|---:|');
+  lines.push('', '## 5. Captaincy recommendation', '', 'Balanced and highest-xPts choices use the projected XI. The conservative and differential alternatives use paired simulations with the vice-captain fallback. Promoting the planned vice swaps the armbands. Unmultiplied outcome ranges and probabilities refer to the armband holder who scores. The differential is chosen from starters with lower ownership. Ownership is global. Future rival captains are unknown.', '',
+    '| GW | Recommended | Vice | Conservative | Differential | xPts | P10–P90 | P(≤2) | P(≥9) | Vice takes over |', '|---:|---|---|---|---|---:|---|---:|---:|---:|');
   for (const w of r.weeks) {
     const find=(id:number|null)=>w.captaincy.candidates.find(c=>c.id===id);
-    const c=find(w.captain.id);
-    lines.push('| '+[w.gw,w.captain.name,w.vice.name,find(w.captaincy.conservative)?.name??'unavailable',find(w.captaincy.differential)?.name??'none',num(w.captain.xPts),c?c.p10+'–'+c.p90:'unavailable',percent(c?.pBlank),percent(c?.pHaul)].join(' | ')+' |');
+    const c=find(w.captain.id)?.withVice;
+    lines.push('| '+[w.gw,w.captain.name,w.vice.name,find(w.captaincy.conservative)?.name??'unavailable',find(w.captaincy.differential)?.name??'none',num(w.captain.xPts),c?c.p10+'–'+c.p90:'unavailable',percent(c?.pBlank),percent(c?.pHaul),percent(c?.pViceActive)].join(' | ')+' |');
   }
   lines.push('', '## 6. Mini-league intelligence', '');
   for (const l of r.miniLeagues??[]) {

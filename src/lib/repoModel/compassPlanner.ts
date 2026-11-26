@@ -25,6 +25,7 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   beamWidth?: number;
   maxNormalMoves?: 2 | 3;
   localForecastsOnly?: boolean;
+  captaincyViceFallback?: boolean;
   lockedIds?: number[];
   /** Optional personal rules for normal goalkeeper transfers. Chip rebuilds retain their own rules. */
   goalkeeperTransfers?: { replaceableId?: number; incomingIds: readonly number[] };
@@ -663,7 +664,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
   ];
   const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
   onProgress?.('Sampling outcomes');
-  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', playerAt, draws: input.draws ?? 3000, seed });
+  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', captaincyViceFallback: input.captaincyViceFallback, playerAt, draws: input.draws ?? 3000, seed });
   monteCarlo.assumptions.push(
     'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',
     searchDescription,

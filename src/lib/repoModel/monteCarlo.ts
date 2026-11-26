@@ -60,6 +60,8 @@ export interface McPath {
 
 export interface McOptions {
   calibrationSlope?: number;
+  /** Include captaincy outcomes after applying the vice-captain on the same draw. */
+  captaincyViceFallback?: boolean;
   gws: number[];
   paths: McPath[];
   holdId: string;
@@ -502,7 +504,12 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       .sort((a, b) => (info(b, gw)?.mean ?? 0) - (info(a, gw)?.mean ?? 0));
     const pick = player(lu.captainId, gw).pts;
     for (const id of ranked) {
-      const pts = player(id, gw).pts;
+      const { pts, played } = player(id, gw);
+      // If the current vice is promoted, swap the armbands. Otherwise keep the current vice.
+      const viceId = id === lu.viceId ? lu.captainId : lu.viceId;
+      const vice = opts.captaincyViceFallback && viceId !== id ? player(viceId, gw) : null;
+      const withVice = vice ? new Float64Array(draws) : null;
+      let pairTotal = 0, pairBlank = 0, pairHaul = 0, viceActivated = 0;
       const s = sortedCopy(pts);
       let sum = 0, blank = 0, haul = 0, beats = 0;
       for (let i = 0; i < draws; i++) {
@@ -510,9 +517,25 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
         if (pts[i] <= 2) blank += 1;
         if (pts[i] >= 9) haul += 1;
         if (pts[i] > pick[i]) beats += 1;
+        if (withVice && vice) {
+          const usedVice = played[i] === 0 && vice.played[i] === 1;
+          const points = played[i] === 1 ? pts[i] : usedVice ? vice.pts[i] : 0;
+          withVice[i] = points;
+          pairTotal += points;
+          pairBlank += Number(points <= 2);
+          pairHaul += Number(points >= 9);
+          viceActivated += Number(usedVice);
+        }
       }
+      withVice?.sort();
       captains.push({
         id,
+        ...(withVice ? { withVice: {
+          viceId, mean: r2(pairTotal / draws), p10: r2(quantile(withVice, 0.1)),
+          p90: r2(quantile(withVice, 0.9)), pBlank: Math.round(pairBlank / draws * 1000) / 1000,
+          pHaul: Math.round(pairHaul / draws * 1000) / 1000,
+          pViceActive: Math.round(viceActivated / draws * 1000) / 1000,
+        } } : {}),
         mean: r2(sum / draws),
         p10: r2(quantile(s, 0.1)),
         p90: r2(quantile(s, 0.9)),

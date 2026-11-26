@@ -465,6 +465,16 @@ export interface McPathSummary {
 }
 
 export interface McCaptainRisk {
+  /** Points of the effective armband holder before any captain or chip multiplier. */
+  withVice?: {
+    viceId: number;
+    mean: number;
+    p10: number;
+    p90: number;
+    pBlank: number;
+    pHaul: number;
+    pViceActive: number;
+  };
   id: number;
   mean: number;
   p10: number;

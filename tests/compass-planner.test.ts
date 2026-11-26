@@ -494,3 +494,24 @@ test('optional three-transfer batches respect distinct IDs, pooled budget and ch
   assert.equal(new Set(option?.transfers.map(t=>t.inId)).size,3);
   assert.ok(result.strategy.weeks[0].bankAfter>=0);
 });
+
+test('paired captaincy risk credits the vice only when the captain never appeared', () => {
+  const lineup = { starters: [1, 2], bench: [], captainId: 1, viceId: 2 };
+  const result = runMonteCarlo({
+    gws: [12, 13, 14], draws: 100, seed: 17, holdId: 'hold', recommendedId: 'hold',
+    captaincyViceFallback: true,
+    paths: [{ id: 'hold', label: 'Hold', hitCost: 0, lineupAt: () => lineup }],
+    playerAt: (id, gw) => {
+      if (gw === 13 || (gw === 12 && id === 1)) return null;
+      return { mean: 2, p60: 1, pSub: 0, fixtures: 1, csProb: 0, cardLoss: 0, team: 1, position: 4 };
+    },
+  });
+  const pair = (gw: number, id: number) => result.captainsByGw![gw].find(c => c.id === id)!.withVice!;
+  assert.deepEqual(pair(12, 1), { viceId: 2, mean: 2, p10: 2, p90: 2, pBlank: 1, pHaul: 0, pViceActive: 1 });
+  assert.equal(pair(12, 2).viceId, 1);
+  assert.equal(pair(12, 2).pViceActive, 0);
+  assert.equal(pair(13, 1).mean, 0);
+  assert.equal(pair(13, 1).pViceActive, 0);
+  assert.equal(pair(14, 1).mean, 2);
+  assert.equal(pair(14, 1).pViceActive, 0);
+});
