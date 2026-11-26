@@ -155,18 +155,19 @@ test('personal goalkeeper policy holds a regular doubtful starter and considers 
   const owners=entry.picks.map(p=>p.element);
   const doubtful=buildFiveWeekPlan(snapshot,entry,now);
   assert.equal(doubtful.goalkeeperPolicy.awaitingNews,true);
+  assert.equal(doubtful.goalkeeperContingency?.player,first.name);
   assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,undefined);
   assert.ok(doubtful.weeks.every(w=>w.transfers.every(t=>t.out.position!=='GKP')));
   first.chance=0; first.status='i';
-  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
-  const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners,new Set([first.id]));
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,first.id);
+  const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners);
   assert.equal(unavailable.transfers.replaceableId,first.id);
   assert.deepEqual(unavailable.transfers.incomingIds,[regular.id]);
   const emergency=buildFiveWeekPlan(snapshot,entry,now,undefined,{teamNews:[{playerId:first.id,throughGw:16,status:'u',chance:0,observedAt:now.toISOString(),source:'https://example.test/team-news'}]});
   assert.ok(emergency.weeks.every(w=>w.transfers.filter(t=>t.out.position==='GKP')
     .every(t=>t.out.id===first.id && t.incoming.id===regular.id)));
   reserve.starts=4; reserve.minutes=360; reserve.status='a'; reserve.chance=100;
-  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners,new Set([first.id])).transfers.replaceableId,undefined);
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
 });
 
 test('fixture watchlist flags the designated opponents and keeps numeric forecasts', async () => {
@@ -203,4 +204,26 @@ test('validated context extends the horizon, reports observed EO, and applies te
   assert.ok((plan.weeks[1].currentSquad.find(p=>p.id===1)?.xPts??0)>0);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,cohort:{...raw.cohort,gameweek:13}}),/latest completed/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,teamNews:[{...raw.teamNews[0],throughGw:14}]}),/applicable gameweek/);
+});
+
+test('official signals verify the next deadline, refresh flags and use only unlocked same-reset rise forecasts', async () => {
+  const {readOfficialSignals}=await import('../scripts/personal-official-signals');
+  const {snapshot,entry,now}=scenario();
+  const next=snapshot.gameweeks.find(g=>g.id===snapshot.meta.nextEventId)!;
+  const players=snapshot.players.slice(0,3);
+  const raw={
+    events:[{id:next.id,is_next:true,deadline_time:next.deadlineTime}],
+    elements:players.map((p,i)=>({
+      id:p.id,status:'i',chance_of_playing_next_round:0,news:'Confirmed out',
+      news_added:now.toISOString(),transfers_in_event:90-i*20,price_change_calibrating:false,
+      price_change_locked_until:i===2 ? new Date(now.getTime()+3600_000).toISOString() : null,
+      price_change_projections:[{offset:0,projected_percent:i===0?'112':'20'},{offset:1,projected_percent:'140'}],
+    })),
+  };
+  const signals=readOfficialSignals(snapshot,raw,now)!;
+  assert.equal(signals.players[0].chance,0);
+  assert.deepEqual(signals.predictedRisers.map(p=>p.id),[players[0].id]);
+  assert.equal(signals.mostTransferredIn[0].transfersIn,90);
+  assert.equal(readOfficialSignals(snapshot,{...raw,events:[{...raw.events[0],id:38}]},now),null);
+  assert.equal(buildFiveWeekPlan(snapshot,entry,now,undefined,undefined,signals).marketSignals?.predictedRisers.length,1);
 });
