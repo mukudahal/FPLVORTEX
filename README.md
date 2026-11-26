@@ -84,7 +84,7 @@ the default branch.
 ### Private Preview Options (Without Making the Repo Public)
 
 1. **Local / Same-Wi-Fi Mobile Testing**: Run `npm run preview` on your laptop/desktop and open `http://<local-ip>:3000` on your phone.
-2. **GitHub Actions Build Artifact**: Every CI run on GitHub Actions uploads the compiled `fpl-vortex-dist` bundle under **Actions → CI → Artifacts** (includes pre-built `dist/data/vortex-snapshot.json` and `dist/data/vortex-videos.json` so `npx serve dist` works even without the Express backend).
+2. **GitHub Actions Build Artifact**: When GitHub Actions artifact storage is available, CI uploads the compiled `fpl-vortex-dist` bundle under **Actions → CI → Artifacts** (includes pre-built `dist/data/vortex-snapshot.json` and `dist/data/vortex-videos.json` so `npx serve dist` works even without the Express backend).
 3. **Private Cloud Preview (Vercel / Cloudflare Pages / Render)**: Connect the private GitHub repo with password/access-protected preview URLs — the repository stays private.
 4. **Opt-In GitHub Pages (Disabled Until Ready)**: `.github/workflows/deploy-pages.yml` is strictly manual (`workflow_dispatch` with `confirm_public_publish: false` by default) and will **never** publish automatically on push.
 
