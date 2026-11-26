@@ -1,7 +1,7 @@
 /** Paired, fixture-component simulations. Distribution parameters remain unvalidated assumptions. */
 import { expectedPoissonFloor, gammaSample as gammaUnit, poissonSample as poisson, poissonFromUniform as goalsFromUniform, seededRandom as mulberry32, standardNormal as normal } from "./probability";
 import { expectedFixturePoints, sampleFixturePoints, validateFixtureModel, type PlayerFixtureModel } from "./playerModel";
-import { CLEAN_SHEET_POINTS, type PlanningChip } from "./scoring";
+import { CLEAN_SHEET_POINTS, outfieldAutoSubs, type PlanningChip } from "./scoring";
 
 import type {
   McBand,
@@ -251,32 +251,21 @@ export function scoreLineup(l: McLineup, o: McOutcome, chip?: PlanningChip): num
     else if (benchGk !== undefined && o.played(benchGk)) total += o.pts(benchGk);
   }
 
-  const counts: Record<number, number> = { 2: 0, 3: 0, 4: 0 };
+  const counts = [0, 0, 0, 0, 0];
   const missing: number[] = [];
   for (const id of outfield) {
-    counts[o.position(id)] = (counts[o.position(id)] ?? 0) + 1;
+    const pos = o.position(id);
+    counts[pos]++;
     if (o.played(id)) total += o.pts(id);
-    else missing.push(id);
+    else missing.push(pos);
   }
 
-  if (missing.length > 0) {
-    for (const sub of l.bench) {
-      if (missing.length === 0) break;
-      const subPos = o.position(sub);
-      if (subPos === 1 || !o.played(sub)) continue;
-      for (let m = 0; m < missing.length; m++) {
-        const outPos = o.position(missing[m]);
-        const after = { ...counts };
-        after[outPos] -= 1;
-        after[subPos] += 1;
-        if (after[2] >= 3 && after[3] >= 2 && after[4] >= 1) {
-          counts[outPos] -= 1;
-          counts[subPos] += 1;
-          missing.splice(m, 1);
-          total += o.pts(sub);
-          break;
-        }
-      }
+  if (missing.length) {
+    const bench = l.bench.filter(id => o.position(id) !== 1);
+    const available = bench.reduce((mask, id, slot) => mask | (Number(o.played(id)) << slot), 0);
+    const used = outfieldAutoSubs(counts, missing, bench.map(o.position), available);
+    for (let slot = 0; slot < bench.length; slot++) {
+      if (used & (1 << slot)) total += o.pts(bench[slot]);
     }
   }
 

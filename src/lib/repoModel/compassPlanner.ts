@@ -10,6 +10,7 @@ import type { ChipGwSimulation, ChipSimulationSummary, OptimizerOptionComparison
 import { computePlayerXPts, computePositionPriors } from './xpts';
 import { runMonteCarlo, mixSeed, type McPath, type McPlayerGw } from './monteCarlo';
 import { nextFreeTransfers, pointsHit, type PlanningChip } from './scoring';
+import { createLineupExpectation, gameweekAbsence } from './lineupExpectation';
 import { marginalFtOptionValue } from './marginalFtOption';
 import { expectedFixturePoints } from './playerModel';
 import { isEligibleNewTransferTarget } from '../transferEligibility';
@@ -98,6 +99,7 @@ export interface PlannerSimulationOutput extends FplReviewSimOutput {
       rollingXPts: number; movingXPts: number; comparedGameweeks: number };
   };
   forecastByGw: Record<number, Record<number, number>>;
+  lineupBaselinesByGw: Record<number, { fixedHold: LineupSolution; rollThisWeek: LineupSolution; sameSquadNoChip: LineupSolution }>;
   warnings: string[];
   sourcePlan?: { id: string; name: string; committedGameweeks: number; lockedPlayers: number };
 }
@@ -222,12 +224,46 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     forecastByGw[gw] = values;
   }
 
+  const playerExpectations = new Map<number, Map<number, {
+    distribution: McPlayerGw; position: number; points: number; absence: number;
+  }>>();
+  const playerExpectation = (id: number, gw: number) => {
+    let week = playerExpectations.get(gw);
+    if (!week) {
+      week = new Map();
+      playerExpectations.set(gw, week);
+    }
+    let forecast = week.get(id);
+    if (forecast) return forecast;
+    const el = elements.get(id)!, bd = models.get(`${id}:${gw}`)!;
+    const mean = forecastByGw[gw][id];
+    const componentMean = bd.fixtureModels?.reduce((sum, model) =>
+      sum + Object.values(expectedFixturePoints(model)).reduce((s, n) => s + n, 0), 0);
+    const useComponents = componentMean !== undefined && Math.abs(mean - componentMean) <= 0.011;
+    const distribution: McPlayerGw = {
+      mean, fixtureModels: useComponents ? bd.fixtureModels : undefined,
+      p60: mean === 0 ? 0 : bd.p60, pSub: mean === 0 ? 0 : bd.pSub, fixtures: bd.fixtureCount,
+      csProb: bd.csProb, cardLoss: Math.max(0, -bd.cardPts), team: el.team, position: el.element_type,
+    };
+    const absence = gameweekAbsence(distribution);
+    forecast = { distribution, position: el.element_type, absence,
+      points: useComponents ? componentMean : absence === 1 ? 0 : mean };
+    week.set(id, forecast);
+    return forecast;
+  };
+  const expectedLineup = createLineupExpectation();
+  const scoreExpected = (selection: LineupSolution, gw: number, chip?: PlanningChip): LineupSolution => {
+    const points = expectedLineup(selection, id => playerExpectation(id, gw), chip);
+    return { ...selection, xiXPts: r2(points.xiPoints), captainXPts: r2(points.captainPoints),
+      benchXPts: r2(points.benchPoints), autosubXPts: r2(points.autosubs), totalXPts: r2(points.total) };
+  };
+
   const lineupCache = new Map<string, LineupSolution>();
   const lineup = (sq: number[], gw: number, chip?: PlanningChip): LineupSolution => {
-    const key = `${gw}:${chip ?? ''}:${[...sq].sort((a, b) => a - b).join(',')}`;
+    const key = `${gw}:${chip === 'bb' || chip === 'tc' ? chip : ''}:${[...sq].sort((a, b) => a - b).join(',')}`;
     let value = lineupCache.get(key);
     if (!value) {
-      value = solveLineupTS(sq, byId, forecastByGw[gw], chip === 'bb', chip === 'tc');
+      value = scoreExpected(solveLineupTS(sq, byId, forecastByGw[gw]), gw, chip);
       lineupCache.set(key, value);
     }
     return value;
@@ -402,15 +438,11 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     const viceId = captains?.vice ?? ranked.find(id => id !== captainId) ?? captainId;
     if (!starters.includes(captainId) || !starters.includes(viceId) || captainId === viceId)
       throw new RangeError(`Saved GW${gw} captain or vice-captain is not in the starting XI.`);
-    const xiXPts = starters.reduce((sum, id) => sum + (values[id] ?? 0), 0);
-    const benchXPts = bench.reduce((sum, id) => sum + (values[id] ?? 0), 0);
-    const captainXPts = (values[captainId] ?? 0) * (chip === 'tc' ? 2 : 1);
-    return {
-      starters, bench, captainId, viceId, xiXPts: r2(xiXPts),
-      captainXPts: r2(captainXPts), benchXPts: r2(benchXPts),
-      totalXPts: r2(xiXPts + captainXPts + (chip === 'bb' ? benchXPts : 0)),
+    return scoreExpected({
+      ...automatic,
+      starters, bench, captainId, viceId,
       formation: [2, 3, 4].map(t => starters.filter(id => byId.get(id)?.type === t).length).join('-'),
-    };
+    }, gw, chip);
   };
 
   const rebuildCache = new Map<string, Action | null>();
@@ -535,10 +567,10 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
         if (cached !== undefined) return cached;
         const remaining = searchGws.filter(g => g > gw).reduce((sum, g) => sum + Math.pow(decay, g - nextGw) * lineup(s.squad, g).totalXPts, 0);
         // Remaining chip value helps prevent premature use; no hard-coded play-now threshold.
-        const optionValue = withChips ? CHIPS.reduce((sum, c) => {
+        const optionValue = withChips ? (['bb', 'tc'] as const).reduce((sum, c) => {
           const gains = searchGws.filter(g => g > gw && available(s, g, c)).map(g => {
             const l = lineup(s.squad, g);
-            return Math.pow(decay, g - nextGw) * (c === 'bb' ? l.benchXPts : c === 'tc' ? forecastByGw[g][l.captainId] : 0);
+            return Math.pow(decay, g - nextGw) * (lineup(s.squad, g, c).totalXPts - l.totalXPts);
           });
           return sum + Math.max(0, ...gains);
         }, 0) : 0;
@@ -679,13 +711,6 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     return { chip: CHIP_NAMES[chip], available: canUse, usedGw: used?.gw ?? null, expiresGw: halfEnd, expiryDeadline: null, expiringSoon: halfEnd - nextGw <= 2, bestGw: peak?.gw ?? null, bestGain: peak?.gain ?? 0, gainNow: sims.find(s => s.gw === nextGw)?.gain ?? 0, meaningful: canUse && (peak?.gain ?? 0) > 0, verdictLine, topGws: sims.slice(0, 5), bestPitch: peak };
   });
 
-  const playerAt = (id: number, gw: number): McPlayerGw | null => {
-    const el = elements.get(id), bd = models.get(`${id}:${gw}`);
-    if (!el || !bd) return null;
-    const mean = forecastByGw[gw][id];
-    const componentMean = bd.fixtureModels?.reduce((sum, model) => sum + Object.values(expectedFixturePoints(model)).reduce((s, n) => s + n, 0), 0);
-    return { mean, fixtureModels: componentMean !== undefined && Math.abs(mean - componentMean) <= 0.011 ? bd.fixtureModels : undefined, p60: mean === 0 ? 0 : bd.p60, pSub: mean === 0 ? 0 : bd.pSub, fixtures: bd.fixtureCount, csProb: bd.csProb, cardLoss: Math.max(0, -bd.cardPts), team: el.team, position: el.element_type };
-  };
   const pathFor = (id: string, label: string, state: SearchState): McPath => ({
     id, label, hitCost: 0,
     hitAt: gw => state.weeks.find(w => w.gw === gw)?.hitCost ?? 0,
@@ -705,13 +730,15 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
   ];
   const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
   onProgress?.('Sampling outcomes');
-  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: openingPaths ? 'opening_roll' : manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', captaincyViceFallback: input.captaincyViceFallback, playerAt, draws: input.draws ?? 3000, seed });
+  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: openingPaths ? 'opening_roll' : manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', captaincyViceFallback: input.captaincyViceFallback, playerAt: (id, gw) =>
+    elements.has(id) && models.has(`${id}:${gw}`) ? playerExpectation(id, gw).distribution : null, draws: input.draws ?? 3000, seed });
   monteCarlo.assumptions.push(
     'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',
     searchDescription,
     `Transfer and chip decisions use ${Math.round(decay * 100)}% weekly decay; displayed totals and Monte Carlo points are undiscounted. Chip planning continues through GW${halfEnd}; distributions cover GW${gws[0]}–GW${gws.at(-1)} only.`,
     'Win versus hold is a paired model probability of scoring more points than keeping this squad. It is not a probability of a green arrow or a predicted overall rank.',
     'Simulation reports unmodified forecast points. Auto-Build risk profiles change squad selection; ownership is not a measured field-score or rank distribution.',
+    'Expected lineup points include legal autosubs and vice-captain fallback under the same appearance assumptions as the simulation.',
     'Imported means use an aggregate distribution when they differ from fixture-component forecasts. Tail probabilities remain uncalibrated.',
     'The next-GW free-transfer option is a model-based marginal hit-avoidance estimate from shortlisted legal moves. It is used only in beam pruning, not added to xPts or simulation totals.',
     'Chip timing comparison: a bounded heuristic compares complete legal play-now and defer-now continuation paths for the joint planner\'s nominated chip. Reported planning-score differences are discounted model values, not guaranteed points or globally optimal schedules.',
@@ -725,6 +752,16 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
   const rolledFtState: SearchState = { ...initial, ft: nextFreeTransfers(initial.ft, 0) };
   const bankedTransferValueNextGw = gws.includes(nextGw + 1)
     ? r2(decay * bankedFtOptionAt(rolledFtState, nextGw + 1)) : 0;
+  const lineupBaselinesByGw: PlannerSimulationOutput['lineupBaselinesByGw'] = {};
+  let permanentSquad = initial.squad;
+  for (const week of best.weeks) {
+    lineupBaselinesByGw[week.gw] = {
+      fixedHold: lineup(initial.squad, week.gw),
+      rollThisWeek: lineup(permanentSquad, week.gw),
+      sameSquadNoChip: lineup(week.squad, week.gw),
+    };
+    if (week.chip !== 'fh') permanentSquad = week.squad;
+  }
   return {
     nextGw, gws, chipHalfGws, freeTransfersNow: initial.ft, freeTransfersAfterRoll: nextFreeTransfers(initial.ft, 0),
     bankTenths: initial.bank, totalSellBudgetTenths, bankedTransferValueNextGw,
@@ -734,7 +771,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     squad0: first0.squad, squad1: firstOf(1).squad, squad2: firstOf(2).squad,
     chipSimulations, chipMatrixByGw: matrix,
     multiGwRollout: best.weeks.filter(w => gws.includes(w.gw)).map(w => ({ gw: w.gw, lineup: w.lineup, ftAvailable: w.ftBefore })),
-    monteCarlo, forecastByGw, warnings, transferWeeks: baseline.weeks,
+    monteCarlo, forecastByGw, lineupBaselinesByGw, warnings, transferWeeks: baseline.weeks,
     sourcePlan: manualPlan ? { id: manualPlan.id, name: manualPlan.name,
       committedGameweeks: new Set([...Object.keys(manualPlan.transfers), ...Object.keys(manualPlan.lineups), ...Object.keys(manualPlan.captains), ...Object.keys(manualPlan.chips)]).size,
       lockedPlayers: locked.size } : undefined,
