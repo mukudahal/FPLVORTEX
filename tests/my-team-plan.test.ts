@@ -167,3 +167,18 @@ test('personal goalkeeper policy holds a regular doubtful starter and considers 
   reserve.starts=4; reserve.minutes=360; reserve.status='a'; reserve.chance=100;
   assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
 });
+
+test('fixture watchlist flags the designated opponents and keeps numeric forecasts', async () => {
+  const { managerFixtureRisk, personalFixtureOpportunities } = await import('../scripts/personal-fixture-context');
+  const { snapshot, entry, now } = scenario();
+  const [first, second] = snapshot.teams;
+  first.code = 3;
+  const plan = buildFiveWeekPlan(snapshot, entry, now);
+  const opponent = plan.weeks[0].currentSquad.find(p=>p.club===second.shortName)!;
+  assert.ok(opponent.fixtures.some(f=>f.managerRisk==='hard'));
+  assert.equal(managerFixtureRisk(43),'hard');
+  assert.equal(managerFixtureRisk(14),'hard');
+  assert.equal(managerFixtureRisk(undefined),null);
+  assert.ok(plan.goalkeeperComparison[0].weeks.every(w=>Number.isFinite(w.xPts)));
+  assert.deepEqual(personalFixtureOpportunities([],20),{gw:20,attack:[],cleanSheet:[]});
+});

@@ -121,3 +121,30 @@ The reserve remains available for lineup selection. This policy applies
 to normal personal-plan transfers. Existing chip rebuilds retain their own
 rules. The planner reports the underlying points forecasts separately from
 the constraint. Injured-player recovery is not imputed from club news.
+
+## Opponent difficulty and expected points
+
+The personal report flags Arsenal, Liverpool and Manchester City as hard
+opponents at either venue. It lists the top three alternative team matchups
+for scoring goals and for clean sheets separately each week. The lists use
+the existing team's goal-rate forecasts and account for venue. The separate
+goalkeeper table exposes five-week projections before accounting for sales,
+budget or transfers.
+
+| Score archive | Arsenal GF / GA | Manchester City GF / GA | Liverpool GF / GA |
+|---|---:|---:|---:|
+| 2024/25, 38 matches per club | 69 / 34 | 72 / 44 | 86 / 41 |
+| 2025/26, 38 matches per club | 71 / 27 | 77 / 35 | 63 / 53 |
+| 2026/27 through GW11, 11 matches per club | 17 / 7 | 22 / 14 | 18 / 10 |
+
+Source: `data/fpl-match-history/`. Manchester City ranked second for goals
+scored in the current sample and ninth for fewest goals conceded. Arsenal
+ranked first for fewest conceded and seventh for goals scored. Liverpool
+ranked fifth and fourth respectively. These observations justify a caution
+label and role-specific comparison. A uniform points penalty still needs
+out-of-sample evidence. Official FDR and forecast equations remain intact.
+
+A projected improvement versus holding measures the manager's alternatives.
+It does not estimate the cutline for top 10,000 or whether the next arrow is
+green. Ranking probabilities need contemporaneous field ownership,
+captaincy, scores and calibrated outcome distributions.

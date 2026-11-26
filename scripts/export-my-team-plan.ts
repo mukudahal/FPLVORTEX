@@ -12,6 +12,7 @@ import { makeFixtureForecasts } from '../src/lib/fixtureForecast';
 import { mapOfficialChipToPlanningChip } from '../src/lib/freeTransfers';
 import { getSnapshotFreshness } from '../src/lib/snapshotFreshness';
 import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seasonRules';
+import { managerFixtureRisk, personalFixtureOpportunities } from './personal-fixture-context';
 import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
 import { verifyPublicEntry } from './verify-personal-state';
 import { auditPlanSources } from './plan-source-audit';
@@ -128,6 +129,8 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     lastDeadline = deadline;
   }
   const teamForecasts = makeFixtureForecasts(snapshot, 'vortex', result.gws);
+  const matchForecasts = [...teamForecasts.values()].flat();
+  const fixtureOpportunities = result.gws.map(gw => personalFixtureOpportunities(matchForecasts, gw));
   const name = (id: number) => byId.get(id)!.name;
   const describe = (id: number, gw: number) => {
     const p = byId.get(id)!;
@@ -140,7 +143,12 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
       localExpectedMinutes:round(m.expectedMinutes * matches.length), form:p.form,
       status:p.status, chance:p.chance, news:p.news, netTransfers:p.transfersInEvent-p.transfersOutEvent,
       observedPriceChangeTenths:p.costChangeEvent ?? null, xGI:p.xGI,
-      fixtures:matches.map(f => ({opponent:teams.get(f.teamH===p.teamId?f.teamA:f.teamH)?.shortName,home:f.teamH===p.teamId,fdr:f.teamH===p.teamId?f.teamHDifficulty:f.teamADifficulty})),
+      fixtures:matches.map(f => {
+        const home = f.teamH === p.teamId;
+        const opponent = teams.get(home ? f.teamA : f.teamH);
+        return { opponent:opponent?.shortName, home, fdr:home?f.teamHDifficulty:f.teamADifficulty,
+          managerRisk:managerFixtureRisk(opponent?.code) };
+      }),
     };
   };
   let permanent = [...ids], permanentBank = bank;
@@ -183,7 +191,14 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     stateBasis:confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
-    goalkeeperPolicy,
+    goalkeeperPolicy, fixtureOpportunities,
+    goalkeeperComparison: [...new Set([goalkeeperPolicy.primary.id, ...goalkeeperPolicy.transfers.incomingIds])].map(id => {
+      const weeks = result.gws.map(gw => describe(id, gw));
+      return { id, name:name(id), priceTenths:byId.get(id)!.cost,
+        status:byId.get(id)!.status, chance:byId.get(id)!.chance,
+        totalXPts:round(weeks.reduce((sum, week) => sum + week.xPts, 0)),
+        weeks:weeks.map((week,i)=>({gw:result.gws[i],xPts:week.xPts,fixtures:week.fixtures})) };
+    }).sort((a,b)=>b.totalXPts-a.totalXPts || a.id-b.id),
     chipHistoryKnown:chipsUsed!==undefined, totalXPts:total, noTransferNoChipXPts:holdTotal, gainVsHold:round(total-holdTotal),
     latestGameweek:{...entry.history, previousOverallRank:entry.previousOverallRank},
     openingState:{squad:ids,bankTenths:bank,freeTransfers:ft,sellingPrices,chipsUsed:chipsUsed??null},
@@ -264,7 +279,7 @@ export function renderText(r: Report): string {
   type PlayerRow = Report['weeks'][number]['captain'];
   const num = (value: number | null | undefined, digits=2) => value == null ? 'unavailable' : value.toFixed(digits);
   const percent = (value: number | null | undefined) => value == null ? 'unavailable' : (100*value).toFixed(1)+'%';
-  const fixture = (p: PlayerRow) => p.fixtures.map(f => f.opponent+' '+(f.home?'H':'A')+' (FDR '+f.fdr+')').join(' / ') || 'Blank';
+  const fixture = (p: PlayerRow) => p.fixtures.map(f => f.opponent+' '+(f.home?'H':'A')+' (FDR '+f.fdr+(f.managerRisk ? ', hard opponent' : '')+')').join(' / ') || 'Blank';
   const lines = ['# FPL VORTEX five-gameweek plan', '', r.teamName+' · entry '+r.entryId+' · '+r.season+' · GW'+r.horizon.join(', GW'),
     '', 'Generated '+r.computedAt+' UTC. Snapshot '+r.snapshotAt+'.', '', 'Squad basis — '+r.stateBasis+'.',
     '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points.', '',
@@ -288,7 +303,24 @@ export function renderText(r: Report): string {
   lines.push('', '### Goalkeeper decision', '', keeper.reason,
     '', keeper.primary.name+' has '+keeper.primary.starts+' starts across '+keeper.primary.clubMatches+' completed fixtures for his current club. '+
     'Normal transfers leave '+keeper.reserve.name+' in the reserve slot. A replacement needs at least 80% observed starts across five or more club fixtures.',
-    '', '### Chip timing and long-term strategy', '');
+    '', '### Goalkeeper expected points', '',
+    'The full goalkeeper comparison is in JSON. This table shows the incumbent and the five regular starters with the highest individual projections. Availability, budget and squad fit still affect transfer eligibility.', '',
+    '| Goalkeeper | Price | '+r.horizon.map(gw=>'GW'+gw).join(' | ')+' | Total xPts |',
+    '|---|---:|'+r.horizon.map(()=> '---:').join('|')+'|---:|');
+  for (const alternative of [
+    ...r.goalkeeperComparison.filter(g=>g.id===keeper.primary.id),
+    ...r.goalkeeperComparison.filter(g=>g.id!==keeper.primary.id).slice(0,5),
+  ]) lines.push('| '+[alternative.name,'£'+money(alternative.priceTenths)+'m',
+    ...alternative.weeks.map(w=>num(w.xPts)),num(alternative.totalXPts)].join(' | ')+' |');
+  lines.push('', '### Fixture targets', '',
+    'Arsenal, Liverpool and Manchester City are flagged as hard opponents at either venue. Attack and clean-sheet targets are ranked separately among other opponents. Player xPts still use the existing forecast inputs.', '',
+    '| GW | Highest team scoring forecast | Highest team clean-sheet forecast |','|---:|---|---|');
+  for (const w of r.fixtureOpportunities) {
+    const match = (f:typeof w.attack[number])=>f.team+' vs '+f.opponent+' '+(f.home?'(H)':'(A)');
+    lines.push('| '+w.gw+' | '+(w.attack.map(f=>match(f)+' '+num(f.expectedGoals)+' goals').join(', ')||'unavailable')+
+      ' | '+(w.cleanSheet.map(f=>match(f)+' '+percent(f.cleanSheet)).join(', ')||'unavailable')+' |');
+  }
+  lines.push('', '### Chip timing and long-term strategy', '');
   for (const c of r.chipOptions) lines.push('- '+c.chip+' · '+(r.chipHistoryKnown?(c.available?'available':'unavailable'):'inventory unknown')+' · '+c.verdict);
   if (r.chipTiming) lines.push('', 'Joint continuation with the chip now '+num(r.chipTiming.playNowXPts)+' xPts, deferred '+num(r.chipTiming.deferXPts)+' xPts, over the search horizon. Preferred timing '+r.chipTiming.preferred+'.');
   lines.push('', 'No-chip transfer path — '+r.noChipTransferAlternative.map(w=>'GW'+w.gw+' '+(w.transfers.map(t=>t.sell+' → '+t.buy).join(', ')||'roll')+' ('+num(w.xPts)+' xPts)').join(' · '),
