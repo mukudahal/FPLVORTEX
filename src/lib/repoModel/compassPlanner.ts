@@ -246,8 +246,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
       csProb: bd.csProb, cardLoss: Math.max(0, -bd.cardPts), team: el.team, position: el.element_type,
     };
     const absence = gameweekAbsence(distribution);
-    forecast = { distribution, position: el.element_type, absence,
-      points: useComponents ? componentMean : absence === 1 ? 0 : mean };
+    forecast = { distribution, position: el.element_type, absence, points: absence === 1 ? 0 : mean };
     week.set(id, forecast);
     return forecast;
   };
