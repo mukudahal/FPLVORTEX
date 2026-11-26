@@ -198,6 +198,7 @@ test('validated context extends the horizon, reports observed EO, and applies te
   assert.equal(plan.cohort?.pointsOutsideCutoff,50);
   assert.equal(plan.averageComparison.managerPointsPerWeek,62.5);
   assert.match(renderText(plan), /8-gameweek plan/);
+  assert.match(renderText(plan), /fixed-squad comparison across the reported gameweeks/);
   assert.equal(plan.weeks[0].currentSquad.find(p=>p.id===1)?.xPts,0);
   assert.ok((plan.weeks[1].currentSquad.find(p=>p.id===1)?.xPts??0)>0);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,cohort:{...raw.cohort,gameweek:13}}),/latest completed/);

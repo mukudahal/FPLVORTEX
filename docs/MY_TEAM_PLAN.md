@@ -13,8 +13,16 @@ node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
 ```
 
 Or, after merging to the default branch, Actions → **My Team - five gameweek
-plan** → **Run workflow**, enter the entry ID. Download the two text files from
-the workflow artifact. This workflow has only workflow_dispatch. The existing
+plan** → **Run workflow**, enter the entry ID and choose the horizon (five
+by default). To include dated cohort data or team news, paste the JSON object
+described below into `context_json`. The workflow's horizon selection takes
+precedence over any horizon in that JSON. Keep credentials and private account
+state out of workflow inputs.
+
+Read the Markdown in the run summary and download both report formats and
+optional graphics from the `my-team-plan` artifact after a successful upload.
+An artifact quota error can leave the summary available while blocking the
+download. This workflow has only workflow_dispatch. The existing
 snapshot refresh, tests and other workflows are intentionally untouched.
 
 The CLI GETs the existing deployment's normalized snapshot and official-backed
@@ -39,7 +47,8 @@ costs are not included, so the report compares only prospective decisions.
 
 ## Output and assumptions
 
-- Five consecutive unpassed GWs, truncated only at GW38; the underlying
+- Five consecutive unpassed GWs by default (configurable from one to eight),
+  truncated only at GW38; the underlying
   chip search may examine later weeks in the current half before expiry.
 - Before/after XV, permanent holdings after Free Hit, legal XI, captain,
   vice-captain, ordered bench, transfers, effective sale/buy price, budget,

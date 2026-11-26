@@ -358,7 +358,7 @@ export function renderText(r: Report): string {
     '', '## 2. Transfer analysis', '', '| GW | Selected action | Hit | Net xPts | Gain vs opening XV | Gain vs rolling from that week |',
     '|---:|---|---:|---:|---:|---:|');
   for (const w of r.weeks) lines.push('| '+[w.gw,w.transfers.map(t=>t.out.name+' → '+t.incoming.name).join(', ')||'Roll',w.hitCost,num(w.xPts),num(w.gainVsFixedHold),num(w.deltaVsHoldThisWeek)].join(' | ')+' |');
-  lines.push('', 'Search horizon GW'+r.searchGameweeks.join(', GW')+'.', '', 'The opening-XV gains add up to the five-week comparison. Rolling from a later week retains earlier decisions. Free-transfer option value is part of search ranking only.',
+  lines.push('', 'Search horizon GW'+r.searchGameweeks.join(', GW')+'.', '', 'The opening-XV gains add up to the fixed-squad comparison across the reported gameweeks. Rolling from a later week retains earlier decisions. Free-transfer option value is part of search ranking only.',
     '', '### Opening alternatives', '');
   const opening=r.openingTransferDecision;
   if (opening) lines.push('', 'Opening transfer decision — '+(opening.rolled?'ROLL':'TRANSFER')+
