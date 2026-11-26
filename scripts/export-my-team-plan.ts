@@ -15,6 +15,8 @@ import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seas
 import { managerFixtureRisk, personalFixtureOpportunities } from './personal-fixture-context';
 import { parsePersonalContext } from './personal-plan-context';
 import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
+import { personalMarketWatch, type MarketFeed } from './personal-market-watch';
+import { isEligibleNewTransferTarget } from '../src/lib/transferEligibility';
 import { verifyPublicEntry } from './verify-personal-state';
 import { auditPlanSources } from './plan-source-audit';
 import { fetchOfficialSnapshot } from '../server/officialSnapshot';
@@ -72,7 +74,7 @@ function validateChipHistory(history: unknown, next: number) {
   if (errors.length) throw new Error('Invalid chip history. ' + errors.join(' '));
 }
 
-export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = new Date(), confirmedState?: { squad: number[]; bankTenths: number; freeTransfers: number; sellingPrices: Record<number, number>; chipsUsed?: EntryData['chipsUsed'] }, evidence?: unknown) {
+export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = new Date(), confirmedState?: { squad: number[]; bankTenths: number; freeTransfers: number; sellingPrices: Record<number, number>; chipsUsed?: EntryData['chipsUsed'] }, evidence?: unknown, marketFeed: MarketFeed | null = null) {
   const now = asOf.getTime();
   assertPlanningSnapshot(snapshot, asOf);
   if (entry.provenance?.kind !== 'official' || !entry.provenance.requestedIdVerified || !['live','cache'].includes(entry.source)) throw new Error('Verified official entry required; no archived or demo team.');
@@ -111,7 +113,12 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const horizonOnly = chipsUsed===undefined || RULES_2026_27.chips.every(c=>spentThisHalf.has(c));
   const completedGw = Math.max(0, ...snapshot.gameweeks.filter(g=>g.finished && g.dataChecked).map(g=>g.id));
   const context = parsePersonalContext(evidence, snapshot.meta.season, completedGw, next, asOf, new Set(byId.keys()));
-  const newsByPlayer = new Map(context.teamNews.map(item=>[item.playerId,item]));
+  const activeTeamNews = context.teamNews.filter(item => {
+    const player = byId.get(item.playerId)!;
+    const officialAt = Date.parse(player.newsAdded ?? '');
+    return !Number.isFinite(officialAt) || Date.parse(item.observedAt) >= officialAt;
+  });
+  const newsByPlayer = new Map(activeTeamNews.map(item=>[item.playerId,item]));
   const reportAvailability = (id: number, gw: number) => {
     const news = newsByPlayer.get(id);
     const p = byId.get(id)!;
@@ -120,11 +127,11 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const cohortPlayers = new Map(context.cohort?.players.map(p=>[p.id,p]));
   const goalkeeperPolicy = personalGoalkeeperPolicy(
     snapshot, players.map(p=>({...p,...reportAvailability(p.id,next)})), ids,
-    new Set(context.teamNews.filter(n=>n.chance===0 && n.throughGw>next).map(n=>n.playerId)),
+    new Set(activeTeamNews.filter(n=>n.chance===0 && n.throughGw>next).map(n=>n.playerId)),
   );
   const result = runPlannerSimulation({
-    players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
-    nextGw:next, horizon:context.horizon, draws:1000, availabilityOverrides:context.teamNews,
+    players, captaincyViceFallback:true, goalkeeperTransfers:{...goalkeeperPolicy.transfers,priorityCover:goalkeeperPolicy.coverageRisk}, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
+    nextGw:next, horizon:context.horizon, draws:1000, availabilityOverrides:activeTeamNews,
     openingTransferGuard: {freeMoveNetGain:1.5,hitNetGain:4.5}, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
@@ -216,6 +223,32 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
       fixedHoldXPts:round(segment.reduce((s,w)=>s+w.fixedHoldXPts,0)),freeTransfersAfter:segment.at(-1)!.ftAfter};
   });
   const firstWeek = rows[0];
+  const marketWatch = personalMarketWatch(players, marketFeed, asOf, ({ id }) => {
+    const player = byId.get(id)!;
+    const availability = reportAvailability(id, next);
+    const available = isEligibleNewTransferTarget({
+      ...player, ...availability, availability: availability.chance == null ? player.availability : availability.chance / 100,
+    });
+    const xPts = round(result.forecastByGw[next][id]);
+    const planned = rows.find(week => week.transfers.some(move => move.incoming.id === id));
+    if (ids.includes(id)) return { action: available ? 'OWNED' : 'MONITOR TEAM NEWS', xPts, plannedGw: null };
+    if (!available) return { action: 'MONITOR TEAM NEWS', xPts, plannedGw: null };
+    if (planned) return { action: planned.gw === next ? 'PLANNED BUY' : 'FUTURE TARGET', xPts, plannedGw: planned.gw };
+    const affordable = ids.some(outId => {
+      const out = byId.get(outId)!;
+      if (out.position !== player.position || sellingPrices[outId] + bank < player.cost) return false;
+      if (player.position === 'GKP' && (outId !== goalkeeperPolicy.transfers.replaceableId ||
+          !goalkeeperPolicy.transfers.incomingIds.includes(id))) return false;
+      return ids.filter(owned => owned !== outId && byId.get(owned)!.teamId === player.teamId).length < 3;
+    });
+    return { action: affordable ? 'WATCH' : 'NEEDS FUNDING OR SQUAD CHANGE', xPts, plannedGw: null };
+  });
+  const keeperMove = firstWeek.transfers.find(move => move.out.position === 'GKP');
+  const openingKeeperAdvice = goalkeeperPolicy.coverageRisk
+    ? keeperMove
+      ? `${keeperMove.out.name} → ${keeperMove.incoming.name} to add an available starter. Recheck official team news before the deadline.`
+      : `Goalkeeper cover is unresolved. ${goalkeeperPolicy.reason} The current search did not select a legal keeper move over its alternatives.`
+    : goalkeeperPolicy.reason;
   const startingExposure = firstWeek.starters.flatMap(p=>{
     const observed=cohortPlayers.get(p.id);
     if (!observed) return [];
@@ -251,7 +284,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     stateBasis:confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
-    goalkeeperPolicy, fixtureOpportunities, horizonSummary, cohort, averageComparison, teamNews:context.teamNews,
+    goalkeeperPolicy, openingKeeperAdvice, marketWatch, fixtureOpportunities, horizonSummary, cohort, averageComparison, teamNews:activeTeamNews,
     openingTransferDecision:result.strategy.openingTransferDecision,
     openingTransferRisk:result.monteCarlo.paths.find(path=>path.id==='opening_move')?.vsReference,
     goalkeeperComparison: [...new Set([goalkeeperPolicy.primary.id, ...goalkeeperPolicy.transfers.incomingIds])].map(id => {
@@ -275,7 +308,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     },
     strategySearch:result.strategy.search, searchGameweeks:result.strategy.horizon,
     noChipTransferAlternative:result.transferWeeks.map(w=>({gw:w.gw, transfers:w.moves.map(m=>({sell:name(m.outId),buy:name(m.inId)})),xPts:w.netXPts,hitCost:w.hitCost})),
-    warnings:result.warnings, assumptions:[...result.monteCarlo.assumptions,'Fixed prices; transfer activity is observed, not a price-rise prediction. Check effective sale values, live squad and club press conferences before every deadline. Future blanks/doubles can change; preserve flexibility and reassess chips. Rank is historical, not forecast.'],
+    warnings:result.warnings, assumptions:[...result.monteCarlo.assumptions,'The solver uses fixed prices. Market activity and official price forecasts are displayed as separate timing signals. Check effective sale values, live squad and club press conferences before every deadline. Future blanks/doubles can change; preserve flexibility and reassess chips. Rank is historical, not forecast.'],
     chipOptions:result.chipSimulations.map(c=>({chip:c.chip,available:c.available,bestGw:c.bestGw,bestGain:c.bestGain,expiresGw:c.expiresGw,verdict:c.verdictLine})), chipSchedule:result.strategy.schedule,
     weeks:rows};
 }
@@ -370,7 +403,7 @@ export function renderText(r: Report): string {
   const keeper = r.goalkeeperPolicy;
   lines.push('', '### Goalkeeper decision', '', keeper.reason,
     '', keeper.primary.name+' has '+keeper.primary.starts+' starts across '+keeper.primary.clubMatches+' completed fixtures for his current club. '+
-    'Normal transfers leave '+keeper.reserve.name+' in the reserve slot. A replacement needs at least 80% observed starts across five or more club fixtures.',
+    r.openingKeeperAdvice, '', 'A replacement needs at least 80% observed starts across five or more club fixtures.',
     '', '### Goalkeeper expected points', '',
     'The full goalkeeper comparison is in JSON. This table shows the incumbent and the five regular starters with the highest individual projections. Availability, budget and squad fit still affect transfer eligibility.', '',
     '| Goalkeeper | Price | '+r.horizon.map(gw=>'GW'+gw).join(' | ')+' | Total xPts |',
@@ -392,7 +425,7 @@ export function renderText(r: Report): string {
   for (const c of r.chipOptions) lines.push('- '+c.chip+' · '+(r.chipHistoryKnown?(c.available?'available':'unavailable'):'inventory unknown')+' · '+c.verdict);
   if (r.chipTiming) lines.push('', 'Joint continuation with the chip now '+num(r.chipTiming.playNowXPts)+' xPts, deferred '+num(r.chipTiming.deferXPts)+' xPts, over the search horizon. Preferred timing '+r.chipTiming.preferred+'.');
   lines.push('', 'No-chip transfer path — '+r.noChipTransferAlternative.map(w=>'GW'+w.gw+' '+(w.transfers.map(t=>t.sell+' → '+t.buy).join(', ')||'roll')+' ('+num(w.xPts)+' xPts)').join(' · '),
-    '', '## 3. Team news and risk', '', 'Official player flags were retrieved with the snapshot at '+r.snapshotAt+'. Per-fixture starts and 60-minute estimates use the same minutes inputs as the planner. Press-conference coverage and price-change probabilities are unavailable in this run.', '');
+    '', '## 3. Team news and risk', '', 'Official player flags were retrieved with the snapshot at '+r.snapshotAt+'. Per-fixture starts and 60-minute estimates use the same minutes inputs as the planner. The market watch lists observed transfer counts separately from published price projections.', '');
   for (const item of r.teamNews) lines.push('- Confirmed input for player '+item.playerId+' through GW'+item.throughGw+
     ' · '+item.chance+'% availability · observed '+item.observedAt+' · '+item.source);
   lines.push('', ...r.horizonSummary.map(h=>'Through GW'+h.throughGw+' ('+h.weeks+' weeks): '+num(h.expectedPoints)+
@@ -401,6 +434,18 @@ export function renderText(r: Report): string {
   const flags=owned.filter(p=>p.status!=='a' || (p.chance!=null && p.chance<100) || p.news);
   if (!flags.length) lines.push('The official feed lists no injury or suspension news for the opening squad.');
   for (const p of flags) lines.push('- '+p.name+' · '+p.status+' · '+(p.chance==null?'no percentage supplied':p.chance+'% availability')+' · '+(p.news||'no published detail')+' · '+(p.newsAdded??'news date unavailable'));
+  const market = r.marketWatch;
+  lines.push('', '### Official FPL market watch', '', 'Most transferred in this gameweek (gross transfers in):', '');
+  for (const p of market.mostTransferredIn) {
+    lines.push('- '+p.name+' · '+p.transfersIn.toLocaleString('en-GB')+' in · '+num(p.advice.xPts)+' GW xPts · '+p.advice.action+(p.advice.plannedGw ? ' GW'+p.advice.plannedGw : '')+'.');
+  }
+  lines.push('', market.priceFeed
+    ? 'Predicted rises for the official update at '+market.priceFeed.nextUpdateAt+' (source updated '+market.priceFeed.updatedAt+'). The threshold percentage is a forecast indicator.'
+    : 'The official price forecast is missing, expired or stale. No predicted rises are shown.', '');
+  for (const p of market.predictedRises) {
+    lines.push('- '+p.name+' · projected threshold '+p.projectedThresholdPercent+'% · '+p.advice.action+(p.advice.plannedGw ? ' GW'+p.advice.plannedGw : '')+'.');
+  }
+  if (market.priceFeed && market.predictedRises.length === 0) lines.push('No verified next-update rise crossed the threshold in this run.');
   lines.push('', 'Reassess the plan if a deadline, fixture assignment, availability flag, price or effective selling price changes.', '',
     '## 4. Statistical deep dive', '', 'Opening squad season totals and first-week forecasts. Clean-sheet estimates refer to the team for each fixture. Individual FPL awards also depend on minutes.', '',
     '| Player | xG | xA | xGI | Threat | Def. contributions | Form | xMin | P(start) per fixture | Team CS | Fixture |',
@@ -477,7 +522,11 @@ async function main() {
   if(!/^[1-9]\d{0,11}$/.test(id)) throw new Error('Invalid entry ID.');
   const base=(process.env.VORTEX_UPSTREAM_BASE ?? 'https://fplvortex.onrender.com').replace(/\/$/,'');
   const entrySourceUrl = base+'/api/vortex/entry/'+id+'?refresh=1';
-  const [{snapshot,sourceUrl},entry] = await Promise.all([loadPlanningSnapshot(base),get<EntryData>(entrySourceUrl)]);
+  const fplBase = (process.env.FPL_API_BASE ?? 'https://fantasy.premierleague.com/api').replace(/\/$/,'');
+  const [{snapshot,sourceUrl},entry,marketFeed] = await Promise.all([
+    loadPlanningSnapshot(base), get<EntryData>(entrySourceUrl),
+    get<MarketFeed>(fplBase+'/bootstrap-static/', 15_000).catch(()=>null),
+  ]);
   if(entry.id!==Number(id)) throw new Error('Entry identity mismatch.');
   const state=stateFile ? JSON.parse(await readFile(stateFile,'utf8')) : undefined;
   let revision = process.env.GITHUB_SHA ?? null;
@@ -486,7 +535,7 @@ async function main() {
     catch { /* Source exports may not contain Git metadata. */ }
   }
   const verified=state ? null : await verifyPublicEntry(snapshot,entry);
-  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence);
+  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence,marketFeed);
   const report: Report = {
     ...planned,
     publicStateEvidence:verified?.publicStateEvidence,
@@ -501,7 +550,6 @@ async function main() {
       entrySourceUrl,
     },
   };
-  const fplBase = (process.env.FPL_API_BASE ?? 'https://fantasy.premierleague.com/api').replace(/\/$/,'');
   const [leagues,history] = await Promise.all([
     readMiniLeagues(base, entry, report.openingState.squad),
     verified?.history ?? get<{current:{event:number;points:number;event_transfers_cost:number;overall_rank:number|null}[]}>(fplBase+'/entry/'+id+'/history/',15_000).catch(()=>null),
@@ -528,7 +576,7 @@ async function main() {
   const detailFiles = {
     'rank-context':{cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
     'data-source-audit':await auditPlanSources(snapshot,report),
-    'transfer-alternatives':{opening:report.openingAlternatives.filter(o=>o.feasible!==false),noChip:report.noChipTransferAlternative,holdXPts:report.noTransferNoChipXPts},
+    'transfer-alternatives':{marketWatch:report.marketWatch,opening:report.openingAlternatives.filter(o=>o.feasible!==false),noChip:report.noChipTransferAlternative,holdXPts:report.noTransferNoChipXPts},
     'captaincy-alternatives':report.weeks.map(w=>({gw:w.gw,...w.captaincy})),
     'chip-strategy':{inventory:report.openingState.chipsUsed,options:report.chipOptions,timing:report.chipTiming,schedule:report.chipSchedule},
     'mini-league-analysis':report.miniLeagues,

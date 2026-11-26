@@ -30,18 +30,18 @@ export function personalGoalkeeperPolicy(
     (primary.status === 'i' && primary.chance === null);
   const usableCover = reserve.regularStarter && reserve.status === 'a' && (reserve.chance === 100 || reserve.chance === null);
   const awaitingNews = !unavailable && (['d', 'i'].includes(primary.status) || (primary.chance !== null && primary.chance < 100));
-  const replaceableId = unavailable && !usableCover && confirmedMultiweekAbsences.has(primary.id) ? primary.id : undefined;
-  const reason = unavailable
-    ? usableCover
-      ? 'The primary goalkeeper is currently out. The incumbent reserve has a regular starting role, so preserve the transfer.'
-      : confirmedMultiweekAbsences.has(primary.id)
-        ? 'A sourced multiweek absence and no established available cover justify considering a replacement.'
-        : 'The primary goalkeeper is currently out. Confirm a multiweek absence before spending a transfer on the position.'
-    : awaitingNews
-      ? 'The primary goalkeeper is doubtful. Keep him in the transfer plan and reassess after team news. The forecast keeps the official flag.'
+  const coverageRisk = !usableCover && (unavailable || awaitingNews);
+  const replacePrimary = unavailable && confirmedMultiweekAbsences.has(primary.id);
+  const replaceableId = coverageRisk ? (replacePrimary ? primary.id : reserve.id) : undefined;
+  const reason = coverageRisk
+    ? replacePrimary
+      ? 'A sourced multiweek absence and no regular reserve justify comparing a replacement for the primary goalkeeper.'
+      : `${primary.name} is ${unavailable ? 'currently out' : 'doubtful'} and ${reserve.name} is not dependable cover. Compare a playing reserve now and reassess the primary after team news.`
+    : unavailable
+      ? 'The primary goalkeeper is out, but the incumbent reserve is an available regular starter.'
       : 'Keep the incumbent goalkeeper pairing through normal transfers. Reassess after a change in availability or role.';
   return {
-    primary, reserve, reason, awaitingNews,
+    primary, reserve, reason, awaitingNews, coverageRisk,
     transfers: {
       replaceableId,
       incomingIds: keepers.filter(p => p.regularStarter && !owned.includes(p.id)).map(p => p.id),

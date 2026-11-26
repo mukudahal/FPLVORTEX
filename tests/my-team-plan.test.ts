@@ -139,7 +139,7 @@ test('a temporary Free Hit buy cannot overwrite the permanent selling basis',asy
     [{...ledger[0],event:4}]),/upcoming transfers/);
 });
 
-test('personal goalkeeper policy holds a regular doubtful starter and considers durable replacements only if he is out', async () => {
+test('personal goalkeeper policy evaluates reserve cover for a doubtful starter and replaces the primary on verified multiweek absence', async () => {
   const { personalGoalkeeperPolicy } = await import('../scripts/personal-goalkeeper-policy');
   const { snapshot, entry, now } = scenario();
   const [first, reserve] = snapshot.players;
@@ -155,10 +155,12 @@ test('personal goalkeeper policy holds a regular doubtful starter and considers 
   const owners=entry.picks.map(p=>p.element);
   const doubtful=buildFiveWeekPlan(snapshot,entry,now);
   assert.equal(doubtful.goalkeeperPolicy.awaitingNews,true);
-  assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,undefined);
-  assert.ok(doubtful.weeks.every(w=>w.transfers.every(t=>t.out.position!=='GKP')));
+  assert.equal(doubtful.goalkeeperPolicy.transfers.replaceableId,reserve.id);
+  assert.equal(doubtful.goalkeeperPolicy.coverageRisk,true);
+  assert.ok(doubtful.weeks.every(w=>w.transfers.filter(t=>t.out.position==='GKP')
+    .every(t=>t.out.id===reserve.id && t.incoming.id===regular.id)));
   first.chance=0; first.status='i';
-  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,undefined);
+  assert.equal(personalGoalkeeperPolicy(snapshot,snapshot.players,owners).transfers.replaceableId,reserve.id);
   const unavailable=personalGoalkeeperPolicy(snapshot,snapshot.players,owners,new Set([first.id]));
   assert.equal(unavailable.transfers.replaceableId,first.id);
   assert.deepEqual(unavailable.transfers.incomingIds,[regular.id]);
@@ -203,4 +205,29 @@ test('validated context extends the horizon, reports observed EO, and applies te
   assert.ok((plan.weeks[1].currentSquad.find(p=>p.id===1)?.xPts??0)>0);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,cohort:{...raw.cohort,gameweek:13}}),/latest completed/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,teamNews:[{...raw.teamNews[0],throughGw:14}]}),/applicable gameweek/);
+});
+
+test('market watch ranks gross transfers and shows only fresh, matched next-update rises', async () => {
+  const { personalMarketWatch } = await import('../scripts/personal-market-watch');
+  const now = new Date('2026-11-26T21:30:00Z');
+  const players = [
+    { ...makePlayer(1), transfersInEvent: 50, transfersOutEvent: 40 },
+    { ...makePlayer(2), transfersInEvent: 40, transfersOutEvent: 1 },
+    { ...makePlayer(3), transfersInEvent: 20, transfersOutEvent: 0 },
+  ];
+  const feed = {
+    game_config: { settings: { price_change_deadlines: ['2026-11-27T00:00:00Z'] }, status: { price_change_last_updated: '2026-11-26T21:05:00Z' } },
+    elements: players.map(p => ({ id: p.id, code: p.code, team: p.teamId, now_cost: p.cost,
+      price_change_calibrating: p.id === 2, can_transact: true,
+      price_change_locked_until: p.id === 3 ? '2026-11-27T02:00:00Z' : null,
+      price_change_projections: [{ offset: 1, projected_percent: '220', likelihood: 5 }, { offset: 0, projected_percent: '102.3', likelihood: 4 }],
+    })),
+  };
+  const fresh = personalMarketWatch(players, feed, now, ()=>'WATCH');
+  assert.deepEqual(fresh.mostTransferredIn.map(p=>p.id), [1,2,3]);
+  assert.deepEqual(fresh.predictedRises.map(p=>[p.id,p.projectedThresholdPercent]), [[1,102.3]]);
+  const stale = personalMarketWatch(players, feed, new Date('2026-11-26T22:00:00Z'), ()=>'WATCH');
+  assert.equal(stale.priceFeed,null);
+  assert.deepEqual(stale.predictedRises,[]);
+  assert.equal(stale.mostTransferredIn.length,3);
 });
