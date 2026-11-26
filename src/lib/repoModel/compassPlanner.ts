@@ -607,6 +607,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     }
   }
   let openingTransferDecision: PlannerSimulationOutput['strategy']['openingTransferDecision'];
+  let openingPaths: { move: SearchState; roll: SearchState } | undefined;
   const guard = input.openingTransferGuard;
   if (guard && !manualPlan && !requested.length && best.weeks[0]?.moves.length && !best.weeks[0].chip) {
     const canUseChip = searchGws.some(gw => CHIPS.some(chip => available(initial, gw, chip)));
@@ -619,6 +620,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
       const gain = r2(movingXPts - rollingXPts);
       const rolled = gain < minimumGain;
       openingTransferDecision = { rolled, gain, minimumGain, immediateHit, rollingXPts, movingXPts, comparedGameweeks: gws.length };
+      openingPaths = {move:best,roll:rolling};
       if (rolled) { best = rolling; chipTiming = null; }
     }
   }
@@ -695,11 +697,15 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     ...(savedManualState ? [pathFor('saved_manual', `Saved manual: ${manualPlan!.name} (no additional recommendations)`, savedManualState)] : []),
     pathFor('transfer_plan', manualPlan ? 'Saved plan + legal solver transfer suggestions' : 'Best transfer path · chips saved', baseline),
     ...variants.filter(s => s !== baseline && s.weeks.length).map((s, i) => pathFor(`alternative_${i}`, `Alternative · ${s.weeks[0].moves.length} move(s) now`, s)),
+    ...(openingPaths ? [
+      pathFor('opening_move', 'Move now and reoptimise', openingPaths.move),
+      pathFor('opening_roll', 'Roll now and reoptimise', openingPaths.roll),
+    ] : []),
     pathFor('chip_strategy', openingTransferDecision?.rolled ? 'Selected strategy · roll first' : 'Joint transfer + chip strategy', best),
   ];
   const seed = mixSeed(nextGw, ...[...initial.squad].sort((a, b) => a - b), initial.ft, initial.bank);
   onProgress?.('Sampling outcomes');
-  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', captaincyViceFallback: input.captaincyViceFallback, playerAt, draws: input.draws ?? 3000, seed });
+  const monteCarlo = runMonteCarlo({ gws, paths, holdId: 'roll', referenceId: openingPaths ? 'opening_roll' : manualPlan ? 'saved_manual' : 'transfer_plan', recommendedId: best === baseline ? 'transfer_plan' : 'chip_strategy', captaincyViceFallback: input.captaincyViceFallback, playerAt, draws: input.draws ?? 3000, seed });
   monteCarlo.assumptions.push(
     'Independent FPL VORTEX model inspired by public Compass planner features. No claim of matching its private predictions or solver.',
     searchDescription,

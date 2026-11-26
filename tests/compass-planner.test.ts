@@ -522,5 +522,8 @@ test('personal opening transfer margin can roll a hit while preserving the reopt
   assert.equal(guarded.strategy.openingTransferDecision?.rolled,true);
   assert.equal(guarded.strategy.openingTransferDecision?.immediateHit,4);
   assert.equal(guarded.strategy.weeks[0].moves.length,0);
+  const paired=guarded.monteCarlo.paths.find(p=>p.id==='opening_move')?.vsReference;
+  assert.equal(paired?.referenceId,'opening_roll');
+  assert.ok(Math.abs((paired?.probWin??0)+(paired?.probTie??0)+(paired?.probLoss??0)-1)<1e-12);
   assert.ok((guarded.options.find(o=>o.id==='transfer1')?.horizonXPts??0)>guarded.strategy.expectedPoints);
 });

@@ -223,6 +223,17 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     return [{id:p.id,name:p.name,multiplier,ownership:observed.ownership,effectiveOwnership:observed.effectiveOwnership,
       exposurePoints:round(100*multiplier-observed.effectiveOwnership)}];
   });
+  const settledScores = snapshot.gameweeks.filter(g=>g.finished && g.dataChecked && g.id>=entry.startedEvent);
+  const comparableHistory = entry.history.event===completedGw && settledScores.length>0;
+  const averageComparison = {
+    throughGw:completedGw || null,
+    gameweeks:settledScores.length,
+    managerPointsPerWeek:comparableHistory ? round(entry.history.totalPoints/settledScores.length) : null,
+    overallPointsPerWeek:settledScores.length
+      ? round(settledScores.reduce((sum,g)=>sum+g.averageEntryScore,0)/settledScores.length) : null,
+    cohortPointsPerWeek:comparableHistory && context.cohort?.meanPoints!==undefined && entry.startedEvent===1
+      ? round(context.cohort.meanPoints/settledScores.length) : null,
+  };
   const cohort = context.cohort && {
     ...context.cohort,
     pointsOutsideCutoff: context.cohort.cutoffPoints===undefined || entry.history.event!==completedGw ? null :
@@ -230,14 +241,19 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     coveredStarters:startingExposure.length,
     templateStarters:startingExposure.filter(p=>p.ownership>=50).length,
     openingXIExposure:startingExposure,
+    openingTransferExposure:result.options.filter(o=>o.feasible!==false).map(o=>({label:o.label,
+      transitions:o.transfers.map(move=>({out:name(move.outId),incoming:name(move.inId),
+        outgoingEO:cohortPlayers.get(move.outId)?.effectiveOwnership??null,
+        incomingEO:cohortPlayers.get(move.inId)?.effectiveOwnership??null}))})),
   };
   const holdTotal=round(rows.reduce((sum,w)=>sum+w.fixedHoldXPts,0));
   const total=round(rows.reduce((sum,w)=>sum+w.xPts,0));
   return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     stateBasis:confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
-    goalkeeperPolicy, fixtureOpportunities, horizonSummary, cohort, teamNews:context.teamNews,
+    goalkeeperPolicy, fixtureOpportunities, horizonSummary, cohort, averageComparison, teamNews:context.teamNews,
     openingTransferDecision:result.strategy.openingTransferDecision,
+    openingTransferRisk:result.monteCarlo.paths.find(path=>path.id==='opening_move')?.vsReference,
     goalkeeperComparison: [...new Set([goalkeeperPolicy.primary.id, ...goalkeeperPolicy.transfers.incomingIds])].map(id => {
       const weeks = result.gws.map(gw => describe(id, gw));
       return { id, name:name(id), priceTenths:byId.get(id)!.cost,
@@ -326,7 +342,7 @@ export function renderText(r: Report): string {
   const num = (value: number | null | undefined, digits=2) => value == null ? 'unavailable' : value.toFixed(digits);
   const percent = (value: number | null | undefined) => value == null ? 'unavailable' : (100*value).toFixed(1)+'%';
   const fixture = (p: PlayerRow) => p.fixtures.map(f => f.opponent+' '+(f.home?'H':'A')+' (FDR '+f.fdr+(f.managerRisk ? ', hard opponent' : '')+')').join(' / ') || 'Blank';
-  const lines = ['# FPL VORTEX five-gameweek plan', '', r.teamName+' · entry '+r.entryId+' · '+r.season+' · GW'+r.horizon.join(', GW'),
+  const lines = ['# FPL VORTEX '+r.horizon.length+'-gameweek plan', '', r.teamName+' · entry '+r.entryId+' · '+r.season+' · GW'+r.horizon.join(', GW'),
     '', 'Generated '+r.computedAt+' UTC. Snapshot '+r.snapshotAt+'.', '', 'Squad basis — '+r.stateBasis+'.',
     '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points.', '',
     '## 1. Performance audit', '', 'Latest published total '+r.currentPoints+' points, overall rank '+r.currentRank+'.'];
@@ -347,6 +363,9 @@ export function renderText(r: Report): string {
   const opening=r.openingTransferDecision;
   if (opening) lines.push('', 'Opening transfer decision — '+(opening.rolled?'ROLL':'TRANSFER')+
     '. Moving projects '+num(opening.gain)+' net points over rolling and reoptimising. Minimum margin '+num(opening.minimumGain)+'.', '');
+  if (r.openingTransferRisk) lines.push('Paired simulations for moving versus rolling · win '+percent(r.openingTransferRisk.probWin)+
+    ' · tie '+percent(r.openingTransferRisk.probTie)+' · loss '+percent(r.openingTransferRisk.probLoss)+
+    ' · 10th-percentile gain '+num(r.openingTransferRisk.deltaP10)+' points.', '');
   for (const option of r.openingAlternatives) lines.push('- '+option.label+' · '+(option.feasible===false?'unavailable':num(option.horizonXPts))+' projected horizon points · '+option.hitCost+' opening hit points. '+option.why);
   const keeper = r.goalkeeperPolicy;
   lines.push('', '### Goalkeeper decision', '', keeper.reason,
@@ -394,7 +413,9 @@ export function renderText(r: Report): string {
     const c=find(w.captain.id)?.withVice;
     lines.push('| '+[w.gw,w.captain.name,w.vice.name,find(w.captaincy.conservative)?.name??'unavailable',find(w.captaincy.differential)?.name??'none',num(w.captain.xPts),c?c.p10+'–'+c.p90:'unavailable',percent(c?.pBlank),percent(c?.pHaul),percent(c?.pViceActive)].join(' | ')+' |');
   }
-  lines.push('', '## 6. Overall rank and mini-league intelligence', '');
+  lines.push('', '## 6. Overall rank and mini-league intelligence', '',
+    'Settled points per gameweek through GW'+(r.averageComparison.throughGw??'unavailable')+' · you '+num(r.averageComparison.managerPointsPerWeek)+
+    ' · all managers '+num(r.averageComparison.overallPointsPerWeek)+' · supplied cohort '+num(r.averageComparison.cohortPointsPerWeek)+'.','');
   if (r.cohort) {
     lines.push('Top-10k observation from GW'+r.cohort.gameweek+', sample '+r.cohort.sampleSize+
       ', observed '+r.cohort.observedAt+'. Gap to the supplied cutline '+(r.cohort.pointsOutsideCutoff??'unavailable')+' points.', '',
@@ -402,6 +423,11 @@ export function renderText(r: Report): string {
       r.cohort.coveredStarters+' of 11 starters. Template starters with at least 50% cohort ownership: '+r.cohort.templateStarters+'.', '',
       '| Starter | Cohort ownership | Observed EO | Planned multiplier minus EO |','|---|---:|---:|---:|');
     for (const row of r.cohort.openingXIExposure) lines.push('| '+[row.name,row.ownership+'%',row.effectiveOwnership+'%',row.exposurePoints+' pp'].join(' | ')+' |');
+    lines.push('', 'Observed EO for transfer alternatives', '');
+    for (const option of r.cohort.openingTransferExposure) for (const row of option.transitions) {
+      lines.push('- '+row.out+' '+(row.outgoingEO===null?'EO unavailable':row.outgoingEO+'% EO')+
+        ' → '+row.incoming+' '+(row.incomingEO===null?'EO unavailable':row.incomingEO+'% EO'));
+    }
     lines.push('', 'Source: '+r.cohort.source,'');
   } else lines.push('Top-10k cutline and cohort exposure are unavailable without a dated cohort input.','');
   for (const l of r.miniLeagues??[]) {
@@ -500,6 +526,7 @@ async function main() {
   const meta = {entryId:report.entryId,season:report.season,currentGameweek:report.currentGameweek,horizon:report.horizon,
     computedAt:report.computedAt,snapshotAt:report.snapshotAt,provenance:report.provenance,assumptions:report.assumptions,warnings:report.warnings};
   const detailFiles = {
+    'rank-context':{cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
     'data-source-audit':await auditPlanSources(snapshot,report),
     'transfer-alternatives':{opening:report.openingAlternatives.filter(o=>o.feasible!==false),noChip:report.noChipTransferAlternative,holdXPts:report.noTransferNoChipXPts},
     'captaincy-alternatives':report.weeks.map(w=>({gw:w.gw,...w.captaincy})),

@@ -193,3 +193,6 @@ expected points over rolling and reoptimising. An opening hit requires a
 These are manager decision thresholds. Chip plays and manual commitments
 retain their own rules. Recommendations reflect the current fixture dates
 and chip eligibility. Rerun after team news and each deadline.
+
+The report compares the opening move and opening roll with common Monte Carlo draws.
+The win, tie, loss and downside are points comparisons conditional on the model.
