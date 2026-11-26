@@ -410,6 +410,9 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
     let probBeatsHold: number | null = null;
     let probBeatsHoldRaw: number | null = null;
     let probDrawsHold: number | null = null;
+    let probLosesHold: number | null = null;
+    let expectedDownsideVsHold: number | null = null;
+    let expectedUpsideVsHold: number | null = null;
     let cumDelta: McBand[] | null = null;
 
     if (path.id !== opts.holdId && hold && holdSeries) {
@@ -429,6 +432,9 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       probBeatsHold = Math.round(calibrateProbability(wins / draws, opts.calibrationSlope ?? 1) * 1000) / 1000;
 
       probDrawsHold = ties / draws;
+      probLosesHold = (draws - wins - ties) / draws;
+      expectedDownsideVsHold = r2(delta.reduce((sum, d) => sum + Math.max(0, -d), 0) / draws);
+      expectedUpsideVsHold = r2(delta.reduce((sum, d) => sum + Math.max(0, d), 0) / draws);
       const mine = perGw.get(path.id) as Float64Array[];
       const running = new Float64Array(draws).fill((paths.find(candidate => candidate.id === opts.holdId)?.hitCost ?? 0) - path.hitCost);
       cumDelta = gws.map((gw, j) => {
@@ -478,25 +484,25 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
       deltaP90,
       probBeatsHold,
       probBeatsHoldRaw,
-      probDrawsHold,
+      probDrawsHold, probLosesHold, expectedDownsideVsHold, expectedUpsideVsHold,
       perGw: gws.map((gw, j) => band(gw, (perGw.get(path.id) as Float64Array[])[j])),
       cumDelta,
       ...(vsReference ? { vsReference } : {}),
     };
   });
 
-  // Captain risk for the first gameweek, on the recommended path's lineup.
-  const captains: McCaptainRisk[] = [];
+  const captainsByGw: Record<number, McCaptainRisk[]> = {};
   const recPath = paths.find((p) => p.id === opts.recommendedId) ?? paths[0];
-  const firstGw = gws[0];
-  const lu = recPath?.lineupAt(firstGw);
-  if (lu) {
+  for (const gw of gws) {
+    const captains: McCaptainRisk[] = [];
+    captainsByGw[gw] = captains;
+    const lu = recPath.lineupAt(gw);
+    if (!lu) continue;
     const ranked = [...lu.starters]
-      .sort((a, b) => (info(b, firstGw)?.mean ?? 0) - (info(a, firstGw)?.mean ?? 0))
-      .slice(0, 4);
-    const pick = player(lu.captainId, firstGw).pts;
+      .sort((a, b) => (info(b, gw)?.mean ?? 0) - (info(a, gw)?.mean ?? 0));
+    const pick = player(lu.captainId, gw).pts;
     for (const id of ranked) {
-      const pts = player(id, firstGw).pts;
+      const pts = player(id, gw).pts;
       const s = sortedCopy(pts);
       let sum = 0, blank = 0, haul = 0, beats = 0;
       for (let i = 0; i < draws; i++) {
@@ -525,7 +531,8 @@ export function runMonteCarlo(opts: McOptions): MonteCarloSummary {
     seed,
     recommendedPathId: opts.recommendedId,
     paths: summaries,
-    captains,
+    captains: (captainsByGw[gws[0]] ?? []).slice(0, 4),
+    captainsByGw,
     assumptions: [
       "Each player's minutes use the model's own probabilities, clean sheets come from a goals-conceded draw shared by a team's defenders, cards use the model's rate, and other points arrive as random events. Distribution assumptions have not been independently calibrated.",
       "Teammates share a team-and-gameweek factor, so a strong attacking day lifts several of your players together.",

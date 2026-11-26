@@ -363,7 +363,8 @@ export interface OptimizerTransferMove {
 }
 
 export interface OptimizerOptionComparison {
-  id: "roll" | "transfer1" | "transfer2" | "chip";
+  id: "roll" | "transfer1" | "transfer2" | "transfer3" | "chip";
+  feasible?: boolean;
   label: string;
   action: "ROLL" | "TRANSFER" | "PLAY_CHIP";
   chip?: string | null;
@@ -453,6 +454,9 @@ export interface McPathSummary {
   /** The uncorrected simulation share, for transparency. */
   probBeatsHoldRaw: number | null;
   probDrawsHold?: number | null;
+  probLosesHold?: number | null;
+  expectedDownsideVsHold?: number | null;
+  expectedUpsideVsHold?: number | null;
   perGw: McBand[];
   /** Cumulative gain over holding by gameweek, including hit costs. */
   cumDelta: McBand[] | null;
@@ -482,6 +486,8 @@ export interface MonteCarloSummary {
   recommendedPathId: string;
   paths: McPathSummary[];
   captains: McCaptainRisk[];
+  /** Same paired player outcomes on each recommended XI. */
+  captainsByGw?: Record<number, McCaptainRisk[]>;
   assumptions: string[];
 }
 

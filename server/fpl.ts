@@ -351,7 +351,6 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
       return {
         ...cached,
         source: cached.source === 'snapshot' ? 'snapshot' : 'cache',
-        generatedAt: new Date().toISOString(),
       };
     }
   }
@@ -417,7 +416,7 @@ export async function getEntry(id: string, options?: GetEntryOptions): Promise<E
     if (numberValue(root.id) !== Number(id)) {
       throw new UpstreamHttpError('Official FPL entry identity did not match the requested Team ID.', 502);
     }
-    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: result.generatedAt };
     result.recentTransfers = recentTransfers;
     const newerTransfers = recentTransfers
       .filter((tr) => tr.event > targetGw)
@@ -475,7 +474,6 @@ export async function getLeague(id: string): Promise<LeagueData> {
     return {
       ...cached,
       source: cached.source === 'snapshot' ? 'snapshot' : 'cache',
-      generatedAt: new Date().toISOString(),
     };
   }
   try {
@@ -484,7 +482,7 @@ export async function getLeague(id: string): Promise<LeagueData> {
       throw new UpstreamHttpError('Official FPL league identity did not match the requested ID.', 502);
     }
     const result = normalizeLeaguePayload(raw, id, 'live');
-    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: null };
+    result.provenance = { kind: 'official', requestedIdVerified: true, sourceCapturedAt: result.generatedAt };
     return writeCache(`league:${id}`, result, PROFILE_TTL);
   } catch (error) {
     if (error instanceof UpstreamHttpError && error.status === 404) {

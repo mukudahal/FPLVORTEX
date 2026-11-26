@@ -471,3 +471,26 @@ test('official FPL flags override imported xPts and prevent a flagged purchase a
   assert.ok(injured.strategy.weeks.every(week => week.moves.every(move => move.inId !== 16)));
   assert.ok(injured.strategy.weeks.every(week => week.squad.length === 15));
 });
+
+test('a partial or unrecognised upstream chip history cannot advertise unused chips',()=>{
+  assert.equal(normalizeChipHistory({chips:[{name:'3xc',event:3},{name:'unrecognised',event:4}]}),undefined);
+});
+
+test('optional three-transfer batches respect distinct IDs, pooled budget and chip-free hits',()=>{
+  const input=scenario(38,false);
+  input.chipHistoryKnown=false; input.freeTransfersNow=3;
+  const extraIds=[16,17,18];
+  const positions=['DEF','MID','FWD'] as const;
+  for (const [i,id] of extraIds.entries()) {
+    const p=makePlayer(id,{position:positions[i],teamId:i+7,cost:45,gwProjections:{38:25+i}});
+    input.players.push(p);input.repoElements.push(toRepoElement(p));
+  }
+  const result=runPlannerSimulation({...input,maxNormalMoves:3,horizonOnly:true});
+  const option=result.options.find(o=>o.id==='transfer3');
+  assert.equal(option?.feasible,true);
+  assert.equal(option?.transfers.length,3);
+  assert.equal(option?.hitCost,0);
+  assert.equal(new Set(option?.transfers.map(t=>t.outId)).size,3);
+  assert.equal(new Set(option?.transfers.map(t=>t.inId)).size,3);
+  assert.ok(result.strategy.weeks[0].bankAfter>=0);
+});

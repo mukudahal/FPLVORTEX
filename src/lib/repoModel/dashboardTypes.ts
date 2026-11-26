@@ -363,7 +363,8 @@ export interface OptimizerTransferMove {
 }
 
 export interface OptimizerOptionComparison {
-  id: "roll" | "transfer1" | "transfer2" | "chip";
+  id: "roll" | "transfer1" | "transfer2" | "transfer3" | "chip";
+  feasible?: boolean;
   label: string;
   action: "ROLL" | "TRANSFER" | "PLAY_CHIP";
   chip?: string | null;

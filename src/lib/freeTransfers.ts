@@ -168,10 +168,12 @@ export function resolveSquadPurchaseAndSellingPrices(
 export function normalizeChipHistory(payload?: RawEntryHistoryPayload | null): Array<{ name: string; event: number }> | undefined {
   if (!Array.isArray(payload?.chips)) return undefined;
   const officialNames: Record<PlanningChip, string> = { wc: 'wildcard', fh: 'freehit', bb: 'bboost', tc: '3xc' };
-  return payload.chips.flatMap(use => {
-    const chip = mapOfficialChipToPlanningChip(use.name);
-    const event = Number(use.event);
-    return chip && Number.isInteger(event) && event >= 1 && event <= 38
-      ? [{ name: officialNames[chip], event }] : [];
-  });
+  const history: Array<{name:string; event:number}> = [];
+  for (const use of payload.chips) {
+    const chip = mapOfficialChipToPlanningChip(use?.name);
+    const event = Number(use?.event);
+    if (!chip || !Number.isInteger(event) || event < 1 || event > 38) return undefined;
+    history.push({name:officialNames[chip],event});
+  }
+  return history;
 }

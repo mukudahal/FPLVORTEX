@@ -65,3 +65,40 @@ Research-only hybrid, not a replacement for the independent VORTEX model. A cons
 ## P0 prospective minutes evidence (26 November 2026)
 
 The archive now freezes a single-fixture minutes distribution from the existing model and a research-only comparator using the official club's played-match count instead of the completed-GW count. It retains official settled minutes and starts when present (unknown is null). The evaluator separately reports matched single-fixture MAE/RMSE and start/P60 Brier losses even when points comparison coverage is unavailable. Multi-fixture weeks are excluded from this probability experiment because GW aggregate minutes cannot identify a particular fixture's start/60-minute outcome. Historical artifacts are untouched; older forecasts do not acquire retrospectively inferred probabilities. No production coefficients or scheduler changes; no measured improvement is asserted until prospective settlements exist. This does not solve recency, injury recovery, rotation or data completeness. The next work package remains dated element-summary observations and walk-forward calibration.
+
+## Follow-up research and release evidence
+
+The independent personal plan uses only the existing VORTEX mechanistic points
+model. It reconciles public effective sale basis, FT balance, and chip history,
+freezes each week's no-transfer XI and captaincy alternatives, and records the
+recommendation before the deadline. The three-move option is a bounded search.
+The deterministic same-squad hold projection is distinct from the autosub-aware
+Monte Carlo estimate. Neither measure is a promised score.
+
+| Experiment | Out-of-sample evidence | Status |
+|---|---|---|
+| Goal-only regularised Poisson club attack and defence | 760 matches across 2024/25 and 2025/26. Scoreline log loss 2.938 vs 3.014 for the venue-only baseline. Paired gameweek-resampled difference −0.106 to −0.043. | Research candidate. Compare prospectively with deployed fixture estimates before promotion. |
+| Recent minutes | GW11 holdout of 499 players. Three-match MAE 17.423 vs 20.097 for production, RMSE 29.623 vs 28.428. | Mixed evidence from one deadline. |
+| Constrained points blend | One 499-player holdout. MAE 1.573 vs 1.589, RMSE 2.541 vs 2.549. | Insufficient independent deadlines. No production weight. |
+| Personal policy replay | Two independently reinitialised deadlines. Measures realised recommendation versus fixed hold and captain points against a normalized FPL forecast baseline. | Retrospective diagnostics only. No reliable estimate of season-long gains. |
+| Optimisation comparison | On a 43-player no-chip shortlist, six- and twelve-state beams both reached the exact solver's score of 305.32 net xPts on the tested input. | Certified only for that bounded shortlist and objective. |
+
+Reproduce the research from the root with the existing Node and Python solver
+dependencies. The official outcome directory contains identified event-live
+payloads, downloaded as official outcomes after the events.
+
+```sh
+python scripts/backtest-fixture-goals.py
+node --import tsx scripts/backtest-recent-minutes.ts data/forecast-archive typescript-mechanistic-061b8b630d45fe3e path/to/official
+node --import tsx scripts/backtest-personal-decisions.ts data/forecast-archive typescript-mechanistic-061b8b630d45fe3e path/to/official 145784
+node --import tsx scripts/compare-personal-search.ts path/to/plan.json path/to/frozen-input.json.gz
+```
+
+The new recommendation settlement path starts with future advice. Older
+retrospective experiments cannot verify real chip gains, rank effects or rival
+responses. The production bonus model remains a marginal heuristic. In the
+current normalizer several rare events default to zero in the model adapter,
+so the points engine should not be described as using observed card, own-goal
+or penalty-event rates. Prospective fixture outcomes, match-level bonus
+competition, price movement labels and verified market quotes are needed for
+the next accuracy gates.

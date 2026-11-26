@@ -20,3 +20,6 @@ coverage/
 
 # Forecast observations are immutable, generated only by validated pre-deadline ingestion.
 !data/forecast-archive/**/*.json.gz
+
+# Private manager plans and their immutable recommendation records.
+/reports/my-team/

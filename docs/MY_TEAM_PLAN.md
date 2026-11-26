@@ -54,8 +54,8 @@ costs are not included, so the report compares only prospective decisions.
   No invented future price predictions, blanks/doubles, rank predictions, or
   press conference confirmation. The current published schedule and model
   estimates are conditional; rerun when injuries or fixtures change.
-- Existing model uses bounded beam search and may recommend a hit when its
-  objective prefers it. This is not an optimality certificate or guarantee.
+- The personal report tests shortlisted batches of up to three normal transfers.
+  Its bounded beam may recommend a hit when the discounted objective prefers it. This is not an optimality certificate or guarantee.
   Compare the no-transfer baseline, inspect the hit, and reject uncertain moves.
 - Recompute every deadline rather than committing five weeks' transfers in
   advance. First fix availability, then optimize starting XI, maintain banked
@@ -69,12 +69,29 @@ The manager entry must still be current and officially verified. A temporary
 public Free Hit squad requires a confirmed restored state. Unsupported seasons
 require a verified season rules update before planning.
 
-The optional `VORTEX_RECOMMENDATION_ARCHIVE` environment variable points to a
-private persistent directory for an immutable gzip copy of the JSON report.
-Store it outside public static directories and avoid committing reports that
-contain manager-supplied squad state. Settlement of personal recommendations
-is not automated. The separate archive evaluator measures frozen player
-forecasts and reports small-sample limitations.
+Public finances are cross-checked against official deadline picks, acquisition
+history and the permanent transfer ledger. A Free Hit transfer is excluded
+from the permanent purchase basis. When the opening holdings cannot be
+reconciled, provide a current manager-confirmed state. All official information
+still reflects published deadlines.
+
+The report writes the recommendation and input snapshot to an immutable local
+archive under `reports/my-team/accountability/`. Set
+`VORTEX_RECOMMENDATION_ARCHIVE` for a durable private location. The default
+Actions download includes recommendation records and the text reports. Keep
+the private output out of the application’s public directory.
+
+After finalisation, settle an archived recommendation against official points,
+participation, substitutions and manager decisions:
+
+```sh
+node --import tsx scripts/settle-my-team-plan.ts path/to/recommendation.json.gz path/to/private-settlements
+```
+
+Weekly settlement and 1/3/5-week cumulative results are written separately
+from the original recommendation. Run the command again as subsequent weeks
+finish. The default workflow remains manual and text-only. Enable
+`render_graphics` explicitly to run the separate renderer.
 
 ## Reference-style graphical outputs
 

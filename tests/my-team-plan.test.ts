@@ -68,3 +68,73 @@ test('rejects impossible effective sale prices, stale entry state and unsupporte
   assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,generatedAt:'2026-07-31T00:00:00Z'},now),/Verified entry is stale/);
   assert.throws(()=>buildFiveWeekPlan({...snapshot,meta:{...snapshot.meta,season:'2027/28'}},entry,now),/No verified scoring/);
 });
+
+test('report uses the forecast clock for minutes and freezes the hold XI for every future week',()=>{
+  const {snapshot,entry,now}=scenario();
+  snapshot.teams.forEach(t=>{t.played=0;});
+  snapshot.players[0].minutes=125; snapshot.players[0].starts=1;
+  const report=buildFiveWeekPlan(snapshot,entry,now);
+  const keeper=report.weeks[0].currentSquad.find(p=>p.id===snapshot.players[0].id)!;
+  assert.ok(keeper.localExpectedMinutes<20);
+  assert.ok(keeper.perFixtureStartProbability<.1);
+  assert.ok(Math.abs(report.weeks.reduce((s,w)=>s+w.gainVsFixedHold,0)-report.gainVsHold)<.03);
+  for (const w of report.weeks) {
+    assert.equal(w.fixedHoldLineup.starters.length,11);
+    assert.ok(w.fixedHoldLineup.starters.every(id=>report.openingState.squad.includes(id)));
+    assert.equal(w.captaincy.candidates.length,11);
+    assert.equal(w.captaincy.balanced,w.captain.id);
+  }
+  for (const path of report.simulation.paths.filter(p=>p.probLosesHold!=null)) {
+    assert.ok(Math.abs(path.probBeatsHoldRaw!+path.probDrawsHold!+path.probLosesHold!-1)<.001);
+    assert.ok(Math.abs(path.expectedUpsideVsHold!-path.expectedDownsideVsHold!-path.deltaMean!)<.025);
+  }
+});
+
+test('refuses a mismatched public GW, malformed chip record, stale capture or missing future deadline',()=>{
+  const {snapshot,entry,now}=scenario();
+  assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,currentEvent:entry.currentEvent-1},now),/different gameweeks/);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,chipsUsed:[{name:'unknown',event:1}]},now),/chip history/i);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,{...entry,provenance:{...entry.provenance!,sourceCapturedAt:'2000-01-01T00:00:00Z'}},now),/stale/);
+  const missing={...snapshot,gameweeks:snapshot.gameweeks.filter(g=>g.id!==snapshot.meta.nextEventId+2)};
+  assert.throws(()=>buildFiveWeekPlan(missing,entry,now),/deadline/);
+});
+
+test('settles frozen hold, captain absence, hit and chip against official, final participation only',async()=>{
+  const {settleWeek}=await import('../scripts/settle-my-team-plan');
+  const {snapshot,entry,now}=scenario(38);
+  const plan=buildFiveWeekPlan(snapshot,entry,now);
+  const report={...plan,provenance:{snapshotId:'abc',revision:'fixture',snapshotSource:'fixture',modelVersion:'fixture',entryAt:now.toISOString(),entrySourceUrl:'fixture',
+    forecastInputs:{localModel:'fixture',importedFileDate:null,importedPlayerWeeks:0,localPlayerWeeks:15,independentExternalModelsVerified:0}}};
+  const w=report.weeks[0];
+  const ids=[...w.starters,...w.bench].map(p=>p.id);
+  const live={elements:ids.map(id=>({id,stats:{played:id!==w.captain.id,minutes:id===w.captain.id?0:90,total_points:id===w.vice.id?7:id===w.captain.id?0:2}}))};
+  const picks={active_chip:null,entry_history:{event:38,points:35,event_transfers_cost:4,overall_rank:100},
+    picks:ids.map((id,i)=>({element:id,position:i+1,is_captain:id===w.captain.id,is_vice_captain:id===w.vice.id})),automatic_subs:[]};
+  const event=snapshot.gameweeks.find(g=>g.id===38)!;
+  const observed=new Date(Date.parse(event.deadlineTime)+86400000).toISOString();
+  assert.throws(()=>settleWeek(report,38,snapshot,live,picks,[],observed),/final/);
+  event.finished=true;event.dataChecked=true;
+  w.hitCost=4;w.chip='tc';
+  const settlement=settleWeek(report,38,snapshot,live,picks,[],observed);
+  assert.equal(settlement.realisedCaptainExtra,14);
+  assert.equal(settlement.sameSquadScoringChipEffect,7);
+  assert.equal(settlement.realisedAdviceNet-settlement.realisedFixedHold,3);
+  assert.equal(settlement.actualManagerNet,31);
+  assert.equal(settlement.followedAll,false);
+  assert.throws(()=>settleWeek({...report,computedAt:event.deadlineTime},38,snapshot,live,picks,[],observed),/pre-deadline/);
+  assert.throws(()=>settleWeek(report,38,snapshot,{elements:live.elements.slice(1)},picks,[],observed),/participation/);
+});
+
+test('a temporary Free Hit buy cannot overwrite the permanent selling basis',async()=>{
+  const {reconcilePublicFinances}=await import('../scripts/verify-personal-state');
+  const {snapshot}=scenario(4);
+  const originals=snapshot.players.map(p=>({element:p.id,purchase_price:40}));
+  const first={picks:originals,active_chip:null,entry_history:{event:1,bank:3}};
+  const current={picks:originals.map(p=>({element:p.element})),active_chip:null,entry_history:{event:3,bank:7}};
+  const history={current:[1,2,3].map(event=>({event,event_transfers:0,points:0,event_transfers_cost:0,overall_rank:null})),chips:[{name:'freehit',event:2}]};
+  const ledger=[{event:2,element_in:1,element_out:2,element_in_cost:48,time:'2026-07-28T12:00:00Z'}];
+  assert.equal(reconcilePublicFinances(snapshot,1,current,first,history,ledger).prices[1],45);
+  assert.throws(()=>reconcilePublicFinances(snapshot,1,current,first,{...history,chips:undefined},ledger),/chip history/);
+  assert.throws(()=>reconcilePublicFinances(snapshot,1,current,first,history,
+    [{...ledger[0],event:4}]),/upcoming transfers/);
+});

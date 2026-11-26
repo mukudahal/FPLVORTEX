@@ -27,11 +27,14 @@ export function createForecastArchive(snapshot:Snapshot, modelVersion:string, no
   const inputId=hash(JSON.stringify(snapshot));
   const ctx=buildPlayerForecastContext(snapshot);
   const gws=snapshot.gameweeks.filter(g=>g.id>=next!.id&&g.id<next!.id+10&&Date.parse(g.deadlineTime)>now.getTime()).map(g=>g.id);
-  const clubs=new Map(snapshot.teams.map(t=>[t.id,t]));
+  const completed = new Map<number,number>();
+  for (const fixture of snapshot.fixtures.filter(f=>f.finished)) {
+    for (const id of [fixture.teamH,fixture.teamA]) completed.set(id,(completed.get(id)??0)+1);
+  }
   const predictions=snapshot.players.map(p=>({playerId:p.id,gameweeks:gws.map(gw=>{
     const points=playerGameweekPoints(ctx,p,gw), expectedMinutes=playerGameweekExpectedMinutes(ctx,p,gw);
     const matches=snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===p.teamId||f.teamA===p.teamId));
-    const clubMatches=clubs.get(p.teamId)?.played;
+    const clubMatches=completed.get(p.teamId);
     // Research comparator only; freeze the existing model and a club-exposure
     // correction on single-fixture weeks. Neither replaces the production forecast.
     const elem=toRepoElement(p);

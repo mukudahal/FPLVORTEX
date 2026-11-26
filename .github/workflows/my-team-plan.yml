@@ -7,6 +7,10 @@ on:
         required: true
         default: '145784'
         type: string
+      render_graphics:
+        description: Generate separate graphics from the verified report
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -29,8 +33,10 @@ jobs:
         env:
           ENTRY_ID: ${{ inputs.entry_id }}
         run: node --import tsx scripts/export-my-team-plan.ts "$ENTRY_ID" reports/my-team
-      - run: npx playwright install --with-deps chromium
+      - if: inputs.render_graphics
+        run: npx playwright install --with-deps chromium
       - name: Render separate reference-style pitch and player analysis boards
+        if: inputs.render_graphics
         run: node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
       - name: Publish text summary
         run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
@@ -38,7 +44,8 @@ jobs:
         with:
           name: my-team-five-gw-plan
           path: |
-            reports/my-team/plan.md
-            reports/my-team/plan.json
+            reports/my-team/*.md
+            reports/my-team/*.json
+            reports/my-team/accountability/20*/
             reports/my-team/graphics/
           if-no-files-found: error

@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
 import { compareFrozenForecasts } from '../src/lib/repoModel/forecastBenchmark';
+import { toRepoElement } from '../src/lib/analytics';
+import { estimateMinutesDistribution } from '../src/lib/repoModel/minutes';
+import { productionModelVersion } from '../server/forecastArchive';
 import type { Snapshot } from '../src/lib/types';
 
 type MinutesLaw = { expectedMinutes: number; p60: number; pStart: number };
@@ -94,6 +97,21 @@ export function summarizeForecastErrors(rows: readonly ScoredRow[], bandWidth: n
   };
 }
 
+export function probabilityScores(rows: readonly ScoredRow[]) {
+  if (!rows.length) return null;
+  if (rows.some(r => !Number.isFinite(r.prediction) || r.prediction < 0 || r.prediction > 1 || ![0,1].includes(r.actual))) {
+    throw new RangeError('Invalid probability/outcome pair.');
+  }
+  const bins = Array.from({length:10}, (_,i) => {
+    const band = rows.filter(r => Math.min(9, Math.floor(10*r.prediction)) === i);
+    return band.length ? { lower:i/10, n:band.length, predicted:mean(band.map(r=>r.prediction)), observed:mean(band.map(r=>r.actual)) } : null;
+  }).filter(b=>b !== null);
+  const epsilon = 1e-12;
+  return {n:rows.length, brier:mean(rows.map(r=>(r.prediction-r.actual)**2)),
+    logLoss:mean(rows.map(r=>-Math.log(Math.max(epsilon, r.actual ? r.prediction : 1-r.prediction)))),
+    logLossProbabilityFloor:epsilon, calibrationError:bins.reduce((sum,b)=>sum+b.n*Math.abs(b.predicted-b.observed),0)/rows.length, bins};
+}
+
 export function archivePairIssue(f: Forecast, o: Outcome, cutoffMinutes: number): string | null {
   const computed = Date.parse(f.computedAt), retrieved = Date.parse(f.retrievedAt);
   const deadline = Date.parse(f.deadlineAt), observed = Date.parse(o.observedAt);
@@ -106,6 +124,14 @@ export function archivePairIssue(f: Forecast, o: Outcome, cutoffMinutes: number)
       f.season !== f.snapshot.meta.season || f.targetGw !== f.snapshot.meta.nextEventId ||
       retrieved !== Date.parse(f.snapshot.meta.generatedAt) || deadline !== Date.parse(fixtureDeadline) ||
       hash(JSON.stringify(f.snapshot)) !== f.inputId) return 'identity, deadline or input hash mismatch';
+  const roster = new Set(f.snapshot.players.map(p=>p.id));
+  if (roster.size!==f.snapshot.players.length || f.predictions.length!==roster.size || o.outcomes.length!==roster.size ||
+      new Set(f.predictions.map(p=>p.playerId)).size!==roster.size || new Set(o.outcomes.map(p=>p.playerId)).size!==roster.size ||
+      o.outcomes.some(p=>!roster.has(p.playerId)||!Number.isInteger(p.points)) ||
+      f.predictions.some(p=>!roster.has(p.playerId)||p.gameweeks.filter(g=>g.gw===f.targetGw).length!==1 ||
+        p.gameweeks.some(g=>g.points!==null&&!Number.isFinite(g.points)||g.expectedMinutes!==null&&(!Number.isFinite(g.expectedMinutes)||g.expectedMinutes<0)))) {
+    return 'incomplete, duplicate or invalid archived cohort';
+  }
   return null;
 }
 
@@ -151,6 +177,10 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
   const predictions: Parameters<typeof compareFrozenForecasts>[0][number][] = [];
   const official: typeof predictions = [];
   const candidate: typeof predictions = [];
+  const equalBlend: typeof predictions = [];
+  const replayStart: ScoredRow[]=[], replay60: ScoredRow[]=[];
+  const frozenCodeMatches = modelVersion === await productionModelVersion();
+  const minutesByStatus = new Map<string,ScoredRow[]>();
   const blended: typeof predictions = [];
   const outcomes: Parameters<typeof compareFrozenForecasts>[2][number][] = [];
   const minutes: ScoredRow[] = [], minutesReference: ScoredRow[] = [];
@@ -163,14 +193,14 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
     const points = new Map(o.outcomes.map(r => [r.playerId, r.points]));
     const officialRows = new Map(o.outcomes.map(r => [r.playerId,r]));
     const forecasts = new Map(f.predictions.map(r => [r.playerId, r.gameweeks.find(g => g.gw === f.targetGw)]));
-    const finished = new Map<number, { total_points: number; minutes: number }>();
+    const finished = new Map<number, { total_points: number; minutes: number; starts?: number }>();
     if (officialMinutesDir) {
       const payload = JSON.parse(await readFile(join(officialMinutesDir, f.season.replace('/', '-') + '-gw' + f.targetGw + '.json'), 'utf8')) as {
-        elements: { id: number; stats: { total_points: number; minutes: number } }[];
+        elements: { id: number; stats: { total_points: number; minutes: number; starts?: number } }[];
       };
       for (const row of payload.elements) finished.set(row.id, row.stats);
     }
-    const eligiblePrior = priorSettlements.filter(previous => previous.season === f.season && previous.observedAt <= Date.parse(f.computedAt));
+    const eligiblePrior = priorSettlements.filter(previous => previous.season === f.season && previous.observedAt < Date.parse(f.computedAt));
     const previousErrors = eligiblePrior.flatMap(previous => previous.errors);
     const trainingRows = eligiblePrior.flatMap(previous => previous.blendRows);
     const blendWeight = fitConvexBlend(trainingRows);
@@ -202,6 +232,7 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       if (forecast?.points == null || actual === undefined || !Number.isFinite(player.epNext)) { missingPointsRows++; continue; }
       const identity = { season: f.season, gw: f.targetGw, playerId: player.id, issuedAt: f.computedAt, deadlineAt: f.deadlineAt };
       predictions.push({ ...identity, modelVersion, xPts: forecast.points });
+      equalBlend.push({...identity, modelVersion:'research-equal-pool', xPts:(forecast.points+player.epNext)/2});
       official.push({ ...identity, modelVersion: 'archived-normalized-fpl-epNext', xPts: player.epNext });
       outcomes.push({ season: f.season, gw: f.targetGw, playerId: player.id, points: actual });
       if (adjustment !== null) candidate.push({ ...identity, modelVersion: 'research-prior-mean-error', xPts: forecast.points + adjustment });
@@ -216,6 +247,16 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       if (!completedMatches) continue;
       const row = { prediction: forecast.expectedMinutes, actual: settled.minutes };
       minutes.push(row);
+      const sameStatus=minutesByStatus.get(player.status)??[];
+      sameStatus.push(row);
+      minutesByStatus.set(player.status,sameStatus);
+      if (!evidence && frozenCodeMatches && playerFixtures===1 && (settled.starts===0||settled.starts===1)) {
+        const model=estimateMinutesDistribution(toRepoElement(player),Math.max(1,f.snapshot.gameweeks.filter(g=>g.finished).length));
+        if (Math.abs(model.expectedMinutes-forecast.expectedMinutes)<=.051) {
+          replayStart.push({prediction:model.pStart,actual:settled.starts});
+          replay60.push({prediction:model.p60,actual:Number(settled.minutes>=60)});
+        }
+      }
       minutesReference.push({ prediction: player.minutes / completedMatches * playerFixtures, actual: settled.minutes });
       const positionRows = minutesByPosition.get(player.position) ?? [];
       positionRows.push(row);
@@ -232,6 +273,7 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       paired: compareFrozenForecasts(predictions, official, outcomes, { cutoffMinutes }),
       vortex: summarizeForecastErrors(pairedRows(predictions), 1),
       officialEpNext: summarizeForecastErrors(pairedRows(official), 1),
+      equalBlendVsVortex:compareFrozenForecasts(equalBlend,predictions,outcomes,{cutoffMinutes}),
       experimentalBiasCorrection: compareFrozenForecasts(candidate, predictions, outcomes, { cutoffMinutes }),
       experimentalOfficialBlend: compareFrozenForecasts(blended, predictions, outcomes, { cutoffMinutes }),
       experimentalOfficialBlendVsOfficial: compareFrozenForecasts(blended, official, outcomes, { cutoffMinutes }),
@@ -239,6 +281,8 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
     expectedMinutes: {
       vortex: summarizeForecastErrors(minutes, 15),
       seasonAverage: summarizeForecastErrors(minutesReference, 15),
+      byAvailability:Object.fromEntries([...minutesByStatus].map(([status,rows])=>[status,summarizeForecastErrors(rows,15)])),
+      legacyProbabilityReplay:{n:replayStart.length,start:probabilityScores(replayStart),sixtyMinutes:probabilityScores(replay60)},
       byPosition: Object.fromEntries([...minutesByPosition].map(([position, rows]) => [position, summarizeForecastErrors(rows, 15)])),
     },
     prospectiveMinutesResearch:{
@@ -248,6 +292,8 @@ export async function evaluateForecastArchive(root: string, modelVersion: string
       clubP60Brier:club60.length?mean(club60.map(r=>(r.prediction-r.actual)**2)):null,
       baselineStartBrier:frozenStart.length?mean(frozenStart.map(r=>(r.prediction-r.actual)**2)):null,
       clubStartBrier:clubStart.length?mean(clubStart.map(r=>(r.prediction-r.actual)**2)):null,
+      baselineStartReliability:probabilityScores(frozenStart),clubStartReliability:probabilityScores(clubStart),
+      baseline60Reliability:probabilityScores(frozen60),club60Reliability:probabilityScores(club60),
       singleFixtureOnly:true,productionPromotion:false,
     },
     limitations: [
