@@ -1,5 +1,8 @@
 name: My Team Planner
 on:
+  # Temporary, same-repository validation trigger. Remove before merging.
+  pull_request:
+    types: [synchronize]
   workflow_dispatch:
     inputs:
       horizon:
@@ -18,6 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   plan:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/my-team-planner-quality')
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -36,7 +40,7 @@ jobs:
       - name: Generate plan from the next official deadline
         env:
           VORTEX_COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
-          PLAN_HORIZON: ${{ inputs.horizon }}
+          PLAN_HORIZON: ${{ inputs.horizon || '8' }}
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
         run: |
           node --input-type=module <<'JS'
@@ -46,6 +50,10 @@ jobs:
           }), { mode: 0o600 });
           JS
           node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
+      - name: Verify live squad and report transfer alternatives
+        run: |
+          jq -e '.weeks | length > 0' reports/my-team/plan.json >/dev/null
+          jq '{horizon, currentRank, currentPoints, stateBasis, openingState, openingTransferDecision, openingTransferRisk, gainVsHold, totalXPts, weeks: [.weeks[] | {gw, currentSquad: [.currentSquad[] | {id,name,club,position}], transfers: [.transfers[] | {out: .out.name, in: .incoming.name, inClub: .incoming.club, remainingHorizonPlayerGain}], xPts, hitCost, bankAfter, ftAfter, deltaVsHoldThisWeek}], openingAlternatives}' reports/my-team/plan.json
       - name: Publish plan in the run summary
         run: |
           cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
@@ -69,8 +77,11 @@ jobs:
           VORTEX_DRIVE_OAUTH: ${{ secrets.VORTEX_DRIVE_OAUTH }}
           VORTEX_DRIVE_FOLDER_ID: ${{ vars.VORTEX_MY_TEAM_FOLDER_ID || '1-VAcLdUHQgt__sU3yf-RHTBvIsk76dhF' }}
         run: node scripts/save-player-considerations-drive.mjs reports/my-team/current
+      - name: Require verified Drive save during branch validation
+        if: github.event_name == 'pull_request'
+        run: test '${{ steps.drive.outputs.saved }}' = true
       - name: Save separate files in the private GitHub release when Drive is unconfigured
-        if: steps.drive.outputs.saved != 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.drive.outputs.saved != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
