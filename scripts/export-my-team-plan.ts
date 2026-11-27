@@ -1,3 +1,4 @@
+import { applyCompletedFreeTransfers, type CompletedMoves } from './personal-completed-transfers';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -71,7 +72,7 @@ function validateChipHistory(history: unknown, next: number) {
   if (errors.length) throw new Error('Invalid chip history. ' + errors.join(' '));
 }
 
-export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = new Date(), confirmedState?: { squad: number[]; bankTenths: number; freeTransfers: number; sellingPrices: Record<number, number>; chipsUsed?: EntryData['chipsUsed'] }, evidence?: unknown) {
+export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = new Date(), confirmedState?: { squad: number[]; bankTenths: number; freeTransfers: number; sellingPrices: Record<number, number>; chipsUsed?: EntryData['chipsUsed'] }, evidence?: unknown, completed?: CompletedMoves) {
   const now = asOf.getTime();
   assertPlanningSnapshot(snapshot, asOf);
   if (entry.provenance?.kind !== 'official' || !entry.provenance.requestedIdVerified || !['live','cache'].includes(entry.source)) throw new Error('Verified official entry required; no archived or demo team.');
@@ -84,6 +85,9 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   if (!Number.isFinite(rawEntryTime) || rawEntryTime > now || now - rawEntryTime > 30 * 60_000) {
     throw new Error('Verified entry is stale or has an invalid generation time.');
   }
+  if (confirmedState && completed) throw new Error('Supply a confirmed squad or completed transfers, to avoid applying moves twice.');
+  const completedState = completed ? applyCompletedFreeTransfers(snapshot,entry,completed) : undefined;
+  confirmedState ??= completedState;
   if (!confirmedState && mapOfficialChipToPlanningChip(entry.activeChip) === 'fh') {
     throw new Error('Last public picks are a temporary Free Hit squad. Supply the restored manager-confirmed state.');
   }
@@ -247,7 +251,10 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   const total=round(rows.reduce((sum,w)=>sum+w.xPts,0));
   return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
-    stateBasis:confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
+    completedTransfers: completed?.moves.map(move => ({
+      ...move, gw: completed.gameweek, out: describe(move.outId,next), incoming: describe(move.inId,next),
+    })) ?? [],
+    stateBasis:completedState?'manager-confirmed completed transfers applied to the verified public squad':confirmedState?'manager-confirmed state':'last public deadline state; unpublished transfers/chips and some inferred selling prices may not be reflected',
     goalkeeperPolicy, fixtureOpportunities, horizonSummary, cohort, averageComparison, teamNews:context.teamNews,
     openingTransferDecision:result.strategy.openingTransferDecision,
     openingTransferRisk:result.monteCarlo.paths.find(path=>path.id==='opening_move')?.vsReference,
@@ -339,7 +346,12 @@ export function renderText(r: Report): string {
   const num = (value: number | null | undefined, digits=2) => value == null ? 'unavailable' : value.toFixed(digits);
   const percent = (value: number | null | undefined) => value == null ? 'unavailable' : (100*value).toFixed(1)+'%';
   const fixture = (p: PlayerRow) => p.fixtures.map(f => f.opponent+' '+(f.home?'H':'A')+' (FDR '+f.fdr+(f.managerRisk ? ', hard opponent' : '')+')').join(' / ') || 'Blank';
-  const lines = ['# FPL VORTEX '+r.horizon.length+'-gameweek plan', '', r.teamName+' · entry '+r.entryId+' · '+r.season+' · GW'+r.horizon.join(', GW'),
+  const alreadyMade = (r.completedTransfers ?? []).flatMap((move, i) => [
+    ...(i === 0 ? ['','**Transfers already made**',''] : []),
+    '- GW'+move.gw+' · '+move.out.name+' → '+move.incoming.name+' · sold £'+(move.sellTenths/10).toFixed(1)+'m · bought £'+(move.buyTenths/10).toFixed(1)+'m',
+  ]);
+  if (alreadyMade.length) alreadyMade.push('', 'Opening bank £'+(r.openingState.bankTenths/10).toFixed(1)+'m · '+r.openingState.freeTransfers+' free transfer(s) left.');
+  const lines = ['# FPL VORTEX '+r.horizon.length+'-gameweek plan', ...alreadyMade, '', r.teamName+' · entry '+r.entryId+' · '+r.season+' · GW'+r.horizon.join(', GW'),
     '', 'Generated '+r.computedAt+' UTC. Snapshot '+r.snapshotAt+'.', '', 'Squad basis — '+r.stateBasis+'.',
     '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points. Expected points include legal automatic substitutions and vice-captain fallback.', '',
     '## 1. Performance audit', '', 'Latest published total '+r.currentPoints+' points, overall rank '+r.currentRank+'.'];
@@ -483,7 +495,9 @@ async function main() {
     catch { /* Source exports may not contain Git metadata. */ }
   }
   const verified=state ? null : await verifyPublicEntry(snapshot,entry);
-  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence);
+  const completed: CompletedMoves | undefined = process.env.VORTEX_COMPLETED_TRANSFERS?.trim()
+    ? JSON.parse(process.env.VORTEX_COMPLETED_TRANSFERS) : undefined;
+  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence,completed);
   const report: Report = {
     ...planned,
     publicStateEvidence:verified?.publicStateEvidence,
@@ -529,7 +543,7 @@ async function main() {
     'captaincy-alternatives':report.weeks.map(w=>({gw:w.gw,...w.captaincy})),
     'chip-strategy':{inventory:report.openingState.chipsUsed,options:report.chipOptions,timing:report.chipTiming,schedule:report.chipSchedule},
     'mini-league-analysis':report.miniLeagues,
-    'accountability-log':{openingState:report.openingState,hold:report.weeks.map(w=>({gw:w.gw,lineup:w.fixedHoldLineup,xPts:w.fixedHoldXPts})),
+    'accountability-log':{openingState:report.openingState,completedTransfers:report.completedTransfers,hold:report.weeks.map(w=>({gw:w.gw,lineup:w.fixedHoldLineup,xPts:w.fixedHoldXPts})),
       recommendation:report.weeks.map(w=>({gw:w.gw,captain:w.captain.id,vice:w.vice.id,netXPts:w.xPts})),settlement:'pending'},
   };
   for (const [name,data] of Object.entries(detailFiles)) await writeFile(join(output,name+'.json'),JSON.stringify({...meta,data},null,2)+'\n');

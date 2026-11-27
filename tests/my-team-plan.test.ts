@@ -205,3 +205,18 @@ test('validated context extends the horizon, reports observed EO, and applies te
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,cohort:{...raw.cohort,gameweek:13}}),/latest completed/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{...raw,teamNews:[{...raw.teamNews[0],throughGw:14}]}),/applicable gameweek/);
 });
+
+test('completed transfer changes the opening squad and allowance exactly once and is shown in the report', () => {
+  const {snapshot,entry,now}=scenario();
+  snapshot.players.push({...snapshot.players[2],id:16,name:'New defender',cost:51});
+  const completed={gameweek:15,moves:[{outId:3,inId:16,sellTenths:50,buyTenths:51}]};
+  const report=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1},completed);
+  assert.ok(report.openingState.squad.includes(16));
+  assert.ok(!report.openingState.squad.includes(3));
+  assert.equal(report.openingState.bankTenths,4);
+  assert.equal(report.openingState.freeTransfers,1);
+  assert.equal(report.completedTransfers[0].incoming.name,'New defender');
+  assert.ok(report.weeks[0].transfers.every(t=>t.out.id!==3));
+  assert.match(renderText(report),/Transfers already made[\s\S]*→ New defender/);
+  assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1},{...completed,gameweek:14}),/next official gameweek/);
+});
