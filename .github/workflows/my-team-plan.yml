@@ -1,13 +1,10 @@
 name: My Team Planner
 on:
-  # Temporary, same-repository validation trigger. Remove before merging.
-  pull_request:
-    types: [synchronize]
   workflow_dispatch:
     inputs:
       horizon:
         description: Upcoming gameweeks from the next deadline
-        default: '5'
+        default: '8'
         type: choice
         options: ['1', '2', '3', '4', '5', '6', '7', '8']
       target_rank:
@@ -29,7 +26,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   plan:
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/my-team-planner-quality')
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -48,7 +44,7 @@ jobs:
       - name: Generate plan from the next official deadline
         env:
           VORTEX_COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
-          VORTEX_ASSUMED_OWNED_PLAYER_ID: ${{ github.event_name == 'pull_request' && '334' || inputs.assumed_owned_player_id }}
+          VORTEX_ASSUMED_OWNED_PLAYER_ID: ${{ inputs.assumed_owned_player_id }}
           VORTEX_TARGET_RANK: ${{ inputs.target_rank || '10000' }}
           PLAN_HORIZON: ${{ inputs.horizon || '8' }}
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
@@ -94,11 +90,8 @@ jobs:
           VORTEX_DRIVE_OAUTH: ${{ secrets.VORTEX_DRIVE_OAUTH }}
           VORTEX_DRIVE_FOLDER_ID: ${{ vars.VORTEX_MY_TEAM_FOLDER_ID || '1-VAcLdUHQgt__sU3yf-RHTBvIsk76dhF' }}
         run: node scripts/save-player-considerations-drive.mjs reports/my-team/current
-      - name: Require verified Drive save during branch validation
-        if: github.event_name == 'pull_request'
-        run: test '${{ steps.drive.outputs.saved }}' = true
       - name: Save separate files in the private GitHub release when Drive is unconfigured
-        if: github.event_name == 'workflow_dispatch' && steps.drive.outputs.saved != 'true'
+        if: steps.drive.outputs.saved != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
