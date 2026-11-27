@@ -11,22 +11,9 @@ report_dir=${1:?Provide the planner report directory}
   exit 1
 }
 
-test -s "$report_dir/plan.md"
-test -s "$report_dir/caption.txt"
-test -s "$report_dir/plan.json"
-test -s "$report_dir/graphics/FPL_VORTEX_transfer_roadmap.png"
-test -s "$report_dir/graphics/image-provenance.json"
-
-tmp=$(mktemp -d)
-trap 'rm -rf -- "$tmp"' EXIT
-name="my-team-plan-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.zip"
-bundle="$tmp/$name"
-(
-  cd "$report_dir"
-  zip -q "$bundle" plan.md plan.json caption.txt graphics/*.png graphics/image-provenance.json
-)
-unzip -tq "$bundle" >/dev/null
-if [[ -n "${2:-}" ]]; then cp -- "$bundle" "$2"; fi
+files=(01-FPL-VORTEX-Lineup.png 02-FPL-VORTEX-Transfer-Roadmap.png
+       03-FPL-VORTEX-Players-to-Consider.png 04-FPL-VORTEX-Caption-and-Hashtags.txt)
+for file in "${files[@]}"; do test -s "$report_dir/$file"; done
 
 tag=my-team-plan-current
 releases="repos/$GH_REPO/releases"
@@ -36,7 +23,7 @@ case "$count" in
   0)
     release=$(gh api "$releases" --method POST -f tag_name="$tag" -F draft=true \
       -f name='My Team Planner · current files' \
-      -f body='Download the current planner ZIP from Assets. The workflow replaces it after validating the new upload.')
+      -f body='Download the three current PNGs and the caption separately from Assets.')
     ;;
   1) release=$(jq -c '.[0]' <<<"$matches") ;;
   *) echo 'Multiple planner releases found. No files were changed.' >&2; exit 1 ;;
@@ -44,21 +31,36 @@ esac
 release_id=$(jq -er 'select(.draft == true) | .id | numbers' <<<"$release")
 release_url=$(jq -er '.html_url | strings' <<<"$release")
 
-# Upload under a new name first so a failed transfer leaves the last ZIP available.
-asset=$(curl --fail-with-body --silent --show-error --max-time 180 \
-  --request POST --header "Authorization: Bearer $GH_TOKEN" \
-  --header 'Content-Type: application/zip' --data-binary "@$bundle" \
-  "https://uploads.github.com/repos/$GH_REPO/releases/$release_id/assets?name=$name")
-size=$(wc -c < "$bundle")
-asset_id=$(jq -er --arg name "$name" --argjson size "$size" \
-  'select(.name == $name and .size == $size and .state == "uploaded") | .id | numbers' <<<"$asset")
-
-# Report the saved download before pruning, so it remains findable if cleanup fails.
-echo "[Download the current plan ZIP from Assets]($release_url)" >> "${GITHUB_STEP_SUMMARY:?GitHub summary path is required}"
+# Validate all four uploads before replacing the previous set.
+prefix="my-team-plan-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+uploaded=()
+finished=false
+cleanup() {
+  if [[ "$finished" == false ]]; then
+    for id in "${uploaded[@]}"; do gh api --method DELETE "$releases/assets/$id" || true; done
+  fi
+}
+trap cleanup EXIT
+for file in "${files[@]}"; do
+  name="$prefix-$file"
+  mime=image/png
+  if [[ "$file" == *.txt ]]; then mime=text/plain; fi
+  asset=$(curl --fail-with-body --silent --show-error --max-time 180 \
+    --request POST --header "Authorization: Bearer $GH_TOKEN" \
+    --header "Content-Type: $mime" --data-binary "@$report_dir/$file" \
+    "https://uploads.github.com/repos/$GH_REPO/releases/$release_id/assets?name=$name")
+  size=$(wc -c < "$report_dir/$file")
+  id=$(jq -er '.id | numbers' <<<"$asset")
+  uploaded+=("$id")
+  jq -e --arg name "$name" --argjson size "$size" \
+    '.name == $name and .size == $size and .state == "uploaded"' <<<"$asset" >/dev/null
+done
+finished=true
+echo "[Open the four separate planner files under Assets]($release_url)" >> "${GITHUB_STEP_SUMMARY:?GitHub summary path is required}"
 older=$(gh api "$releases/$release_id/assets?per_page=100" --paginate \
-  --jq '.[] | select(.name | test("^my-team-plan-[0-9]+-[0-9]+[.]zip$")) | .id')
+  --jq '.[] | select(.name | test("^my-team-plan-[0-9]+-[0-9]+-[0-9][0-9]-FPL-VORTEX-[A-Za-z-]+[.](png|txt)$")) | .id')
 while IFS= read -r id; do
-  [[ -z "$id" || "$id" == "$asset_id" ]] && continue
+  [[ -z "$id" || " ${uploaded[*]} " == *" $id "* ]] && continue
   [[ "$id" =~ ^[0-9]+$ ]]
   gh api --method DELETE "$releases/assets/$id"
 done <<<"$older"
