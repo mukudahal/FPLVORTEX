@@ -85,8 +85,8 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   if (!Number.isFinite(rawEntryTime) || rawEntryTime > now || now - rawEntryTime > 30 * 60_000) {
     throw new Error('Verified entry is stale or has an invalid generation time.');
   }
-  if (confirmedState && completed) throw new Error('Supply a confirmed squad or completed transfers, to avoid applying moves twice.');
-  const completedState = completed ? applyCompletedFreeTransfers(snapshot,entry,completed) : undefined;
+  if (confirmedState && completed !== undefined) throw new Error('Supply a confirmed squad or completed transfers, to avoid applying moves twice.');
+  const completedState = completed !== undefined ? applyCompletedFreeTransfers(snapshot,entry,completed) : undefined;
   confirmedState ??= completedState;
   if (!confirmedState && mapOfficialChipToPlanningChip(entry.activeChip) === 'fh') {
     throw new Error('Last public picks are a temporary Free Hit squad. Supply the restored manager-confirmed state.');

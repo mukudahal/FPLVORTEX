@@ -62,14 +62,14 @@ h1{margin:0;font-size:43px;text-align:center}header .tag{width:248px;text-align:
 .lines:after{content:"";position:absolute;top:50%;left:50%;width:160px;height:160px;transform:translate(-50%,-50%);border:2px solid #d4f9d99c;border-radius:50%}
 .row{position:relative;height:146px;display:flex;justify-content:center;gap:16px;align-items:center}
 .player{width:210px;height:142px;background:#f9fbfa;border:1px solid #d8e4df;border-radius:12px;text-align:center;position:relative;padding:4px 7px}
-.photos{height:69px;display:flex;align-items:center;justify-content:center;gap:8px}
-.portrait{width:98px;height:69px;object-fit:contain}.crest{width:38px;height:38px;object-fit:contain}
+.photos{height:63px;display:flex;align-items:center;justify-content:center;gap:8px}
+.portrait{width:98px;height:63px;object-fit:contain}.crest{width:38px;height:38px;object-fit:contain}
 .missing{color:#5b6872;font-size:14px;max-width:84px}.name{font-size:23px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mini{color:#516269;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.metric{color:#007745;font-size:22px;font-weight:800}
 .arm,.risk{position:absolute;top:5px;padding:3px 6px;border-radius:6px;font-size:15px;font-weight:800}
 .arm{left:5px;background:#e2f8e8;color:#005d32}.risk{right:5px;background:#ffefcb;color:#6c4100}
 .bench{display:flex;justify-content:center;gap:16px;padding:9px;background:#306437;border-radius:13px}
-.bench .player{width:232px;height:108px}.bench .photos,.bench .portrait{height:43px}.bench .crest{height:29px}
+.bench .player{width:232px;height:121px}.bench .photos,.bench .portrait{height:43px}.bench .crest{height:29px}
 .benchtitle{text-align:center;color:#364c46;font-size:19px;font-weight:bold;margin:6px 0}
 .panel,.roadweek{background:#fff;border:1px solid #d5dfe4;border-radius:14px;padding:13px 18px;margin-bottom:10px}
 .panel h2,.roadweek h2{font-size:24px;margin:0 0 6px;color:#344750}.panel p{margin:5px 0;font-size:22px;line-height:1.15}
@@ -116,7 +116,7 @@ export function renderBoard(plan: Plan,w: Week,art: Map<number,Art>,logo: string
     const photo=a?.photo?'<img class="portrait" src="'+esc(a.photo.uri)+'" alt="Official portrait">':'<span class="missing">Portrait unavailable</span>';
     const badge=a?.badge?'<img class="crest" src="'+esc(a.badge.uri)+'" alt="Club badge">':'<span class="missing">Badge unavailable</span>';
     return '<article class="player" data-player="'+p.id+'">'+(arm?'<b class="arm">'+arm+'</b>':'')+(flagged?'<b class="risk">FLAG '+esc(p.chance??p.status)+'</b>':'')+
-      '<div class="photos">'+photo+badge+'</div><div class="name" title="'+esc(p.name)+'">'+esc(p.name)+'</div><div class="mini">'+fixture(p)+'</div><div class="metric">'+num(p.xPts)+' xPts</div><div class="mini">'+price(p.priceTenths)+' · '+num(p.localExpectedMinutes,0)+' local xMin'+(mode==='analysis'?' · '+num(p.ownership,1)+'% owned':'')+'</div></article>';
+      '<div class="photos">'+photo+badge+'</div><div class="name" title="'+esc(p.name)+'">'+esc(p.name)+'</div><div class="mini">'+fixture(p)+'</div><div class="metric">'+num(p.xPts)+' xPts</div>'+(mode==='analysis'?'<div class="mini">'+price(p.priceTenths)+' · '+num(p.localExpectedMinutes,0)+' local xMin · '+num(p.ownership,1)+'% owned</div>':'')+'</article>';
   };
   const summary='<div class="panel"><h2>DECISION SUMMARY</h2><p class="big"><strong>'+num(w.xPts)+'</strong> net xPts</p><p>vs weekly hold: <strong>'+num(w.deltaVsHoldThisWeek)+'</strong></p><p>Formation: '+esc(w.formation)+' · Chip: '+esc(w.chipLabel)+'</p><p>Bank '+price(w.bankAfter)+' · FT '+w.ftBefore+' → '+w.ftAfter+' · Hits '+w.hitCost+'</p></div>';
   const done=completedFor(plan,w.gw);
@@ -155,7 +155,7 @@ export async function exportBoards(plan:Plan,dir:string) {
       if(await page.locator('[data-player]').count()!==15)throw Error('Incomplete board '+name);
       const fits=await page.evaluate(()=>{
         const disclosure=document.querySelector('.disclosure')!.getBoundingClientRect();
-        return [...document.querySelectorAll('.player,aside .panel')].every(el=>el.getBoundingClientRect().bottom<=disclosure.top);
+        return [...document.querySelectorAll('.player,aside .panel')].every(el=>el.getBoundingClientRect().bottom<=disclosure.top && el.scrollHeight<=el.clientHeight+1);
       });
       if(!fits)throw Error('Board overflow '+name);
       await page.screenshot({path:join(dir,name+'.png')});

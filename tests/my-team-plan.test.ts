@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { renderBoard, renderRoadmap } from '../scripts/render-my-team-boards';
 import { buildFiveWeekPlan, renderText } from '../scripts/export-my-team-plan';
 import { makeFixture, makeGameweek, makePlayer, makeTeam } from './helpers';
 import type { EntryData, Snapshot, Position } from '../src/lib/types';
@@ -218,5 +219,8 @@ test('completed transfer changes the opening squad and allowance exactly once an
   assert.equal(report.completedTransfers[0].incoming.name,'New defender');
   assert.ok(report.weeks[0].transfers.every(t=>t.out.id!==3));
   assert.match(renderText(report),/Transfers already made[\s\S]*→ New defender/);
+  const photos = new Map([[16,{photo:{uri:'data:image/png;base64,preview',source:'official'}}]]);
+  assert.match(renderBoard(report,report.weeks[0],photos,'','pitch',now.toISOString()), /ALREADY COMPLETED[\s\S]*New defender/);
+  assert.match(renderRoadmap(report,photos,'',now.toISOString()), /Already completed[\s\S]*<img src="data:image\/png;base64,preview" alt="">New defender/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1},{...completed,gameweek:14}),/next official gameweek/);
 });
