@@ -269,10 +269,14 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     }
     return value;
   };
+  const transferOffsets = (gw: number) => input.fullHorizonTransferShortlist
+    ? allGws.filter(g => g >= gw && g <= gws.at(-1)!).map(g => g - gw).concat(gw > gws.at(-1)! ? [0, 1, 2] : [])
+    : [0, 1, 2];
   const squadValue = (sq: number[], gw: number, benchWeight = 0): number => {
     let total = 0;
     // Shared objective for transfers and rebuilds; no arbitrary current-week projection reuse.
-    for (let offset = 0; offset < 3 && forecastByGw[gw + offset]; offset++) {
+    for (const offset of transferOffsets(gw)) {
+      if (!forecastByGw[gw + offset]) continue;
       const l = lineup(sq, gw + offset);
       total += Math.pow(decay, offset) * (l.totalXPts + benchWeight * l.benchXPts);
     }
@@ -284,9 +288,6 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
   const totalSellBudgetTenths = input.bankTenths + Object.values(initialSell).reduce((a, b) => a + b, 0);
   const initial: SearchState = { squad: [...input.currentSquadIds], bank: input.bankTenths, sell: initialSell, ft: input.freeTransfersNow, uses: [], weeks: [], score: 0, total: 0 };
 
-  const transferOffsets = (gw: number) => input.fullHorizonTransferShortlist
-    ? allGws.filter(g => g >= gw && g <= gws.at(-1)!).map(g => g - gw).concat(gw > gws.at(-1)! ? [0, 1, 2] : [])
-    : [0, 1, 2];
   const pools = new Map<number, number[]>();
   for (const gw of allGws) {
     const pool = new Set(input.currentSquadIds);
