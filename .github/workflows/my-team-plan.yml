@@ -14,6 +14,10 @@ on:
         description: Overall rank target at the end of the selected horizon
         default: '10000'
         type: string
+      assumed_owned_player_id:
+        description: 'Optional official player ID for conditional one-transfer scenarios when actual outgoing player is unknown'
+        required: false
+        type: string
       completed_transfers:
         description: 'Completed free transfers as JSON with gameweek and moves (outId, inId, sellTenths, buyTenths)'
         required: false
@@ -44,6 +48,7 @@ jobs:
       - name: Generate plan from the next official deadline
         env:
           VORTEX_COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
+          VORTEX_ASSUMED_OWNED_PLAYER_ID: ${{ github.event_name == 'pull_request' && '334' || inputs.assumed_owned_player_id }}
           VORTEX_TARGET_RANK: ${{ inputs.target_rank || '10000' }}
           PLAN_HORIZON: ${{ inputs.horizon || '8' }}
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
@@ -58,7 +63,7 @@ jobs:
       - name: Verify live squad and report transfer alternatives
         run: |
           jq -e '.weeks | length > 0' reports/my-team/plan.json >/dev/null
-          jq '{horizon, rankGoal, currentRank, currentPoints, stateBasis, openingState, openingTransferDecision, openingTransferRisk, gainVsHold, totalXPts, weeks: [.weeks[] | {gw, currentSquad: [.currentSquad[] | {id,name,club,position}], transfers: [.transfers[] | {out: .out.name, in: .incoming.name, inClub: .incoming.club, remainingHorizonPlayerGain}], xPts, hitCost, bankAfter, ftAfter, deltaVsHoldThisWeek}], openingAlternatives}' reports/my-team/plan.json
+          jq '{horizon, rankGoal, ownershipScenarios, referenceChecks, currentRank, currentPoints, stateBasis, openingState, openingTransferDecision, openingTransferRisk, gainVsHold, totalXPts, weeks: [.weeks[] | {gw, currentSquad: [.currentSquad[] | {id,name,club,position}], transfers: [.transfers[] | {out: .out.name, in: .incoming.name, inClub: .incoming.club, remainingHorizonPlayerGain}], xPts, hitCost, bankAfter, ftAfter, deltaVsHoldThisWeek}], openingAlternatives}' reports/my-team/plan.json
       - name: Publish plan in the run summary
         run: |
           cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
