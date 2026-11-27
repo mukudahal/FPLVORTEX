@@ -1,3 +1,4 @@
+import { considerationsSize, renderPlayerConsiderations } from './render-player-considerations';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -135,7 +136,7 @@ export async function showBoard(page: Page, html: string, name: string) {
   });
   const overflow = await page.evaluate(() => {
     const footer = document.querySelector('.disclosure')!.getBoundingClientRect();
-    return [...document.querySelectorAll('.player, aside .panel, .roadweek')]
+    return [...document.querySelectorAll('.player, aside .panel, .roadweek, .consideration-card')]
       .filter(el => el.getBoundingClientRect().bottom > footer.top || el.scrollHeight > el.clientHeight + 1)
       .map(el => el.getAttribute('data-player') ?? el.querySelector('h2')?.textContent ?? el.className);
   });
@@ -146,9 +147,11 @@ export async function exportBoards(plan:Plan,dir:string) {
   plan.weeks.forEach(assertWeek);
   if(Date.now()>=Date.parse(plan.weeks[0].deadline??''))throw Error('Plan opening deadline expired');
   const logo='data:image/jpeg;base64,'+(await readFile('public/player-images/brand/fpl-vortex-lion.jpg')).toString('base64');
+  const candidates=plan.playerConsiderations?.players.length===6?plan.playerConsiderations:undefined;
   const players=new Map([
     ...plan.weeks.flatMap(w=>[...w.finalSquad,...w.transfers.flatMap(t=>[t.out,t.incoming])]),
     ...(plan.completedTransfers??[]).flatMap(t=>[t.out,t.incoming]),
+    ...(candidates?.players??[]),
   ].map(p=>[p.id,p] as const));
   const badges=new Map<number,Asset|undefined>(),art=new Map<number,Art>();
   const codes=[...new Set([...players.values()].map(p=>p.teamCode).filter((x):x is number=>x!==null))];
@@ -173,6 +176,19 @@ export async function exportBoards(plan:Plan,dir:string) {
     await showBoard(page,roadmap,'transfer roadmap');
     await page.screenshot({path:join(dir,'FPL_VORTEX_transfer_roadmap.png')});
     await writeFile(join(dir,'FPL_VORTEX_transfer_roadmap.html'),roadmap);
+    if (candidates) {
+      const brand = async (part: 'logo'|'footer') => 'data:image/jpeg;base64,'+
+        (await readFile('public/player-images/brand/fpl-vortex-social-'+part+'.jpg')).toString('base64');
+      const [brandLogo, brandFooter] = await Promise.all([brand('logo'),brand('footer')]);
+      const name='FPL_VORTEX_players_to_consider';
+      const html=renderPlayerConsiderations(candidates,art,brandLogo,brandFooter);
+      await page.setViewportSize(considerationsSize);
+      await showBoard(page,html,name);
+      if(await page.locator('.consideration-card .photo').count()!==6)throw Error('Six official portraits are required for '+name);
+      await page.screenshot({path:join(dir,name+'.png')});
+      await writeFile(join(dir,name+'.html'),html);
+    }
+
   } finally {await browser.close();}
   const manifest={generatedAt,snapshotAt:plan.snapshotAt,modelVersion:plan.provenance?.modelVersion??null,players:entries.map(p=>({id:p.id,code:p.code,teamCode:p.teamCode,photo:art.get(p.id)?.photo?.source??null,badge:art.get(p.id)?.badge?.source??null}))};
   await writeFile(join(dir,'image-provenance.json'),JSON.stringify(manifest,null,2)+'\n');
