@@ -1,3 +1,4 @@
+import { renderMyTeamSocialCaption } from '../scripts/my-team-social-caption';
 import { considerationsSize, renderPlayerConsiderations } from '../scripts/render-player-considerations';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -271,4 +272,19 @@ test('planner graphics fit the pitch, analysis cards and roadmap in Chromium',
   } finally {
     await browser.close();
   }
+});
+
+
+test('social caption uses the lineup, roadmap, consideration board and no more than five plain-text lines', () => {
+  const {snapshot,entry,now}=scenario();
+  snapshot.players.forEach(p=>{p.transfersInEvent=p.id;});
+  const plan=buildFiveWeekPlan(snapshot,entry,now);
+  const caption=renderMyTeamSocialCaption(plan);
+  const lines=caption.trim().split('\n');
+  assert.equal(lines.length,5);
+  assert.ok(lines[0].includes(plan.weeks[0].captain.name+' (C)'));
+  assert.match(lines[2],/roadmap/);
+  assert.ok(lines[3].includes(plan.playerConsiderations.players[0].fullName));
+  assert.match(lines[4],/#GW15 /);
+  assert.doesNotMatch(caption,/\*\*|^\s*-/m);
 });

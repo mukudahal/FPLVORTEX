@@ -12,6 +12,7 @@ report_dir=${1:?Provide the planner report directory}
 }
 
 test -s "$report_dir/plan.md"
+test -s "$report_dir/caption.txt"
 test -s "$report_dir/plan.json"
 test -s "$report_dir/graphics/FPL_VORTEX_transfer_roadmap.png"
 test -s "$report_dir/graphics/image-provenance.json"
@@ -22,9 +23,10 @@ name="my-team-plan-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.zip"
 bundle="$tmp/$name"
 (
   cd "$report_dir"
-  zip -q "$bundle" plan.md plan.json graphics/*.png graphics/image-provenance.json
+  zip -q "$bundle" plan.md plan.json caption.txt graphics/*.png graphics/image-provenance.json
 )
 unzip -tq "$bundle" >/dev/null
+if [[ -n "${2:-}" ]]; then cp -- "$bundle" "$2"; fi
 
 tag=my-team-plan-current
 releases="repos/$GH_REPO/releases"
