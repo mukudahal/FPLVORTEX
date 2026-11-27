@@ -13,11 +13,10 @@ node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
 ```
 
 In Actions, open **My Team Planner** and choose the number of upcoming
-gameweeks (one to eight, five by default). The workflow uses entry 145784.
+gameweeks (one to eight, eight by default) and the overall rank target (10,000 by default). The workflow uses entry 145784.
 It detects the first unpassed deadline from verified official FPL data and
 ends at GW38 if fewer weeks remain. Press **Run workflow** on `main` and
-read the completed run's **Summary**. The workflow saves the Markdown summary
-without GitHub Actions artifact storage.
+read the completed run's **Summary**. The workflow saves the Markdown summary and three-file `my-team-delivery` artifact. If Drive OAuth is configured, it also uploads the three files directly; otherwise, the artifact remains available for delivery through your connected Google Drive or the private release fallback. ChatGPT's Drive connection is not a GitHub Actions credential.
 
 For dated cohort information, team-news overrides or a different entry, use
 the CLI and context file described below. Render PNGs separately using the CLI.
@@ -28,7 +27,11 @@ entry, rejecting stale snapshots, passed/inconsistent deadlines and non-official
 entries. For a local trusted server set VORTEX_UPSTREAM_BASE to its URL.
 The default is https://fplvortex.onrender.com. It does not request FPL credentials.
 
-Public entry data cannot reliably expose unpublished transfers. Verify the
+The official overall league standings provide the observed settled-gameweek rank cutline for the selected target. This is a current observation, not a prediction of the moving future cutline. The planner does not claim a calibrated probability of reaching the target.
+
+The latest settled-GW FPL Core and dated spreadsheet records are cross-checked against official player identity and points. These correlated reference sources do not independently validate the forecast. Direct licensed Opta access is unverified.
+
+Public entry data cannot reliably expose unpublished transfers. For a reported incoming player whose outgoing player and actual prices are unknown, select the optional official player ID input to evaluate affordable single-free-transfer scenarios; output is explicitly conditional, not a confirmed squad. Otherwise supply the completed-transfers input or confirmed current state. Verify the
 current squad, bank, effective selling prices, free transfers and chips in the
 official game before acting. If there are discrepancies, optionally provide
 a third CLI argument with your own confirmed JSON state (keep it private):
@@ -62,7 +65,7 @@ costs are not included, so the report compares only prospective decisions.
   press conference confirmation. The current published schedule and model
   estimates are conditional; rerun when injuries or fixtures change.
 - The personal report tests shortlisted batches of up to three normal transfers.
-  Its bounded beam may recommend a hit when the discounted objective prefers it. This is not an optimality certificate or guarantee.
+  Its bounded beam ranks personal-planner candidates by undiscounted cumulative net expected points across the selected horizon and may recommend a hit when the objective prefers it. This is not an optimality certificate or guarantee.
   Compare the no-transfer baseline, inspect the hit, and reject uncertain moves.
 - Recompute every deadline rather than committing five weeks' transfers in
   advance. First fix availability, then optimize starting XI, maintain banked
