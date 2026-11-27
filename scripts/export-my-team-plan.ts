@@ -445,7 +445,7 @@ export function renderText(r: Report): string {
   if (r.rankGoal) {
     const goal=r.rankGoal, observed=goal.observation;
     lines.push('Rank objective: top '+goal.targetRank.toLocaleString('en-GB')+' by GW'+goal.targetGw+'.',
-      observed?'Official current cutline through GW'+observed.gameweek+': '+observed.cutoffPoints+' points; gap '+Math.max(0,observed.cutoffPoints-r.currentPoints)+' points. Source: '+observed.source:'Official current cutline unavailable.',
+      observed?'Official current cutline through GW'+observed.gameweek+': '+observed.cutoffPoints+' points; gap '+(r.currentPoints===null?'unavailable':Math.max(0,observed.cutoffPoints-r.currentPoints))+' points. Source: '+observed.source:'Official current cutline unavailable.',
       'Objective proxy: maximize undiscounted expected net points over the selected horizon. A future rank probability requires a validated moving field-score distribution; no probability of reaching the target is asserted.', '');
   }
   if (r.cohort) {
@@ -593,7 +593,7 @@ async function main() {
   }
   await mkdir(output,{recursive:true});
   await writeFile(join(output,'plan.json'),JSON.stringify(report,null,2)+'\n');
-  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report));
+  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report)+(report.ownershipScenarios?'\nConditional preview: '+report.ownershipScenarios.playerName+' ownership reported, but the outgoing transfer and actual prices are not reconciled. Do not treat the public-squad baseline as a final personal recommendation.\n':''));
   const markdown=renderText(report);
   await writeFile(join(output,'plan.md'),markdown);
   const meta = {entryId:report.entryId,season:report.season,currentGameweek:report.currentGameweek,horizon:report.horizon,
