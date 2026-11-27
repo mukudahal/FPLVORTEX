@@ -58,3 +58,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: bash scripts/save-my-team-output.sh reports/my-team
+      - name: Replace the current six-player PNG in Google Drive
+        env:
+          VORTEX_DRIVE_OAUTH: ${{ secrets.VORTEX_DRIVE_OAUTH }}
+          VORTEX_DRIVE_PNG_ID: ${{ vars.VORTEX_DRIVE_PNG_ID || '1IgBRh4oQKaLNRK_02cZ_xOeLYHBqNzUm' }}
+        run: node scripts/save-player-considerations-drive.mjs reports/my-team/graphics/FPL_VORTEX_players_to_consider.png

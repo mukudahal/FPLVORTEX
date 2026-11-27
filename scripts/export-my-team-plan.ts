@@ -1,4 +1,4 @@
-import { buildPlayerConsiderations } from './player-considerations';
+import { buildPlayerConsiderations, fetchVerifiedPlayerConsiderations } from './player-considerations';
 import { applyCompletedFreeTransfers, type CompletedMoves } from './personal-completed-transfers';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -495,12 +495,16 @@ async function main() {
     try { revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore','pipe','ignore'] }).trim(); }
     catch { /* Source exports may not contain Git metadata. */ }
   }
-  const verified=state ? null : await verifyPublicEntry(snapshot,entry);
+  const [verified, playerConsiderations] = await Promise.all([
+    state ? null : verifyPublicEntry(snapshot,entry),
+    fetchVerifiedPlayerConsiderations(snapshot.meta.nextEventId),
+  ]);
   const completed: CompletedMoves | undefined = process.env.VORTEX_COMPLETED_TRANSFERS?.trim()
     ? JSON.parse(process.env.VORTEX_COMPLETED_TRANSFERS) : undefined;
   const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence,completed);
   const report: Report = {
     ...planned,
+    playerConsiderations,
     publicStateEvidence:verified?.publicStateEvidence,
     provenance: {
       revision,
