@@ -27,23 +27,23 @@ h2.long-name{font-size:38px;letter-spacing:-.5px}
 .fact-label{text-align:left;color:#45305b;background:#eae2f3;white-space:nowrap}.fact-value{font-weight:800}
 .status{color:#941e3d}.status.available{color:#00613a;background:#dcf5e5}.status.doubtful{color:#7c4602;background:#fff0ce}
 table{width:calc(100% - 26px);margin:11px 13px 0;border-collapse:separate;border-spacing:3px 2px;table-layout:fixed;text-align:center}
-th,td{padding:4px 2px;font-size:27px;line-height:1.14}
+th,td{padding:4px 2px;font-size:23px;line-height:1.14}
 tr th:first-child{width:115px;text-align:left;padding-left:7px}
-thead th{background:#36214e;border-radius:6px;color:#fff;font-size:27px}
+thead th{background:#36214e;border-radius:6px;color:#fff;font-size:24px}
 .fixture td,.fixture th,.points td,.points th,.ratings th{background:#f0ebf6;border-radius:5px}
-.ratings td{font-size:29px}.ratings small{display:inline-block;padding:3px 7px;border-radius:5px;margin:0 1px;font-size:29px}
+.ratings td{font-size:29px}.ratings small{display:inline-block;padding:3px 7px;border-radius:5px;margin:0 1px;font-size:24px}
 .fdr-1,.fdr-2{background:#d6f0da;color:#0b5e36}.fdr-3{background:#fff1c5;color:#694900}.fdr-4,.fdr-5{background:#f9dce3;color:#90243e}
-.points td{color:#25104b;font-size:34px;font-weight:900}
+.points td{color:#25104b;font-size:30px;font-weight:900}
 .total{display:flex;align-items:center;justify-content:space-between;margin:10px 13px 0;background:#e9dbfb;border-radius:9px;color:#341451;padding:8px 14px;font-size:32px}
 .total strong{font-size:31px}
-.disclosure{position:absolute;left:45px;right:45px;bottom:154px;color:#453558;font-size:23px}
+.disclosure{position:absolute;left:45px;right:45px;bottom:165px;color:#453558;font-size:23px}
 footer{position:absolute;bottom:0;left:0;width:100%;height:auto}footer img{width:100%;height:auto;display:block}
 `;
 
 export function renderPlayerConsiderations(data: PlayerConsiderations, assets: Map<number,Art>, logo: string, footer: string) {
   if(data.players.length!==6||data.weeks.length===0) throw Error('A six-player board requires six ranked players and an upcoming gameweek.');
   const first=data.gameweeks[0], last=data.gameweeks.at(-1);
-  const title='Players to consider · GW'+first+(last!==first?' – GW'+last:'');
+  const title='Players to consider · GW'+first+' – GW'+last;
   const cards=data.players.map(p=>{
     const art=assets.get(p.id);
     const shirt=/^#[0-9a-f]{6}$/i.test(p.shirt)?p.shirt:'#d8e4eb';
