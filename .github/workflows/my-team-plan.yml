@@ -10,6 +10,10 @@ on:
         default: '5'
         type: choice
         options: ['1', '2', '3', '4', '5', '6', '7', '8']
+      target_rank:
+        description: Overall rank target at the end of the selected horizon
+        default: '10000'
+        type: string
       completed_transfers:
         description: 'Completed free transfers as JSON with gameweek and moves (outId, inId, sellTenths, buyTenths)'
         required: false
@@ -40,6 +44,7 @@ jobs:
       - name: Generate plan from the next official deadline
         env:
           VORTEX_COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
+          VORTEX_TARGET_RANK: ${{ inputs.target_rank || '10000' }}
           PLAN_HORIZON: ${{ inputs.horizon || '8' }}
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
         run: |
@@ -53,7 +58,7 @@ jobs:
       - name: Verify live squad and report transfer alternatives
         run: |
           jq -e '.weeks | length > 0' reports/my-team/plan.json >/dev/null
-          jq '{horizon, currentRank, currentPoints, stateBasis, openingState, openingTransferDecision, openingTransferRisk, gainVsHold, totalXPts, weeks: [.weeks[] | {gw, currentSquad: [.currentSquad[] | {id,name,club,position}], transfers: [.transfers[] | {out: .out.name, in: .incoming.name, inClub: .incoming.club, remainingHorizonPlayerGain}], xPts, hitCost, bankAfter, ftAfter, deltaVsHoldThisWeek}], openingAlternatives}' reports/my-team/plan.json
+          jq '{horizon, rankGoal, currentRank, currentPoints, stateBasis, openingState, openingTransferDecision, openingTransferRisk, gainVsHold, totalXPts, weeks: [.weeks[] | {gw, currentSquad: [.currentSquad[] | {id,name,club,position}], transfers: [.transfers[] | {out: .out.name, in: .incoming.name, inClub: .incoming.club, remainingHorizonPlayerGain}], xPts, hitCost, bankAfter, ftAfter, deltaVsHoldThisWeek}], openingAlternatives}' reports/my-team/plan.json
       - name: Publish plan in the run summary
         run: |
           cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
