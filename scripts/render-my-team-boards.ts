@@ -126,7 +126,7 @@ export function renderBoard(plan: Plan,w: Week,art: Map<number,Art>,logo: string
   const pitch='<div class="layout"><section><div class="pitch"><div class="lines"></div>'+position.map(pos=>'<div class="row">'+w.starters.filter(p=>p.position===pos).map(p=>card(p)).join('')+'</div>').join('')+'</div><div class="benchtitle">BENCH ORDER · RESERVE GK FIRST</div><div class="bench">'+w.bench.map((p,i)=>card(p,true,i)).join('')+'</div></section><aside>'+summary+completed+transfer+'<div class="panel"><h2>CAPTAINCY</h2><p>C: <strong>'+esc(w.captain.name)+'</strong> · VC: '+esc(w.vice.name)+'</p><p class="note">Check flags, effective prices and unpublished moves before deadline. Future GWs are conditional.</p></div></aside></div>';
   const board='<div class="grid">'+[...w.starters,...w.bench].map((p,i)=>card(p,i>=11,i>=11?i-11:i)).join('')+'</div>';
   return boardPage(plan,logo,mode==='pitch'?'Recommended XI':'Squad analysis',
-    'GW'+w.gw+' · '+plan.season+' · Deadline '+time(w.deadline??''),mode==='pitch'?pitch:board,generatedAt);
+    (plan.ownershipScenarios?'PUBLIC SQUAD BASELINE · ':'')+'GW'+w.gw+' · '+plan.season+' · Deadline '+time(w.deadline??''),mode==='pitch'?pitch:board,generatedAt);
 }
 export async function showBoard(page: Page, html: string, name: string) {
   await page.setContent(html);
