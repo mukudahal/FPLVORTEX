@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderBoard, renderRoadmap } from '../scripts/render-my-team-boards';
+import { renderBoard, renderRoadmap, showBoard } from '../scripts/render-my-team-boards';
 import { buildFiveWeekPlan, renderText } from '../scripts/export-my-team-plan';
 import { makeFixture, makeGameweek, makePlayer, makeTeam } from './helpers';
 import type { EntryData, Snapshot, Position } from '../src/lib/types';
@@ -223,4 +223,27 @@ test('completed transfer changes the opening squad and allowance exactly once an
   assert.match(renderBoard(report,report.weeks[0],photos,'','pitch',now.toISOString()), /ALREADY COMPLETED[\s\S]*New defender/);
   assert.match(renderRoadmap(report,photos,'',now.toISOString()), /Already completed[\s\S]*<img src="data:image\/png;base64,preview" alt="">New defender/);
   assert.throws(()=>buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1},{...completed,gameweek:14}),/next official gameweek/);
+});
+
+
+test('planner graphics fit the pitch, analysis cards and roadmap in Chromium',
+  { skip: process.env.RUN_MY_TEAM_GRAPHICS_TEST !== '1' }, async () => {
+  const { chromium } = await import('@playwright/test');
+  const {snapshot,entry,now}=scenario();
+  const plan=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1});
+  const browser=await chromium.launch();
+  try {
+    const page=await browser.newPage({viewport:{width:1920,height:1080}});
+    const dot='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    const photo={uri:dot,source:'test fixture'};
+    const art=new Map(plan.weeks[0].finalSquad.map(p=>[p.id,{photo,badge:photo}]));
+    for (const mode of ['pitch','analysis'] as const) {
+      await showBoard(page,renderBoard(plan,plan.weeks[0],art,dot,mode,now.toISOString()),mode);
+      assert.equal(await page.locator('.portrait').count(),15);
+    }
+    await showBoard(page,renderRoadmap(plan,art,dot,now.toISOString()),'roadmap');
+    assert.equal(await page.locator('.roadweek').count(),1);
+  } finally {
+    await browser.close();
+  }
 });

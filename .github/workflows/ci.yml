@@ -99,6 +99,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Verify My Team boards fit in Chromium
+        env:
+          RUN_MY_TEAM_GRAPHICS_TEST: '1'
+        run: node --import tsx --test --test-name-pattern='planner graphics fit' tests/my-team-plan.test.ts
       - run: npm run build
       - name: Start production server
         run: |

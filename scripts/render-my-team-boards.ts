@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium } from '@playwright/test';
+import { chromium, type Page } from '@playwright/test';
 import { getPlayerPhotoCandidates, getClubBadgeCandidates } from '../src/lib/playerImages';
 import type { buildFiveWeekPlan } from './export-my-team-plan';
 
@@ -75,8 +75,8 @@ h1{margin:0;font-size:43px;text-align:center}header .tag{width:248px;text-align:
 .panel h2,.roadweek h2{font-size:24px;margin:0 0 6px;color:#344750}.panel p{margin:5px 0;font-size:22px;line-height:1.15}
 .panel strong,.roadweek strong{color:#007745}.panel .big{font-size:38px}.note{font-size:18px!important;color:#4e626b}
 .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px 16px;margin:0 24px}
-.grid .player{width:100%;height:252px;padding:10px}.grid .photos{height:108px}.grid .portrait{width:148px;height:108px}
-.grid .crest{width:57px;height:57px}.grid .name{font-size:29px}.grid .mini{font-size:19px}.grid .metric{font-size:34px;background:#e8f8ed;border-radius:7px;margin:6px 0;padding:3px}
+.grid .player{display:grid;grid-template-rows:106px 34px 23px 42px 23px;align-content:center;width:100%;height:252px;padding:8px 10px}.grid .photos{height:106px}.grid .portrait{width:148px;height:106px}
+.grid .crest{width:57px;height:57px}.grid .name{font-size:29px;line-height:34px}.grid .mini{font-size:19px;line-height:23px}.grid .metric{font-size:34px;line-height:42px;background:#e8f8ed;border-radius:7px}
 .roadmap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 24px}
 .roadweek{min-height:172px}.roaddetail{font-size:20px;margin:10px 0 0;color:#4e626b}
 .move{display:grid;grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);align-items:center;gap:4px;margin:4px 0}
@@ -127,6 +127,20 @@ export function renderBoard(plan: Plan,w: Week,art: Map<number,Art>,logo: string
   return boardPage(plan,logo,mode==='pitch'?'Recommended XI':'Squad analysis',
     'GW'+w.gw+' · '+plan.season+' · Deadline '+time(w.deadline??''),mode==='pitch'?pitch:board,generatedAt);
 }
+export async function showBoard(page: Page, html: string, name: string) {
+  await page.setContent(html);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all([...document.images].map(img => img.decode()));
+  });
+  const overflow = await page.evaluate(() => {
+    const footer = document.querySelector('.disclosure')!.getBoundingClientRect();
+    return [...document.querySelectorAll('.player, aside .panel, .roadweek')]
+      .filter(el => el.getBoundingClientRect().bottom > footer.top || el.scrollHeight > el.clientHeight + 1)
+      .map(el => el.getAttribute('data-player') ?? el.querySelector('h2')?.textContent ?? el.className);
+  });
+  if (overflow.length) throw Error('Board overflow '+name+' ('+overflow.join(', ')+')');
+}
 export async function exportBoards(plan:Plan,dir:string) {
   if(!plan.weeks.length)throw Error('No plan gameweeks');
   plan.weeks.forEach(assertWeek);
@@ -150,23 +164,13 @@ export async function exportBoards(plan:Plan,dir:string) {
     for(const w of plan.weeks)for(const mode of ['pitch','analysis'] as const){
       const name='FPL_VORTEX_GW'+String(w.gw).padStart(2,'0')+'_'+mode;
       const html=renderBoard(plan,w,art,logo,mode,generatedAt);
-      await page.setContent(html);
-      await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode()));});
+      await showBoard(page,html,name);
       if(await page.locator('[data-player]').count()!==15)throw Error('Incomplete board '+name);
-      const fits=await page.evaluate(()=>{
-        const disclosure=document.querySelector('.disclosure')!.getBoundingClientRect();
-        return [...document.querySelectorAll('.player,aside .panel')].every(el=>el.getBoundingClientRect().bottom<=disclosure.top && el.scrollHeight<=el.clientHeight+1);
-      });
-      if(!fits)throw Error('Board overflow '+name);
       await page.screenshot({path:join(dir,name+'.png')});
       await writeFile(join(dir,name+'.html'),html);
     }
     const roadmap=renderRoadmap(plan,art,logo,generatedAt);
-    await page.setContent(roadmap);
-    await page.evaluate(async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode()));});
-    const fits=await page.evaluate(()=>[...document.querySelectorAll('.roadweek')].every(el=>
-      el.getBoundingClientRect().bottom<=document.querySelector('.disclosure')!.getBoundingClientRect().top));
-    if(!fits)throw Error('Transfer roadmap overflow');
+    await showBoard(page,roadmap,'transfer roadmap');
     await page.screenshot({path:join(dir,'FPL_VORTEX_transfer_roadmap.png')});
     await writeFile(join(dir,'FPL_VORTEX_transfer_roadmap.html'),roadmap);
   } finally {await browser.close();}
