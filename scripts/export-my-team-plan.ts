@@ -17,6 +17,7 @@ import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seas
 import { managerFixtureRisk, personalFixtureOpportunities } from './personal-fixture-context';
 import { parsePersonalContext } from './personal-plan-context';
 import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
+import { checkPersonalReferences } from './personal-reference-check';
 import { readRankGoal, type RankGoalObservation } from './personal-rank-goal';
 import { verifyPublicEntry } from './verify-personal-state';
 import { auditPlanSources } from './plan-source-audit';
@@ -331,6 +332,7 @@ async function readMiniLeagues(base: string, entry: EntryData, openingSquad: rea
 }
 
 export type Report = ReturnType<typeof buildFiveWeekPlan> & {
+  referenceChecks?: Awaited<ReturnType<typeof checkPersonalReferences>>;
   rankGoal?: { targetRank: number; targetGw: number; observation: RankGoalObservation | null };
   history?: {gw:number;points:number;hitCost:number;overallRank:number|null}[];
   publicStateEvidence?: Awaited<ReturnType<typeof verifyPublicEntry>>['publicStateEvidence'];
@@ -429,6 +431,7 @@ export function renderText(r: Report): string {
   lines.push('', '## 6. Overall rank and mini-league intelligence', '',
     'Settled points per gameweek through GW'+(r.averageComparison.throughGw??'unavailable')+' · you '+num(r.averageComparison.managerPointsPerWeek)+
     ' · all managers '+num(r.averageComparison.overallPointsPerWeek)+' · supplied cohort '+num(r.averageComparison.cohortPointsPerWeek)+'.','');
+  if (r.referenceChecks) lines.push('Settled GW'+r.referenceChecks.settledGw+' reference checks: FPL Core '+r.referenceChecks.fplCore.status+'; spreadsheet '+r.referenceChecks.spreadsheet.status+'; direct Opta '+r.referenceChecks.opta.status+'. See settled-reference-checks.json for agreement and mismatches.','');
   if (r.rankGoal) {
     const goal=r.rankGoal, observed=goal.observation;
     lines.push('Rank objective: top '+goal.targetRank.toLocaleString('en-GB')+' by GW'+goal.targetGw+'.',
@@ -532,6 +535,7 @@ async function main() {
   const targetRank=Number(process.env.VORTEX_TARGET_RANK ?? 10000);
   if (!Number.isInteger(targetRank) || targetRank<1 || targetRank>1000000) throw new Error('Invalid target rank.');
   report.rankGoal={targetRank,targetGw:report.horizon.at(-1)!,observation:await readRankGoal(entry.id,report.averageComparison.throughGw??0,targetRank)};
+  report.referenceChecks=await checkPersonalReferences(snapshot,report.averageComparison.throughGw??0);
   report.miniLeagues = leagues;
   if (Array.isArray(history?.current)) report.history=history.current.filter(h=>h.event<=entry.currentEvent).map(h=>({
     gw:h.event,points:h.points,hitCost:h.event_transfers_cost,overallRank:h.overall_rank,
@@ -555,6 +559,7 @@ async function main() {
   const detailFiles = {
     'rank-context':{rankGoal:report.rankGoal,cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
     'data-source-audit':await auditPlanSources(snapshot,report),
+    'settled-reference-checks':report.referenceChecks,
     'transfer-alternatives':{opening:report.openingAlternatives.filter(o=>o.feasible!==false),noChip:report.noChipTransferAlternative,holdXPts:report.noTransferNoChipXPts},
     'captaincy-alternatives':report.weeks.map(w=>({gw:w.gw,...w.captaincy})),
     'chip-strategy':{inventory:report.openingState.chipsUsed,options:report.chipOptions,timing:report.chipTiming,schedule:report.chipSchedule},
