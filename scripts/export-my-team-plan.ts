@@ -128,7 +128,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   );
   const result = runPlannerSimulation({
     players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, fullHorizonTransferShortlist:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
-    nextGw:next, horizon:context.horizon, draws:1000, availabilityOverrides:context.teamNews,
+    nextGw:next, horizon:context.horizon, decay:1, draws:1000, availabilityOverrides:context.teamNews,
     openingTransferGuard: {freeMoveNetGain:1.5,hitNetGain:4.5}, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
