@@ -228,22 +228,22 @@ test('completed transfer changes the opening squad and allowance exactly once an
 });
 
 
-test('player considerations use gameweek transfers, flags and the five fixture columns and four xPts projections', () => {
+test('player considerations use gameweek transfers, flags and the requested fixture and projection horizon', () => {
   const {snapshot,entry,now}=scenario();
   snapshot.players.forEach(p=>{ p.transfersInEvent=p.id; p.transfersIn=10_000-p.id; });
   snapshot.players[14].status='i';
   snapshot.players[13].status='s';
   snapshot.players[12].chance=50;
   snapshot.fixtures=snapshot.fixtures.filter(f=>!(f.event===17 && (f.teamH===5||f.teamA===5)));
-  const {playerConsiderations: board}=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1});
+  const {playerConsiderations: board}=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:5});
   assert.deepEqual(board.players.map(p=>p.id),[15,14,13,12,11,10]);
   assert.deepEqual(board.players.slice(0,3).map(p=>p.availability),['Injured','Suspended','Doubtful']);
   assert.deepEqual(board.gameweeks,[15,16,17,18,19]);
   assert.deepEqual(board.weeks,[15,16,17,18,19]);
-  assert.equal(board.players[0].weeks[4].xPts,null);
+  assert.ok(Number.isFinite(board.players[0].weeks[4].xPts));
   assert.deepEqual(board.players[0].weeks[2],{gw:17,fdr:[],xPts:0});
   const html=renderPlayerConsiderations(board,new Map(),'','');
-  assert.match(html,/Players to most consider from GW15 – GW19/);
+  assert.match(html,/Players to consider · GW15 – GW19/);
   assert.doesNotMatch(html,/most transferred in/i);
   assert.match(html,/GW transfers in/);
 });
@@ -266,6 +266,8 @@ test('planner graphics fit the pitch, analysis cards and roadmap in Chromium',
     }
     await showBoard(page,renderRoadmap(plan,art,dot,now.toISOString()),'roadmap');
     assert.equal(await page.locator('.roadweek').count(),1);
+    assert.match(await page.locator('h1').innerText(),/GW15–GW15/);
+    assert.deepEqual(plan.playerConsiderations.weeks,[15]);
     await page.setViewportSize(considerationsSize);
     await showBoard(page,renderPlayerConsiderations(plan.playerConsiderations,art,dot,dot),'players to consider');
     assert.equal(await page.locator('.consideration-card .photo').count(),6);
