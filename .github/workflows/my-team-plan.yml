@@ -18,10 +18,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   plan:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -49,25 +53,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Render lineup and transfer roadmap
         run: node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
-      - name: Upload plan and graphics
-        id: graphics_upload
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: fpl-vortex-my-team-plan
-          path: |
-            reports/my-team/plan.md
-            reports/my-team/plan.json
-            reports/my-team/graphics/
-          retention-days: 7
-      - name: Report download status
-        if: always()
+      - name: Save the current plan and graphics
         env:
-          GRAPHICS_URL: ${{ steps.graphics_upload.outputs.artifact-url }}
-        run: |
-          if [ -n "$GRAPHICS_URL" ]; then
-            echo "[Download the plan and graphics]($GRAPHICS_URL)" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'GitHub could not store this run’s graphics bundle. See the upload log.' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/save-my-team-output.sh reports/my-team
