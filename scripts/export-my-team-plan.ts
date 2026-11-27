@@ -593,7 +593,7 @@ async function main() {
   }
   await mkdir(output,{recursive:true});
   await writeFile(join(output,'plan.json'),JSON.stringify(report,null,2)+'\n');
-  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report)+(report.ownershipScenarios?'\nConditional preview: '+report.ownershipScenarios.playerName+' ownership reported, but the outgoing transfer and actual prices are not reconciled. Do not treat the public-squad baseline as a final personal recommendation.\n':''));
+  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report));
   const markdown=renderText(report);
   await writeFile(join(output,'plan.md'),markdown);
   const meta = {entryId:report.entryId,season:report.season,currentGameweek:report.currentGameweek,horizon:report.horizon,
