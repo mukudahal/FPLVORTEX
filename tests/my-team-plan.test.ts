@@ -227,7 +227,7 @@ test('completed transfer changes the opening squad and allowance exactly once an
 });
 
 
-test('player considerations use gameweek transfers, flags and the next three fixture columns', () => {
+test('player considerations use gameweek transfers, flags and the five fixture columns and four xPts projections', () => {
   const {snapshot,entry,now}=scenario();
   snapshot.players.forEach(p=>{ p.transfersInEvent=p.id; p.transfersIn=10_000-p.id; });
   snapshot.players[14].status='i';
@@ -238,11 +238,13 @@ test('player considerations use gameweek transfers, flags and the next three fix
   assert.deepEqual(board.players.map(p=>p.id),[15,14,13,12,11,10]);
   assert.deepEqual(board.players.slice(0,3).map(p=>p.availability),['Injured','Suspended','Doubtful']);
   assert.deepEqual(board.gameweeks,[15,16,17,18,19]);
-  assert.deepEqual(board.weeks,[15,16,17]);
+  assert.deepEqual(board.weeks,[15,16,17,18,19]);
+  assert.equal(board.players[0].weeks[4].xPts,null);
   assert.deepEqual(board.players[0].weeks[2],{gw:17,fdr:[],xPts:0});
   const html=renderPlayerConsiderations(board,new Map(),'','');
   assert.match(html,/Players to most consider from GW15 – GW19/);
   assert.doesNotMatch(html,/most transferred in/i);
+  assert.match(html,/GW transfers in/);
 });
 
 test('planner graphics fit the pitch, analysis cards and roadmap in Chromium',

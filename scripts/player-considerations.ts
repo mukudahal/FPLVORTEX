@@ -1,3 +1,4 @@
+import { normalizeSnapshot, type RawFplData } from '../server/normalize';
 import { toRepoElement } from '../src/lib/analytics';
 import { toRepoFixtures, toRepoTeams } from '../src/lib/fixtures';
 import { forecastMean } from '../src/lib/forecastPolicy';
@@ -22,7 +23,7 @@ function availability(player: Pick<Player, 'status' | 'chance'>) {
 export function buildPlayerConsiderations(snapshot: Snapshot) {
   const next=snapshot.meta.nextEventId;
   const gameweeks=snapshot.gameweeks.filter(g=>g.id>=next).map(g=>g.id).sort((a,b)=>a-b).slice(0,5);
-  const weeks=gameweeks.slice(0,3);
+  const weeks=gameweeks;
   const fixtureInputs=toRepoFixtures(snapshot.fixtures);
   const teamInputs=new Map(toRepoTeams(snapshot.teams).map(t=>[t.id,t]));
   const teams=new Map(snapshot.teams.map(t=>[t.id,t]));
@@ -37,21 +38,63 @@ export function buildPlayerConsiderations(snapshot: Snapshot) {
     return {
       id:player.id, code:player.code, teamCode:team.code, club:team.shortName,
       shirt:player.position==='GKP' && team.shortName==='LEE' ? '#b0ead4' : (shirtByClub[team.shortName]??'#d8e4eb'),
-      fullName:player.fullName||player.name,
+      fullName:player.fullName||player.name, position:player.position,
       availability:availability(player), chance:player.chance, priceTenths:player.cost,
       ownership:player.selectedByPercent, transfersIn:player.transfersInEvent,
-      weeks:weeks.map(gw=>{
+      weeks:weeks.map((gw,index)=>{
         const matches=snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===team.id||f.teamA===team.id))
           .sort((a,b)=>(a.kickoffTime??'').localeCompare(b.kickoffTime??'')||a.id-b.id);
         const fdr=matches.map(f=>{
           const home=f.teamH===team.id;
           return { difficulty:home?f.teamHDifficulty:f.teamADifficulty, home, opponent:teams.get(home?f.teamA:f.teamH)?.shortName??'TBC' };
         });
-        const forecast=computePlayerXPts(element,gw,fixtureInputs,teamInputs,completed,gw-next,priors);
-        return {gw,fdr,xPts:forecastMean(player,forecast,null,false)};
+        const xPts=index<4 ? forecastMean(player,computePlayerXPts(element,gw,fixtureInputs,teamInputs,completed,gw-next,priors),null,false) : null;
+        return {gw,fdr,xPts};
       }),
     };
   });
   return {gameweeks, weeks, snapshotAt:snapshot.meta.generatedAt, players};
 }
 export type PlayerConsiderations = ReturnType<typeof buildPlayerConsiderations>;
+
+const official = 'https://fantasy.premierleague.com/api';
+
+async function readOfficial<T>(path: string, verifyAge = false): Promise<T> {
+  const read = async () => {
+    const response = await fetch(official + path, {
+      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15_000),
+      headers: { accept:'application/json', 'user-agent':'FPL-VORTEX/1.0' },
+    });
+    if (!response.ok) throw Error('Official FPL returned HTTP '+response.status+' for '+path);
+    const age = response.headers.get('age');
+    if (verifyAge && age !== null && Number(age) > 900) throw Error('Official transfer feed is older than 15 minutes.');
+    return response.json() as Promise<T>;
+  };
+  try { return await read(); }
+  catch { return read(); }
+}
+
+export async function fetchVerifiedPlayerConsiderations(next: number) {
+  const [bootstrap, fixtures] = await Promise.all([
+    readOfficial<RawFplData['bootstrap']>('/bootstrap-static/',true),
+    readOfficial<RawFplData['fixtures']>('/fixtures/'),
+  ]);
+  const event = Array.isArray(bootstrap?.events) && bootstrap.events.find(event => event.is_next === true);
+  if (!event || event.id !== next || !(Date.parse(event.deadline_time) > Date.now()) ||
+      !Array.isArray(bootstrap.teams) || !Array.isArray(bootstrap.elements) ||
+      !Array.isArray(fixtures) || !fixtures.some(f => f.event === next)) {
+    throw Error('The official FPL market and fixtures must cover the same upcoming gameweek as the planner.');
+  }
+  if (bootstrap.elements.some(p=>!Number.isSafeInteger(p.transfers_in_event)||p.transfers_in_event<0)) {
+    throw Error('The official FPL feed has missing or invalid gameweek transfer totals.');
+  }
+  const selected=bootstrap.elements.filter(p=>p.transfers_in_event>0)
+    .sort((a,b)=>b.transfers_in_event-a.transfers_in_event||a.id-b.id).slice(0,6);
+  const owning=(value:unknown)=>typeof value==='string' && value.trim()!=='' && Number(value)>=0 && Number(value)<=100;
+  if (selected.length!==6 || selected.some(p=>!Number.isSafeInteger(p.now_cost)||p.now_cost<=0||
+      !owning(p.selected_by_percent)||typeof p.status!=='string'||!p.status.trim())) {
+    throw Error('Six players with verified official price, ownership and availability are required.');
+  }
+  return buildPlayerConsiderations(normalizeSnapshot({bootstrap,fixtures,live:null},
+    {source:'live',upstreamOk:true,stale:false}));
+}
