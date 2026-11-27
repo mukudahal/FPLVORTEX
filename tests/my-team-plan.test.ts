@@ -264,13 +264,24 @@ test('planner graphics fit the pitch, analysis cards and roadmap in Chromium',
       await showBoard(page,renderBoard(plan,plan.weeks[0],art,dot,mode,now.toISOString()),mode);
       assert.equal(await page.locator('.portrait').count(),15);
     }
-    await showBoard(page,renderRoadmap(plan,art,dot,now.toISOString()),'roadmap');
-    assert.equal(await page.locator('.roadweek').count(),1);
-    assert.match(await page.locator('h1').innerText(),/GW15–GW15/);
-    assert.deepEqual(plan.playerConsiderations.weeks,[15]);
-    await page.setViewportSize(considerationsSize);
-    await showBoard(page,renderPlayerConsiderations(plan.playerConsiderations,art,dot,dot),'players to consider');
-    assert.equal(await page.locator('.consideration-card .photo').count(),6);
+    // Cover each selectable horizon, including a double and a blank fixture week.
+    snapshot.fixtures.push(makeFixture(9001,16,5,6));
+    snapshot.fixtures=snapshot.fixtures.filter(f=>!(f.event===17&&(f.teamH===5||f.teamA===5)));
+    for (const horizon of [1,2,3,4,5,6,7,8]) {
+      const p=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon});
+      assert.deepEqual(p.horizon,Array.from({length:horizon},(_,i)=>15+i));
+      assert.deepEqual(p.playerConsiderations.weeks,p.horizon);
+      assert.ok(p.playerConsiderations.players.every(p=>p.weeks.every(w=>Number.isFinite(w.xPts))));
+      await page.setViewportSize({width:1920,height:1080});
+      await showBoard(page,renderRoadmap(p,art,dot,now.toISOString()),'roadmap '+horizon);
+      assert.equal(await page.locator('.roadweek').count(),horizon);
+      assert.match(await page.locator('h1').innerText(),new RegExp('GW15–GW'+(14+horizon)));
+      await page.setViewportSize(considerationsSize);
+      await showBoard(page,renderPlayerConsiderations(p.playerConsiderations,art,dot,dot),'players to consider '+horizon);
+      assert.equal(await page.locator('.consideration-card .photo').count(),6);
+      assert.equal(await page.locator('.consideration-card thead th').count(),6*(horizon+1));
+      assert.match(await page.locator('h1').innerText(),new RegExp('GW15 – GW'+(14+horizon)));
+    }
   } finally {
     await browser.close();
   }
