@@ -1,3 +1,4 @@
+import { buildPlayerConsiderations } from './player-considerations';
 import { applyCompletedFreeTransfers, type CompletedMoves } from './personal-completed-transfers';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -249,7 +250,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   };
   const holdTotal=round(rows.reduce((sum,w)=>sum+w.fixedHoldXPts,0));
   const total=round(rows.reduce((sum,w)=>sum+w.xPts,0));
-  return {entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
+  return {playerConsiderations:buildPlayerConsiderations(snapshot),entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     completedTransfers: completed?.moves.map(move => ({
       ...move, gw: completed.gameweek, out: describe(move.outId,next), incoming: describe(move.inId,next),
