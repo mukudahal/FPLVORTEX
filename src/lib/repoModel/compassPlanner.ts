@@ -28,6 +28,8 @@ export interface PlannerSimulationInput extends FplReviewSimInput {
   localForecastsOnly?: boolean;
   captaincyViceFallback?: boolean;
   openingTransferGuard?: { freeMoveNetGain: number; hitNetGain: number };
+  /** Screen personal transfer candidates across the requested horizon, not just three weeks. */
+  fullHorizonTransferShortlist?: boolean;
   availabilityOverrides?: ReadonlyArray<{ playerId: number; throughGw: number; status: 'a' | 'd' | 'u'; chance: number }>;
   lockedIds?: number[];
   /** Optional personal rules for normal goalkeeper transfers. Chip rebuilds retain their own rules. */
@@ -267,10 +269,14 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     }
     return value;
   };
+  const transferOffsets = (gw: number) => input.fullHorizonTransferShortlist
+    ? allGws.filter(g => g >= gw && g <= gws.at(-1)!).map(g => g - gw).concat(gw > gws.at(-1)! ? [0, 1, 2] : [])
+    : [0, 1, 2];
   const squadValue = (sq: number[], gw: number, benchWeight = 0): number => {
     let total = 0;
     // Shared objective for transfers and rebuilds; no arbitrary current-week projection reuse.
-    for (let offset = 0; offset < 3 && forecastByGw[gw + offset]; offset++) {
+    for (const offset of transferOffsets(gw)) {
+      if (!forecastByGw[gw + offset]) continue;
       const l = lineup(sq, gw + offset);
       total += Math.pow(decay, offset) * (l.totalXPts + benchWeight * l.benchXPts);
     }
@@ -287,7 +293,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     const pool = new Set(input.currentSquadIds);
     for (const type of [1, 2, 3, 4]) {
       const eligible = input.players.filter(p => positionToType(p.position) === type && canBuy(p, gw));
-      const value = (p: EnrichedPlayer) => [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * (forecastByGw[gw + o]?.[p.id] ?? 0), 0);
+      const value = (p: EnrichedPlayer) => transferOffsets(gw).reduce((sum, o) => sum + Math.pow(decay, o) * (forecastByGw[gw + o]?.[p.id] ?? 0), 0);
       eligible.sort((a, b) => value(b) - value(a) || a.id - b.id).slice(0, 14).forEach(p => pool.add(p.id));
       eligible.sort((a, b) => a.cost - b.cost || value(b) - value(a)).slice(0, 4).forEach(p => pool.add(p.id));
     }
@@ -311,7 +317,7 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
       for (const inId of candidates) {
         const inc = byId.get(inId)!;
         if (!inc || current.has(inId) || inc.type !== out.type || !canBuy(playerMap.get(inId)!, gw)) continue;
-        const gain = [0, 1, 2].reduce((sum, o) => sum + Math.pow(decay, o) * ((forecastByGw[gw + o]?.[inId] ?? 0) - (forecastByGw[gw + o]?.[outId] ?? 0)), 0);
+        const gain = transferOffsets(gw).reduce((sum, o) => sum + Math.pow(decay, o) * ((forecastByGw[gw + o]?.[inId] ?? 0) - (forecastByGw[gw + o]?.[outId] ?? 0)), 0);
         swaps.push({ outId, inId, delta: state.sell[outId] - inc.cost, gain });
       }
     }
@@ -333,7 +339,6 @@ export function runPlannerSimulation(input: PlannerSimulationInput, onProgress?:
     // Evaluate shortlisted singles and coupled pairs, including selling a scorer to fund a bigger upgrade.
     swaps.sort((a, b) => b.gain - a.gain || a.inId - b.inId);
     for (const swap of [...new Set([...swaps.slice(0, 36), ...[...swaps].sort((a, b) => b.delta - a.delta || b.gain - a.gain).slice(0, 8)])]) add(makeAction([swap]));
-    swaps.sort((a, b) => b.gain - a.gain || a.inId - b.inId);
     const pairPool = [...new Set([...swaps.slice(0, 12), ...[...swaps].sort((a, b) => b.delta - a.delta || b.gain - a.gain).slice(0, 4)])];
     for (let a = 0; a < pairPool.length; a++) for (let b = a + 1; b < pairPool.length; b++) {
       const first = pairPool[a], second = pairPool[b];

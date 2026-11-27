@@ -4,9 +4,17 @@ on:
     inputs:
       horizon:
         description: Upcoming gameweeks from the next deadline
-        default: '5'
+        default: '8'
         type: choice
         options: ['1', '2', '3', '4', '5', '6', '7', '8']
+      target_rank:
+        description: Overall rank target at the end of the selected horizon
+        default: '10000'
+        type: string
+      assumed_owned_player_id:
+        description: 'Optional official player ID for conditional one-transfer scenarios when actual outgoing player is unknown'
+        required: false
+        type: string
       completed_transfers:
         description: 'Completed free transfers as JSON with gameweek and moves (outId, inId, sellTenths, buyTenths)'
         required: false
@@ -36,7 +44,9 @@ jobs:
       - name: Generate plan from the next official deadline
         env:
           VORTEX_COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
-          PLAN_HORIZON: ${{ inputs.horizon }}
+          VORTEX_ASSUMED_OWNED_PLAYER_ID: ${{ inputs.assumed_owned_player_id }}
+          VORTEX_TARGET_RANK: ${{ inputs.target_rank || '10000' }}
+          PLAN_HORIZON: ${{ inputs.horizon || '8' }}
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
         run: |
           node --input-type=module <<'JS'
@@ -46,6 +56,10 @@ jobs:
           }), { mode: 0o600 });
           JS
           node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
+      - name: Verify live squad and report transfer alternatives
+        run: |
+          jq -e '.weeks | length > 0' reports/my-team/plan.json >/dev/null
+          jq '{horizon, rankGoal, ownershipScenarios, referenceChecks, currentRank, currentPoints, stateBasis, openingState, openingTransferDecision, openingTransferRisk, gainVsHold, totalXPts, weeks: [.weeks[] | {gw, currentSquad: [.currentSquad[] | {id,name,club,position}], transfers: [.transfers[] | {out: .out.name, in: .incoming.name, inClub: .incoming.club, remainingHorizonPlayerGain}], xPts, hitCost, bankAfter, ftAfter, deltaVsHoldThisWeek}], openingAlternatives}' reports/my-team/plan.json
       - name: Publish plan in the run summary
         run: |
           cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
@@ -57,24 +71,24 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Render lineup and transfer roadmap
         run: node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
-      - name: Prepare the three PNGs and caption
+      - name: Prepare the two PNGs and caption
         run: |
-          gw=$(jq -er '.weeks[0].gw | select(type == "number" and . >= 1 and . <= 38)' reports/my-team/plan.json)
-          printf -v padded_gw '%02d' "$gw"
           mkdir -p reports/my-team/current
-          cp -- "reports/my-team/graphics/FPL_VORTEX_GW${padded_gw}_pitch.png" reports/my-team/current/01-FPL-VORTEX-Lineup.png
-          cp -- reports/my-team/graphics/FPL_VORTEX_transfer_roadmap.png reports/my-team/current/02-FPL-VORTEX-Transfer-Roadmap.png
-          cp -- reports/my-team/graphics/FPL_VORTEX_players_to_consider.png reports/my-team/current/03-FPL-VORTEX-Players-to-Consider.png
-          cp -- reports/my-team/caption.txt reports/my-team/current/04-FPL-VORTEX-Caption-and-Hashtags.txt
-      - name: Update the four existing Google Drive files
+          cp -- reports/my-team/graphics/FPL_VORTEX_transfer_roadmap.png reports/my-team/current/01-FPL-VORTEX-Transfer-Roadmap.png
+          cp -- reports/my-team/graphics/FPL_VORTEX_players_to_consider.png reports/my-team/current/02-FPL-VORTEX-Players-to-Consider.png
+          cp -- reports/my-team/caption.txt reports/my-team/current/03-FPL-VORTEX-Caption-and-Hashtags.txt
+      - name: Preserve verified output for connected Drive delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-team-delivery
+          path: reports/my-team/current/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Save the three files in My Drive / My Team
         id: drive
         env:
           VORTEX_DRIVE_OAUTH: ${{ secrets.VORTEX_DRIVE_OAUTH }}
-          VORTEX_DRIVE_FOLDER_ID: ${{ vars.VORTEX_DRIVE_FOLDER_ID || '19i4bDy5s8VofCg56dNiK14DNMuj3kZ30' }}
-          VORTEX_DRIVE_LINEUP_ID: ${{ vars.VORTEX_DRIVE_LINEUP_ID || '1QT6deH699YdwwYi8QLTS7BxwYfw6lSLJ' }}
-          VORTEX_DRIVE_ROADMAP_ID: ${{ vars.VORTEX_DRIVE_ROADMAP_ID || '1HMszmkDjLMEtnpSUloEHSunMH2C-dRGh' }}
-          VORTEX_DRIVE_PNG_ID: ${{ vars.VORTEX_DRIVE_PNG_ID || '1IgBRh4oQKaLNRK_02cZ_xOeLYHBqNzUm' }}
-          VORTEX_DRIVE_CAPTION_ID: ${{ vars.VORTEX_DRIVE_CAPTION_ID || '1wUPXMeuJMJCEZFKKu82-TTxvtJnSLDO9' }}
+          VORTEX_DRIVE_FOLDER_ID: ${{ vars.VORTEX_MY_TEAM_FOLDER_ID || '1-VAcLdUHQgt__sU3yf-RHTBvIsk76dhF' }}
         run: node scripts/save-player-considerations-drive.mjs reports/my-team/current
       - name: Save separate files in the private GitHub release when Drive is unconfigured
         if: steps.drive.outputs.saved != 'true'

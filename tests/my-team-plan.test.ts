@@ -228,22 +228,22 @@ test('completed transfer changes the opening squad and allowance exactly once an
 });
 
 
-test('player considerations use gameweek transfers, flags and the five fixture columns and four xPts projections', () => {
+test('player considerations use gameweek transfers, flags and the requested fixture and projection horizon', () => {
   const {snapshot,entry,now}=scenario();
   snapshot.players.forEach(p=>{ p.transfersInEvent=p.id; p.transfersIn=10_000-p.id; });
   snapshot.players[14].status='i';
   snapshot.players[13].status='s';
   snapshot.players[12].chance=50;
   snapshot.fixtures=snapshot.fixtures.filter(f=>!(f.event===17 && (f.teamH===5||f.teamA===5)));
-  const {playerConsiderations: board}=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:1});
+  const {playerConsiderations: board}=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon:5});
   assert.deepEqual(board.players.map(p=>p.id),[15,14,13,12,11,10]);
   assert.deepEqual(board.players.slice(0,3).map(p=>p.availability),['Injured','Suspended','Doubtful']);
   assert.deepEqual(board.gameweeks,[15,16,17,18,19]);
   assert.deepEqual(board.weeks,[15,16,17,18,19]);
-  assert.equal(board.players[0].weeks[4].xPts,null);
+  assert.ok(Number.isFinite(board.players[0].weeks[4].xPts));
   assert.deepEqual(board.players[0].weeks[2],{gw:17,fdr:[],xPts:0});
   const html=renderPlayerConsiderations(board,new Map(),'','');
-  assert.match(html,/Players to most consider from GW15 – GW19/);
+  assert.match(html,/Players to consider · GW15 – GW19/);
   assert.doesNotMatch(html,/most transferred in/i);
   assert.match(html,/GW transfers in/);
 });
@@ -264,11 +264,24 @@ test('planner graphics fit the pitch, analysis cards and roadmap in Chromium',
       await showBoard(page,renderBoard(plan,plan.weeks[0],art,dot,mode,now.toISOString()),mode);
       assert.equal(await page.locator('.portrait').count(),15);
     }
-    await showBoard(page,renderRoadmap(plan,art,dot,now.toISOString()),'roadmap');
-    assert.equal(await page.locator('.roadweek').count(),1);
-    await page.setViewportSize(considerationsSize);
-    await showBoard(page,renderPlayerConsiderations(plan.playerConsiderations,art,dot,dot),'players to consider');
-    assert.equal(await page.locator('.consideration-card .photo').count(),6);
+    // Cover each selectable horizon, including a double and a blank fixture week.
+    snapshot.fixtures.push(makeFixture(9001,16,5,6));
+    snapshot.fixtures=snapshot.fixtures.filter(f=>!(f.event===17&&(f.teamH===5||f.teamA===5)));
+    for (const horizon of [1,2,3,4,5,6,7,8]) {
+      const p=buildFiveWeekPlan(snapshot,entry,now,undefined,{horizon});
+      assert.deepEqual(p.horizon,Array.from({length:horizon},(_,i)=>15+i));
+      assert.deepEqual(p.playerConsiderations.weeks,p.horizon);
+      assert.ok(p.playerConsiderations.players.every(p=>p.weeks.every(w=>Number.isFinite(w.xPts))));
+      await page.setViewportSize({width:1920,height:1080});
+      await showBoard(page,renderRoadmap(p,art,dot,now.toISOString()),'roadmap '+horizon);
+      assert.equal(await page.locator('.roadweek').count(),horizon);
+      assert.match(await page.locator('h1').innerText(),new RegExp('GW15–GW'+(14+horizon)));
+      await page.setViewportSize(considerationsSize);
+      await showBoard(page,renderPlayerConsiderations(p.playerConsiderations,art,dot,dot),'players to consider '+horizon);
+      assert.equal(await page.locator('.consideration-card .photo').count(),6);
+      assert.equal(await page.locator('.consideration-card thead th').count(),6*(horizon+1));
+      assert.match(await page.locator('h1').innerText(),new RegExp('GW15 – GW'+(14+horizon)));
+    }
   } finally {
     await browser.close();
   }
@@ -287,4 +300,18 @@ test('social caption uses the lineup, roadmap, consideration board and no more t
   assert.ok(lines[3].includes(plan.playerConsiderations.players[0].fullName));
   assert.match(lines[4],/#GW15 /);
   assert.doesNotMatch(caption,/\*\*|^\s*-/m);
+});
+
+test('official rank goal uses the selected rank, discovered overall league and settled GW', async () => {
+  const {readRankGoal}=await import('../scripts/personal-rank-goal');
+  const read=async <T>(path:string):Promise<T> => {
+    if(path==='/entry/123/') return {id:123,current_event:11,leagues:{classic:[{id:987,name:'Overall'}]}} as T;
+    if(path==='/leagues-classic/987/standings/?page_standings=1') return {league:{id:987},standings:{page:1,results:[{rank:1,total:800},{rank:2,total:790}]}} as T;
+    if(path==='/leagues-classic/987/standings/?page_standings=2') return {league:{id:987},standings:{page:2,results:[{rank:3,total:780},{rank:4,total:770}]}} as T;
+    throw Error('unexpected endpoint');
+  };
+  assert.equal((await readRankGoal(123,11,3,read))?.cutoffPoints,780);
+  assert.equal((await readRankGoal(123,11,4,read))?.cutoffPoints,770);
+  assert.equal(await readRankGoal(123,10,3,read),null);
+  assert.equal(await readRankGoal(123,11,5,read),null);
 });

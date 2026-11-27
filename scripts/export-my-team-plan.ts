@@ -17,6 +17,8 @@ import { RULES_2026_27, validateSeasonChipPlan } from '../src/lib/repoModel/seas
 import { managerFixtureRisk, personalFixtureOpportunities } from './personal-fixture-context';
 import { parsePersonalContext } from './personal-plan-context';
 import { personalGoalkeeperPolicy } from './personal-goalkeeper-policy';
+import { checkPersonalReferences } from './personal-reference-check';
+import { readRankGoal, type RankGoalObservation } from './personal-rank-goal';
 import { verifyPublicEntry } from './verify-personal-state';
 import { auditPlanSources } from './plan-source-audit';
 import { fetchOfficialSnapshot } from '../server/officialSnapshot';
@@ -127,8 +129,8 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     new Set(context.teamNews.filter(n=>n.chance===0 && n.throughGw>next).map(n=>n.playerId)),
   );
   const result = runPlannerSimulation({
-    players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
-    nextGw:next, horizon:context.horizon, draws:1000, availabilityOverrides:context.teamNews,
+    players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, fullHorizonTransferShortlist:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
+    nextGw:next, horizon:context.horizon, decay:1, draws:1000, availabilityOverrides:context.teamNews,
     openingTransferGuard: {freeMoveNetGain:1.5,hitNetGain:4.5}, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
     completedEvents,
@@ -251,7 +253,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   };
   const holdTotal=round(rows.reduce((sum,w)=>sum+w.fixedHoldXPts,0));
   const total=round(rows.reduce((sum,w)=>sum+w.xPts,0));
-  return {playerConsiderations:buildPlayerConsiderations(snapshot),entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
+  return {playerConsiderations:buildPlayerConsiderations(snapshot, result.gws.length),entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     completedTransfers: completed?.moves.map(move => ({
       ...move, gw: completed.gameweek, out: describe(move.outId,next), incoming: describe(move.inId,next),
@@ -330,6 +332,9 @@ async function readMiniLeagues(base: string, entry: EntryData, openingSquad: rea
 }
 
 export type Report = ReturnType<typeof buildFiveWeekPlan> & {
+  referenceChecks?: Awaited<ReturnType<typeof checkPersonalReferences>>;
+  ownershipScenarios?: { playerId:number; playerName:string; assumedBuyTenths:number; alternatives:{ outgoingId:number; outgoingName:string; horizonXPts:number; gainVsHold:number; openingAction:string; freeTransfers:number; bankTenths:number }[] };
+  rankGoal?: { targetRank: number; targetGw: number; observation: RankGoalObservation | null };
   history?: {gw:number;points:number;hitCost:number;overallRank:number|null}[];
   publicStateEvidence?: Awaited<ReturnType<typeof verifyPublicEntry>>['publicStateEvidence'];
   miniLeagues?: Awaited<ReturnType<typeof readMiniLeagues>>;
@@ -357,6 +362,15 @@ export function renderText(r: Report): string {
     '', 'Generated '+r.computedAt+' UTC. Snapshot '+r.snapshotAt+'.', '', 'Squad basis — '+r.stateBasis+'.',
     '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points. Expected points include legal automatic substitutions and vice-captain fallback.', '',
     '## 1. Performance audit', '', 'Latest published total '+r.currentPoints+' points, overall rank '+r.currentRank+'.'];
+  if(r.ownershipScenarios) {
+    const s=r.ownershipScenarios;
+    lines.push('', 'Manager-reported ownership: '+s.playerName+'. The public squad does not include him. The primary roadmap remains a public-state baseline, not a confirmed current-squad plan.',
+      'Conditional scenarios below assume one free transfer at the observed current market price £'+money(s.assumedBuyTenths)+'m and inferred public sale prices. Actual outgoing player and transaction prices are unknown.', '',
+      '| Assumed outgoing | Net horizon xPts | Gain vs holding scenario | Next recommended action | Bank | FT |','|---|---:|---:|---|---:|---:|');
+    for(const a of s.alternatives) lines.push('| '+[a.outgoingName,num(a.horizonXPts),num(a.gainVsHold),a.openingAction,'£'+money(a.bankTenths)+'m',a.freeTransfers].join(' | ')+' |');
+    if(!s.alternatives.length) lines.push('No legal single-free-transfer scenario at the current price was found.');
+    lines.push('');
+  }
   if (r.history?.length) {
     lines.push('', '| GW | Points before hits | Hits | Overall rank | Rank movement |', '|---:|---:|---:|---:|---|');
     r.history.forEach((w,i) => {
@@ -427,6 +441,13 @@ export function renderText(r: Report): string {
   lines.push('', '## 6. Overall rank and mini-league intelligence', '',
     'Settled points per gameweek through GW'+(r.averageComparison.throughGw??'unavailable')+' · you '+num(r.averageComparison.managerPointsPerWeek)+
     ' · all managers '+num(r.averageComparison.overallPointsPerWeek)+' · supplied cohort '+num(r.averageComparison.cohortPointsPerWeek)+'.','');
+  if (r.referenceChecks) lines.push('Settled GW'+r.referenceChecks.settledGw+' reference checks: FPL Core '+r.referenceChecks.fplCore.status+'; spreadsheet '+r.referenceChecks.spreadsheet.status+'; direct Opta '+r.referenceChecks.opta.status+'. See settled-reference-checks.json for agreement and mismatches.','');
+  if (r.rankGoal) {
+    const goal=r.rankGoal, observed=goal.observation;
+    lines.push('Rank objective: top '+goal.targetRank.toLocaleString('en-GB')+' by GW'+goal.targetGw+'.',
+      observed?'Official current cutline through GW'+observed.gameweek+': '+observed.cutoffPoints+' points; gap '+(r.currentPoints===null?'unavailable':Math.max(0,observed.cutoffPoints-r.currentPoints))+' points. Source: '+observed.source:'Official current cutline unavailable.',
+      'Objective proxy: maximize undiscounted expected net points over the selected horizon. A future rank probability requires a validated moving field-score distribution; no probability of reaching the target is asserted.', '');
+  }
   if (r.cohort) {
     lines.push('Top-10k observation from GW'+r.cohort.gameweek+', sample '+r.cohort.sampleSize+
       ', observed '+r.cohort.observedAt+'. Gap to the supplied cutline '+(r.cohort.pointsOutsideCutoff??'unavailable')+' points.', '',
@@ -496,15 +517,45 @@ async function main() {
     try { revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore','pipe','ignore'] }).trim(); }
     catch { /* Source exports may not contain Git metadata. */ }
   }
-  const [verified, playerConsiderations] = await Promise.all([
-    state ? null : verifyPublicEntry(snapshot,entry),
-    fetchVerifiedPlayerConsiderations(snapshot.meta.nextEventId),
-  ]);
+  const verified = state ? null : await verifyPublicEntry(snapshot,entry);
   const completed: CompletedMoves | undefined = process.env.VORTEX_COMPLETED_TRANSFERS?.trim()
     ? JSON.parse(process.env.VORTEX_COMPLETED_TRANSFERS) : undefined;
-  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence,completed);
+  const openingEntry=verified?.entry??entry;
+  const assumedId=Number(process.env.VORTEX_ASSUMED_OWNED_PLAYER_ID || 0);
+  const planned=buildFiveWeekPlan(snapshot,openingEntry,new Date(),state,evidence,completed);
+  // If the manager confirms an incoming player but not the outgoing player or actual prices,
+  // enumerate legal one-free-transfer scenarios. Never silently overwrite the verified public squad.
+  let ownershipScenarios: Report['ownershipScenarios'];
+  if (assumedId && !planned.openingState.squad.includes(assumedId)) {
+    if (state || completed) throw Error('Assumed ownership conflicts with the supplied opening state.');
+    if (!Number.isSafeInteger(assumedId)) throw Error('Invalid assumed owned player ID.');
+    const incoming=snapshot.players.find(p=>p.id===assumedId);
+    if (!incoming) throw Error('Assumed owned player is absent from the official roster.');
+    const alternatives: NonNullable<Report['ownershipScenarios']>['alternatives']=[];
+    for (const pick of openingEntry.picks) {
+      const outgoing=snapshot.players.find(p=>p.id===pick.element);
+      if (!outgoing||outgoing.position!==incoming.position||pick.sellingPrice==null) continue;
+      const sellTenths=Math.round(pick.sellingPrice*10);
+      if(openingEntry.history.bank+sellTenths<incoming.cost||openingEntry.freeTransfers<1) continue;
+      const simulated:CompletedMoves={gameweek:snapshot.meta.nextEventId,moves:[{outId:outgoing.id,inId:incoming.id,sellTenths,buyTenths:incoming.cost}]};
+      const restored=applyCompletedFreeTransfers(snapshot,openingEntry,simulated);
+      const counts=new Map<number,number>();
+      for(const playerId of restored.squad) {
+        const club=snapshot.players.find(p=>p.id===playerId)!.teamId;
+        counts.set(club,(counts.get(club)??0)+1);
+      }
+      if([...counts.values()].some(n=>n>3)) continue;
+      const candidate=buildFiveWeekPlan(snapshot,openingEntry,new Date(),undefined,evidence,simulated);
+      alternatives.push({outgoingId:outgoing.id,outgoingName:outgoing.name,horizonXPts:candidate.totalXPts,gainVsHold:candidate.gainVsHold,
+        openingAction:candidate.weeks[0].transfers.map(t=>t.out.name+' → '+t.incoming.name).join(', ')||'Roll',
+        bankTenths:restored.bankTenths,freeTransfers:restored.freeTransfers});
+    }
+    ownershipScenarios={playerId:assumedId,playerName:incoming.name,assumedBuyTenths:incoming.cost,alternatives};
+  }
+  const playerConsiderations = await fetchVerifiedPlayerConsiderations(snapshot.meta.nextEventId, planned.horizon.length);
   const report: Report = {
     ...planned,
+    ownershipScenarios,
     playerConsiderations,
     publicStateEvidence:verified?.publicStateEvidence,
     provenance: {
@@ -523,6 +574,10 @@ async function main() {
     readMiniLeagues(base, entry, report.openingState.squad),
     verified?.history ?? get<{current:{event:number;points:number;event_transfers_cost:number;overall_rank:number|null}[]}>(fplBase+'/entry/'+id+'/history/',15_000).catch(()=>null),
   ]);
+  const targetRank=Number(process.env.VORTEX_TARGET_RANK ?? 10000);
+  if (!Number.isInteger(targetRank) || targetRank<1 || targetRank>1000000) throw new Error('Invalid target rank.');
+  report.rankGoal={targetRank,targetGw:report.horizon.at(-1)!,observation:await readRankGoal(entry.id,report.averageComparison.throughGw??0,targetRank)};
+  report.referenceChecks=await checkPersonalReferences(snapshot,report.averageComparison.throughGw??0);
   report.miniLeagues = leagues;
   if (Array.isArray(history?.current)) report.history=history.current.filter(h=>h.event<=entry.currentEvent).map(h=>({
     gw:h.event,points:h.points,hitCost:h.event_transfers_cost,overallRank:h.overall_rank,
@@ -538,14 +593,15 @@ async function main() {
   }
   await mkdir(output,{recursive:true});
   await writeFile(join(output,'plan.json'),JSON.stringify(report,null,2)+'\n');
-  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report));
+  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report)+(report.ownershipScenarios?'\nConditional preview: '+report.ownershipScenarios.playerName+' ownership reported, but the outgoing transfer and actual prices are not reconciled. Do not treat the public-squad baseline as a final personal recommendation.\n':''));
   const markdown=renderText(report);
   await writeFile(join(output,'plan.md'),markdown);
   const meta = {entryId:report.entryId,season:report.season,currentGameweek:report.currentGameweek,horizon:report.horizon,
     computedAt:report.computedAt,snapshotAt:report.snapshotAt,provenance:report.provenance,assumptions:report.assumptions,warnings:report.warnings};
   const detailFiles = {
-    'rank-context':{cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
+    'rank-context':{rankGoal:report.rankGoal,cohort:report.cohort??null,averages:report.averageComparison,teamNews:report.teamNews,opening:report.openingTransferDecision??null,pairedRisk:report.openingTransferRisk??null},
     'data-source-audit':await auditPlanSources(snapshot,report),
+    'settled-reference-checks':report.referenceChecks,
     'transfer-alternatives':{opening:report.openingAlternatives.filter(o=>o.feasible!==false),noChip:report.noChipTransferAlternative,holdXPts:report.noTransferNoChipXPts},
     'captaincy-alternatives':report.weeks.map(w=>({gw:w.gw,...w.captaincy})),
     'chip-strategy':{inventory:report.openingState.chipsUsed,options:report.chipOptions,timing:report.chipTiming,schedule:report.chipSchedule},

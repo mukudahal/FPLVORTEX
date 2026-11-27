@@ -6,7 +6,7 @@ import { chromium, type Page } from '@playwright/test';
 import { getPlayerPhotoCandidates, getClubBadgeCandidates } from '../src/lib/playerImages';
 import type { buildFiveWeekPlan } from './export-my-team-plan';
 
-type Plan = ReturnType<typeof buildFiveWeekPlan> & { provenance?: { modelVersion: string } };
+type Plan = ReturnType<typeof buildFiveWeekPlan> & { provenance?: { modelVersion: string }; ownershipScenarios?: { playerName:string } };
 type Week = Plan['weeks'][number];
 type Player = Week['starters'][number];
 type Asset = { uri: string; source: string };
@@ -106,7 +106,7 @@ export function renderRoadmap(plan:Plan,art:Map<number,Art>,logo:string,generate
       (w.transfers.length?'<p class="roaddetail">Suggested moves</p>'+w.transfers.map(m=>transferRow(m.out,m.incoming,art)).join(''):'<p class="roaddetail">Roll remaining allowance</p>')+
       '<p class="roaddetail">Bank '+price(w.bankAfter)+' · '+w.ftBefore+' FT this GW · '+w.ftAfter+' FT next GW</p></section>';
   }).join('');
-  return boardPage(plan,logo,'Transfer roadmap','GW'+plan.weeks[0].gw+'–GW'+plan.weeks.at(-1)!.gw+' · '+num(plan.totalXPts)+' net expected points','<div class="roadmap">'+cards+'</div>',generatedAt);
+  return boardPage(plan,logo,'Transfer roadmap · GW'+plan.weeks[0].gw+'–GW'+plan.weeks.at(-1)!.gw,(plan.ownershipScenarios?'PUBLIC SQUAD BASELINE · '+plan.ownershipScenarios.playerName+' not reconciled · ':'')+num(plan.totalXPts)+' net expected points','<div class="roadmap">'+cards+'</div>',generatedAt);
 }
 export function renderBoard(plan: Plan,w: Week,art: Map<number,Art>,logo: string,mode:'pitch'|'analysis', generatedAt:string) {
   assertWeek(w);

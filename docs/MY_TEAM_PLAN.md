@@ -13,22 +13,25 @@ node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
 ```
 
 In Actions, open **My Team Planner** and choose the number of upcoming
-gameweeks (one to eight, five by default). The workflow uses entry 145784.
+gameweeks (one to eight, eight by default) and the overall rank target (10,000 by default). The workflow uses entry 145784.
 It detects the first unpassed deadline from verified official FPL data and
 ends at GW38 if fewer weeks remain. Press **Run workflow** on `main` and
-read the completed run's **Summary**. The workflow saves the Markdown summary
-without GitHub Actions artifact storage.
+read the completed run's **Summary**. The workflow saves the Markdown summary and three-file `my-team-delivery` artifact. If Drive OAuth is configured, it also uploads the three files directly; otherwise, the artifact remains available for delivery through your connected Google Drive or the private release fallback. ChatGPT's Drive connection is not a GitHub Actions credential.
 
 For dated cohort information, team-news overrides or a different entry, use
 the CLI and context file described below. Render PNGs separately using the CLI.
-With Drive OAuth configured, the workflow updates the four current files in the My Team Planner folder.
+With Drive OAuth configured, the workflow creates or updates the three current files in My Drive / My Team.
 
 The CLI GETs the existing deployment's normalized snapshot and official-backed
 entry, rejecting stale snapshots, passed/inconsistent deadlines and non-official
 entries. For a local trusted server set VORTEX_UPSTREAM_BASE to its URL.
 The default is https://fplvortex.onrender.com. It does not request FPL credentials.
 
-Public entry data cannot reliably expose unpublished transfers. Verify the
+The official overall league standings provide the observed settled-gameweek rank cutline for the selected target. This is a current observation, not a prediction of the moving future cutline. The planner does not claim a calibrated probability of reaching the target.
+
+The latest settled-GW FPL Core and dated spreadsheet records are cross-checked against official player identity and points. These correlated reference sources do not independently validate the forecast. Direct licensed Opta access is unverified.
+
+Public entry data cannot reliably expose unpublished transfers. For a reported incoming player whose outgoing player and actual prices are unknown, select the optional official player ID input to evaluate affordable single-free-transfer scenarios; output is explicitly conditional, not a confirmed squad. Otherwise supply the completed-transfers input or confirmed current state. Verify the
 current squad, bank, effective selling prices, free transfers and chips in the
 official game before acting. If there are discrepancies, optionally provide
 a third CLI argument with your own confirmed JSON state (keep it private):
@@ -62,7 +65,7 @@ costs are not included, so the report compares only prospective decisions.
   press conference confirmation. The current published schedule and model
   estimates are conditional; rerun when injuries or fixtures change.
 - The personal report tests shortlisted batches of up to three normal transfers.
-  Its bounded beam may recommend a hit when the discounted objective prefers it. This is not an optimality certificate or guarantee.
+  Its bounded beam ranks personal-planner candidates by undiscounted cumulative net expected points across the selected horizon and may recommend a hit when the objective prefers it. This is not an optimality certificate or guarantee.
   Compare the no-transfer baseline, inspect the hit, and reject uncertain moves.
 - Recompute every deadline rather than committing five weeks' transfers in
   advance. First fix availability, then optimize starting XI, maintain banked
@@ -207,10 +210,16 @@ The win, tie, loss and downside are points comparisons conditional on the model.
 
 In the manual workflow, enter completed free transfers before the opening deadline via the optional `completed_transfers` JSON field. Provide the gameweek and an ordered `moves` array with `outId`, `inId`, `sellTenths` and `buyTenths` for each move. Prices are the actual transaction values in tenths of a million. Leave the field empty when the last public squad is the current squad. The planner validates the opening squad and prices, applies each move once and reports the remaining bank and free transfers. Use the new gameweek or leave the field empty after the previous move is reflected in official picks.
 
-The action summary identifies completed moves and links to the current output. Four individual files are saved: the opening lineup PNG, transfer roadmap PNG, Players to Consider PNG and caption TXT. When Drive is unconfigured, a private GitHub draft release holds those same four files. Each successful run validates its uploads before pruning older workflow-generated files.
+The action summary identifies completed moves and links to the current output. Three individual files are saved: the transfer roadmap PNG, Players to Consider PNG and caption TXT. The lineup remains available in local rendered graphics and is not part of the three-file delivery. When Drive is unconfigured, a private GitHub draft release holds those same three files. Each successful run validates its uploads before pruning older workflow-generated files.
 
-The six-player graphic reads the official FPL bootstrap and fixtures endpoints directly on each run. It verifies the upcoming deadline and ranks positive gameweek transfer-in totals. The board pairs five official FDR columns with four VORTEX xPts projections. The fifth xPts cell is blank.
+The six-player graphic reads the official FPL bootstrap and fixtures endpoints directly on each run. It verifies the upcoming deadline and ranks positive gameweek transfer-in totals. The board pairs official FDR with independent VORTEX xPts for every selected upcoming gameweek.
 
-To enable Drive, add the repository Actions secret `VORTEX_DRIVE_OAUTH` as JSON containing `client_id`, `client_secret` and `refresh_token` for a Google Drive OAuth app with edit access to the files. The workflow updates the four existing file IDs in the My Team Planner folder and verifies their checksums. To change the destination, set `VORTEX_DRIVE_FOLDER_ID`, `VORTEX_DRIVE_LINEUP_ID`, `VORTEX_DRIVE_ROADMAP_ID`, `VORTEX_DRIVE_PNG_ID` and `VORTEX_DRIVE_CAPTION_ID` together.
+To enable Drive, add the repository Actions secret `VORTEX_DRIVE_OAUTH` as JSON containing `client_id`, `client_secret` and `refresh_token` for a Google Drive OAuth app with edit access to the files. The workflow creates or updates three named files in My Team and verifies their checksums. Set the repository variable `VORTEX_MY_TEAM_FOLDER_ID` to the writable My Team folder ID if different.
 
 The run summary and caption TXT provide a copy-ready plain-text caption and gameweek hashtags in at most five lines.
+
+### Transfer shortlist and external data checks
+
+Personal transfer shortlist scoring now covers the selected horizon; the beam remains bounded and action ranking still uses a three-week lineup heuristic. No club or player is banned. A same-club defensive double-up needs to be justified by marginal net points, transfer flexibility and correlated clean-sheet risk. No probability of top 10,000 by a particular GW is claimed without a validated target cohort and calibrated field distribution.
+
+The manager-provided spreadsheet was inspected on 2026-11-27: the Data tab had 674 populated Last GW values, all GW11; fixture headers GW4–GW9 were stale relative to those observations. The Top 100 Managers tab explicitly covers 100 managers, not rank 10,000. Use only verified settled observations; no stale fixtures or cohort inference. FPL Core Insights publishes official-ID data and curated Opta-like statistics, not a verified direct Opta subscription. All three references are included in the source audit, but no unverified external input is injected into the model. Before integration, validate access, IDs, settled-week coverage, data rights and walk-forward incremental value.
