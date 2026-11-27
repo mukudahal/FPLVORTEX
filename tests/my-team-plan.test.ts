@@ -301,3 +301,17 @@ test('social caption uses the lineup, roadmap, consideration board and no more t
   assert.match(lines[4],/#GW15 /);
   assert.doesNotMatch(caption,/\*\*|^\s*-/m);
 });
+
+test('official rank goal uses the selected rank, discovered overall league and settled GW', async () => {
+  const {readRankGoal}=await import('../scripts/personal-rank-goal');
+  const read=async <T>(path:string):Promise<T> => {
+    if(path==='/entry/123/') return {id:123,current_event:11,leagues:{classic:[{id:987,name:'Overall'}]}} as T;
+    if(path==='/leagues-classic/987/standings/?page_standings=1') return {league:{id:987},standings:{page:1,results:[{rank:1,total:800},{rank:2,total:790}]}} as T;
+    if(path==='/leagues-classic/987/standings/?page_standings=2') return {league:{id:987},standings:{page:2,results:[{rank:3,total:780},{rank:4,total:770}]}} as T;
+    throw Error('unexpected endpoint');
+  };
+  assert.equal((await readRankGoal(123,11,3,read))?.cutoffPoints,780);
+  assert.equal((await readRankGoal(123,11,4,read))?.cutoffPoints,770);
+  assert.equal(await readRankGoal(123,10,3,read),null);
+  assert.equal(await readRankGoal(123,11,5,read),null);
+});
