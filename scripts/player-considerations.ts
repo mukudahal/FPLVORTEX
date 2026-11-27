@@ -20,9 +20,10 @@ function availability(player: Pick<Player, 'status' | 'chance'>) {
   return player.chance !== null && player.chance < 100 ? 'Doubtful' : 'Available';
 }
 
-export function buildPlayerConsiderations(snapshot: Snapshot) {
+export function buildPlayerConsiderations(snapshot: Snapshot, horizon = 5) {
+  if (!Number.isInteger(horizon) || horizon < 1 || horizon > 8) throw Error('Invalid consideration horizon.');
   const next=snapshot.meta.nextEventId;
-  const gameweeks=snapshot.gameweeks.filter(g=>g.id>=next).map(g=>g.id).sort((a,b)=>a-b).slice(0,5);
+  const gameweeks=snapshot.gameweeks.filter(g=>g.id>=next).map(g=>g.id).sort((a,b)=>a-b).slice(0,horizon);
   const weeks=gameweeks;
   const fixtureInputs=toRepoFixtures(snapshot.fixtures);
   const teamInputs=new Map(toRepoTeams(snapshot.teams).map(t=>[t.id,t]));
@@ -41,14 +42,14 @@ export function buildPlayerConsiderations(snapshot: Snapshot) {
       fullName:player.fullName||player.name, position:player.position,
       availability:availability(player), chance:player.chance, priceTenths:player.cost,
       ownership:player.selectedByPercent, transfersIn:player.transfersInEvent,
-      weeks:weeks.map((gw,index)=>{
+      weeks:weeks.map(gw=>{
         const matches=snapshot.fixtures.filter(f=>f.event===gw&&(f.teamH===team.id||f.teamA===team.id))
           .sort((a,b)=>(a.kickoffTime??'').localeCompare(b.kickoffTime??'')||a.id-b.id);
         const fdr=matches.map(f=>{
           const home=f.teamH===team.id;
           return { difficulty:home?f.teamHDifficulty:f.teamADifficulty, home, opponent:teams.get(home?f.teamA:f.teamH)?.shortName??'TBC' };
         });
-        const xPts=index<4 ? forecastMean(player,computePlayerXPts(element,gw,fixtureInputs,teamInputs,completed,gw-next,priors),null,false) : null;
+        const xPts: number | null = forecastMean(player,computePlayerXPts(element,gw,fixtureInputs,teamInputs,completed,gw-next,priors),null,false);
         return {gw,fdr,xPts};
       }),
     };
@@ -74,7 +75,7 @@ async function readOfficial<T>(path: string, verifyAge = false): Promise<T> {
   catch { return read(); }
 }
 
-export async function fetchVerifiedPlayerConsiderations(next: number) {
+export async function fetchVerifiedPlayerConsiderations(next: number, horizon = 5) {
   const [bootstrap, fixtures] = await Promise.all([
     readOfficial<RawFplData['bootstrap']>('/bootstrap-static/',true),
     readOfficial<RawFplData['fixtures']>('/fixtures/'),
@@ -96,5 +97,5 @@ export async function fetchVerifiedPlayerConsiderations(next: number) {
     throw Error('Six players with verified official price, ownership and availability are required.');
   }
   return buildPlayerConsiderations(normalizeSnapshot({bootstrap,fixtures,live:null},
-    {source:'live',upstreamOk:true,stale:false}));
+    {source:'live',upstreamOk:true,stale:false}), horizon);
 }
