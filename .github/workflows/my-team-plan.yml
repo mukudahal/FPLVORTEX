@@ -47,7 +47,11 @@ jobs:
           JS
           node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
       - name: Publish plan in the run summary
-        run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
+          printf '\n## Copy-ready caption and hashtags\n\n```text\n' >> "$GITHUB_STEP_SUMMARY"
+          cat reports/my-team/caption.txt >> "$GITHUB_STEP_SUMMARY"
+          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install Chromium for the plan boards
         run: npx playwright install --with-deps chromium
@@ -57,9 +61,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: bash scripts/save-my-team-output.sh reports/my-team
-      - name: Replace the current six-player PNG in Google Drive
+        run: bash scripts/save-my-team-output.sh reports/my-team reports/my-team/current-plan.zip
+      - name: Replace the current plan ZIP, player PNG and caption in Google Drive
         env:
           VORTEX_DRIVE_OAUTH: ${{ secrets.VORTEX_DRIVE_OAUTH }}
           VORTEX_DRIVE_PNG_ID: ${{ vars.VORTEX_DRIVE_PNG_ID || '1IgBRh4oQKaLNRK_02cZ_xOeLYHBqNzUm' }}
-        run: node scripts/save-player-considerations-drive.mjs reports/my-team/graphics/FPL_VORTEX_players_to_consider.png
+          VORTEX_DRIVE_ZIP_ID: ${{ vars.VORTEX_DRIVE_ZIP_ID || '1o09Rec56q9cPsMLRywgwePGn0oLxV-xp' }}
+          VORTEX_DRIVE_CAPTION_ID: ${{ vars.VORTEX_DRIVE_CAPTION_ID || '1wUPXMeuJMJCEZFKKu82-TTxvtJnSLDO9' }}
+        run: node scripts/save-player-considerations-drive.mjs reports/my-team

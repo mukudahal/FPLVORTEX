@@ -1,3 +1,4 @@
+import { renderMyTeamSocialCaption } from './my-team-social-caption';
 import { buildPlayerConsiderations, fetchVerifiedPlayerConsiderations } from './player-considerations';
 import { applyCompletedFreeTransfers, type CompletedMoves } from './personal-completed-transfers';
 import { createHash } from 'node:crypto';
@@ -537,6 +538,7 @@ async function main() {
   }
   await mkdir(output,{recursive:true});
   await writeFile(join(output,'plan.json'),JSON.stringify(report,null,2)+'\n');
+  await writeFile(join(output,'caption.txt'),renderMyTeamSocialCaption(report));
   const markdown=renderText(report);
   await writeFile(join(output,'plan.md'),markdown);
   const meta = {entryId:report.entryId,season:report.season,currentGameweek:report.currentGameweek,horizon:report.horizon,
