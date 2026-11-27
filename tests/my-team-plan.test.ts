@@ -300,6 +300,11 @@ test('social caption uses the lineup, roadmap, consideration board and no more t
   assert.ok(lines[3].includes(plan.playerConsiderations.players[0].fullName));
   assert.match(lines[4],/#GW15 /);
   assert.doesNotMatch(caption,/\*\*|^\s*-/m);
+  const conditional=renderMyTeamSocialCaption({...plan,rankGoal:{targetRank:10000,targetGw:plan.horizon.at(-1)!},ownershipScenarios:{playerName:'Example'}});
+  assert.equal(conditional.trim().split('\n').length,5);
+  assert.match(conditional,/Conditional public-squad preview/);
+  assert.match(conditional,/Goal: top 10,000 by GW/);
+  assert.match(conditional,/#FPLCaptaincy #FPLCommunity #FPLVORTEX/);
 });
 
 test('official rank goal uses the selected rank, discovered overall league and settled GW', async () => {

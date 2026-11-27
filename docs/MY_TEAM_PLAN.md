@@ -16,11 +16,11 @@ In Actions, open **My Team Planner** and choose the number of upcoming
 gameweeks (one to eight, eight by default) and the overall rank target (10,000 by default). The workflow uses entry 145784.
 It detects the first unpassed deadline from verified official FPL data and
 ends at GW38 if fewer weeks remain. Press **Run workflow** on `main` and
-read the completed run's **Summary**. The workflow saves the Markdown summary and three-file `my-team-delivery` artifact. If Drive OAuth is configured, it also uploads the three files directly; otherwise, the artifact remains available for delivery through your connected Google Drive or the private release fallback. ChatGPT's Drive connection is not a GitHub Actions credential.
+read the completed run's **Summary**. The workflow saves the Markdown summary and four-file `my-team-delivery` artifact. If Drive OAuth is configured, it also uploads the four files directly; otherwise, the artifact remains available for delivery through your connected Google Drive or the private release fallback. ChatGPT's Drive connection is not a GitHub Actions credential.
 
 For dated cohort information, team-news overrides or a different entry, use
 the CLI and context file described below. Render PNGs separately using the CLI.
-With Drive OAuth configured, the workflow creates or updates the three current files in My Drive / My Team.
+With Drive OAuth configured, the workflow creates or updates the four current files in My Drive / My Team.
 
 The CLI GETs the existing deployment's normalized snapshot and official-backed
 entry, rejecting stale snapshots, passed/inconsistent deadlines and non-official
@@ -210,7 +210,7 @@ The win, tie, loss and downside are points comparisons conditional on the model.
 
 In the manual workflow, enter completed free transfers before the opening deadline via the optional `completed_transfers` JSON field. Provide the gameweek and an ordered `moves` array with `outId`, `inId`, `sellTenths` and `buyTenths` for each move. Prices are the actual transaction values in tenths of a million. Leave the field empty when the last public squad is the current squad. The planner validates the opening squad and prices, applies each move once and reports the remaining bank and free transfers. Use the new gameweek or leave the field empty after the previous move is reflected in official picks.
 
-The action summary identifies completed moves and links to the current output. Three individual files are saved: the transfer roadmap PNG, Players to Consider PNG and caption TXT. The lineup remains available in local rendered graphics and is not part of the three-file delivery. When Drive is unconfigured, a private GitHub draft release holds those same three files. Each successful run validates its uploads before pruning older workflow-generated files.
+The action summary identifies completed moves and links to the current output. Four individual files are saved: the upcoming-GW lineup PNG, selected-horizon transfer roadmap PNG, Players to Consider PNG and caption TXT. When Drive is unconfigured, a private GitHub draft release holds those same four files. Each successful run validates its uploads before pruning older workflow-generated files.
 
 The six-player graphic reads the official FPL bootstrap and fixtures endpoints directly on each run. It verifies the upcoming deadline and ranks positive gameweek transfer-in totals. The board pairs official FDR with independent VORTEX xPts for every selected upcoming gameweek.
 
