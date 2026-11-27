@@ -333,6 +333,7 @@ async function readMiniLeagues(base: string, entry: EntryData, openingSquad: rea
 
 export type Report = ReturnType<typeof buildFiveWeekPlan> & {
   referenceChecks?: Awaited<ReturnType<typeof checkPersonalReferences>>;
+  ownershipScenarios?: { playerId:number; playerName:string; assumedBuyTenths:number; alternatives:{ outgoingId:number; outgoingName:string; horizonXPts:number; gainVsHold:number; openingAction:string; freeTransfers:number; bankTenths:number }[] };
   rankGoal?: { targetRank: number; targetGw: number; observation: RankGoalObservation | null };
   history?: {gw:number;points:number;hitCost:number;overallRank:number|null}[];
   publicStateEvidence?: Awaited<ReturnType<typeof verifyPublicEntry>>['publicStateEvidence'];
@@ -361,6 +362,15 @@ export function renderText(r: Report): string {
     '', 'Generated '+r.computedAt+' UTC. Snapshot '+r.snapshotAt+'.', '', 'Squad basis — '+r.stateBasis+'.',
     '', '**'+num(r.totalXPts)+' expected points after hits** across the displayed weeks. Keeping the opening squad and saving every chip projects '+num(r.noTransferNoChipXPts)+'. The difference is '+num(r.gainVsHold)+' points. Expected points include legal automatic substitutions and vice-captain fallback.', '',
     '## 1. Performance audit', '', 'Latest published total '+r.currentPoints+' points, overall rank '+r.currentRank+'.'];
+  if(r.ownershipScenarios) {
+    const s=r.ownershipScenarios;
+    lines.push('', 'Manager-reported ownership: '+s.playerName+'. The public squad does not include him. The primary roadmap remains a public-state baseline, not a confirmed current-squad plan.',
+      'Conditional scenarios below assume one free transfer at the observed current market price £'+money(s.assumedBuyTenths)+'m and inferred public sale prices. Actual outgoing player and transaction prices are unknown.', '',
+      '| Assumed outgoing | Net horizon xPts | Gain vs holding scenario | Next recommended action | Bank | FT |','|---|---:|---:|---|---:|---:|');
+    for(const a of s.alternatives) lines.push('| '+[a.outgoingName,num(a.horizonXPts),num(a.gainVsHold),a.openingAction,'£'+money(a.bankTenths)+'m',a.freeTransfers].join(' | ')+' |');
+    if(!s.alternatives.length) lines.push('No legal single-free-transfer scenario at the current price was found.');
+    lines.push('');
+  }
   if (r.history?.length) {
     lines.push('', '| GW | Points before hits | Hits | Overall rank | Rank movement |', '|---:|---:|---:|---:|---|');
     r.history.forEach((w,i) => {
@@ -510,10 +520,42 @@ async function main() {
   const verified = state ? null : await verifyPublicEntry(snapshot,entry);
   const completed: CompletedMoves | undefined = process.env.VORTEX_COMPLETED_TRANSFERS?.trim()
     ? JSON.parse(process.env.VORTEX_COMPLETED_TRANSFERS) : undefined;
-  const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence,completed);
+  const openingEntry=verified?.entry??entry;
+  const assumedId=Number(process.env.VORTEX_ASSUMED_OWNED_PLAYER_ID || 0);
+  const planned=buildFiveWeekPlan(snapshot,openingEntry,new Date(),state,evidence,completed);
+  // If the manager confirms an incoming player but not the outgoing player or actual prices,
+  // enumerate legal one-free-transfer scenarios. Never silently overwrite the verified public squad.
+  let ownershipScenarios: Report['ownershipScenarios'];
+  if (assumedId && !planned.openingState.squad.includes(assumedId)) {
+    if (state || completed) throw Error('Assumed ownership conflicts with the supplied opening state.');
+    if (!Number.isSafeInteger(assumedId)) throw Error('Invalid assumed owned player ID.');
+    const incoming=snapshot.players.find(p=>p.id===assumedId);
+    if (!incoming) throw Error('Assumed owned player is absent from the official roster.');
+    const alternatives: NonNullable<Report['ownershipScenarios']>['alternatives']=[];
+    for (const pick of openingEntry.picks) {
+      const outgoing=snapshot.players.find(p=>p.id===pick.element);
+      if (!outgoing||outgoing.position!==incoming.position||pick.sellingPrice==null) continue;
+      const sellTenths=Math.round(pick.sellingPrice*10);
+      if(openingEntry.history.bank+sellTenths<incoming.cost||openingEntry.freeTransfers<1) continue;
+      const simulated:CompletedMoves={gameweek:snapshot.meta.nextEventId,moves:[{outId:outgoing.id,inId:incoming.id,sellTenths,buyTenths:incoming.cost}]};
+      const restored=applyCompletedFreeTransfers(snapshot,openingEntry,simulated);
+      const counts=new Map<number,number>();
+      for(const playerId of restored.squad) {
+        const club=snapshot.players.find(p=>p.id===playerId)!.teamId;
+        counts.set(club,(counts.get(club)??0)+1);
+      }
+      if([...counts.values()].some(n=>n>3)) continue;
+      const candidate=buildFiveWeekPlan(snapshot,openingEntry,new Date(),undefined,evidence,simulated);
+      alternatives.push({outgoingId:outgoing.id,outgoingName:outgoing.name,horizonXPts:candidate.totalXPts,gainVsHold:candidate.gainVsHold,
+        openingAction:candidate.weeks[0].transfers.map(t=>t.out.name+' → '+t.incoming.name).join(', ')||'Roll',
+        bankTenths:restored.bankTenths,freeTransfers:restored.freeTransfers});
+    }
+    ownershipScenarios={playerId:assumedId,playerName:incoming.name,assumedBuyTenths:incoming.cost,alternatives};
+  }
   const playerConsiderations = await fetchVerifiedPlayerConsiderations(snapshot.meta.nextEventId, planned.horizon.length);
   const report: Report = {
     ...planned,
+    ownershipScenarios,
     playerConsiderations,
     publicStateEvidence:verified?.publicStateEvidence,
     provenance: {
