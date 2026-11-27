@@ -127,7 +127,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
     new Set(context.teamNews.filter(n=>n.chance===0 && n.throughGw>next).map(n=>n.playerId)),
   );
   const result = runPlannerSimulation({
-    players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
+    players, captaincyViceFallback:true, goalkeeperTransfers:goalkeeperPolicy.transfers, localForecastsOnly:true, fullHorizonTransferShortlist:true, maxNormalMoves:3, horizonOnly, currentSquadIds:ids, bankTenths:bank, freeTransfersNow:ft, sellingPrices,
     nextGw:next, horizon:context.horizon, draws:1000, availabilityOverrides:context.teamNews,
     openingTransferGuard: {freeMoveNetGain:1.5,hitNetGain:4.5}, chipsUsed: chipsUsed?.map(use => ({ name: mapOfficialChipToPlanningChip(use.name)!, event: use.event })), chipHistoryKnown:chipsUsed !== undefined,
     repoFixtures:fixtures, repoTeams:toRepoTeams(snapshot.teams), repoElements:elements,
@@ -251,7 +251,7 @@ export function buildFiveWeekPlan(snapshot: Snapshot, entry: EntryData, asOf = n
   };
   const holdTotal=round(rows.reduce((sum,w)=>sum+w.fixedHoldXPts,0));
   const total=round(rows.reduce((sum,w)=>sum+w.xPts,0));
-  return {playerConsiderations:buildPlayerConsiderations(snapshot),entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
+  return {playerConsiderations:buildPlayerConsiderations(snapshot, result.gws.length),entryId:entry.id, teamName:entry.teamName, season:snapshot.meta.season, currentGameweek:snapshot.meta.currentEventId, computedAt:asOf.toISOString(), snapshotAt:snapshot.meta.generatedAt,
     horizon:result.gws, currentRank:entry.overallRank, currentPoints:entry.overallPoints,
     completedTransfers: completed?.moves.map(move => ({
       ...move, gw: completed.gameweek, out: describe(move.outId,next), incoming: describe(move.inId,next),
@@ -496,13 +496,11 @@ async function main() {
     try { revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore','pipe','ignore'] }).trim(); }
     catch { /* Source exports may not contain Git metadata. */ }
   }
-  const [verified, playerConsiderations] = await Promise.all([
-    state ? null : verifyPublicEntry(snapshot,entry),
-    fetchVerifiedPlayerConsiderations(snapshot.meta.nextEventId),
-  ]);
+  const verified = state ? null : await verifyPublicEntry(snapshot,entry);
   const completed: CompletedMoves | undefined = process.env.VORTEX_COMPLETED_TRANSFERS?.trim()
     ? JSON.parse(process.env.VORTEX_COMPLETED_TRANSFERS) : undefined;
   const planned=buildFiveWeekPlan(snapshot,verified?.entry??entry,new Date(),state,evidence,completed);
+  const playerConsiderations = await fetchVerifiedPlayerConsiderations(snapshot.meta.nextEventId, planned.horizon.length);
   const report: Report = {
     ...planned,
     playerConsiderations,
