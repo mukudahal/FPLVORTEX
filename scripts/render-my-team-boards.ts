@@ -106,7 +106,7 @@ export function renderRoadmap(plan:Plan,art:Map<number,Art>,logo:string,generate
       (w.transfers.length?'<p class="roaddetail">Suggested moves</p>'+w.transfers.map(m=>transferRow(m.out,m.incoming,art)).join(''):'<p class="roaddetail">Roll remaining allowance</p>')+
       '<p class="roaddetail">Bank '+price(w.bankAfter)+' · '+w.ftBefore+' FT this GW · '+w.ftAfter+' FT next GW</p></section>';
   }).join('');
-  return boardPage(plan,logo,'Transfer roadmap','GW'+plan.weeks[0].gw+'–GW'+plan.weeks.at(-1)!.gw+' · '+num(plan.totalXPts)+' net expected points','<div class="roadmap">'+cards+'</div>',generatedAt);
+  return boardPage(plan,logo,'Transfer roadmap · GW'+plan.weeks[0].gw+'–GW'+plan.weeks.at(-1)!.gw,num(plan.totalXPts)+' net expected points','<div class="roadmap">'+cards+'</div>',generatedAt);
 }
 export function renderBoard(plan: Plan,w: Week,art: Map<number,Art>,logo: string,mode:'pitch'|'analysis', generatedAt:string) {
   assertWeek(w);
