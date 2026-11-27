@@ -14,7 +14,7 @@ export function renderMyTeamSocialCaption(plan: Plan): string {
   const market=plan.playerConsiderations;
   const targetRanked = market.players.map(p=>p.fullName).join(', ');
   const insights=targetRanked ? range(market.gameweeks)+' players to consider: '+targetRanked+
-    '. '+market.weeks.length+' GW of FDR, '+Math.min(4,market.weeks.length)+' GW of model xPts and live transfer counts.' : '';
+    '. '+market.weeks.length+' GW of FDR, '+market.weeks.length+' GW of model xPts and live transfer counts.' : '';
   return [
     'GW'+first.gw+' XI: '+first.formation+' • '+first.captain.name+' (C) • '+first.vice.name+' (VC) • '+points(first.xPts)+' net xPts.',
     (completed.length?'Done: '+moves(completed)+'. ':'')+action+' • '+money(first.bankAfter)+' bank • '+first.ftBefore+' FT now → '+first.ftAfter+' FT next GW.',
