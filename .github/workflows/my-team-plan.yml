@@ -71,6 +71,13 @@ jobs:
           cp -- reports/my-team/graphics/FPL_VORTEX_transfer_roadmap.png reports/my-team/current/01-FPL-VORTEX-Transfer-Roadmap.png
           cp -- reports/my-team/graphics/FPL_VORTEX_players_to_consider.png reports/my-team/current/02-FPL-VORTEX-Players-to-Consider.png
           cp -- reports/my-team/caption.txt reports/my-team/current/03-FPL-VORTEX-Caption-and-Hashtags.txt
+      - name: Preserve verified output for connected Drive delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-team-delivery
+          path: reports/my-team/current/
+          if-no-files-found: error
+          retention-days: 7
       - name: Save the three files in My Drive / My Team
         id: drive
         env:
