@@ -99,5 +99,10 @@ export async function auditPlanSources(snapshot:Snapshot,report:Report) {
       retrievedAt:null,credentials:'unverified',subscription:'unverified',completeness:'No licensed timestamped bulk projections available to this run.',
       access:'No subscriber content accessed; integration or redistribution rights unverified.',lineage:'Independence and overlapping inputs unknown.'});
   }
+  for (const [name,url,provider,completeness] of [
+    ['FPL Core Insights','https://github.com/olbauday/FPL-Core-Insights','FPL Core','Official-ID historical snapshots and curated Opta-like match statistics; not an authenticated Opta feed. Validate season, settled GW, field definitions and rights before import.'],
+    ['Opta event statistics','https://www.statsperform.com/opta/','Stats Perform','Direct licensed feed not verified. Official FPL-derived metrics remain in the independent forecast; do not duplicate those metrics.'],
+    ['FPL Data & Planner','https://docs.google.com/spreadsheets/d/1HcQsj3aVbvlak135JK_akFxQ68hG6ioV2HRtOpr-6JM/edit','Manager-provided spreadsheet','Reference only until runtime source authentication, latest settled GW, ID and metric checks are verified. Top 100 is not a top 10,000 cohort.'],
+  ]) add({name,url,provider,class:'unverified or incomplete information',path:'Reference only; no live import',seasons:[],gameweeks:null,players:null,teams:null,retrievedAt:null,providerUpdatedAt:null,credentials:'not verified for workflow',subscription:'not verified',completeness,access:'Validate source permissions before ingest or redistribution.',lineage:'Excluded from model mean until validated.'});
   return sources;
 }
