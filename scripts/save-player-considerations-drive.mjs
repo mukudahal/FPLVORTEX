@@ -7,13 +7,14 @@ async function summary(line) {
   if (GITHUB_STEP_SUMMARY) await appendFile(GITHUB_STEP_SUMMARY, line+'\n');
 }
 if (!VORTEX_DRIVE_OAUTH) {
-  console.warn('Google Drive is not configured in this repository. The workflow will save the three files individually in GitHub.');
+  console.warn('Google Drive is not configured in this repository. The workflow will save the four files individually in GitHub.');
   await summary('Google Drive save unavailable. The repository needs `VORTEX_DRIVE_OAUTH`.');
 } else {
   const targets=[
-    {path:'01-FPL-VORTEX-Transfer-Roadmap.png',mime:'image/png',label:'Transfer roadmap'},
-    {path:'02-FPL-VORTEX-Players-to-Consider.png',mime:'image/png',label:'Players to Consider'},
-    {path:'03-FPL-VORTEX-Caption-and-Hashtags.txt',mime:'text/plain',label:'Caption and hashtags'},
+    {path:'01-FPL-VORTEX-Lineup.png',mime:'image/png',label:'Lineup'},
+    {path:'02-FPL-VORTEX-Transfer-Roadmap.png',mime:'image/png',label:'Transfer roadmap'},
+    {path:'03-FPL-VORTEX-Players-to-Consider.png',mime:'image/png',label:'Players to Consider'},
+    {path:'04-FPL-VORTEX-Caption-and-Hashtags.txt',mime:'text/plain',label:'Caption and hashtags'},
   ];
   if(!reportDir||!VORTEX_DRIVE_FOLDER_ID||!/^[\w-]{10,200}$/.test(VORTEX_DRIVE_FOLDER_ID)) throw Error('Configure the My Team Drive folder.');
   let config;
