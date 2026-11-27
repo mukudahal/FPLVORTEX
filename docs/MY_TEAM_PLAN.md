@@ -21,7 +21,7 @@ without GitHub Actions artifact storage.
 
 For dated cohort information, team-news overrides or a different entry, use
 the CLI and context file described below. Render PNGs separately using the CLI.
-The workflow does not send files to Drive.
+With Drive OAuth configured, the workflow updates the four current files in the My Team Planner folder.
 
 The CLI GETs the existing deployment's normalized snapshot and official-backed
 entry, rejecting stale snapshots, passed/inconsistent deadlines and non-official
@@ -207,10 +207,10 @@ The win, tie, loss and downside are points comparisons conditional on the model.
 
 In the manual workflow, enter completed free transfers before the opening deadline via the optional `completed_transfers` JSON field. Provide the gameweek and an ordered `moves` array with `outId`, `inId`, `sellTenths` and `buyTenths` for each move. Prices are the actual transaction values in tenths of a million. Leave the field empty when the last public squad is the current squad. The planner validates the opening squad and prices, applies each move once and reports the remaining bank and free transfers. Use the new gameweek or leave the field empty after the previous move is reflected in official picks.
 
-The action summary identifies completed moves separately and links to a single private draft release containing the current ZIP. It contains the plan text and JSON, lineup and analysis PNGs, the transfer roadmap, the six-player consideration PNG and image provenance. Each successful run uploads and checks the replacement ZIP before removing older workflow-generated ZIPs. The written summary remains available if saving fails, and the run reports the save failure.
+The action summary identifies completed moves and links to the current output. Four individual files are saved: the opening lineup PNG, transfer roadmap PNG, Players to Consider PNG and caption TXT. When Drive is unconfigured, a private GitHub draft release holds those same four files. Each successful run validates its uploads before pruning older workflow-generated files.
 
 The six-player graphic reads the official FPL bootstrap and fixtures endpoints directly on each run. It verifies the upcoming deadline and ranks positive gameweek transfer-in totals. The board pairs five official FDR columns with four VORTEX xPts projections. The fifth xPts cell is blank.
 
-To enable the Drive copy, add the repository Actions secret `VORTEX_DRIVE_OAUTH` as JSON containing `client_id`, `client_secret`, and `refresh_token` for a Google Drive-authorized OAuth app with edit access to that file. Set credentials in GitHub Actions settings. The default targets are the existing current ZIP, player PNG and caption in Drive. Use `VORTEX_DRIVE_ZIP_ID`, `VORTEX_DRIVE_PNG_ID` and `VORTEX_DRIVE_CAPTION_ID` to override their IDs. The workflow updates them in place and verifies each uploaded checksum. Its private GitHub ZIP remains available if Drive has yet to be connected.
+To enable Drive, add the repository Actions secret `VORTEX_DRIVE_OAUTH` as JSON containing `client_id`, `client_secret` and `refresh_token` for a Google Drive OAuth app with edit access to the files. The workflow updates the four existing file IDs in the My Team Planner folder and verifies their checksums. To change the destination, set `VORTEX_DRIVE_FOLDER_ID`, `VORTEX_DRIVE_LINEUP_ID`, `VORTEX_DRIVE_ROADMAP_ID`, `VORTEX_DRIVE_PNG_ID` and `VORTEX_DRIVE_CAPTION_ID` together.
 
-The ZIP and run summary include `caption.txt`, a copy-ready plain-text caption covering the three boards with gameweek hashtags. It uses at most five lines.
+The run summary and caption TXT provide a copy-ready plain-text caption and gameweek hashtags in at most five lines.
