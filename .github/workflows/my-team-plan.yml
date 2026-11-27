@@ -7,6 +7,10 @@ on:
         default: '5'
         type: choice
         options: ['1', '2', '3', '4', '5', '6', '7', '8']
+      completed_transfers:
+        description: 'Completed free transfers as JSON with gameweek and moves (outId, inId, sellTenths, buyTenths)'
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -27,6 +31,7 @@ jobs:
       - run: node --import tsx --test tests/my-team-plan.test.ts
       - name: Generate plan from the next official deadline
         env:
+          VORTEX_COMPLETED_TRANSFERS: ${{ inputs.completed_transfers }}
           PLAN_HORIZON: ${{ inputs.horizon }}
           VORTEX_PLAN_CONTEXT: ${{ runner.temp }}/my-team-context.json
         run: |
@@ -39,3 +44,30 @@ jobs:
           node --import tsx scripts/export-my-team-plan.ts 145784 reports/my-team
       - name: Publish plan in the run summary
         run: cat reports/my-team/plan.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Chromium for the plan boards
+        run: npx playwright install --with-deps chromium
+      - name: Render lineup and transfer roadmap
+        run: node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
+      - name: Upload plan and graphics
+        id: graphics_upload
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpl-vortex-my-team-plan
+          path: |
+            reports/my-team/plan.md
+            reports/my-team/plan.json
+            reports/my-team/graphics/
+          retention-days: 7
+      - name: Report download status
+        if: always()
+        env:
+          GRAPHICS_URL: ${{ steps.graphics_upload.outputs.artifact-url }}
+        run: |
+          if [ -n "$GRAPHICS_URL" ]; then
+            echo "[Download the plan and graphics]($GRAPHICS_URL)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'GitHub could not store this run’s graphics bundle. See the upload log.' >> "$GITHUB_STEP_SUMMARY"
+          fi

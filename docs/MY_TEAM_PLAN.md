@@ -108,7 +108,7 @@ npx playwright install --with-deps chromium
 node --import tsx scripts/render-my-team-boards.ts reports/my-team/plan.json reports/my-team/graphics
 ```
 
-For every available GW, separate 1920×1080 pitch and 15-player analysis PNG/HTML files are named FPL_VORTEX_GWxx_pitch and FPL_VORTEX_GWxx_analysis. The official FPL player code and club code are persisted in the same frozen plan. The renderer requests only official Premier League PNG endpoints; no shirt is represented as a player portrait. Missing images are visibly labeled and fail the publication-ready gate. image-provenance.json records actual image sources. The graphic design follows the user's angular cyan/blue reference, with original lion asset and social footer; no schedules, dashboard renderer or existing publication workflows are changed. No automatic publication.
+For every available GW, separate 1920×1080 pitch and 15-player analysis PNG/HTML files are named FPL_VORTEX_GWxx_pitch and FPL_VORTEX_GWxx_analysis. The official FPL player code and club code are persisted in the same frozen plan. The renderer requests only official Premier League PNG endpoints; no shirt is represented as a player portrait. Missing images are visibly labeled and fail the publication-ready gate. image-provenance.json records actual image sources. The boards use a light background, green pitch, plum header, original lion and social footer. No automatic publication.
 
 ## Goalkeeper transfers
 
@@ -202,3 +202,9 @@ and chip eligibility. Rerun after team news and each deadline.
 
 The report compares the opening move and opening roll with common Monte Carlo draws.
 The win, tie, loss and downside are points comparisons conditional on the model.
+
+### Transfers already completed
+
+In the manual workflow, enter completed free transfers before the opening deadline via the optional `completed_transfers` JSON field. Provide the gameweek and an ordered `moves` array with `outId`, `inId`, `sellTenths` and `buyTenths` for each move. Prices are the actual transaction values in tenths of a million. Leave the field empty when the last public squad is the current squad. The planner validates the opening squad and prices, applies each move once and reports the remaining bank and free transfers. Use the new gameweek or leave the field empty after the previous move is reflected in official picks.
+
+The action summary identifies completed moves separately. The optional download bundle includes the plan text and JSON, light-background lineup PNGs and the transfer roadmap with official player portraits. The summary remains available if GitHub cannot store the bundle.
